@@ -1,0 +1,11 @@
+*
+!.gitignore
+!build.sh
+!CMakeLists.txt
+
+!cieutils
+!linalg
+!geo
+!fem
+!ciegl
+

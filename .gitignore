@@ -1,0 +1,10 @@
+*
+!.gitignore
+!build.sh
+!CMakeLists.txt
+!license
+!readme
+
+!executables
+!libraries
+

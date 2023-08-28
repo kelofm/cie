@@ -1,0 +1,7 @@
+*
+!.gitignore
+!build.sh
+!CMakeLists.txt
+
+!bad_apple
+
