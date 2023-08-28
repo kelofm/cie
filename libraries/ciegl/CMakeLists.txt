@@ -44,7 +44,16 @@ else()
     add_library(${PROJECT_NAME} STATIC ${sources})
 endif()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC cie::geo glfw OpenGL::GL glm glad)
+# GLM removed its legacy cmake target, but then readded it? idk
+if(TARGET glm)
+    set(libglm "glm")
+elseif(TARGET glm::glm)
+    set(libglm "glm::glm")
+else()
+    message(FATAL_ERROR "Neither glm nor glm::glm is a valid target")
+endif()
+
+target_link_libraries(${PROJECT_NAME} PUBLIC cie::geo glfw OpenGL::GL ${libglm} glad)
 target_include_directories(${PROJECT_NAME}
                            PUBLIC
                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
