@@ -1,0 +1,10 @@
+{
+    "masses" : [1e0, 5e-2],
+    "dampings" : [0.0, 1e-1],
+    "stiffnesses" : [1e0, 5e3],
+    "baseStep" : 5e-4,
+    "stepFrequencies" : [2e1, 1],
+    "timeEnd" : 1e0,
+    "numberOfWindows" : 10,
+    "watchDoFs" : [0, 1]
+}
