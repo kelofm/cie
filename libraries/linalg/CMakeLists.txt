@@ -16,9 +16,6 @@ set(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS    OFF CACHE BOOL "Enab
 # Language server
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Dynamic linking
-set(CMAKE_INSTALL_RPATH "$ORIGIN")
-
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
 find_package(cieutils REQUIRED)
@@ -56,7 +53,9 @@ target_include_directories(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC "${EIGEN3_INCLUDE_DIR}")
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC "${EIGEN3_INCLUDE_DIR}/unsupported")
 
-set_target_properties(${PROJECT_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set_target_properties(${PROJECT_NAME} PROPERTIES
+                      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                      INSTALL_RPATH "$ORIGIN")
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}packages" DESTINATION "cie/include" FILES_MATCHING PATTERN "*.hpp")
 
