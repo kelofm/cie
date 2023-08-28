@@ -74,7 +74,7 @@ GENERATE_AUTOGEN_DEF   = NO
 GENERATE_PERLMOD       = NO
 
 TAGFILES               =
-GENERATE_TAGFILE       = linalg_doxygen_tagfile
+GENERATE_TAGFILE       = fem_doxygen_tagfile
 ALLEXTERNALS           = NO
 EXTERNAL_GROUPS        = YES
 EXTERNAL_PAGES         = YES
