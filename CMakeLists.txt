@@ -9,9 +9,6 @@ string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 # Language server
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Dynamic linking
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/cie/lib:$ORIGIN")
-
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
 find_package(ciegl REQUIRED)
@@ -36,7 +33,9 @@ target_include_directories(${PROJECT_NAME}
                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
-set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set_target_properties(${PROJECT_NAME} PROPERTIES
+                      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                      INSTALL_RPATH "$ORIGIN/../lib")
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "cie/bin")
 
 # Package
