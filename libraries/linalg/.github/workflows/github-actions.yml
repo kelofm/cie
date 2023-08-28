@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "*.md"
+      - "*.html"
+      - "docs/*"
+      - "*.gitignore"
+      - "license"
+      - "readme"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  testrunner:
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread, undefined]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create python venv
+        run: python3 -m venv penv
+      - name: Clone repository
+        run: |
+          for lib in "cieutils" "linalg"; do
+            git clone https://github.com/kelofm/${lib}.git --depth 1
+          done
+      - name: Install packages
+        run: |
+          sudo apt install libopenmpi-dev catch2
+          for lib in "cieutils" "linalg"; do
+            if [ -f "$lib/dependencies_ubuntu.txt" ]; then
+              sudo xargs apt install < $lib/dependencies_ubuntu.txt
+            fi
+          done
+      - name: Build dependencies
+        # OpenMPI is leaking all over the place (according to ASAN), so disable it for now
+        #run: ./build.sh -t Debug -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}" -o "-DCIEUTILS_ENABLE_MPI=ON"
+        run: |
+          source penv/bin/activate
+          ./cieutils/build.sh -t Debug -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}" -o "-DCIEUTILS_BUILD_TESTS:BOOL=OFF"
+      - name: Build
+        run: |
+          source penv/bin/activate
+          ./linalg/build.sh -t Debug -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
+      - name: Run tests
+        run: ./linalg/build/bin/linalg_testrunner
+
+  generate-docs:
+    needs: testrunner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        run: sudo apt install findutils doxygen graphviz
+      - name: Clone dependencies
+        run: |
+          for lib in "cieutils" "linalg"; do
+            git clone https://github.com/kelofm/${lib}.git --depth 1
+          done
+      - name: Generate docs for dependencies
+        run: |
+          cd cieutils/docs
+          doxygen doxyfile
+      - name: Update doc branch with current master
+        run: |
+          cd linalg
+          git config --local user.name $USER_NAME
+          git config --local user.email "in@valid.email"
+          git branch -D doc &>/dev/null || true
+          git checkout -b doc
+        env:
+          USER_NAME: matekelemen
+      - name: Generate docs
+        run: |
+          cd linalg/docs
+          TAGFILES=""
+          for lib in "cieutils"; do
+            TAGFILES="$TAGFILES ../../$lib/docs/${lib}_doxygen_tagfile=../../../$lib/docs/html"
+          done
+          ( cat doxyfile ; echo "TAGFILES=$TAGFILES" ) | doxygen -
+      - name: Generate root index.html
+        run: |
+          cd linalg
+          echo "<meta http-equiv=\"refresh\" content=\"0; docs/html/index.html\">" > index.html
+      - name: Update remote
+        run: |
+          cd linalg
+          git add index.html docs/html -f
+          git commit -m "update docs"
+          git push -f https://$USER_NAME:$GITHUB_TOKEN@github.com/kelofm/linalg.git doc
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          USER_NAME: matekelemen
