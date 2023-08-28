@@ -91,7 +91,7 @@ jobs:
         run: |
           cd fem/docs
           TAGFILES=""
-          for lib in "cieutils" "linalg" "fem"; do
+          for lib in "cieutils" "linalg" "geo"; do
             TAGFILES="$TAGFILES ../../$lib/docs/${lib}_doxygen_tagfile=../../../$lib/docs/html"
           done
           ( cat doxyfile ; echo "TAGFILES=$TAGFILES" ) | doxygen -

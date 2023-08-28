@@ -1,7 +1,7 @@
 # Doxyfile 1.9.6
 
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = linalg
+PROJECT_NAME           = fem
 PROJECT_NUMBER         =
 PROJECT_BRIEF          =
 PROJECT_LOGO           =
@@ -74,7 +74,7 @@ GENERATE_AUTOGEN_DEF   = NO
 GENERATE_PERLMOD       = NO
 
 TAGFILES               =
-GENERATE_TAGFILE       = linalg_doxygen_tagfile
+GENERATE_TAGFILE       = fem_doxygen_tagfile
 ALLEXTERNALS           = NO
 EXTERNAL_GROUPS        = YES
 EXTERNAL_PAGES         = YES
