@@ -1,0 +1,59 @@
+// --- Utility Includes ---
+#include "packages/exceptions/inc/exception.hpp"
+#include "version.hpp"
+#include "packages/types/inc/types.hpp"
+#include "packages/macros/inc/exceptions.hpp"
+
+// --- STL Includes ---
+#include <sstream>
+
+
+namespace cie {
+
+
+const Version Version::local("@CIEUTILS_BRANCH_NAME@", "@CIEUTILS_COMMIT_HASH@");
+
+
+Version::Version(RightRef<Branch> r_branch, RightRef<Hash> r_hash) noexcept
+    : _branch(std::move(r_branch)),
+      _hash(std::move(r_hash))
+{
+}
+
+
+Version::Version(Ref<const Branch> r_branch, Ref<const Hash> r_hash)
+    : _branch(r_branch),
+      _hash(r_hash)
+{
+}
+
+
+Version::operator std::string () const
+{
+    std::stringstream stream;
+    stream << *this;
+    return stream.str();
+}
+
+
+Bool operator<(Ref<const Version>, Ref<const Version>)
+{
+    CIE_THROW(NotImplementedException, "Need to access git commands");
+    return false;
+}
+
+
+Bool operator==(Ref<const Version>, Ref<const Version>)
+{
+    CIE_THROW(NotImplementedException, "Need to access git commands");
+    return false;
+}
+
+
+Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const Version> r_version)
+{
+    return r_stream << r_version._branch << "/" << r_version._hash;
+}
+
+
+} // namespace cie

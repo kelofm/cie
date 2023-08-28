@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "*.md"
+      - "*.html"
+      - "docs/*"
+      - "*.gitignore"
+      - "license"
+      - "readme"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  testrunner:
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread, undefined]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install packages
+        run: sudo apt install libopenmpi-dev catch2 && sudo xargs apt install < dependencies_ubuntu.txt
+      - name: Build
+        # OpenMPI is leaking all over the place (according to ASAN), so disable it for now
+        #run: ./build.sh -t Debug -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}" -o "-DCIEUTILS_ENABLE_MPI=ON"
+        run: ./build.sh -t Debug -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
+      - name: Run tests
+        run: ./build/bin/cieutils_testrunner
+
+  generate-docs:
+    needs: testrunner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install packages
+        run: sudo apt install findutils doxygen graphviz && sudo xargs apt install < dependencies_ubuntu.txt
+      - name: Update doc branch with current master
+        run: |
+          git config --local user.name $USER_NAME
+          git config --local user.email "in@valid.email"
+          git branch -D doc &>/dev/null || true
+          git checkout -b doc
+        env:
+          USER_NAME: matekelemen
+      - name: Generate docs
+        run: cd docs && doxygen doxyfile && cd ..
+      - name: Generate root index.html
+        run: echo "<meta http-equiv=\"refresh\" content=\"0; docs/html/index.html\">" > index.html
+      - name: Update remote
+        run: |
+          git add index.html docs/html -f
+          git commit -m "update docs"
+          git push -f https://$USER_NAME:$GITHUB_TOKEN@github.com/kelofm/cieutils.git doc
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          USER_NAME: matekelemen

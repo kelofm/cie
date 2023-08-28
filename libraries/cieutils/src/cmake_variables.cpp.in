@@ -1,0 +1,76 @@
+// --- Utility Includes ---
+#include "cmake_variables.hpp"
+
+
+#define ON true
+#define OFF false
+
+
+namespace cie {
+
+
+std::filesystem::path getInstallPath()
+{
+    return std::filesystem::path("@CMAKE_INSTALL_PREFIX@");
+}
+
+
+std::filesystem::path getBinaryPath()
+{
+    return std::filesystem::path("@CMAKE_BINARY_DIR@");
+}
+
+
+std::filesystem::path getSourcePath()
+{
+    return std::filesystem::path("@CMAKE_SOURCE_DIR@");
+}
+
+
+std::filesystem::path getDataPath()
+{
+    return std::filesystem::path("@CIEUTILS_INSTALL_DATA_DIR@");
+}
+
+
+std::filesystem::path getOutputPath()
+{
+    return std::filesystem::path("@CIEUTILS_OUTPUT_DIR@");
+}
+
+
+bool isMPIEnabled()
+{
+    return @CIEUTILS_ENABLE_MPI@;
+}
+
+
+std::string getCompiler()
+{
+    return "@CMAKE_CXX_COMPILER_ID@";
+}
+
+
+std::string getCompilerVersion()
+{
+    return "@CMAKE_CXX_COMPILER_VERSION@";
+}
+
+
+std::string getCompileFlags()
+{
+    return "@CMAKE_CXX_FLAGS@";
+}
+
+
+std::string getCompilePlatform()
+{
+    return "@CMAKE_HOST_SYSTEM@";
+}
+
+
+} // namespace cie
+
+
+#undef ON
+#undef OFF
