@@ -1,0 +1,17 @@
+{
+    "attributes": {},
+    "uniforms": {},
+    "textures": {
+        "image": {
+            "type": "unsigned char",
+            "dimension": 2,
+            "channels": 3
+        }
+    },
+    "outputs": {
+        "color": {
+            "type": "vec4",
+            "size": 4
+        }
+    }
+}

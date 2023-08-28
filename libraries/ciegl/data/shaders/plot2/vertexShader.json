@@ -1,0 +1,18 @@
+{
+    "attributes": {
+        "position": {
+            "type": "vec2",
+            "size": 2,
+            "stride": 2,
+            "offset": 0
+        }
+    },
+    "uniforms": {
+        "transformation": {
+            "type": "mat4",
+            "size": 16
+        }
+    },
+    "textures": {},
+    "outputs": {}
+}

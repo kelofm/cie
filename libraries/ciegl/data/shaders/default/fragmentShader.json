@@ -1,0 +1,13 @@
+{
+    "attributes": {},
+    "uniforms": {},
+    "textures": {},
+    "outputs": {
+        "color": {
+            "size": 4,
+            "stride": 0,
+            "offset": 0,
+            "type": "float"
+        }
+    }
+}

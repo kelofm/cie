@@ -1,0 +1,28 @@
+{
+    "attributes": {
+        "position": {
+            "type": "vec3",
+            "size": 3,
+            "stride": 6,
+            "offset": 0
+        },
+        "normal": {
+            "type": "vec3",
+            "size": 3,
+            "stride": 6,
+            "offset": 3
+        }
+    },
+    "uniforms": {
+        "transformation": {
+            "type": "mat4",
+            "size": 16
+        },
+        "wireframeScale": {
+            "type": "float",
+            "size": 1
+        }
+    },
+    "textures": {},
+    "outputs": {}
+}

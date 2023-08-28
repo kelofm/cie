@@ -1,0 +1,32 @@
+{
+    "moveForward" : [
+        "w",
+        "up"
+    ],
+    "moveBackward" : [
+        "s",
+        "down"
+    ],
+    "strafeLeft" : [
+        "a",
+        "left"
+    ],
+    "strafeRight" : [
+        "d",
+        "right"
+    ],
+    "moveUp" : [
+        "r",
+        "space"
+    ],
+    "moveDown" : [
+        "f",
+        "left_control"
+    ],
+    "rollCounterClockwise" : [
+        "q"
+    ],
+    "rollClockwise" : [
+        "e"
+    ]
+}

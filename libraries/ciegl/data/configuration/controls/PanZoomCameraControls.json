@@ -1,0 +1,24 @@
+{
+    "moveUp" : [
+        "w",
+        "up"
+    ],
+    "moveDown" : [
+        "s",
+        "down"
+    ],
+    "moveLeft" : [
+        "a",
+        "left"
+    ],
+    "moveRight" : [
+        "d",
+        "right"
+    ],
+    "zoomIn" : [
+        "kp_add"
+    ],
+    "zoomOut" : [
+        "kp_subtract"
+    ]
+}

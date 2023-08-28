@@ -1,0 +1,18 @@
+{
+    "attributes": {},
+    "uniforms": {
+        "cameraPosition": {
+            "type": "vec3",
+            "size": 3
+        }
+    },
+    "textures": {},
+    "outputs": {
+        "color": {
+            "size": 4,
+            "stride": 0,
+            "offset": 0,
+            "type": "float"
+        }
+    }
+}

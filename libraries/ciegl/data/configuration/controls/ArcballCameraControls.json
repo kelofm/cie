@@ -1,0 +1,30 @@
+{
+    "rotateUp" : [
+        "w",
+        "up"
+    ],
+    "rotateDown" : [
+        "s",
+        "down"
+    ],
+    "rotateLeft" : [
+        "a",
+        "left"
+    ],
+    "rotateRight" : [
+        "d",
+        "right"
+    ],
+    "moveForward" : [
+        "r"
+    ],
+    "moveBackward" : [
+        "f"
+    ],
+    "increaseZoomScale" : [
+        "kp_add"
+    ],
+    "decreaseZoomScale" : [
+        "kp_subtract"
+    ]
+}

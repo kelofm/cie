@@ -1,0 +1,19 @@
+{
+    "attributes": {
+        "position": {
+            "type": "vec2",
+            "size": 2,
+            "stride": 4,
+            "offset": 0
+        },
+        "lengths": {
+            "type": "vec2",
+            "size": 2,
+            "stride": 4,
+            "offset": 2
+        }
+    },
+    "uniforms": {},
+    "textures": {},
+    "outputs": {}
+}

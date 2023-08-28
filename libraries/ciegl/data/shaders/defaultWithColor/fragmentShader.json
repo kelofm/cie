@@ -1,0 +1,11 @@
+{
+    "attributes": {},
+    "uniforms": {},
+    "textures": {},
+    "outputs": {
+        "color": {
+            "type": "vec4",
+            "size": 4
+        }
+    }
+}
