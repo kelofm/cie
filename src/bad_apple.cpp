@@ -296,7 +296,7 @@ private:
             }, _p_root);
 
             this->_p_bufferManager->template writeToBoundBuffer<gl::VertexBuffer>(this->_vertexData.begin(),
-                                                                                valueCount);
+                                                                                  valueCount);
 
             glDrawArrays(GL_POINTS, 0, valueCount);
         }
@@ -360,13 +360,13 @@ utils::ArgParse::Results badAppleArguments(int argc, char const* argv[])
     parser.addKeyword(
         {"--width", "-w"},
         utils::ArgParse::validatorFactory<Size>(),
-        utils::ArgParse::DefaultValue {"320"},
+        utils::ArgParse::DefaultValue {"960"},
         "Output width in pixels."
     );
     parser.addKeyword(
         {"--height", "-h"},
         utils::ArgParse::validatorFactory<Size>(),
-        utils::ArgParse::DefaultValue {"240"},
+        utils::ArgParse::DefaultValue {"720"},
         "Output height in pixels."
     );
     parser.addKeyword(
@@ -416,7 +416,7 @@ int main(int argc, char const* argv[])
     // Graphics setup
     auto p_log = std::make_shared<utils::Logger>(getOutputPath() / "bad_apple.log");
     auto p_context = gl::GLFWContextSingleton::get(p_log);
-    auto p_window = p_context.lock()->newWindow(960, 720);
+    auto p_window = p_context.lock()->newWindow(width, height);
     auto p_scene = p_window->makeScene<BadAppleScene>(
         depth,
         samplingOrder,
@@ -432,7 +432,7 @@ int main(int argc, char const* argv[])
                       {0.0, 0.0, -1.0},
                       {0.0, 1.0, 0.0});
     p_camera->setClippingPlanes(0.3, 1.0);
-    p_camera->setAspectRatio(p_window->getSize().first / p_window->getSize().second);
+    p_camera->setAspectRatio(double(p_window->getSize().first) / p_window->getSize().second);
 
     using Clock = std::chrono::high_resolution_clock;
     auto t0 = Clock::now();
