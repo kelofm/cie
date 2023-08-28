@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "*.md"
+      - "*.html"
+      - "docs/*"
+      - "*.gitignore"
+      - "license"
+      - "readme"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create python venv
+        run: python3 -m venv penv
+      - name: Clone repositories
+        run: |
+          for lib in "cieutils" "linalg" "geo" "ciegl" "bad_apple"; do
+            git clone https://github.com/kelofm/${lib}.git --depth 1
+          done
+      - name: Install packages
+        run: |
+          sudo apt install libopenmpi-dev catch2
+           for lib in "cieutils" "linalg" "geo" "ciegl" "bad_apple"; do
+            if [ -f "$lib/dependencies_ubuntu.txt" ]; then
+              sudo xargs apt install < $lib/dependencies_ubuntu.txt
+            fi
+          done
+      - name: Build dependencies
+        run: |
+          source penv/bin/activate
+          for lib in "cieutils" "linalg" "geo" "ciegl"; do
+            ./$lib/build.sh -t Release
+          done
+      - name: Build
+        run: |
+          source penv/bin/activate
+          ./bad_apple/build.sh -t Release
+      - name: Copy Artifact
+        run: |
+          source penv/bin/activate
+          cp -r "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')/cie" artifacts
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-ubuntu
+          path: artifacts
