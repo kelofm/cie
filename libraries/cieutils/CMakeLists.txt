@@ -31,9 +31,6 @@ endif()
 # Language server
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Dynamic linking
-set(CMAKE_INSTALL_RPATH "$ORIGIN")
-
 # Collect dependencies
 find_package(nlohmann_json REQUIRED)
 
@@ -106,7 +103,9 @@ target_include_directories(${PROJECT_NAME}
                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/external/tessil/include>")
 
-set_target_properties(${PROJECT_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set_target_properties(${PROJECT_NAME} PROPERTIES
+                      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                      INSTALL_RPATH "$ORIGIN")
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages" DESTINATION "cie/include" FILES_MATCHING PATTERN "*.hpp")
 
@@ -125,7 +124,8 @@ if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
 
     add_executable(${PROJECT_NAME}_testrunner ${test_sources})
     target_link_libraries(${PROJECT_NAME}_testrunner PRIVATE ${PROJECT_NAME})
-    set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()
 
 # Build python module
