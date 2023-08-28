@@ -51,12 +51,12 @@ jobs:
       - name: Copy Artifact
         run: |
           source penv/bin/activate
-          cp -r "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')/cie" .
+          cp -r "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')/cie" artifacts
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: binaries
-          path: cie
+          name: release-ubuntu
+          path: artifacts
 
   generate-docs:
     needs: build
