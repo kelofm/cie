@@ -301,42 +301,6 @@ void Image::clear()
 }
 
 
-Size Image::width() const
-{
-    return this->_width;
-}
-
-
-Size Image::height() const
-{
-    return this->_height;
-}
-
-
-Size Image::numberOfChannels() const
-{
-    return this->_numberOfChannels;
-}
-
-
-Size Image::size() const
-{
-    return this->_width * this->_height * this->_numberOfChannels;
-}
-
-
-const Image::value_type* Image::data() const
-{
-    return this->_p_data;
-}
-
-
-Image::value_type* Image::data()
-{
-    return this->_p_data;
-}
-
-
 Image::value_type* Image::allocate(Size width, Size height, Size numberOfChannels) const
 {
     CIE_BEGIN_EXCEPTION_TRACING

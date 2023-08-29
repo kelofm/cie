@@ -83,10 +83,10 @@ public:
     void clear();
 
     /// Get image width in pixels
-    Size width() const;
+    Size width() const noexcept;
 
     /// Get image height in pixels
-    Size height() const;
+    Size height() const noexcept;
 
     /// Get number of channels in the image
     /**
@@ -95,14 +95,14 @@ public:
      *  3: RGB
      *  4: RGBA
      */
-    Size numberOfChannels() const;
+    Size numberOfChannels() const noexcept;
 
     /// Get total number of components in the image
-    Size size() const;
+    Size size() const noexcept;
 
-    const value_type* data() const;
+    const value_type* data() const noexcept;
 
-    value_type* data();
+    value_type* data() noexcept;
 
 private:
     /// Attempt to allocate memory and check whether it was successful
@@ -135,5 +135,6 @@ using ImagePtr = std::shared_ptr<Image>;
 
 } // namespace cie::gl
 
+#include "packages/texture/impl/Image_impl.hpp"
 
 #endif
