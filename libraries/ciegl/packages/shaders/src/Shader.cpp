@@ -107,6 +107,8 @@ DynamicShader::DynamicShader(const std::filesystem::path& r_configPath,
     if (std::filesystem::is_symlink(_configPath))
         _configPath = std::filesystem::read_symlink(_configPath);
 
+    parseConfig(this->configuration());
+
     CIE_END_EXCEPTION_TRACING
 }
 
@@ -207,6 +209,7 @@ StaticShader::StaticShader(Ref<const std::string> r_key)
     const auto& definition = ShaderDefinitions::get(r_key);
     _p_source = &definition.source;
     _p_configuration = &definition.configuration;
+    this->parseConfig(this->configuration());
 }
 
 
@@ -267,7 +270,9 @@ void checkVertexShader(Ref<const Shader> r_shader)
 {
     // Vertex shader needs at least one attribute
     CIE_CHECK(!r_shader.attributes().empty(),
-              "Vertex shader " << r_shader.getID() << " has no attributes")
+              "Vertex shader " << r_shader.getID() << " has no attributes\n"
+              << r_shader.configuration() << '\n'
+              << r_shader.source())
 }
 
 
@@ -280,7 +285,9 @@ void checkFragmentShader(Ref<const Shader> r_shader)
 {
     // Vertex shader needs at least one attribute
     CIE_CHECK(!r_shader.outputs().empty(),
-              "Fragment shader " << r_shader.getID() << " has no outputs")
+              "Fragment shader " << r_shader.getID() << " has no outputs\n"
+              << r_shader.configuration() << '\n'
+              << r_shader.source())
 }
 
 
