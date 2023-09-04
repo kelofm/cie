@@ -52,13 +52,6 @@ using ContiguousNode = ContiguousTree::Node;
 
 
 // -------------------------------------------------------------------------
-// GLOBALS
-// -------------------------------------------------------------------------
-
-const std::filesystem::path SHADER_DIR = gl::GL_SHADER_INSTALL_PATH / "rectangleFrame";
-
-
-// -------------------------------------------------------------------------
 // CLASS DECLARATION
 // -------------------------------------------------------------------------
 
@@ -153,9 +146,9 @@ public:
                   const bool useGenericTree,
                   utils::Logger& r_logger)
         : gl::Scene("BadAppleScene",
-                    gl::makeVertexShader(SHADER_DIR / "vertexShader.json", SHADER_DIR / "vertexShader.glsl"),
-                    gl::makeGeometryShader(SHADER_DIR / "geometryShader.json", SHADER_DIR / "geometryShader.glsl"),
-                    gl::makeFragmentShader(SHADER_DIR / "fragmentShader.json", SHADER_DIR / "fragmentShader.glsl"),
+                    gl::makeVertexShader("rectangleFrame::vertexShader"),
+                    gl::makeGeometryShader("rectangleFrame::geometryShader"),
+                    gl::makeFragmentShader("rectangleFrame::fragmentShader"),
                     r_logger),
           _settings{.maxDepth       = depth,
                     .samplingOrder  = samplingOrder,
