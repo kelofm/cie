@@ -46,7 +46,7 @@ foreach(directory ${shaderDirectory})
                     file(READ "${directory}/${shader_type}.json" shader_configuration)
                     string(APPEND
                            FILL_MAP_IN_CMAKE
-                           "    r_map.emplace(R\"(${shader_key})\", ShaderDefinitions::ShaderDefinition {\nR\"(${shader_configuration})\"\n,\nR\"(\n${shader_source})\"}\n);\n")
+                           "    r_map.emplace(R\"(${shader_key}::${shader_type})\", ShaderDefinitions::ShaderDefinition {\nR\"(${shader_configuration})\"\n,\nR\"(\n${shader_source})\"}\n);\n")
                 else()
                     message(FATAL_ERROR "Shader '${directory}/shader_type' is missing its configuration json")
                 endif()

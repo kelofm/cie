@@ -17,10 +17,16 @@ std::optional<std::unordered_map<
 std::mutex ShaderDefinitions::_mutex;
 
 
+namespace impl {
+
+
 void fillShaderDefinitions(std::unordered_map<std::string,ShaderDefinitions::ShaderDefinition>& r_map)
 {
     @FILL_MAP_IN_CMAKE@
 }
+
+
+} // namespace impl
 
 
 const ShaderDefinitions::ShaderDefinition& ShaderDefinitions::get(const std::string& r_key)
@@ -28,6 +34,7 @@ const ShaderDefinitions::ShaderDefinition& ShaderDefinitions::get(const std::str
     std::scoped_lock<std::mutex> lock(_mutex);
     if (!_map.has_value()) {
         _map.emplace();
+        impl::fillShaderDefinitions(*_map);
     }
     auto it = _map->find(r_key);
     if (it == _map->end()) {
