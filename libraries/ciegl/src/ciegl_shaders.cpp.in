@@ -1,0 +1,47 @@
+// --- Graphics Includes ---
+#include "ciegl_shaders.hpp"
+
+// --- STL Includes ---
+#include <stdexcept>
+
+
+namespace cie::gl {
+
+
+std::optional<std::unordered_map<
+    std::string,
+    ShaderDefinitions::ShaderDefinition
+>> ShaderDefinitions::_map;
+
+
+std::mutex ShaderDefinitions::_mutex;
+
+
+void fillShaderDefinitions(std::unordered_map<std::string,ShaderDefinitions::ShaderDefinition>& r_map)
+{
+    @FILL_MAP_IN_CMAKE@
+}
+
+
+const ShaderDefinitions::ShaderDefinition& ShaderDefinitions::get(const std::string& r_key)
+{
+    std::scoped_lock<std::mutex> lock(_mutex);
+    if (!_map.has_value()) {
+        _map.emplace();
+    }
+    auto it = _map->find(r_key);
+    if (it == _map->end()) {
+        throw std::runtime_error("Invalid shader key: " + r_key);
+    }
+    return it->second;
+}
+
+
+void ShaderDefinitions::clear()
+{
+    std::scoped_lock<std::mutex> lock(_mutex);
+    _map.reset();
+}
+
+
+} // namespace cie::gl

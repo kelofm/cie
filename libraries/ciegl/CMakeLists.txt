@@ -32,13 +32,45 @@ set_target_properties(glad PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_D
 target_compile_definitions(glad PUBLIC GLAD_GLAPI_EXPORT PRIVATE GLAD_GLAPI_EXPORT_BUILD)
 install(TARGETS glad EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
 
+# Collect shader sources
+set(FILL_MAP_IN_CMAKE "")
+set(shader_types "vertexShader;geometryShader;fragmentShader")
+file(GLOB shaderDirectory "${CMAKE_CURRENT_SOURCE_DIR}/data/shaders/*")
+foreach(directory ${shaderDirectory})
+    if(IS_DIRECTORY "${directory}")
+        foreach(shader_type ${shader_types})
+            if(EXISTS "${directory}/${shader_type}.glsl")
+                if(EXISTS "${directory}/${shader_type}.json")
+                    get_filename_component(shader_key "${directory}" NAME)
+                    file(READ "${directory}/${shader_type}.glsl" shader_source)
+                    file(READ "${directory}/${shader_type}.json" shader_configuration)
+                    string(APPEND
+                           FILL_MAP_IN_CMAKE
+                           "    r_map.emplace(R\"(${shader_key})\", ShaderDefinitions::ShaderDefinition {\nR\"(${shader_configuration})\"\n,\nR\"(\n${shader_source})\"}\n);\n")
+                else()
+                    message(FATAL_ERROR "Shader '${directory}/shader_type' is missing its configuration json")
+                endif()
+            endif()
+        endforeach()
+    endif()
+endforeach()
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}_shaders.cpp.in" "${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}_shaders.cpp")
+
+# Withdraw write permission from the generated file
+file(CHMOD
+     "${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}_shaders.cpp"
+     FILE_PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
+
 # Build main library
 file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
 if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY})
+    add_library(${PROJECT_NAME}_shaders SHARED "${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}_shaders.cpp")
     add_library(${PROJECT_NAME} SHARED ${sources})
+    set_property(TARGET ${PROJECT_NAME}_shaders PROPERTY POSITION_INDEPENDENT_CODE 1)
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
 else()
     add_library(${PROJECT_NAME} STATIC ${sources})
+    add_library(${PROJECT_NAME}_shaders STATIC "${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}_shaders.cpp")
 endif()
 
 # GLM removed its legacy cmake target, but then readded it? idk
@@ -50,7 +82,7 @@ else()
     message(FATAL_ERROR "Neither glm nor glm::glm is a valid target")
 endif()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC cie::geo glfw OpenGL::GL ${libglm} glad)
+target_link_libraries(${PROJECT_NAME} PUBLIC cie::geo glfw OpenGL::GL ${libglm} glad ${PROJECT_NAME}_shaders)
 target_include_directories(${PROJECT_NAME}
                            PUBLIC
                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
@@ -59,10 +91,16 @@ target_include_directories(${PROJECT_NAME}
                            PUBLIC
                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/stb>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/external/stb>")
-set_target_properties(${PROJECT_NAME} PROPERTIES
-                      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      INSTALL_RPATH "$ORIGIN")
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
+target_include_directories(${PROJECT_NAME}_shaders
+                           PUBLIC
+                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/inc"
+                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>/inc")
+foreach(target "${PROJECT_NAME};${PROJECT_NAME}_shaders")
+    set_target_properties(${target} PROPERTIES
+                          LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                          INSTALL_RPATH "$ORIGIN")
+                          endforeach()
+install(TARGETS ${PROJECT_NAME}_shaders ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages" DESTINATION "cie/include" FILES_MATCHING PATTERN "*.hpp")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external" DESTINATION "cie/include" FILES_MATCHING PATTERN "*.h*")
 
@@ -94,7 +132,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/" DESTINATION "${CMAKE_INSTA
 
 # Export
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS glad ${PROJECT_NAME} NAMESPACE cie:: FILE ${PROJECT_NAME}Targets.cmake)
+export(TARGETS glad ${PROJECT_NAME}_shaders ${PROJECT_NAME} NAMESPACE cie:: FILE ${PROJECT_NAME}Targets.cmake)
 export(PACKAGE ${PROJECT_NAME})
 install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION "cie/lib")
 install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
