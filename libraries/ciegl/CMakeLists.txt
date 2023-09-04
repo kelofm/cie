@@ -93,8 +93,8 @@ target_include_directories(${PROJECT_NAME}
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/external/stb>")
 target_include_directories(${PROJECT_NAME}_shaders
                            PUBLIC
-                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/inc"
-                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>/inc")
+                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
+                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/inc>")
 foreach(target "${PROJECT_NAME};${PROJECT_NAME}_shaders")
     set_target_properties(${target} PROPERTIES
                           LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
