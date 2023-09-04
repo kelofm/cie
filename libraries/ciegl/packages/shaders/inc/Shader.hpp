@@ -18,17 +18,15 @@
 #include <filesystem>
 
 
-
-
 namespace cie::gl {
 
 
  /** @brief Interface class representing a shader written in GLSL.
   *
   *  @details This is the common base class for vertex, geometry, fragment,
-  *           and compute shaders. Construction requires the GLSL source file
-  *           as well as a configuration file in JSON format, defining the
-  *           various in- and outputs of the shader. The configuration file is
+  *           and compute shaders. Construction requires the GLSL source
+  *           as well as a configuration in JSON format, defining the
+  *           various in- and outputs of the shader. The configuration is
   *           expected to conform to the following format:
   *           {
   *               "attributes" : {
@@ -49,7 +47,9 @@ namespace cie::gl {
   *               },
   *               "textures" : {
   *                   "<texture name>" : {
-  *                       "TODO" : ""
+  *                       "dimensions" : <number of texture dimensions [1, 2, 3] (eg.: 2 for images)>,
+  *                       "channels" : <number of components each entry in the texture consists of (eg.: 3 for RGB images)>,
+  *                       "type" : <data type of the texture's components>
   *                   },
   *                   ...
   *               },
@@ -70,82 +70,50 @@ public:
 
     class Output;
 
-    using attribute_container = DynamicArray<Attribute>;
+    using AttributeContainer = DynamicArray<Attribute>;
 
-    using uniform_container = DynamicArray<Uniform>;
+    using UniformContainer = DynamicArray<Uniform>;
 
-    using texture_container = DynamicArray<Texture>;
+    using TextureContainer = DynamicArray<Texture>;
 
-    using output_container = DynamicArray<Output>;
+    using OutputContainer = DynamicArray<Output>;
 
     CIE_DEFINE_CLASS_POINTERS(Shader)
 
 public:
     CIE_DEFINE_CLASS_DEFAULT_MOVES(Shader)
 
-    CIE_DEFINE_CLASS_DEFAULT_COPIES(Shader)
+    Shader(const Shader&) = delete;
+
+    Shader& operator=(const Shader&) = delete;
 
     /// @brief Destructor calling @p glDeleteShader.
-    ~Shader();
+    virtual ~Shader();
 
     /// @brief Print the GLSL source to the specified stream.
-    ///
     /// @param r_stream: output stream to print the source to.
-    template <class TOStream>
-    TOStream& print(TOStream& r_stream = std::cout) const;
-
-    /// @brief Get the GLSL source file's path.
-    const std::filesystem::path& sourcePath() const;
-
-    /// @brief Get the JSON configuration file's path.
-    const std::filesystem::path& configurationPath() const;
+    friend Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const Shader> r_shader);
 
     /// @brief Load the GLSL source on demand.
-    std::string source() const;
+    virtual std::string source() const = 0;
 
     /// @brief Load the JSON configuration on demand.
-    std::string configuration() const;
+    virtual std::string configuration() const = 0;
 
     /// @brief Get the set of registered attributes parsed from the JSON configuration file.
-    const attribute_container& attributes() const;
+    const AttributeContainer& attributes() const;
 
     /// @brief Get the set of registered uniforms parsed from the JSON configuration file.
-    const uniform_container& uniforms() const;
+    const UniformContainer& uniforms() const;
 
     /// @brief Get the set of registered textures parsed from the JSON configuration file.
-    const texture_container& textures() const;
+    const TextureContainer& textures() const;
 
     /// @brief Get the set of registered outputs parsed from the JSON configuration file.
-    const output_container& outputs() const;
-
-protected:
-    /** @brief Construct a shader by directly specifying its source and configuration files.
-     *
-     *  @param r_configPath: path to the JSON configuration file.
-     *  @param r_sourcePath: path to the GLSL source file.
-     */
-    Shader(const std::filesystem::path& r_configPath,
-           const std::filesystem::path& r_sourcePath);
-
-    /** @brief Construct a shader by name and containing directory.
-     *
-     *  @details two files are expected:
-     *            - <@p r_directory>/@p r_name.glsl (shader)
-     *            - <@p r_directory>/@p r_name.json (configuration)
-     *  @param r_name: name of the shader, or matching shader set.
-     *  @param r_directory: path to the directory containing the GLSL and the JSON configuration.
-     */
-    Shader(const std::string& r_name,
-           const std::filesystem::path& r_directory);
-
-private:
-    friend Shader::SharedPointer shaderFactory(const std::filesystem::path& r_configPath,
-                                               const std::filesystem::path& r_sourcePath,
-                                               GLenum shaderType);
+    const OutputContainer& outputs() const;
 
 public:
     /** @brief Immutable attribute descriptor for vertex shaders.
-     *
      *  @details Represents an attribute passed to each vertex.
      *           For example: position, texture coordinates, etc.
      *           Requires:
@@ -195,7 +163,6 @@ public:
 
 
     /** @brief Immutable uniform descriptor (for any shader).
-     *
      *  @details Represents data global to all entities of the shader type
      *           (vertices for vertex shaders, fragments for fragment shaders, etc.).
      *           For example: transformation matrix, background color, etc.
@@ -234,7 +201,6 @@ public:
 
 
     /** @brief Immutable texture descriptor.
-     *
      *  @details Represents a texture in a GLSL shader.
      *           Requires:
      *            - name: name of the texture in the GLSL source.
@@ -246,7 +212,6 @@ public:
     {
     public:
         /** @brief Texture Constructor.
-         *
          *  @param r_name name of the texture in the GLSL source.
          *  @param dimension texture dimension (1, 2, or 3).
          *  @param channels number of components per pixel in the texture (eg.: RGB => 3).
@@ -288,27 +253,94 @@ public:
         {}
     };
 
+protected:
+    Shader() noexcept;
+
+    void parseConfig(Ref<const std::string> r_configuration);
+
+private:
+    AttributeContainer _attributes;
+
+    UniformContainer _uniforms;
+
+    TextureContainer _textures;
+
+    OutputContainer _outputs;
+}; // class Shader
+
+
+
+/// @brief @ref Shader loaded from the filesystem.
+class DynamicShader final : public Shader
+{
+public:
+    /// @copydoc Shader::source
+    std::string source() const override;
+
+    /// @copydoc Shader::configuration
+    std::string configuration() const override;
+
+    /// @brief Get the GLSL source file's path.
+    Ref<const std::filesystem::path> sourcePath() const;
+
+    /// @brief Get the JSON configuration file's path.
+    Ref<const std::filesystem::path> configurationPath() const;
+
+private:
+    /** @brief Construct a shader by directly specifying its source and configuration files.
+     *  @param r_configPath: path to the JSON configuration file.
+     *  @param r_sourcePath: path to the GLSL source file.
+     */
+    DynamicShader(const std::filesystem::path& r_configPath,
+                  const std::filesystem::path& r_sourcePath);
+
+    /** @brief Construct a shader by name and containing directory.
+     *  @details two files are expected:
+     *            - <@p r_directory>/@p r_name.glsl (shader)
+     *            - <@p r_directory>/@p r_name.json (configuration)
+     *  @param r_name: name of the shader, or matching shader set.
+     *  @param r_directory: path to the directory containing the GLSL and the JSON configuration.
+     */
+    DynamicShader(const std::string& r_name,
+                  const std::filesystem::path& r_directory);
+
+    friend Shader::SharedPointer shaderFactory(const std::filesystem::path& r_configPath,
+                                               const std::filesystem::path& r_sourcePath,
+                                               GLenum shaderType);
+
 private:
     std::filesystem::path _sourcePath;
 
     std::filesystem::path _configPath;
+}; // class DynamicShader
 
-    attribute_container _attributes;
 
-    uniform_container _uniforms;
 
-    texture_container _textures;
+/// @brief @ref Shader loaded from memory.
+class StaticShader final : public Shader
+{
+public:
+    std::string source() const override;
 
-    output_container _outputs;
-};
+    std::string configuration() const override;
+
+private:
+    StaticShader(Ref<const std::string> r_key);
+
+    friend Shader::SharedPointer shaderFactory(Ref<const std::string> r_key,
+                                               GLenum shaderType);
+
+private:
+    Ptr<const std::string> _p_source;
+
+    Ptr<const std::string> _p_configuration;
+}; // class StaticShader
 
 
 /** @brief Vertex shader factory.
- *
  *  @details Create a vertex shader from a GLSL source file and its
  *           JSON configuration file. The configuration is checked for
  *           the basic requirements of a vertex shader.
- *
  *  @note The consistency between the source and configuration is not checked.
  *  @ingroup ciegl
  */
@@ -316,12 +348,19 @@ Shader::SharedPointer makeVertexShader(const std::filesystem::path& r_configPath
                                        const std::filesystem::path& r_codePath);
 
 
-/** @brief Fragment shader factory.
- *
+/** @brief Vertex shader factory.
+ *  @details Create a vertex shader from its GLSL source and json configuration
+ *           loaded from the library.
+ *  @note The consistency between the source and configuration is not checked.
+ *  @ingroup ciegl
+ */
+Shader::SharedPointer makeVertexShader(Ref<const std::string> r_key);
+
+
+/** @brief Geometry shader factory.
  *  @details Create a geometry shader from a GLSL source file and its
  *           JSON configuration file. The configuration is checked for
  *           the basic requirements of a geometry shader.
- *
  *  @note The consistency between the source and configuration is not checked.
  *  @ingroup ciegl
  */
@@ -329,12 +368,19 @@ Shader::SharedPointer makeGeometryShader(const std::filesystem::path& r_configPa
                                          const std::filesystem::path& r_codePath);
 
 
+/** @brief Geometry shader factory.
+ *  @details Create a geometry shader from its GLSL source and json configuration
+ *           loaded from the library.
+ *  @note The consistency between the source and configuration is not checked.
+ *  @ingroup ciegl
+ */
+Shader::SharedPointer makeGeometryShader(Ref<const std::string> r_key);
+
+
 /** @brief Fragment shader factory.
- *
  *  @details Create a fragment shader from a GLSL source file and its
  *           JSON configuration file. The configuration is checked for
  *           the basic requirements of a fragment shader.
- *
  *  @note The consistency between the source and configuration is not checked.
  *  @ingroup ciegl
  */
@@ -342,17 +388,16 @@ Shader::SharedPointer makeFragmentShader(const std::filesystem::path& r_configPa
                                          const std::filesystem::path& r_codePath);
 
 
-using VertexShader = Shader;
-
-
-using GeometryShader = Shader;
-
-
-using FragmentShader = Shader;
+/** @brief Fragment shader factory.
+ *  @details Create a fragment shader from its GLSL source and json configuration
+ *           loaded from the library.
+ *  @note The consistency between the source and configuration is not checked.
+ *  @ingroup ciegl
+ */
+Shader::SharedPointer makeFragmentShader(Ref<const std::string> r_key);
 
 
 } // namespace cie::gl
 
-#include "packages/shaders/impl/Shader_impl.hpp"
 
 #endif
