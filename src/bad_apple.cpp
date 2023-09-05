@@ -146,9 +146,9 @@ public:
                   const bool useGenericTree,
                   utils::Logger& r_logger)
         : gl::Scene("BadAppleScene",
-                    gl::makeVertexShader("rectangleFrame::vertexShader"),
-                    gl::makeGeometryShader("rectangleFrame::geometryShader"),
-                    gl::makeFragmentShader("rectangleFrame::fragmentShader"),
+                    gl::makeVertexShader("coloredRectangleFrame::vertexShader"),
+                    gl::makeGeometryShader("coloredRectangleFrame::geometryShader"),
+                    gl::makeFragmentShader("coloredRectangleFrame::fragmentShader"),
                     r_logger),
           _settings{.maxDepth       = depth,
                     .samplingOrder  = samplingOrder,
@@ -181,13 +181,22 @@ public:
         // Fill vertex data
         Size valueCount = 0;
         const std::function<void(const Node&)> collectVertexData = [&valueCount, &target, this](const Node& r_node) mutable -> void {
-            if (r_node.isBoundary() && r_node.level() == _settings.maxDepth) {
+            const auto depth = r_node.level();
+            if (r_node.isBoundary()) {
                 std::scoped_lock lock(_mutex);
-                if (_vertexData.size() < valueCount + 4 + 1) {
-                    _vertexData.resize(valueCount + 4 + 1);
+                if (_vertexData.size() < valueCount + 8 + 1) {
+                    _vertexData.resize(valueCount + 8 + 1);
                 }
                 flattenGeometry<Node>(r_node, _vertexData.data() + valueCount);
-                valueCount += 4;
+
+                // Highlight boundary by dimming low depth split cells
+                const float relativeDepth = (depth + 1) / float(_settings.maxDepth + 1);
+                std::fill(_vertexData.data() + valueCount + 4,
+                          _vertexData.data() + valueCount + 7,
+                          relativeDepth * relativeDepth);
+                _vertexData[valueCount+7] = 1.0f;
+
+                valueCount += 8;
             }
         };
 
@@ -239,8 +248,8 @@ public:
         const auto collectNodes = [&r_root, &valueCount, this](Ref<const ContiguousNode> r_node, Size depth) -> bool {
             if (r_node.isLeaf()) {
                 //std::scoped_lock<std::mutex> lock(_mutex);
-                if (_vertexData.size() < valueCount + 4 + 1) {
-                    _vertexData.resize(valueCount + 4 + 1);
+                if (_vertexData.size() < valueCount + 8 + 1) {
+                    _vertexData.resize(valueCount + 8 + 1);
                 }
                 r_root.getNodeGeometry(r_node,
                                        _vertexData.begin() + valueCount,
@@ -248,7 +257,15 @@ public:
                 if constexpr (concepts::Cube<ContiguousTree::Geometry>) {
                     _vertexData[valueCount + 3] = _vertexData[valueCount + 2];
                 }
-                valueCount += 4;
+
+                // Highlight boundary by dimming low depth split cells
+                const float relativeDepth = (depth + 1) / float(_settings.maxDepth + 1);
+                std::fill(_vertexData.data() + valueCount + 4,
+                          _vertexData.data() + valueCount + 7,
+                          relativeDepth * relativeDepth);
+                _vertexData[valueCount+7] = 1.0f;
+
+                valueCount += 8;
             }
             return depth <= _settings.maxDepth;
         };
@@ -370,7 +387,8 @@ utils::ArgParse::Results badAppleArguments(int argc, char const* argv[])
     );
     parser.addFlag({"--generic-tree"}, "Use a generic tree for subdivision instead of a contiguous one.");
     parser.addFlag({"--save"}, "Output screenshots of each frame.");
-    parser.addFlag({"--help"}, "Print this help and exit");
+    parser.addFlag({"--unlock-framerate"}, "Don't limit the framerate.");
+    parser.addFlag({"--help"}, "Print this help and exit.");
 
     try {
         auto args = parser.parseArguments(argc - 1, argv + 1);
@@ -432,17 +450,21 @@ int main(int argc, char const* argv[])
     constexpr const auto period = std::chrono::microseconds(Size(1e6 / 30.0));
 
     const Bool writeScreenshots = args.get<Bool>("save");
+    const Bool limitFrameRate = !args.get<Bool>("unlock-framerate");
 
     // Main loop
     Size frameIndex = 0;
     while (p_window->update()) {
-        // Delay the next frame to maintain the desired frame rate
-        const auto now = Clock::now();
-        const auto elapsed = now - t0;
-        if (elapsed < period) {
-            std::this_thread::sleep_for(period - elapsed);
-        } else {
-            t0 = now;
+        if (limitFrameRate) {
+            // Delay the next frame to maintain the desired frame rate
+            const auto now = Clock::now();
+            const auto elapsed = now - t0;
+            if (elapsed < period) {
+                std::this_thread::sleep_for(period - elapsed);
+                t0 = Clock::now();
+            } else {
+                t0 = now;
+            }
         }
 
         // Write screenshots if requested
