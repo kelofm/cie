@@ -38,6 +38,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
                       INSTALL_RPATH "$ORIGIN/../lib")
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "cie/bin")
 
+# Install scripts
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/cie/scripts/"
+        USE_SOURCE_PERMISSIONS)
+
 # Package
 set(CPACK_PACKAGE_VENDOR "")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "")
