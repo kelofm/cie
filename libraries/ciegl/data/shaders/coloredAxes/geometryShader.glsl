@@ -21,8 +21,7 @@ void main()
         vPosition[2] - vPosition[0]
     ));
 
-    for ( int i=0; i<3; ++i )
-    {
+    for ( int i=0; i<3; ++i ) {
         fNormal     = normal;
         fColor      = vColor[i];
         fPosition   = vPosition[i];
