@@ -7,8 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
-set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY ON CACHE BOOL "build shared libraries instead of static ones")
-set(${PROJECT_NAME_UPPER}_BUILD_TESTS OFF CACHE BOOL "build testrunner for ${PROJECT_NAME}")
+set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY              ON CACHE BOOL "build shared libraries instead of static ones")
+set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
+set(${PROJECT_NAME_UPPER}_ENABLE_MPI                        OFF CACHE BOOL "Build with MPI support")
 set(${PROJECT_NAME_UPPER}_ENABLE_PROFILING                  OFF CACHE BOOL "Enable profiling macros.")
 set(${PROJECT_NAME_UPPER}_ENABLE_OUT_OF_RANGE_CHECKS        OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
 set(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS    OFF CACHE BOOL "Enable macros for checking division by zero errors.")
@@ -18,7 +19,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
-find_package(cieutils REQUIRED)
+find_package(cieutils CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # Compile definitions
@@ -47,17 +48,18 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC cie::cieutils)
 target_include_directories(${PROJECT_NAME}
-                           PUBLIC
-                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC "${EIGEN3_INCLUDE_DIR}")
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC "${EIGEN3_INCLUDE_DIR}/unsupported")
+                           PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+                           INTERFACE "$<INSTALL_INTERFACE:cie/include>"
+                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+target_include_directories(${PROJECT_NAME}
+                           SYSTEM PUBLIC
+                           "${EIGEN3_INCLUDE_DIR}"
+                           "${EIGEN3_INCLUDE_DIR}/unsupported")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       INSTALL_RPATH "$ORIGIN")
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}packages" DESTINATION "cie/include" FILES_MATCHING PATTERN "*.hpp")
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
@@ -66,15 +68,9 @@ if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
 
     add_executable(${PROJECT_NAME}_testrunner ${test_sources})
     target_link_libraries(${PROJECT_NAME}_testrunner PRIVATE ${PROJECT_NAME})
-    set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()
-
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${PROJECT_NAME} NAMESPACE cie:: FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
-install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION "cie/lib")
-install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
 
 # Package
 include(InstallRequiredSystemLibraries)
@@ -93,17 +89,42 @@ set(CPACK_SOURCE_IGNORE_FILES
     *.gitignore)
 include(CPack)
 
+# Generate CMake config
 include(CMakePackageConfigHelpers)
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-  INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
-  NO_SET_AND_CHECK_MACRO
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-    VERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
-    COMPATIBILITY AnyNewerVersion)
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-    DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+                              INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
+                              NO_SET_AND_CHECK_MACRO
+                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+                                 VERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
+                                 COMPATIBILITY AnyNewerVersion)
+
+# Install targets
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION "cie/lib"
+        ARCHIVE DESTINATION "cie/lib"
+        RUNTIME DESTINATION "cie/bin"
+        INCLUDES DESTINATION "cie/include")
+install(EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        NAMESPACE cie::
+        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+
+# Install headers
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
+        DESTINATION "cie/include"
+        FILES_MATCHING PATTERN "*.hpp")
+
+# Install CMake config
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+
+# Export
+set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+export(TARGETS ${PROJECT_NAME}
+       NAMESPACE cie::
+       FILE ${PROJECT_NAME}Targets.cmake)
+export(PACKAGE ${PROJECT_NAME})
