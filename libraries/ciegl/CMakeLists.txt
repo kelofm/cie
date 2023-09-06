@@ -28,7 +28,11 @@ find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 
 # Build GLAD
-add_library(glad STATIC "${CMAKE_CURRENT_SOURCE_DIR}/external/glad/src/glad.c")
+if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY})
+    add_library(glad SHARED "${CMAKE_CURRENT_SOURCE_DIR}/external/glad/src/glad.c")
+else()
+    add_library(glad STATIC "${CMAKE_CURRENT_SOURCE_DIR}/external/glad/src/glad.c")
+endif()
 target_include_directories(glad
                            PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/glad/inc>"
                            INTERFACE "$<INSTALL_INTERFACE:cie/external/glad/inc>"
