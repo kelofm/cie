@@ -7,22 +7,23 @@
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/macros/inc/checks.hpp"
 
-// --- Internal Includes ---
+// --- Graphics Includes ---
 #include "packages/camera/inc/ProjectionPolicy.hpp"
+#include "packages/camera/inc/Camera.hpp"
 
 // --- STL Includes ---
-#include <math.h>
+#include <cmath>
 
 
 namespace cie::gl {
 
 
 template <concepts::ProjectionPolicy ProjectionType>
-Camera<ProjectionType>::Camera( utils::Logger& r_logger,
-                                const std::string& r_name,
-                                const typename Camera<ProjectionType>::vector_type& r_position,
-                                const typename Camera<ProjectionType>::vector_type& r_direction,
-                                const typename Camera<ProjectionType>::vector_type& r_up ) :
+Camera<ProjectionType>::Camera(utils::Logger& r_logger,
+                               const std::string& r_name,
+                               const typename Camera<ProjectionType>::vector_type& r_position,
+                               const typename Camera<ProjectionType>::vector_type& r_direction,
+                               const typename Camera<ProjectionType>::vector_type& r_up) :
     AbsCamera( r_logger,
                r_name,
                r_position,
@@ -49,7 +50,7 @@ Camera<ProjectionType>::projectionMatrix() const
 
 
 template <concepts::ProjectionPolicy ProjectionType>
-inline const double
+inline double
 Camera<ProjectionType>::fieldOfView() const
 {
     return this->_fieldOfView;
@@ -128,7 +129,7 @@ Camera<ProjectionType>::setClippingPlanes( double nearClippingPlane,
 
 
 template <concepts::ProjectionPolicy ProjectionType>
-inline const double
+inline double
 Camera<ProjectionType>::aspectRatio() const
 {
     return this->_aspectRatio;

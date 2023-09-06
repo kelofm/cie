@@ -27,7 +27,7 @@ const std::pair<Size,Size>& AbsMonitor::resolution() const
 }
 
 
-const bool AbsMonitor::isPrimary() const
+bool AbsMonitor::isPrimary() const
 {
     return _isPrimary;
 }

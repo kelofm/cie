@@ -45,20 +45,20 @@ public:
               CameraPtr p_camera);
 
 protected:
-    virtual void onMouseButtonPress(KeyEnum button,
-                                     KeyEnum modifiers)
+    virtual void onMouseButtonPress([[maybe_unused]] KeyEnum button,
+                                    [[maybe_unused]] KeyEnum modifiers)
     {}
 
-    virtual void onMouseButtonHold(KeyEnum button,
-                                    KeyEnum modifiers)
+    virtual void onMouseButtonHold([[maybe_unused]] KeyEnum button,
+                                   [[maybe_unused]] KeyEnum modifiers)
     {}
 
-    virtual void onMouseButtonRelease(KeyEnum button,
-                                       KeyEnum modifiers)
+    virtual void onMouseButtonRelease([[maybe_unused]] KeyEnum button,
+                                      [[maybe_unused]] KeyEnum modifiers)
     {}
 
-    virtual void onCursorMovement(double x,
-                                   double y)
+    virtual void onCursorMovement([[maybe_unused]] double x,
+                                  [[maybe_unused]] double y)
     {}
 
     virtual void onCursorEnter()
@@ -67,21 +67,21 @@ protected:
     virtual void onCursorLeave()
     {}
 
-    virtual void onHorizontalScroll(double offset)
+    virtual void onHorizontalScroll([[maybe_unused]] double offset)
     {}
 
-    virtual void onVerticalScroll(double offset)
+    virtual void onVerticalScroll([[maybe_unused]] double offset)
     {}
 
     virtual void onKeyboardPress(KeyEnum key,
                                   KeyEnum modifiers);
 
-    virtual void onKeyboardHold(KeyEnum key,
-                                 KeyEnum modifiers)
+    virtual void onKeyboardHold([[maybe_unused]] KeyEnum key,
+                                [[maybe_unused]] KeyEnum modifiers)
     {}
 
-    virtual void onKeyboardRelease(KeyEnum key,
-                                    KeyEnum modifiers)
+    virtual void onKeyboardRelease([[maybe_unused]] KeyEnum key,
+                                   [[maybe_unused]] KeyEnum modifiers)
     {}
 
     virtual void onSubjectChange() override
@@ -92,11 +92,15 @@ protected:
 
 protected:
     AbsWindow::WeakPointer _p_window;
-    CameraPtr     _p_camera;
-    double        _x;
-    double        _y;
 
-    KeyEnum           _escapeKey;
+    CameraPtr _p_camera;
+
+    double _x;
+
+    double _y;
+
+    KeyEnum _escapeKey;
+
     std::set<KeyEnum> _activeKeys;
 };
 

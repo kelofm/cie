@@ -103,7 +103,7 @@ Buffer<TData,TDataContainer>::setDrawMode(Size drawMode)
 
 template <class TData, class TDataContainer>
 requires concepts::Container<TDataContainer, TData>
-const GLuint
+GLuint
 Buffer<TData,TDataContainer>::getDrawMode() const
 {
     return _drawMode;

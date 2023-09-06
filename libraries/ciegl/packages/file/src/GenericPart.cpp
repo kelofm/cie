@@ -48,7 +48,7 @@ Size GenericPart::primitiveVertexSize() const
 }
 
 
-void GenericPart::writeSTL( const std::filesystem::path& r_path ) const
+void GenericPart::writeSTL(const std::filesystem::path&) const
 {
     CIE_THROW( NotImplementedException, "Cannot write GenericPart to STL" )
 }

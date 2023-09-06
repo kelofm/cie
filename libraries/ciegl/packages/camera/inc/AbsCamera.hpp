@@ -121,7 +121,7 @@ public:
      */
     virtual void zoom( double scale ) = 0;
 
-    virtual const double aspectRatio() const = 0;
+    virtual double aspectRatio() const = 0;
 
     /**
      * Set camera aspect ratio
@@ -132,7 +132,7 @@ public:
     /**
      * Field of view in radians (vertical FoV)
      */
-    virtual const double fieldOfView() const = 0;
+    virtual double fieldOfView() const = 0;
 
     /**
      * Field of view in radians (vertical FoV)

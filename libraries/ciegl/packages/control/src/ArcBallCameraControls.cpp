@@ -286,8 +286,8 @@ void ArcBallCameraControls::decreaseZoomScale()
 }
 
 
-void ArcBallCameraControls::onMouseButtonPress( KeyEnum button,
-                                                KeyEnum modifiers )
+void ArcBallCameraControls::onMouseButtonPress(KeyEnum button,
+                                               [[maybe_unused]] KeyEnum modifiers)
 {
     if ( button == GLFW_MOUSE_BUTTON_1 )
         this->_isLeftMouseButtonPressed = true;
@@ -296,8 +296,8 @@ void ArcBallCameraControls::onMouseButtonPress( KeyEnum button,
 }
 
 
-void ArcBallCameraControls::onMouseButtonRelease( KeyEnum button,
-                                                  KeyEnum modifiers )
+void ArcBallCameraControls::onMouseButtonRelease(KeyEnum button,
+                                                 [[maybe_unused]] KeyEnum modifiers)
 {
     if ( button == GLFW_MOUSE_BUTTON_1 )
         this->_isLeftMouseButtonPressed = false;

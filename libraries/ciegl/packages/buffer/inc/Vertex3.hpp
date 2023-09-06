@@ -24,10 +24,10 @@ public:
             Vertex3::value_type y,
             Vertex3::value_type z );
 
-    virtual const Size numberOfAttributes() const override;
+    virtual Size numberOfAttributes() const override;
 
     Vertex3::value_type& z();
-    const Vertex3::value_type z() const;
+    Vertex3::value_type z() const;
 
 protected:
     /// Overloaded constructor for derived Vertex classes

@@ -28,10 +28,11 @@ public:
     */
     const std::pair<Size,Size>& resolution() const;
 
-    const bool isPrimary() const;
+    bool isPrimary() const;
 
 protected:
     std::pair<Size,Size> _resolution;
+
     bool _isPrimary;
 };
 

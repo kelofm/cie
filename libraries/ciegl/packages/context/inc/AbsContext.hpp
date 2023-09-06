@@ -42,7 +42,7 @@ public:
     const std::pair<Size,Size>& version() const;
 
     /// Get number of samples used for Multi Sample Anti-Aliasing.
-    const Size MSAASamples() const;
+    Size MSAASamples() const;
 
     AbsWindow::SharedPointer newWindow(Size width = 800,
                                        Size height = 600,

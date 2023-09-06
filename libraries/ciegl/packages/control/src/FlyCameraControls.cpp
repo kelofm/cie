@@ -268,8 +268,8 @@ void FlyCameraControls::zoomOut()
 }
 
 
-void FlyCameraControls::onMouseButtonPress( KeyEnum button,
-                                            KeyEnum modifiers )
+void FlyCameraControls::onMouseButtonPress(KeyEnum button,
+                                           [[maybe_unused]] KeyEnum modifiers)
 {
     if ( button == GLFW_MOUSE_BUTTON_1 )
         this->_isLeftMouseButtonPressed = true;
@@ -278,8 +278,8 @@ void FlyCameraControls::onMouseButtonPress( KeyEnum button,
 }
 
 
-void FlyCameraControls::onMouseButtonRelease( KeyEnum button,
-                                              KeyEnum modifiers )
+void FlyCameraControls::onMouseButtonRelease(KeyEnum button,
+                                             [[maybe_unused]] KeyEnum modifiers)
 {
     if ( button == GLFW_MOUSE_BUTTON_1 )
         this->_isLeftMouseButtonPressed = false;

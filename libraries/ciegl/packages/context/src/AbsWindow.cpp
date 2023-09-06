@@ -19,30 +19,30 @@ namespace cie::gl {
 /* --- DEFAULT CALLBACKS --- */
 namespace detail {
 
-void defaultMouseButtonCallback(KeyEnum button,
-                                KeyEnum action,
-                                KeyEnum modifiers)
+void defaultMouseButtonCallback(KeyEnum,
+                                KeyEnum,
+                                KeyEnum)
 {
 }
 
-void defaultCursorPositionCallback(double x,
-                                   double y)
+void defaultCursorPositionCallback(double,
+                                   double)
 {
 }
 
-void defaultCursorEnterCallback(KeyEnum entered)
+void defaultCursorEnterCallback(KeyEnum)
 {
 }
 
-void defaultScrollCallback(double xOffset,
-                           double yOffset)
+void defaultScrollCallback(double,
+                           double)
 {
 }
 
-void defaultKeyboardCallback(KeyEnum key,
-                             KeyEnum scancode,
-                             KeyEnum action,
-                             KeyEnum modifiers)
+void defaultKeyboardCallback(KeyEnum,
+                             KeyEnum,
+                             KeyEnum,
+                             KeyEnum)
 {
 }
 

@@ -276,7 +276,7 @@ void checkVertexShader(Ref<const Shader> r_shader)
 }
 
 
-void checkGeometryShader(Ref<const Shader> r_shader)
+void checkGeometryShader(Ref<const Shader>)
 {
 }
 

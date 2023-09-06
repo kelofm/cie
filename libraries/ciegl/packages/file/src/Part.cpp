@@ -42,7 +42,7 @@ Size Part::numberOfPrimitives() const
 }
 
 
-void Part::load( std::istream& r_stream )
+void Part::load(std::istream&)
 {
     CIE_THROW( AbstractCallException, "Call to pure virtual Part::load" )
 }

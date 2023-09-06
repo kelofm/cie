@@ -29,7 +29,7 @@ public:
     ColoredVertex3(AttributeContainer::SharedPointer p_attributeContainer,
                    Size offset);
 
-    virtual const Size numberOfAttributes() const override;
+    virtual Size numberOfAttributes() const override;
 
     ColoredVertex3::attribute_range color();
 

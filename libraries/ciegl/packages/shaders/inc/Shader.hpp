@@ -145,13 +145,13 @@ public:
         {}
 
         /// Size getter.
-        const Size size() const { return _size; }
+        Size size() const { return _size; }
 
         /// Stride getter.
-        const Size stride() const { return _stride; }
+        Size stride() const { return _stride; }
 
         /// Offset getter.
-        const Size offset() const { return _offset; }
+        Size offset() const { return _offset; }
 
     private:
         const Size _size;
@@ -189,7 +189,7 @@ public:
             _type(r_type)
         {}
 
-        const Size size() const         { return _size; }
+        Size size() const         { return _size; }
 
         const std::string& type() const { return _type; }
 
@@ -227,9 +227,9 @@ public:
             _type(r_type)
         {}
 
-        const Size dimension() const {return _dimension;}
+        Size dimension() const {return _dimension;}
 
-        const Size channels() const {return _channels;}
+        Size channels() const {return _channels;}
 
         const std::string& type() const {return _type;}
 

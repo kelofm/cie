@@ -35,7 +35,7 @@ AbsContext::version() const
 }
 
 
-const Size
+Size
 AbsContext::MSAASamples() const
 {
     return _MSAASamples;

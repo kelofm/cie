@@ -96,7 +96,7 @@ void AbsCameraControls::scrollCallback(double xOffset,
 
 
 void AbsCameraControls::keyboardCallback(KeyEnum key,
-                                         KeyEnum scancode,
+                                         [[maybe_unused]] KeyEnum scancode,
                                          KeyEnum action,
                                          KeyEnum modifiers)
 {
@@ -129,7 +129,7 @@ void AbsCameraControls::keyboardCallback(KeyEnum key,
 
 
 void AbsCameraControls::onKeyboardPress(KeyEnum key,
-                                         KeyEnum modifiers)
+                                        [[maybe_unused]] KeyEnum modifiers)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 

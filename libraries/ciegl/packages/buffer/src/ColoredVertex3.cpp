@@ -49,7 +49,7 @@ ColoredVertex3::ColoredVertex3( AttributeContainer::SharedPointer p_attributeCon
 }
 
 
-const Size ColoredVertex3::numberOfAttributes() const
+Size ColoredVertex3::numberOfAttributes() const
 {
     return 7;
 }

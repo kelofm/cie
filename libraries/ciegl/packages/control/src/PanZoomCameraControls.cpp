@@ -183,8 +183,8 @@ void PanZoomCameraControls::zoomOut()
 }
 
 
-void PanZoomCameraControls::onMouseButtonPress( KeyEnum button,
-                                                KeyEnum modifiers )
+void PanZoomCameraControls::onMouseButtonPress(KeyEnum button,
+                                               [[maybe_unused]] KeyEnum modifiers)
 {
     if ( button == GLFW_MOUSE_BUTTON_1 )
         this->_isLeftMouseButtonPressed = true;
@@ -193,8 +193,8 @@ void PanZoomCameraControls::onMouseButtonPress( KeyEnum button,
 }
 
 
-void PanZoomCameraControls::onMouseButtonRelease( KeyEnum button,
-                                                  KeyEnum modifiers )
+void PanZoomCameraControls::onMouseButtonRelease(KeyEnum button,
+                                                 [[maybe_unused]] KeyEnum modifiers)
 {
     if ( button == GLFW_MOUSE_BUTTON_1 )
         this->_isLeftMouseButtonPressed = false;

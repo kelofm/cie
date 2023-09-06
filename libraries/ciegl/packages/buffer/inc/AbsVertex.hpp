@@ -47,7 +47,7 @@ public:
     /**
      * @return the total number of attributes of this vertex
      */
-    virtual const Size numberOfAttributes() const = 0;
+    virtual Size numberOfAttributes() const = 0;
 
     /**
      * @brief containerized attribute access
@@ -84,8 +84,8 @@ public:
      * @return the value of the attribute specified by the local attribute indices
      * in the attribute container ( that gets directly loaded into the buffer )
      */
-    const value_type at( Size attributeIndex,
-                         Size componentIndex ) const;
+    value_type at(Size attributeIndex,
+                  Size componentIndex) const;
 
     /**
      * @brief Create a new vertex that stores its attributes in the specified container
@@ -124,7 +124,7 @@ protected:
      * @return the value of the the attribute specified by the attribute local index
      * in the attribute container ( that gets directly loaded into the buffer )
      */
-    const value_type at( Size index ) const;
+    value_type at( Size index ) const;
 
     /**
      * @brief make space in the attribute container for the attributes

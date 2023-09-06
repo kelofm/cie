@@ -42,11 +42,11 @@ public:
     void setClippingPlanes( double nearClippingPlane,
                             double farClippingPlane ) override;
 
-    const double aspectRatio() const override;
+    double aspectRatio() const override;
 
     void setAspectRatio( double aspectRatio ) override;
 
-    const double fieldOfView() const override;
+    double fieldOfView() const override;
 
     void setFieldOfView( double radians ) override;
 

@@ -47,7 +47,7 @@ Vertex2::Vertex2(AttributeContainer::SharedPointer p_attributeContainer,
 }
 
 
-const Size Vertex2::numberOfAttributes() const
+Size Vertex2::numberOfAttributes() const
 {
     return 2;
 }
@@ -71,7 +71,7 @@ Vertex2::value_type& Vertex2::x()
 }
 
 
-const Vertex2::value_type Vertex2::x() const
+Vertex2::value_type Vertex2::x() const
 {
     return this->at(0);
 }
@@ -83,7 +83,7 @@ Vertex2::value_type& Vertex2::y()
 }
 
 
-const Vertex2::value_type Vertex2::y() const
+Vertex2::value_type Vertex2::y() const
 {
     return this->at(1);
 }

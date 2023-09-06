@@ -51,7 +51,7 @@ public:
 
     void setDrawMode(Size drawMode);
 
-    const GLuint getDrawMode() const;
+    GLuint getDrawMode() const;
 
 private:
     Buffer(Buffer&& r_rhs) = delete;

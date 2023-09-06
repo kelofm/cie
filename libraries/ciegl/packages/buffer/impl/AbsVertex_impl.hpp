@@ -1,9 +1,13 @@
 #ifndef CIE_GL_ABS_VERTEX_IMPL_HPP
 #define CIE_GL_ABS_VERTEX_IMPL_HPP
 
+// --- Graphics Includes ---
+#include "packages/buffer/inc/AbsVertex.hpp"
+
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
 #include "packages/macros/inc/exceptions.hpp"
+
 
 namespace cie::gl {
 
@@ -69,8 +73,8 @@ inline AbsVertex::value_type& AbsVertex::at( Size attributeIndex,
 }
 
 
-inline const AbsVertex::value_type AbsVertex::at( Size attributeIndex,
-                                                  Size componentIndex ) const
+inline AbsVertex::value_type AbsVertex::at(Size attributeIndex,
+                                           Size componentIndex) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
@@ -94,7 +98,7 @@ inline AbsVertex::value_type& AbsVertex::at( Size index )
 }
 
 
-inline const AbsVertex::value_type AbsVertex::at( Size index ) const
+inline AbsVertex::value_type AbsVertex::at(Size index) const
 {
     CIE_OUT_OF_RANGE_CHECK( index < this->numberOfAttributes() )
     Size indexInContainer = this->_offset + index;

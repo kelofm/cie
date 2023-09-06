@@ -48,7 +48,7 @@ Vertex3::Vertex3(AttributeContainer::SharedPointer p_attributeContainer,
 }
 
 
-const Size Vertex3::numberOfAttributes() const
+Size Vertex3::numberOfAttributes() const
 {
     return 3;
 }
@@ -60,7 +60,7 @@ Vertex3::value_type& Vertex3::z()
 }
 
 
-const Vertex3::value_type Vertex3::z() const
+Vertex3::value_type Vertex3::z() const
 {
     return this->at(2);
 }
