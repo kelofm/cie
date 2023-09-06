@@ -10,6 +10,7 @@
 !external
 !data
 !docs
+!scripts
 
 !CMakeLists.txt
 !Config.cmake.in
