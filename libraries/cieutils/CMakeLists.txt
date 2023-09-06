@@ -91,23 +91,18 @@ else()
 endif()
 
 target_include_directories(${PROJECT_NAME}
-                           PUBLIC
-                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/include>")
-target_include_directories(${PROJECT_NAME}
-                           PUBLIC
-                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
-                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/inc>")
-target_include_directories(${PROJECT_NAME}
-                           PUBLIC
-                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
-                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/external/tessil/include>")
+                           PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
+                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
+                           INTERFACE "$<INSTALL_INTERFACE:cie/include>"
+                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
+                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       INSTALL_RPATH "$ORIGIN")
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages" DESTINATION "cie/include" FILES_MATCHING PATTERN "*.hpp")
 
 # MPI support
 if (${PROJECT_NAME_UPPER}_ENABLE_MPI)
@@ -144,23 +139,19 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     foreach(child ${children})
         if (IS_DIRECTORY "${child}")
             get_filename_component(module_name "${child}" NAME)
-            install(DIRECTORY "${child}" DESTINATION "cie")
+            install(DIRECTORY "${child}"
+                    DESTINATION "cie")
         endif()
     endforeach()
 
     # Install bindings
-    install(TARGETS ${PROJECT_NAME}_python_bindings EXPORT ${PROJECT_NAME}Targets LIBRARY DESTINATION "cie/lib")
+    install(TARGETS ${PROJECT_NAME}_python_bindings
+            EXPORT ${PROJECT_NAME}Targets
+            LIBRARY DESTINATION "cie/lib")
 
     # Main CiE module __init__
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/__init__.py" DESTINATION "cie")
 endif()
-
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${PROJECT_NAME} NAMESPACE cie:: FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
-install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION "cie/lib")
-install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
 
 # Package
 include(InstallRequiredSystemLibraries)
@@ -179,17 +170,48 @@ set(CPACK_SOURCE_IGNORE_FILES
     *.gitignore)
 include(CPack)
 
+# Generate CMake config
 include(CMakePackageConfigHelpers)
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-  INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
-  NO_SET_AND_CHECK_MACRO
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-    VERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
-    COMPATIBILITY AnyNewerVersion)
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-    DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+                              INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
+                              NO_SET_AND_CHECK_MACRO
+                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+                                 VERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
+                                 COMPATIBILITY AnyNewerVersion)
+
+# Install targets
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION "cie/lib"
+        ARCHIVE DESTINATION "cie/lib"
+        RUNTIME DESTINATION "cie/bin"
+        INCLUDES DESTINATION "cie/include")
+install(EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        NAMESPACE cie::
+        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+
+# Install headers
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
+        DESTINATION "cie/include"
+        FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc"
+        DESTINATION "cie/include"
+        FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external"
+        DESTINATION "cie/include"
+        FILES_MATCHING PATTERN "*.h*")
+
+# Install CMake config
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+
+# Export
+set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+export(TARGETS ${PROJECT_NAME}
+       NAMESPACE cie::
+       FILE ${PROJECT_NAME}Targets.cmake)
+export(PACKAGE ${PROJECT_NAME})
