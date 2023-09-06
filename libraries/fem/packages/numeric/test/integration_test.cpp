@@ -29,15 +29,13 @@ CIE_TEST_CASE("integration", "[fem]")
 {
     CIE_TEST_CASE_INIT("integration")
 
-    using Basis = maths::Polynomial<double>;
-    using Point = Kernel<2,double>::Point;
     using QuadTree = geo::ContiguousSpaceTree<geo::Cube<2,double>,unsigned>;
 
     const Quadrature<double,2> quadrature(GaussLegendreQuadrature<double>(8));
     QuadTree tree(QuadTree::Point {0.0, 0.0}, 1.0);
 
     const auto domain = [] (Ptr<const double> it_begin,
-                            Ptr<const double> it_end) -> bool {
+                            Ptr<const double>) -> bool {
         StaticArray<double,2> point {*it_begin, *(it_begin + 1)};
         return linalg::norm2(point) < 1;
     };

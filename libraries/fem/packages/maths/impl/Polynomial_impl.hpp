@@ -27,7 +27,7 @@ Polynomial<TValue>::Polynomial(TItBegin it_begin, TItEnd it_end)
 
 template <class TValue>
 inline void Polynomial<TValue>::evaluate(ConstIterator it_argumentBegin,
-                                         ConstIterator it_argumentEnd,
+                                         ConstIterator,
                                          Iterator it_resultBegin) const
 {
     *it_resultBegin = utils::evaluatePolynomialHorner(*it_argumentBegin,

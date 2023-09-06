@@ -16,8 +16,8 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                              ConstIterator it_argumentEnd,
+ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
+                                                              ConstIterator,
                                                               Iterator it_out) const noexcept
 {
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
@@ -36,7 +36,7 @@ ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_a
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
 inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt it_transformedBegin,
-                                                                          TPointIt it_transformedEnd)
+                                                                          [[maybe_unused]] TPointIt it_transformedEnd)
 {
     CIE_OUT_OF_RANGE_CHECK(std::distance(it_transformedBegin, it_transformedEnd) == 2)
 
@@ -52,7 +52,7 @@ inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPoint
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
 ScaleTranslateTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                    ConstIterator it_argumentEnd,
+                                                    [[maybe_unused]] ConstIterator it_argumentEnd,
                                                     Iterator it_out) const
 {
     CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dimension)

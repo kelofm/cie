@@ -72,7 +72,7 @@ class Partition : public PartitionBase
 public:
     using VertexAttributes = TVertexAttributes;
 
-    using PolytopeAttributes = TPolytopeAttributes;;
+    using PolytopeAttributes = TPolytopeAttributes;
 
     static_assert(concepts::AttributeContainer<VertexAttributes>);
 

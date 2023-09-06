@@ -30,8 +30,8 @@ OrthogonalScaleTransformDerivative<TValue,Dimension>::OrthogonalScaleTransformDe
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator it_argumentBegin,
-                                                                                 ConstIterator it_argumentEnd) const noexcept
+TValue OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator,
+                                                                                 ConstIterator) const noexcept
 {
     return std::accumulate(
         this->_scales.begin(),

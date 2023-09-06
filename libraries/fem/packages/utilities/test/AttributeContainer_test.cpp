@@ -25,7 +25,7 @@ CIE_TEST_CASE("AttributeContainer", "[container]")
         attributes.at<int>(i) = i + 1;
 
         CIE_TEST_CHECK(attributes.at<double>(i) == Approx(1.0 + i * 0.5));
-        CIE_TEST_CHECK(attributes.at<int>(i) == i + 1);
+        CIE_TEST_CHECK(static_cast<Size>(attributes.at<int>(i)) == i + 1);
     }
 
     const auto visitor = [](double d, int i) {

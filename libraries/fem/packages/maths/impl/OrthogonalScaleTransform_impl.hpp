@@ -16,8 +16,8 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                               ConstIterator it_argumentEnd,
+OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
+                                                               ConstIterator,
                                                                Iterator it_out) const noexcept
 {
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
@@ -36,7 +36,7 @@ OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
 inline OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(TPointIt it_transformedBegin,
-                                                                            TPointIt it_transformedEnd)
+                                                                            [[maybe_unused]] TPointIt it_transformedEnd)
 {
     CIE_OUT_OF_RANGE_CHECK(std::distance(it_transformedBegin, it_transformedEnd) == 1)
     Ptr<const TValue> p_begin = &(*it_transformedBegin)[0];

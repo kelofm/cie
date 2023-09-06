@@ -30,8 +30,8 @@ ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDeri
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator it_argumentBegin,
-                                                                                ConstIterator it_argumentEnd) const noexcept
+TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator,
+                                                                                ConstIterator) const noexcept
 {
     return std::accumulate(
         this->_scales.begin(),
