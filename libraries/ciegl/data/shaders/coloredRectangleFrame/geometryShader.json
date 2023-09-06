@@ -1,0 +1,11 @@
+{
+    "attributes": {},
+    "uniforms": {
+        "transformation": {
+            "type": "mat4",
+            "size": 16
+        }
+    },
+    "textures": {},
+    "outputs": {}
+}

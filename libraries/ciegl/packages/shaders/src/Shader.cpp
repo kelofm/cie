@@ -123,11 +123,7 @@ Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const Shader> r_sha
 
 Shader::~Shader()
 {
-    if (glIsShader(this->getID())) {
-        glDeleteShader(this->getID());
-    } else {
-        std::cerr << "shader " << this->getID() << " is not registered";
-    }
+    glDeleteShader(this->getID());
 }
 
 
