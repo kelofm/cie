@@ -168,7 +168,6 @@ void AbsWindow::screenshot(const std::filesystem::path& r_outputPath,
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    bool hasTargetImage = false;
     std::unique_ptr<Image> p_backupImage;
 
     if (!p_targetImage) {
@@ -180,7 +179,6 @@ void AbsWindow::screenshot(const std::filesystem::path& r_outputPath,
         CIE_OUT_OF_RANGE_CHECK(p_targetImage->width() == this->_size.first)
         CIE_OUT_OF_RANGE_CHECK(p_targetImage->height() == this->_size.second)
         CIE_OUT_OF_RANGE_CHECK(p_targetImage->numberOfChannels() == 3)
-        hasTargetImage = true;
     }
 
     glReadBuffer(GL_FRONT_LEFT);
