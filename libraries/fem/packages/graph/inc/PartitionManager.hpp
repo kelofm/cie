@@ -9,8 +9,9 @@
 namespace cie::fem {
 
 
-struct PartitionManager
+class PartitionManager
 {
+public:
     template <PartitionBase::Item TItem, class ...TPartitions>
     static auto collectAttributes(Size leafIndex, Ref<const TPartitions>... r_partitions)
     {
@@ -28,7 +29,7 @@ struct PartitionManager
             static_assert(std::is_same_v<std::tuple<TPartitions...>,std::tuple<>>);
         }
     }
-}; // struct PartitionManager
+}; // class PartitionManager
 
 
 } // namespace cie::fem
