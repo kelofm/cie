@@ -24,7 +24,7 @@ public:
 
     GaussLegendreQuadrature(Size integrationOrder,
                             NT maxAbsoluteNodeError  = 1e-10,
-                            Size maxNewtonIterations = 10);
+                            Size maxNewtonIterations = 10ul);
 }; // class GaussLegendreQuadrature
 
 ///@}
