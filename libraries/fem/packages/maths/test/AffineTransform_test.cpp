@@ -36,32 +36,31 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
         using Point = Kernel<2,double>::Point;
 
         std::vector<Point> locals {
-            {-1.0,-1.0},
-            { 1.0,-1.0},
-            {-1.0, 1.0},
+            {-1.0, -1.0},
+            { 1.0, -1.0},
+            {-1.0,  1.0},
 
-            { 1.0, 1.0}
+            { 1.0,  1.0}
         };
 
         std::vector<Point> transformed {
-            { 4.0, 1.0},
-            { 4.0, 3.0},
-            { 2.0, 1.0},
+            { 4.0,  1.0},
+            { 4.0,  3.0},
+            { 2.0,  1.0},
 
-            { 2.0, 3.0}
+            { 2.0,  3.0}
         };
 
         Transform transform;
         {
             CIE_TEST_CASE_INIT("construction")
-            CIE_TEST_CHECK_NOTHROW(transform = Transform(transformed.begin(), transformed.begin() + 3));
+            CIE_TEST_CHECK_NOTHROW(transform = Transform(transformed.data(), transformed.data() + 3));
         }
 
         {
             CIE_TEST_CASE_INIT("transformation")
 
-            for (Size i_point=0; i_point<locals.size(); ++i_point)
-            {
+            for (Size i_point=0; i_point<locals.size(); ++i_point) {
                 Point point;
                 CIE_TEST_CHECK_NOTHROW(transform.evaluate(locals[i_point].begin(),
                                                           locals[i_point].end(),
