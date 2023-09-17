@@ -137,10 +137,27 @@ void makeFEMMathsBindings(Ref<pybind11::module_> r_module)
                 return ScaleTranslateTransform<double,2>(r_transformed.begin(), r_transformed.end());
             }))
             .def("makeDerivative", &ScaleTranslateTransform<double,2>::makeDerivative)
+            .def("makeInverse", &ScaleTranslateTransform<double,2>::makeInverse)
             ;
         addVectorExpressionInterface<ScaleTranslateTransform<double,2>,
                                      2,
                                      2>(scaleTranslateTransform2D);
+    }
+
+    {
+        auto translateScaleTransform2D = pybind11::class_<TranslateScaleTransform<double,2>>(
+            submodule,
+            "TranslateScaleTransform2D"
+        )   .def(pybind11::init<>())
+            .def(pybind11::init([] (Ref<const DynamicArray<StaticArray<double,2>>> r_transformed) {
+                return TranslateScaleTransform<double,2>(r_transformed.begin(), r_transformed.end());
+            }))
+            .def("makeDerivative", &TranslateScaleTransform<double,2>::makeDerivative)
+            .def("makeInverse", &TranslateScaleTransform<double,2>::makeInverse)
+            ;
+        addVectorExpressionInterface<TranslateScaleTransform<double,2>,
+                                     2,
+                                     2>(translateScaleTransform2D);
     }
 
     {
