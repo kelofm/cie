@@ -51,7 +51,7 @@ inline void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> r_expr
         // Increment output with scaled buffer items
         const auto weight = r_item.back();
         for (unsigned i_out=0; i_out<size; ++i_out) {
-            *(it_out + i_out) += weight * (*(it_bufferBegin + i_out));
+            it_out[i_out] += weight * it_bufferBegin[i_out];
         }
     } // for item in nodesAndWeights
 }
