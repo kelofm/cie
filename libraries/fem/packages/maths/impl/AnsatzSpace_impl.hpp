@@ -166,10 +166,10 @@ inline void AnsatzSpace<TScalarExpression,Dimension>::evaluate(ConstIterator it_
 
 
 template <class TScalarExpression, unsigned Dimension>
-AnsatzSpaceDerivative<TScalarExpression,Dimension>
+typename AnsatzSpace<TScalarExpression,Dimension>::Derivative
 AnsatzSpace<TScalarExpression,Dimension>::makeDerivative() const
 {
-    return AnsatzSpaceDerivative<TScalarExpression,Dimension>(*this);
+    return Derivative(*this);
 }
 
 

@@ -78,6 +78,8 @@ public:
 
     using AnsatzSet = DynamicArray<TScalarExpression>;
 
+    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dimension>;
+
 public:
     AnsatzSpace() noexcept;
 
@@ -89,7 +91,7 @@ public:
                   ConstIterator it_argumentEnd,
                   Iterator it_out) const;
 
-    AnsatzSpaceDerivative<TScalarExpression,Dimension> makeDerivative() const;
+    Derivative makeDerivative() const;
 
     unsigned size() const noexcept;
 
