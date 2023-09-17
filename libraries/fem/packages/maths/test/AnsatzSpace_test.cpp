@@ -4,7 +4,6 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/Polynomial.hpp"
-#include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/maths/inc/ProjectiveTransform.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
