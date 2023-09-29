@@ -2,13 +2,16 @@
 #include "packages/testing/inc/essentials.hpp"
 #include "packages/macros/inc/exceptions.hpp"
 
+// --- STL Includes ---
+#include <iostream>
+
 
 namespace cie {
 
 
 namespace exception {
 
-void test_inner() 
+void test_inner()
 {
     CIE_BEGIN_EXCEPTION_TRACING
     CIE_THROW( DivisionByZeroException, "test" )
@@ -41,7 +44,7 @@ CIE_TEST_CASE( "Exception tracing", "[macros]" )
     {
         std::cout << r_exception.what() << std::endl;
     }
-    
+
 }
 
 

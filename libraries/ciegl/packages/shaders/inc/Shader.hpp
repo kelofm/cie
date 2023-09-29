@@ -13,7 +13,7 @@
 
 // --- STL Includes ---
 #include <string>
-#include <iostream>
+#include <iosfwd>
 #include <memory>
 #include <filesystem>
 

@@ -17,6 +17,7 @@
 
 // --- STL Includes ---
 #include <ranges>
+#include <iostream>
 
 
 namespace cie::fem {

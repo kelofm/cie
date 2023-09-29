@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iterator>
+#include <iostream>
 
 
 namespace cie::utils {

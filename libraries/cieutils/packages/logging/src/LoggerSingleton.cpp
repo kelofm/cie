@@ -3,9 +3,11 @@
 #include "packages/macros/inc/exceptions.hpp"
 #include "cmake_variables.hpp"
 
-
 // --- Internal Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
+
+// --- STL Includes ---
+#include <iostream>
 
 
 namespace cie::utils {

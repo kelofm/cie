@@ -6,7 +6,7 @@
 
 // --- STL Includes ---
 #include <sstream>
-#include <iostream>
+#include <iosfwd>
 
 
 namespace cie::concepts {
