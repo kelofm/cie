@@ -2,7 +2,7 @@
 #define CIE_UTILS_PARAMETER_PACK_ARGUMENT_MAPPER_IMPL_HPP
 
 // --- Utility Includes ---
-#include "packages/macros/inc/exceptions.hpp"
+#include "packages/compile_time/packages/parameter_pack/inc/ArgumentMapper.hpp"
 
 
 namespace cie::ct {
@@ -74,23 +74,6 @@ inline TReturn
 ArgumentMapper<TDefaults...>::mapImpl(TFunction&& r_function, std::tuple<TSpecified...>&&)
 {
     return std::apply(std::forward<TFunction>(r_function), Tuple(_defaults));
-}
-
-
-template <class ...TDefaults>
-template <class TReturn, class TFunction, class ...TSpecified>
-requires concepts::AppliableWith<TFunction,TDefaults...>
-inline TReturn
-ArgumentMapper<TDefaults...>::map(TFunction&& r_function, TSpecified&&... r_specified)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    return this->mapImpl<TReturn>(
-        std::forward<TFunction>(r_function),
-        std::tuple<TSpecified&&...>(std::forward<TSpecified>(r_specified)...)
-    );
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 

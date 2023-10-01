@@ -26,19 +26,20 @@ namespace cie::concepts::io {
 
 template <class T>
 concept SupportedBase
-=  std::same_as<typename std::decay<T>::type, bool>
-|| std::same_as<typename std::decay<T>::type, int>
-|| std::same_as<typename std::decay<T>::type, long int>
-|| std::same_as<typename std::decay<T>::type, Size>
-|| std::same_as<typename std::decay<T>::type, float>
-|| std::same_as<typename std::decay<T>::type, double>
-|| std::same_as<typename std::decay<T>::type, std::string>
-|| std::same_as<typename std::decay<T>::type, cie::io::JSONObject>;
+=  std::same_as<std::decay_t<T>, bool>
+|| std::same_as<std::decay_t<T>, int>
+|| std::same_as<std::decay_t<T>, long int>
+|| std::same_as<std::decay_t<T>, long long>
+|| std::same_as<std::decay_t<T>, Size>
+|| std::same_as<std::decay_t<T>, float>
+|| std::same_as<std::decay_t<T>, double>
+|| std::same_as<std::decay_t<T>, std::string>
+|| std::same_as<std::decay_t<T>, cie::io::JSONObject>;
 
 template <class T>
 concept SupportedType
 =  SupportedBase<T>
-|| (Container<T> && SupportedBase<typename std::decay<T>::type::value_type>);
+|| (Container<std::decay_t<T>> && SupportedBase<typename std::decay_t<T>::value_type>);
 } // namespace cie::concepts::detail
 
 
@@ -182,14 +183,14 @@ public:
      *  @details implicitly converts char arrays to std::string
      */
     JSONObject& add(const std::string& r_key,
-                     const std::string& r_value,
-                     bool allowOverwrite = false);
+                    const std::string& r_value,
+                    bool allowOverwrite = false);
 
     /// Create a new item with the specified key and value
     template <concepts::io::SupportedType ValueType>
     JSONObject& add(const std::string& r_key,
-                     const ValueType& r_value,
-                     bool allowOverwrite = false);
+                    const ValueType& r_value,
+                    bool allowOverwrite = false);
 
     /** Set the json value to the specified string
      *  @details implicitly converts char arrays to std::string

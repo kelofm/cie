@@ -79,7 +79,7 @@ private:
 
 
 #else
-struct MPIDistributedImpl {};
+class MPIDistributedImpl {};
 #endif
 
 

@@ -4,6 +4,9 @@
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
 
+// --- STL Includes ---
+#include <iosfwd>
+
 
 namespace cie::mpi {
 
@@ -28,20 +31,23 @@ public:
 
     RankID& operator=(const RankID& r_rhs) noexcept = default;
 
+    bool isMain() const noexcept;
+
     friend bool operator==(RankID left, RankID right) noexcept;
 
     explicit operator std::string() const;
 
-    operator int() const;
+    explicit operator int() const;
 
 private:
     int getInt() const noexcept;
 
-    Ref<int> getInt() noexcept;
-
 private:
     int _id;
 };
+
+
+Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, RankID id);
 
 
 using Color = int;

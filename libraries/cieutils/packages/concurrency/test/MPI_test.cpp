@@ -22,7 +22,7 @@ CIE_TEST_CASE("MPI", "[concurrency]")
         } else {
             int message;
             mpi.receive(message, mpi.getMasterRankID());
-            int id = mpi.getRankID();
+            const int id = static_cast<int>(mpi.getRankID());
             CIE_TEST_CHECK(message == (id+1) * (id+1));
         }
     }

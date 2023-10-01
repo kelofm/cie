@@ -19,6 +19,14 @@ ThreadPool<TStorage>::ThreadPool(Ref<ThreadPoolBase> r_pool)
 
 
 template <class TStorage>
+ThreadPool<TStorage>::ThreadPool(Ref<ThreadPoolBase> r_pool, RightRef<TStorage> r_storage)
+    : _r_pool(r_pool),
+      _storage(r_pool, std::move(r_storage))
+{
+}
+
+
+template <class TStorage>
 ThreadPool<TStorage>::ThreadPool(Ref<ThreadPoolBase> r_pool, Ref<const TStorage> r_storage)
     : _r_pool(r_pool),
       _storage(r_pool, r_storage)
@@ -128,6 +136,14 @@ inline Ref<const ThreadPoolStorage<TStorage>>
 ThreadPool<TStorage>::getStorage() const noexcept
 {
     return _storage;
+}
+
+
+
+template <class TStorage>
+Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const ThreadPool<TStorage>> r_pool)
+{
+    return r_stream << r_pool._r_pool;
 }
 
 

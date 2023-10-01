@@ -33,12 +33,10 @@ void MPISerialImpl::sendAndReceive(Out send,
                                    RankID receiveFrom,
                                    MessageTag tag)
 {
-    CIE_CHECK(
-        !sendTo && !receiveFrom,
-        "send-receive operation from " << receiveFrom
-        << " to " << sendTo << " with tag " << tag
-        << " on serial MPI"
-    )
+    CIE_CHECK(sendTo.isMain() && receiveFrom.isMain(),
+              "send-receive operation from " << receiveFrom
+                << " to " << sendTo << " with tag " << tag
+                << " on serial MPI")
     CIE_OUT_OF_RANGE_CHECK(send.second == receive.second)
     std::memcpy(receive.first, send.first, receive.second);
 }
@@ -48,11 +46,9 @@ void MPISerialImpl::broadcast(In,
                               RankID source,
                               MessageTag tag)
 {
-    CIE_CHECK(
-        !source,
-        "broadcast operation from " << source
-        << " with tag " << tag << " on serial MPI"
-    )
+    CIE_CHECK(source.isMain(),
+              "broadcast operation from " << source
+                << " with tag " << tag << " on serial MPI")
 }
 
 

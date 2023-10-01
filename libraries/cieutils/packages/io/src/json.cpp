@@ -238,18 +238,14 @@ struct SetGetTemplate
                     const ValueType& r_value)
     {
         CIE_BEGIN_EXCEPTION_TRACING
-
         r_json = r_value;
-
         CIE_END_EXCEPTION_TRACING
     }
 
     static ValueType as(const nlohmann::json& r_json)
     {
         CIE_BEGIN_EXCEPTION_TRACING
-
         return r_json.get<ValueType>();
-
         CIE_END_EXCEPTION_TRACING
     }
 };
@@ -262,18 +258,14 @@ struct SetGetTemplate<JSONObject>
                      const JSONObject& r_value)
     {
         CIE_BEGIN_EXCEPTION_TRACING
-
         r_json = r_value.contents();
-
         CIE_END_EXCEPTION_TRACING
     }
 
     static JSONObject as(const nlohmann::json& r_json)
     {
         CIE_BEGIN_EXCEPTION_TRACING
-
         return JSONObject(r_json.dump());
-
         CIE_END_EXCEPTION_TRACING
     }
 };
@@ -340,6 +332,29 @@ struct TypeQueryTemplate<long int>
     static JSONObject addDefault(JSONObject& r_json,
                                   JSONObject::content_type& r_contents,
                                   const std::string& r_key)
+    {
+        CIE_BEGIN_EXCEPTION_TRACING
+
+        r_contents[r_key] = 0;
+        return JSONObject(
+            &r_contents[r_key],
+            &r_json.root()
+        );
+
+        CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<long long>
+{
+    static bool is(const JSONObject& r_json)
+    { return r_json.contents().is_number_integer(); }
+
+    static JSONObject addDefault(JSONObject& r_json,
+                                 JSONObject::content_type& r_contents,
+                                 const std::string& r_key)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
@@ -758,6 +773,7 @@ JSONObject JSONObject::TypeQuery<ValueType>::addDefault(JSONObject& r_json,
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(Size)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(int)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(long int)
+CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(long long)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(float)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(double)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(std::string)

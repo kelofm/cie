@@ -96,7 +96,7 @@ ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor& r_visitFunctor) const
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
 template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor, concepts::ThreadPool TPool>
 inline void
-ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor& r_visitFunctor, TPool& r_pool) const
+ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor&, TPool&) const
 {
     CIE_THROW(NotImplementedException, "Multithreaded node visiting is not implemented yet")
 }
