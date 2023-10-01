@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <limits>
+#include <iostream>
 
 
 namespace cie::gl {
