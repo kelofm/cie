@@ -59,9 +59,9 @@ private:
 
         Iterator(Ref<const Iterator> r_rhs) = default;
 
-        Ref<Iterator> operator=(RightRef<Iterator> r_rhs) noexcept = default;
+        Iterator& operator=(Iterator&& r_rhs) noexcept = default;
 
-        Ref<Iterator> operator=(Ref<const Iterator> r_rhs) = default;
+        Iterator& operator=(const Iterator& r_rhs) = default;
 
         const_reference operator*() const
         {return _wrapped->second;}

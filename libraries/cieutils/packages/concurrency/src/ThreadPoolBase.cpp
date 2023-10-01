@@ -6,7 +6,8 @@
 // --- STL Includes ---
 #include <algorithm>
 #include <cstdlib>
-#include <stdlib.h>
+#include <cstdlib>
+#include <iostream>
 
 
 namespace cie::mp {
@@ -198,6 +199,12 @@ Size ThreadPoolBase::threadIndex() const
 Ref<const ThreadPoolBase::ThreadContainer> ThreadPoolBase::threads() const
 {
     return _threads;
+}
+
+
+Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const ThreadPoolBase> r_pool)
+{
+    return r_stream << "Thread pool of size " << r_pool.size();
 }
 
 

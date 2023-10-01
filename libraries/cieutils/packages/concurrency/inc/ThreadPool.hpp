@@ -9,6 +9,7 @@
 
 // --- STL Includes ---
 #include <utility> // std::reference_wrapper
+#include <iosfwd>
 
 
 namespace cie::mp {
@@ -30,9 +31,11 @@ public:
     CIE_DEFINE_CLASS_POINTERS(ThreadPool)
 
 public:
-    ThreadPool(Ref<ThreadPoolBase> p_pool);
+    ThreadPool(Ref<ThreadPoolBase> r_pool);
 
     ThreadPool(const TStorage& r_storage);
+
+    ThreadPool(Ref<ThreadPoolBase> r_pool, RightRef<TStorage> r_storage);
 
     ThreadPool(Ref<ThreadPoolBase> r_pool, Ref<const TStorage> r_storage);
 
@@ -73,6 +76,9 @@ public:
 
     /// @brief Provides immutable access to the thread local storage of all threads.
     Ref<const ThreadPoolStorage<TStorage>> getStorage() const noexcept;
+
+    template <class TS>
+    friend Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const ThreadPool<TS>> r_pool);
 
 private:
     std::reference_wrapper<ThreadPoolBase> _r_pool;
