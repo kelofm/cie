@@ -6,7 +6,7 @@
 
 // --- STL Includes ---
 #include <fstream>
-#include <iostream>
+#include <iosfwd>
 #include <deque>
 #include <memory>
 #include <string>

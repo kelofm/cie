@@ -6,7 +6,7 @@
 #include "packages/types/inc/tags.hpp"
 
 // --- STL Includes ---
-#include <iostream>
+#include <iosfwd>
 
 
 namespace cie::io {
