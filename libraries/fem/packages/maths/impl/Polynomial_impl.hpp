@@ -5,7 +5,7 @@
 #include "packages/maths/inc/Polynomial.hpp"
 
 // --- Utility Includes ---
-#include "packages/maths/inc/polynomial.hpp"
+#include "packages/maths/inc/polynomial_evaluation.hpp"
 #include "packages/macros/inc/exceptions.hpp"
 
 
