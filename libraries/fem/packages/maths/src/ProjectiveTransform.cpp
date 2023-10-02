@@ -197,8 +197,7 @@ ProjectiveCoefficientsSingleton<TValue,Dimension>::_object;
 template <class TValue, unsigned Dimension>
 struct ComputeProjectiveMatrix
 {
-    static void compute(Ptr<TValue> p_transformedBegin,
-                        Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix> r_matrix)
+    static void compute(Ptr<TValue>, Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>)
     {
         throw NotImplementedException("","");
     }
