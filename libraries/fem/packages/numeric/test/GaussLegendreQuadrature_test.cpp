@@ -43,8 +43,7 @@ CIE_TEST_CASE( "GaussLegendreQuadrature", "[numeric]" )
         CIE_TEST_REQUIRE(quadrature.nodes().size() == integrationOrder);
         CIE_TEST_REQUIRE(quadrature.weights().size() == integrationOrder);
 
-        for (Size index=0; index<integrationOrder; ++index)
-        {
+        for (Size index=0; index<integrationOrder; ++index) {
             CIE_TEST_CHECK(quadrature.nodes()[index] == Approx(reference.first[index]).margin(maxAbsoluteError));
             CIE_TEST_CHECK(quadrature.weights()[index] == Approx(reference.second[index]).margin(maxAbsoluteError));
         }
@@ -147,8 +146,7 @@ CIE_TEST_CASE( "GaussLegendreQuadrature", "[numeric]" )
         CIE_TEST_REQUIRE(quadrature.nodes().size() == integrationOrder);
         CIE_TEST_REQUIRE(quadrature.weights().size() == integrationOrder);
 
-        for (Size index=0; index<integrationOrder; ++index)
-        {
+        for (Size index=0; index<integrationOrder; ++index) {
             CIE_TEST_CHECK(quadrature.nodes()[index] == Approx(reference.first[index]).margin(maxAbsoluteError));
             CIE_TEST_CHECK(quadrature.weights()[index] == Approx(reference.second[index]).margin(maxAbsoluteError));
         }

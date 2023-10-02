@@ -1,3 +1,5 @@
+#define __STDCPP_WANT_MATH_SPEC_FUNCS__ 1
+
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
 
@@ -12,6 +14,66 @@
 #include <numbers>
 #include <functional>
 #include <limits>
+
+#if __STDCPP_MATH_SPEC_FUNCS__ < 201003L // I hate clang
+
+#ifndef __clang__
+static_assert(false, "terribleLegendre is supposed to replace std::legendre exclusively on clang");
+#endif
+
+#include "tsl/robin_map.h"
+
+/** @brief Naive recursive evaluation of a Legendre polynomial.
+ *  @details This function directly uses Legendre polynomials'
+ *           recurrence relation to compute their values at the
+ *           given argument in [-1,1]. The recurrence relation
+ *           reads:
+ *           @f[
+ *              p_0(x) &= 1 \
+ *              p_1(x) &= x \
+ *              p_k(x) &= \frac{2(k-1)+1}{k} x p_{k-1}(x)
+ *                        -  \frac{k-1}{k}p_{k-2}(x)
+ *           @f]
+ *  @note Both performance and accuracy are terrible. Ideally,
+ *        one would use the standard implementation instead, but
+ *        clang still hasn't implemented mathematical special
+ *        functions that have been part of the standard since C++17.
+ *  @todo Replace @a terribleLegendre with @ref std::legendre once
+ *        it gets implemented in clang's standard library, or use
+ *        the boost implementation instead.
+ */
+long double terribleLegendre(std::size_t order,
+                             long double x,
+                             tsl::robin_map<std::size_t,long double>& r_cache)
+{
+    if (order == 0) {
+        return 1.0;
+    } else if (order == 1) {
+        return x;
+    } else {
+        const auto it = r_cache.find(order);
+        if (it == r_cache.end()) {
+            const long double prev = terribleLegendre(order - 1, x, r_cache);
+            const long double prevPrev = terribleLegendre(order - 2, x, r_cache);
+            const long double current = (2 * (order - 1) + 1) / (long double)order * x * prev
+                                      - (order - 1) / (long double)order * prevPrev;
+            r_cache.emplace(order, current);
+            return current;
+        } else {
+            return it->second;
+        }
+    }
+}
+
+namespace std {
+double legendre(size_t order, double x)
+{
+    tsl::robin_map<std::size_t,long double> cache;
+    return terribleLegendre(order, x, cache);
+}
+} // namespace std
+
+#endif
 
 
 namespace cie::fem {
@@ -28,6 +90,7 @@ struct GaussLegendreInitializer
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
+        CIE_CHECK(0 < integrationOrder, "the integration order must be positive")
         CIE_CHECK(0 < maxAbsoluteError, "the maximum absolute node error must positive")
         CIE_CHECK(0 < maxIterations, "the maximum number of Newton iterations must be at least 1")
 
@@ -73,7 +136,7 @@ struct GaussLegendreInitializer
                 legendreDerivative /= oneMinusNode2;
 
                 // Check convergence
-                if (std::abs(legendreValue) < maxAbsoluteError) { // TODO: this is incorrect => check node position error instead of value
+                if (std::abs(legendreValue) < maxAbsoluteError) { /// @todo this is incorrect => check node position error instead of value
                     converged = true;
                     break;
                 }
@@ -83,12 +146,11 @@ struct GaussLegendreInitializer
                 oneMinusNode2 = 1 - node*node;
             }
 
-            if (!converged) {
-                CIE_THROW(Exception, "Computation of Gauss-Legendre nodes failed to converge!")
-            }
+            CIE_CHECK(converged,
+                      "Computation of Gauss-Legendre nodes failed to converge within "
+                      << maxIterations << " iterations for node " << index << "\n")
 
             T weight = 2 / legendreDerivative / legendreDerivative / oneMinusNode2;
-
             Size symmetricIndex       = integrationOrder - index - 1;
             r_nodes[index]            = node;
             r_weights[index]          = weight;

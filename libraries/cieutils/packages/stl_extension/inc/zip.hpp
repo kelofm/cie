@@ -151,7 +151,7 @@ private:
             return std::get<Index>(r_lhs) == std::get<Index>(r_rhs);
         }
 
-        static bool isLess(const IteratorTuple& r_lhs, const IteratorTuple& r_rhs, bool all = true)
+        static bool isLess(const IteratorTuple& r_lhs, const IteratorTuple& r_rhs)
         {
             // Assume that one check yields the same result for all stored iterators
             return std::get<Index>(r_lhs) < std::get<Index>(r_rhs);

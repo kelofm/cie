@@ -85,8 +85,8 @@ case "$(uname -s)" in
         toolchainBin="${toolchainRoot}/bin"
         toolchainLib="${toolchainRoot}/lib"
         toolchainInclude="${toolchainRoot}/include"
-        cc="$toolchainBin/clang"
-        cxx="$toolchainBin/clang++"
+        export cc="$toolchainBin/clang"
+        export cxx="$toolchainBin/clang++"
         ;;
     \?)
         echo "Error: unsupported OS $(uname -s)"

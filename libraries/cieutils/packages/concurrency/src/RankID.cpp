@@ -1,6 +1,9 @@
 // --- Utility Includes ---
 #include "packages/concurrency/inc/RankID.hpp"
 
+// --- STL Includes ---
+#include <iostream>
+
 
 namespace cie::mpi {
 
@@ -13,7 +16,7 @@ RankID::operator std::string() const
 
 Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, RankID id)
 {
-    return r_stream << (std::string)id;
+    return r_stream << int(id);
 }
 
 

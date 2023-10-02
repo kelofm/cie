@@ -80,7 +80,7 @@ TValue evaluatePolynomialHornerCompound(TValue argument, TItBegin it_begin, TItE
 
 } // namespace cie::utils
 
-#include "packages/maths/impl/polynomial_impl.hpp"
+#include "packages/maths/impl/polynomial_evaluation_impl.hpp"
 
 
 #endif

@@ -6,7 +6,6 @@
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
 
 // --- STL Includes ---
-#include <bits/iterator_concepts.h>
 #include <iterator>
 
 

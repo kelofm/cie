@@ -44,9 +44,9 @@ private:
     using Pool = ThreadPool<Storage>;
 
 public:
-    ParallelFor(ParallelFor&& r_rhs) = default;
+    ParallelFor(ParallelFor&& r_rhs) noexcept = default;
 
-    ParallelFor& operator=(ParallelFor&& r_rhs) = default;
+    ParallelFor& operator=(ParallelFor&& r_rhs) noexcept = default;
 
     /** @brief Construct a parallel for object with thread local storage.
      *
@@ -60,7 +60,22 @@ public:
      *           (after the index or container item).
      */
     template <class ...TArgs>
-    requires (!std::is_same_v<std::tuple<typename std::decay<TArgs>::type...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
+    requires (!std::is_same_v<std::tuple<typename std::decay_t<TArgs>...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
+    ParallelFor(Ref<ThreadPoolBase> r_pool, TArgs&&... r_args);
+
+    /** @brief Construct a parallel for object with thread local storage.
+     *
+     *  @tparam TArgs: parameter pack of thread local storage types.
+     *  @param r_args: initializers for the thread local storages.
+     *
+     *  @details Each thread's local storage is initialized with the provided values,
+     *           which is semantically equivalent to @c firstPrivate in OpenMP.
+     *           The provided arguments are @b copied to each thread's local storage.
+     *           Target functions must accept all arguments in matching order
+     *           (after the index or container item).
+     */
+    template <class ...TArgs>
+    requires (!std::is_same_v<std::tuple<typename std::decay_t<TArgs>...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
     ParallelFor(TArgs&&... r_args);
 
     /** @brief Create a parallel for construct with initialized thread-local variables.
@@ -73,7 +88,7 @@ public:
      *  @note This is a factory function to help with reducing template clutter.
      */
     template <class ...TArgs>
-    static ParallelFor<TIndex,ThreadStorage<typename std::remove_reference<TArgs>::type...>>
+    ParallelFor<TIndex,ThreadStorage<typename std::remove_reference_t<TArgs>...>>
     firstPrivate(TArgs&&... r_args);
 
     /// @brief Set the ThreadPool that will be used during the for loop.
@@ -83,60 +98,52 @@ public:
     void setPool(Ref<Pool> r_pool);
 
     /** @brief Execute an indexed for loop.
-     *
-     *  @param indexMin index begin
-     *  @param indexMax index end
-     *  @param stepSize loop index increment value
-     *  @param r_function target function to execute at each iteration
+     *  @tparam TFunction Function to execute at each iteration. Must be callable
+     *          with the index type followed by thread local storage types as
+     *          arguments.
+     *  @param indexMin index begin.
+     *  @param indexMax index end.
+     *  @param stepSize loop index increment value.
+     *  @param r_function target function to execute at each iteration.
      */
+    template <class TFunction>
     ParallelFor& operator()(TIndex indexMin,
                             TIndex indexMax,
                             TIndex stepSize,
-                            IndexLoopFunction&& r_function);
+                            Ref<const TFunction> r_function);
 
     /** @brief Execute an indexed for loop beginning from 0.
-     *
+     *  @tparam TFunction Function to execute at each iteration. Must be callable
+     *          with the index type followed by thread local storage types as
+     *          arguments.
      *  @param indexMax index end
      *  @param r_function target function to execute at each iteration
      */
+    template <class TFunction>
     ParallelFor& operator()(TIndex indexMax,
-                            IndexLoopFunction&& r_function);
+                            Ref<const TFunction> r_function);
 
     /** @brief Execute a range-based for loop over a container.
-     *
+     *  @tparam TFunction Function to execute at each iteration. Must be callable
+     *          with the container's value type followed by thread local storage
+     *          types as arguments.
      *  @param r_container container holding the items to loop through
      *  @param r_function target function to execute at each iteration
      */
-    template <concepts::Container TContainer>
-    ParallelFor& operator()(TContainer& r_container,
-                            ObjectLoopFunction<typename TContainer::value_type>&& r_function);
+    template <concepts::Container TContainer, class TFunction>
+    ParallelFor& operator()(Ref<TContainer> r_container,
+                            Ref<const TFunction> r_function);
 
     /** @brief Execute a range-based for loop over a const container.
-     *
+     *  @tparam TFunction Function to execute at each iteration. Must be callable
+     *          with the container's value type followed by thread local storage
+     *          types as arguments.
      *  @param r_container container holding the items to loop through
      *  @param r_function target function to execute at each iteration
      */
-    template <concepts::Container TContainer>
-    ParallelFor& operator()(const TContainer& r_container,
-                            ConstObjectLoopFunction<typename TContainer::value_type>&& r_function);
-
-    /** @brief Execute a range-based for loop over a container.
-     *
-     *  @param r_container container holding the items to loop through
-     *  @param r_function target function to execute at each iteration
-     */
-    template <concepts::Container TContainer>
-    ParallelFor& operator()(TContainer& r_container,
-                            ObjectLoopFunction<typename TContainer::value_type>& r_function);
-
-    /** @brief Execute a range-based for loop over a const container.
-     *
-     *  @param r_container container holding the items to loop through
-     *  @param r_function target function to execute at each iteration
-     */
-    template <concepts::Container TContainer>
-    ParallelFor& operator()(const TContainer& r_container,
-                            ConstObjectLoopFunction<typename TContainer::value_type>& r_function);
+    template <concepts::Container TContainer, class TFunction>
+    ParallelFor& operator()(Ref<const TContainer> r_container,
+                            Ref<const TFunction> r_function);
 
     Ref<const Pool> getPool() const noexcept;
 
@@ -147,15 +154,22 @@ protected:
                                       TIndex indexMax,
                                       TIndex stepSize);
 
-    void execute(const IndexPartition& r_indexPartition,
+    template <class TFunction>
+    void execute(Ref<const IndexPartition> r_indexPartition,
                  TIndex stepSize,
-                 IndexLoopFunction&& r_function);
+                 Ref<const TFunction> r_function);
 
-    template <concepts::Container TContainer>
-    void execute(const IndexPartition& r_indexPartition,
+    template <concepts::Container TContainer, class TFunction>
+    void execute(Ref<const IndexPartition> r_indexPartition,
                  TIndex stepSize,
-                 TContainer& r_container,
-                 ObjectLoopFunction<typename TContainer::value_type>&& r_function);
+                 Ref<TContainer> r_container,
+                 Ref<const TFunction> r_function);
+
+    template <concepts::Container TContainer, class TFunction>
+    void execute(Ref<const IndexPartition> r_indexPartition,
+                 TIndex stepSize,
+                 Ref<const TContainer> r_container,
+                 Ref<const TFunction> r_function);
 
 private:
     Pool _pool;

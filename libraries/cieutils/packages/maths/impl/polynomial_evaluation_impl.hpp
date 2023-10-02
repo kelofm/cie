@@ -2,7 +2,7 @@
 #define CIE_UTILS_MATHS_POLYNOMIAL_IMPL_HPP
 
 // --- Utility Includes ---
-#include "packages/maths/inc/polynomial.hpp"
+#include "packages/maths/inc/polynomial_evaluation.hpp"
 
 // --- STL Includes ---
 #include <cmath>
@@ -17,8 +17,7 @@ inline TValue evaluatePolynomialNaive(const TValue argument, TItBegin it_begin, 
 {
     TValue result = static_cast<TValue>(0);
     TValue power = static_cast<TValue>(1);
-    for (; it_begin!=it_end; ++it_begin)
-    {
+    for (; it_begin!=it_end; ++it_begin) {
         result += power * (*it_begin);
         power *= argument;
     }
@@ -32,11 +31,9 @@ inline TValue evaluatePolynomialHorner(const TValue argument, const TItBegin it_
     TValue result = static_cast<TValue>(0);
 
     // Reverse loop
-    if (it_begin != it_end) [[likely]]
-    {
+    if (it_begin != it_end) [[likely]] {
         --it_end;
-        do
-        {
+        do {
             result *= argument;
             result += *it_end;
         } while (it_end-- != it_begin);
@@ -52,8 +49,7 @@ inline TValue evaluatePolynomialHornerStabilizedNoCheck(TValue argument, TValue 
 {
     TValue result = static_cast<TValue>(0);
 
-    for (; it_begin!=it_end; ++it_begin)
-    {
+    for (; it_begin!=it_end; ++it_begin) {
         result *= argumentInverse;
         result += *it_begin;
     }
@@ -72,13 +68,12 @@ inline TValue evaluatePolynomialHornerStabilized(TValue argument, TItBegin it_be
 {
     TValue result;
     constexpr const TValue threshold = std::numeric_limits<TValue>::is_integer ? static_cast<TValue>(1) : std::numeric_limits<TValue>::epsilon();
-    if (threshold < std::abs(argument)) [[likely]]
-    {
+    if (threshold < std::abs(argument)) [[likely]] {
         const TValue argumentInverse = static_cast<TValue>(1) / argument;
         result = detail::evaluatePolynomialHornerStabilizedNoCheck(argument, argumentInverse, it_begin, it_end);
-    }
-    else
+    } else {
         result = static_cast<TValue>(0);
+    }
 
     return result;
 }
@@ -88,13 +83,12 @@ template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, con
 inline TValue evaluatePolynomialHornerCompound(TValue argument, TItBegin it_begin, TItEnd it_end) noexcept
 {
     TValue result;
-    if (static_cast<TValue>(1) < std::abs(argument))
-    {
+    if (static_cast<TValue>(1) < std::abs(argument)) {
         const TValue argumentInverse = static_cast<TValue>(1) / argument;
         result = detail::evaluatePolynomialHornerStabilizedNoCheck(argument, argumentInverse, it_begin, it_end);
-    }
-    else
+    } else {
         result = evaluatePolynomialHorner(argument, it_begin, it_end);
+    }
 
     return result;
 }

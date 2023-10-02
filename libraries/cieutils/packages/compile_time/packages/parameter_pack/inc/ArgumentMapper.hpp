@@ -3,6 +3,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
+#include "packages/macros/inc/exceptions.hpp"
 #include "packages/compile_time/packages/parameter_pack/inc/Size.hpp"
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
 
@@ -37,7 +38,17 @@ public:
     /// Call the provided function with the specified arguments, filling in the missing arguments with defaults.
     template <class TReturn, class TFunction, class ...TSpecified>
     requires concepts::AppliableWith<TFunction,TDefaults...>
-    TReturn map(TFunction&& r_function, TSpecified&&... r_specified);
+    TReturn map(TFunction&& r_function, TSpecified&&... r_specified)
+    {
+        CIE_BEGIN_EXCEPTION_TRACING
+
+        return this->mapImpl<TReturn>(
+            std::forward<TFunction>(r_function),
+            std::tuple<TSpecified&&...>(std::forward<TSpecified>(r_specified)...)
+        );
+
+        CIE_END_EXCEPTION_TRACING
+    }
 
     template <class TReturn, class TFunction, class TTuple>
     TReturn mapTuple(TFunction&& r_function, TTuple&& r_specified);

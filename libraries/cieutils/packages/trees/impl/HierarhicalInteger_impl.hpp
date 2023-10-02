@@ -261,7 +261,7 @@ HierarchicalInteger<D,TValue>::decayOnce()
         // Equivalent algorithm:
         // Loop through the (binary) digits of the local cell and node.
         // If the cell's digit is greater than that of the node, swap them.
-        Local mask = localCell ^ localNode & localCell;
+        Local mask = localCell ^ (localNode & localCell);
 
         // Recompute the node
         const Cell newCell = this->getCell() + (localCell ^ mask) - localCell;

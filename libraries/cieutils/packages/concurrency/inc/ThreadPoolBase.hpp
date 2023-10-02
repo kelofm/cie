@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <atomic>
+#include <iosfwd>
 
 
 namespace cie::mp {
@@ -113,6 +114,9 @@ private:
 
     std::atomic<bool> _barrier;
 };
+
+
+Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const ThreadPoolBase> r_pool);
 
 
 } // namespace cie::mp

@@ -14,6 +14,12 @@ inline RankID::RankID(int id)
 }
 
 
+inline bool RankID::isMain() const noexcept
+{
+    return _id == 0;
+}
+
+
 inline bool operator==(RankID left, RankID right) noexcept
 {
     return left._id == right._id;
@@ -27,12 +33,6 @@ inline RankID::operator int() const
 
 
 inline int RankID::getInt() const noexcept
-{
-    return _id;
-}
-
-
-inline Ref<int> RankID::getInt() noexcept
 {
     return _id;
 }

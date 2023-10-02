@@ -42,14 +42,14 @@ public:
     using ConstObjectLoopFunction = std::function<void(const TValue&, TArgs&...)>;
 
 public:
+    ThreadStorage(ThreadStorage&& r_rhs) = default;
+
+    ThreadStorage(const ThreadStorage& r_rhs) = default;
+
     template <class ...Ts>
     ThreadStorage(Ts&&... r_args) :
         _values(std::forward<Ts>(r_args)...)
     {}
-
-    ThreadStorage(const ThreadStorage& r_rhs) = default;
-
-    ThreadStorage(ThreadStorage&& r_rhs) = default;
 
     ThreadStorage& operator=(ThreadStorage&& r_rhs) = default;
 

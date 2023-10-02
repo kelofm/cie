@@ -7,22 +7,22 @@
 //#define CATCH_CONFIG_CONSOLE_WIDTH 100
 
 // --- External Includes ---
+#if __has_include(<catch2/catch.hpp>)
 #include <catch2/catch.hpp> // Remove after catch2 v3 becomes available
-//#include "catch2/catch_test_macros.hpp" // Uncomment after catch2 v3 becomes available
-//#include "catch2/catch_approx.hpp" // Uncomment after catch2 v3 becomes available
-//#include "catch2/catch_session.hpp" // Uncomment after catch2 v3 becomes available
+#else
+#include "catch2/catch_test_macros.hpp" // Uncomment after catch2 v3 becomes available
+#include "catch2/catch_approx.hpp" // Uncomment after catch2 v3 becomes available
+#include "catch2/catch_session.hpp" // Uncomment after catch2 v3 becomes available
+namespace cie {
+using Catch::Approx;
+} // namespace cie
+#endif
 
 // --- Internal Includes ---
 #include "packages/macros/inc/testing.hpp"
 #include "packages/macros/inc/detail.hpp"
 
 
-// Uncomment after catch2 v3 becomes available
-//namespace cie {
-//
-//using Catch::Approx;
-//
-//} // namespace cie
 
 #define CIE_TEST_CASE(testCaseName, testCaseTag) TEST_CASE(testCaseName, testCaseTag)
 

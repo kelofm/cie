@@ -23,8 +23,8 @@ public:
     GaussLegendreQuadrature() noexcept = default;
 
     GaussLegendreQuadrature(Size integrationOrder,
-                            NT maxAbsoluteNodeError  = 1e-10,
-                            Size maxNewtonIterations = 10ul);
+                            NT maxAbsoluteNodeError  = 1e-14,
+                            Size maxNewtonIterations = 25ul);
 }; // class GaussLegendreQuadrature
 
 ///@}
