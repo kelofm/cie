@@ -43,6 +43,12 @@ inline constexpr BoundaryID BoundaryID::operator++(int) noexcept
 }
 
 
+inline constexpr void BoundaryID::flip() noexcept
+{
+    _id ^= 1u;
+}
+
+
 inline unsigned BoundaryID::getDimension() const noexcept
 {
     return utils::getNumberOfTrailingZeros(_id & (~1u)) - 1u;

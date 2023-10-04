@@ -34,6 +34,13 @@ public:
      *                      +----------+
      *                       (1, false)
      *           @endcode
+     *           In this example, the order of boundaries is:
+     *           @code
+     *           0: (0, false)
+     *           1: (0,  true)
+     *           2: (1, false)
+     *           3: (1,  true)
+     *           @endcode
      */
     constexpr BoundaryID(unsigned dimension, bool direction);
 
@@ -46,6 +53,9 @@ public:
     /// @details The next boundary is either the positive side of the
     ///          current dimension or the negative side of the next.
     constexpr BoundaryID operator++(int) noexcept;
+
+    /// @brief Flip the boundary to represent the opposite one in the same direction.
+    constexpr void flip() noexcept;
 
     /// @brief Get the dimension index (0:x, 1:y, ...).
     unsigned getDimension() const noexcept;
@@ -62,6 +72,7 @@ public:
     /// @brief Check whether two instances refer to separate boundaries.
     constexpr friend bool operator!=(BoundaryID left, BoundaryID right) noexcept;
 
+    /// @brief Make @ref BoundaryID sortable.
     constexpr friend bool operator<(BoundaryID left, BoundaryID right) noexcept;
 
 private:
