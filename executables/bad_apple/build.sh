@@ -57,8 +57,10 @@ while getopts "hpt:b:i:c:" arg; do
             compiler="$OPTARG"
             ;;
         \?) # Unrecognized argument
-            echo "Error: unrecognized argument $arg"
-            exit 1;;
+            print_help
+            echo "Error: unrecognized argument -$OPTARG"
+            exit 1
+            ;;
     esac
 done
 
@@ -87,16 +89,15 @@ if ! cmake                                                  \
     "-B$buildDir"                                           \
     "-DCMAKE_INSTALL_PREFIX:STRING=$installDir"             \
     "-G${generator}"                                        \
-    "-DCMAKE_BUILD_TYPE:STRING=$buildType"                  \
     "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"                     \
     "$cCacheFlag"                                           \
     ; then
-    exit $?
+    exit 1
 fi
 
 # Build and install
-if ! cmake --build "$buildDir" --target install -j; then
-    exit $?
+if ! cmake --build "$buildDir" --config "$buildType" --target install -j; then
+    exit 1
 fi
 
 if [ $package -eq 1 ]; then

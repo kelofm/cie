@@ -36,7 +36,7 @@ cmakeArguments=""
 cc="gcc"
 cxx="g++"
 
-while getopts "hpt:b:i:c:o:" arg; do
+while getopts ":h p t: b: i: c: o:" arg; do
     case "$arg" in
         h)  # Print help and exit without doing anything
             print_help
@@ -58,9 +58,11 @@ while getopts "hpt:b:i:c:o:" arg; do
         o)  # Append CMake arguments
             cmakeArguments="$cmakeArguments;$OPTARG"
             ;;
-        \?) # Unrecognized argument
-            echo "Error: unrecognized argument $arg"
-            exit 1;;
+        \?)  # Unrecognized argument
+            print_help
+            echo "Error: unrecognized argument -$OPTARG"
+            exit 1
+            ;;
     esac
 done
 
@@ -120,7 +122,6 @@ if ! cmake                                                  \
     "-G${generator}"                                        \
     "-DCMAKE_C_COMPILER:STRING=$cc"                         \
     "-DCMAKE_CXX_COMPILER:STRING=$cxx"                      \
-    "-DCMAKE_BUILD_TYPE:STRING=$buildType"                  \
     "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"                     \
     "-D${projectNameUpper}_BUILD_SHARED_LIBRARY:BOOL=ON"    \
     "-D${projectNameUpper}_BUILD_PYTHON_MODULE:BOOL=ON"     \
@@ -128,12 +129,12 @@ if ! cmake                                                  \
     "$cCacheFlag"                                           \
     $(echo $cmakeArguments | tr '\;' '\n')                  \
     ; then
-    exit $?
+    exit 1
 fi
 
 # Build and install
-if ! cmake --build "$buildDir" --target install -j; then
-    exit $?
+if ! cmake --build "$buildDir" --config "$buildType" --target install -j; then
+    exit 1
 fi
 
 # Package
@@ -144,6 +145,7 @@ if [ $package -eq 1 ]; then
         ninja package
         ninja package_source
     else
+        echo make package
         make package
         make package_source
     fi
