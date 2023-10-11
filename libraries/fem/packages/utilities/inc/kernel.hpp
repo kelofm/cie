@@ -48,6 +48,8 @@ template <Size Dimension, concepts::Numeric NT>
 struct Kernel
 {
     static const Size dimension = Dimension;
+    using Value                 = NT;
+
     using number_type           = NT;
     using dynamic_array         = linalg::EigenMatrix<Eigen::Matrix<NT,Eigen::Dynamic,1>>;
 
