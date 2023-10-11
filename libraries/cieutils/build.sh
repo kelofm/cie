@@ -7,6 +7,7 @@ projectNameUpper=$(printf '%s\n' "$projectName" | awk '{ print toupper($0) }')
 
 print_help() {
     echo "$scriptName - Configure, build, and install $(basename $scriptDir)"
+    echo "Usage: $scriptName [OPTION [ARGUMENT]]"
     echo "-h                : print this help and exit"
     echo "-p                : package after building"
     echo "-t build-type     : build type [Debug, Release, RelWithDebInfo] (default: Release)"
@@ -58,7 +59,7 @@ while getopts ":h p t: b: i: c: o:" arg; do
         o)  # Append CMake arguments
             cmakeArguments="$cmakeArguments;$OPTARG"
             ;;
-        \?)  # Unrecognized argument
+        \?) # Unrecognized argument
             print_help
             echo "Error: unrecognized argument -$OPTARG"
             exit 1
