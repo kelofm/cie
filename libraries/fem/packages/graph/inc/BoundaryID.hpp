@@ -50,6 +50,13 @@ public:
      *           2: (1, false)
      *           3: (1,  true)
      *           @endcode
+     *           In this example, the order of boundaries is:
+     *           @code
+     *           0: (0, false)
+     *           1: (0,  true)
+     *           2: (1, false)
+     *           3: (1,  true)
+     *           @endcode
      */
     constexpr BoundaryID(unsigned dimension, bool direction);
 
