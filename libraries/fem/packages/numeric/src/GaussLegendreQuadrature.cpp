@@ -85,13 +85,12 @@ struct GaussLegendreInitializer
     static std::pair<typename GaussLegendreQuadrature<T>::NodeContainer,
                      typename GaussLegendreQuadrature<T>::WeightContainer>
     getNodesAndWeights(Size integrationOrder,
-                       T maxAbsoluteError,
+                       utils::Comparison<T> comparison,
                        Size maxIterations)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
         CIE_CHECK(0 < integrationOrder, "the integration order must be positive")
-        CIE_CHECK(0 < maxAbsoluteError, "the maximum absolute node error must positive")
         CIE_CHECK(0 < maxIterations, "the maximum number of Newton iterations must be at least 1")
 
         std::pair<typename GaussLegendreQuadrature<T>::NodeContainer, typename GaussLegendreQuadrature<T>::WeightContainer> nodesAndWeights;
@@ -136,7 +135,7 @@ struct GaussLegendreInitializer
                 legendreDerivative /= oneMinusNode2;
 
                 // Check convergence
-                if (std::abs(legendreValue) < maxAbsoluteError) { /// @todo this is incorrect => check node position error instead of value
+                if (comparison.equal(std::abs(legendreValue), T(0))) { /// @todo this is incorrect => check node position error instead of value
                     converged = true;
                     break;
                 }
@@ -182,10 +181,10 @@ struct GaussLegendreInitializer
 
 template <concepts::Numeric NT>
 GaussLegendreQuadrature<NT>::GaussLegendreQuadrature(Size integrationOrder,
-                                                     NT maxAbsoluteNodeError,
+                                                     utils::Comparison<NT> comparison,
                                                      Size maxNewtonIterations)
     : QuadratureBase<NT>(GaussLegendreInitializer<NT>::getNodesAndWeights(integrationOrder,
-                                                                          maxAbsoluteNodeError,
+                                                                          comparison,
                                                                           maxNewtonIterations))
 {
 }
