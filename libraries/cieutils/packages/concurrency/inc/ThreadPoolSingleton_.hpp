@@ -17,7 +17,7 @@ class ThreadPoolSingleton
 public:
     [[nodiscard]] static Ref<ThreadPoolBase> getBase();
 
-    static void shutDown();
+    static void clear();
 
     [[nodiscard]] static ThreadPool<> get();
 

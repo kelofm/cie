@@ -3,19 +3,11 @@
 
 // --- Utility Includes ---
 #include "packages/concurrency/inc/ResourceLoader.hpp"
-#include "packages/concurrency/inc/ThreadPoolSingleton.hpp"
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/macros/inc/logging.hpp"
 
 
 namespace cie::mp {
-
-
-template <class TResource>
-ResourceLoader<TResource>::ResourceLoader()
-    : _pool(ThreadPoolSingleton::get())
-{
-}
 
 
 template <class TResource>

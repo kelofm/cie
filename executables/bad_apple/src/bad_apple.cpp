@@ -5,7 +5,7 @@
 #include "packages/camera/inc/Camera.hpp"
 #include "packages/camera/inc/OrthographicProjection.hpp"
 
-// --- CSG Includes ---
+// --- Geo Includes ---
 #include "packages/primitives/inc/Cube.hpp"
 #include "packages/trees/inc/Cell.hpp"
 #include "packages/trees/inc/SpaceTreeNode.hpp"
@@ -145,6 +145,7 @@ public:
                   const Size height,
                   const Size bufferSize,
                   const bool useGenericTree,
+                  mp::ThreadPoolBase& r_pool,
                   utils::Logger& r_logger)
         : gl::Scene("BadAppleScene",
                     gl::makeVertexShader("coloredRectangleFrame::vertexShader"),
@@ -156,7 +157,8 @@ public:
                     .windowWidth    = width,
                     .windowHeight   = height,
                     .bufferSize     = bufferSize},
-          _threadPool(mp::ThreadPoolSingleton::get())
+          _threadPool(r_pool),
+          _frameQueue(r_pool)
     {
         auto p_camera = this->makeCamera<gl::Camera<gl::OrthographicProjection>>(r_logger);
         this->bindUniform("transformation", p_camera->transformationMatrix());
@@ -212,7 +214,9 @@ public:
     Size updateVertexBuffer(Ref<const gl::Image> r_image, Ref<ContiguousTree> r_root)
     {
         // Define target function
-        const auto target = [&r_image, &r_root, this] (Ref<const ContiguousNode> r_node) -> bool {
+        const auto target = [&r_image, &r_root, this] (Ref<const ContiguousNode> r_node, Size depth) -> bool {
+            if (_settings.maxDepth < depth) return false;
+
             PointType base, lengths;
             r_root.getNodeGeometry(r_node, base.begin(), lengths.begin());
 
@@ -242,7 +246,7 @@ public:
             return false;
         };
 
-        r_root.scan(target, _settings.maxDepth);
+        r_root.scan(target);
 
         // Collect leaf nodes to render
         Size valueCount = 0;
@@ -425,6 +429,9 @@ int main(int argc, char const* argv[])
     const Size width         = args.get<Size>("width");
     const Size height        = args.get<Size>("height");
 
+    mp::ThreadPoolBase threads;
+    mp::ThreadPool<> pool(threads);
+
     // Graphics setup
     auto p_log = std::make_shared<utils::Logger>(getOutputPath() / "bad_apple.log");
     auto p_context = gl::GLFWContextSingleton::get(p_log);
@@ -436,6 +443,7 @@ int main(int argc, char const* argv[])
         height,
         bufferSize,
         args.get<Bool>("generic-tree"),
+        pool,
         *p_log
     );
 

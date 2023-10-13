@@ -46,11 +46,10 @@ private:
 public:
     ParallelFor(ParallelFor&& r_rhs) noexcept = default;
 
-    ParallelFor& operator=(ParallelFor&& r_rhs) noexcept = default;
-
     /** @brief Construct a parallel for object with thread local storage.
      *
      *  @tparam TArgs: parameter pack of thread local storage types.
+     *  @param r_pool: thread pool to use for execution.
      *  @param r_args: initializers for the thread local storages.
      *
      *  @details Each thread's local storage is initialized with the provided values,
@@ -60,23 +59,8 @@ public:
      *           (after the index or container item).
      */
     template <class ...TArgs>
-    requires (!std::is_same_v<std::tuple<typename std::decay_t<TArgs>...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
+    requires (std::is_same_v<std::tuple<typename std::remove_reference_t<std::decay_t<TArgs>>...>,typename TStorage::StorageType>)
     ParallelFor(Ref<ThreadPoolBase> r_pool, TArgs&&... r_args);
-
-    /** @brief Construct a parallel for object with thread local storage.
-     *
-     *  @tparam TArgs: parameter pack of thread local storage types.
-     *  @param r_args: initializers for the thread local storages.
-     *
-     *  @details Each thread's local storage is initialized with the provided values,
-     *           which is semantically equivalent to @c firstPrivate in OpenMP.
-     *           The provided arguments are @b copied to each thread's local storage.
-     *           Target functions must accept all arguments in matching order
-     *           (after the index or container item).
-     */
-    template <class ...TArgs>
-    requires (!std::is_same_v<std::tuple<typename std::decay_t<TArgs>...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
-    ParallelFor(TArgs&&... r_args);
 
     /** @brief Create a parallel for construct with initialized thread-local variables.
      *
@@ -90,12 +74,6 @@ public:
     template <class ...TArgs>
     ParallelFor<TIndex,ThreadStorage<typename std::remove_reference_t<TArgs>...>>
     firstPrivate(TArgs&&... r_args);
-
-    /// @brief Set the ThreadPool that will be used during the for loop.
-    void setPool(RightRef<Pool> r_pool) noexcept;
-
-    /// @brief Set the ThreadPool that will be used during the for loop.
-    void setPool(Ref<Pool> r_pool);
 
     /** @brief Execute an indexed for loop.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -149,7 +127,11 @@ public:
 
     Ref<Pool> getPool() noexcept;
 
-protected:
+private:
+    ParallelFor() = delete;
+
+    ParallelFor& operator=(ParallelFor&& r_rhs) = delete;
+
     IndexPartition makeIndexPartition(TIndex indexMin,
                                       TIndex indexMax,
                                       TIndex stepSize);

@@ -2,11 +2,13 @@
 #define CIE_GL_PLOT_2_MARCHING_CUBES_IMPL_HPP
 
 // -- Linalg Includes ---
-#include "packages/concurrency/inc/ThreadPool.hpp"
 #include "packages/overloads/inc/vectoroperators.hpp"
 
+// --- GL Includes ---
+#include "packages/plot/inc/Plot2_MarchingCubes.hpp"
+
 // --- Utility Includes ---
-#include "packages/concurrency/inc/ThreadPoolSingleton.hpp"
+#include "packages/concurrency/inc/ThreadPool.hpp"
 
 // --- STL Includes ---
 #include <mutex>
@@ -50,9 +52,10 @@ Plot2<TObject>::Plot2(TObject& r_marchingCubes) :
         }
     };
 
-    auto pool = mp::ThreadPoolSingleton::get();
     r_marchingCubes.setOutputFunctor(registerLine);
-    r_marchingCubes.execute(pool);
+    //auto pool = mp::ThreadPoolSingleton::get();
+    //r_marchingCubes.execute(pool);
+    r_marchingCubes.execute();
 
     this->fit(true);
 

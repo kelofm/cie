@@ -2,7 +2,8 @@
 #define CIE_UTILS_PARALLEL_FOR_IMPL_HPP
 
 // --- Utility Includes ---
-#include "packages/concurrency/inc/ThreadPoolSingleton.hpp"
+#include "packages/concurrency/inc/ParallelFor.hpp"
+#include "packages/concurrency/inc/ThreadPool.hpp"
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/macros/inc/checks.hpp"
 
@@ -12,18 +13,12 @@ namespace cie::mp {
 
 template <concepts::Integer TIndex, class TStorage>
 template <class ...TArgs>
-requires (!std::is_same_v<std::tuple<typename std::decay_t<TArgs>...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
+requires (std::is_same_v<
+            std::tuple<typename std::remove_reference_t<std::decay_t<TArgs>>...>,
+            typename TStorage::StorageType // <== tuple of stored types
+          >)
 ParallelFor<TIndex,TStorage>::ParallelFor(Ref<ThreadPoolBase> r_pool, TArgs&&... r_args) :
-    _pool(r_pool, typename Pool::Storage(std::forward<TArgs>(r_args)...))
-{
-}
-
-
-template <concepts::Integer TIndex, class TStorage>
-template <class ...TArgs>
-requires (!std::is_same_v<std::tuple<typename std::decay_t<TArgs>...>,std::tuple<ParallelFor<TIndex,TStorage>>>)
-ParallelFor<TIndex,TStorage>::ParallelFor(TArgs&&... r_args) :
-    _pool(ThreadPoolSingleton::firstPrivate(std::forward<TArgs>(r_args)...))
+    _pool(r_pool, TStorage(std::forward<TArgs>(r_args)...))
 {
 }
 
@@ -36,31 +31,15 @@ ParallelFor<TIndex,TStorage>::firstPrivate(TArgs&&... r_args)
     CIE_BEGIN_EXCEPTION_TRACING
     return ParallelFor<
         TIndex,
-        ThreadStorage<typename std::remove_reference<TArgs>::type...>
-    >(std::forward<TArgs>(r_args)...);
+        ThreadStorage<typename std::remove_reference_t<TArgs>...>
+    >(_pool, std::forward<TArgs>(r_args)...);
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Integer TIndex, class TStorage>
-inline void
-ParallelFor<TIndex,TStorage>::setPool(RightRef<Pool> r_pool) noexcept
-{
-    _pool = std::move(r_pool);
-}
-
-
-template <concepts::Integer TIndex, class TStorage>
-inline void
-ParallelFor<TIndex,TStorage>::setPool(Ref<Pool> r_pool)
-{
-    _pool = r_pool;
-}
-
-
-template <concepts::Integer TIndex, class TStorage>
 template <class TFunction>
-inline ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(TIndex indexMin,
                                          TIndex indexMax,
                                          TIndex stepSize,
@@ -77,7 +56,7 @@ ParallelFor<TIndex,TStorage>::operator()(TIndex indexMin,
 
 template <concepts::Integer TIndex, class TStorage>
 template <class TFunction>
-inline ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(TIndex indexMax,
                                          Ref<const TFunction> r_function)
 {
@@ -92,7 +71,7 @@ ParallelFor<TIndex,TStorage>::operator()(TIndex indexMax,
 
 template <concepts::Integer TIndex, class TStorage>
 template <concepts::Container TContainer, class TFunction>
-inline ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(Ref<TContainer> r_container,
                                          Ref<const TFunction> r_function)
 {
@@ -108,7 +87,7 @@ ParallelFor<TIndex,TStorage>::operator()(Ref<TContainer> r_container,
 
 template <concepts::Integer TIndex, class TStorage>
 template <concepts::Container TContainer, class TFunction>
-inline ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(Ref<const TContainer> r_container,
                                          Ref<const TFunction> r_function)
 {
@@ -123,7 +102,7 @@ ParallelFor<TIndex,TStorage>::operator()(Ref<const TContainer> r_container,
 
 
 template <concepts::Integer TIndex, class TStorage>
-inline Ref<const typename ParallelFor<TIndex,TStorage>::Pool>
+Ref<const typename ParallelFor<TIndex,TStorage>::Pool>
 ParallelFor<TIndex,TStorage>::getPool() const noexcept
 {
     return _pool;
@@ -131,7 +110,7 @@ ParallelFor<TIndex,TStorage>::getPool() const noexcept
 
 
 template <concepts::Integer TIndex, class TStorage>
-inline Ref<typename ParallelFor<TIndex,TStorage>::Pool>
+Ref<typename ParallelFor<TIndex,TStorage>::Pool>
 ParallelFor<TIndex,TStorage>::getPool() noexcept
 {
     return _pool;
@@ -159,7 +138,7 @@ ParallelFor<TIndex,TStorage>::makeIndexPartition(TIndex indexMin,
     }
 
     // Initialize index blocks
-    TIndex blockSize = (indexMax - indexMin) / stepSize * _pool.size();
+    TIndex blockSize = (indexMax - indexMin) / stepSize / _pool.size();
     blockSize += blockSize % stepSize;
     blockSize = std::max(blockSize, 1ul);
 
@@ -200,7 +179,6 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartition> r_indexPartition
     }
 
     _pool.barrier();
-
     CIE_END_EXCEPTION_TRACING
 }
 

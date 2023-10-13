@@ -20,11 +20,9 @@ public:
     using Value = std::future<TResource>;
 
 public:
-    ResourceLoader();
+    ResourceLoader(RightRef<Pool> r_pool) noexcept;
 
-    ResourceLoader(RightRef<Pool> p_pool) noexcept;
-
-    ResourceLoader(Ref<const Pool> p_pool);
+    ResourceLoader(Ref<const Pool> r_pool);
 
     ResourceLoader(ResourceLoader&& r_rhs) noexcept = default;
 
