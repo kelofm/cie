@@ -20,6 +20,7 @@ namespace cie::utils {
  *  @warning This function does not check for overflows.
  *  @warning This scheme is prone to excessive numerical errors for higher order terms
  *           or large arguments.
+ *  @ingroup cieutils
  */
 template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
 TValue evaluatePolynomialNaive(TValue argument, TItBegin it_begin, const TItEnd it_end) noexcept;
@@ -37,6 +38,7 @@ TValue evaluatePolynomialNaive(TValue argument, TItBegin it_begin, const TItEnd 
  *  @warning This function does not check for overflows.
  *  @warning This scheme can become inaccurate outside the [-1,1] argument range.
  *           Use @ref evaluatePolynomialHornerStabilized in these cases instead.
+ *  @ingroup cieutils
  */
 template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
 TValue evaluatePolynomialHorner(TValue argument, const TItBegin it_begin, TItEnd it_end) noexcept;
@@ -56,6 +58,7 @@ TValue evaluatePolynomialHorner(TValue argument, const TItBegin it_begin, TItEnd
  *  @warning This function does not check for overflows.
  *  @warning This function computes the inverse of @a argument but cuts off the operation
  *           is below machine epsilon, returning 0.
+ *  @ingroup cieutils
  */
 template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
 TValue evaluatePolynomialHornerStabilized(TValue argument, TItBegin it_begin, const TItEnd it_end) noexcept;
@@ -73,6 +76,7 @@ TValue evaluatePolynomialHornerStabilized(TValue argument, TItBegin it_begin, co
  *  @note This scheme has a lower performance outside the [-1,1] argument range.
  *        Use @ref evaluatePolynomialHorner if your arguments are normalized to the [-1,1] range.
  *  @warning This function does not check for overflows.
+ *  @ingroup cieutils
  */
 template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
 TValue evaluatePolynomialHornerCompound(TValue argument, TItBegin it_begin, TItEnd it_end) noexcept;

@@ -48,18 +48,18 @@ namespace cie::io
 {
 
 
-/** Basic interface for a json parser
+/** @brief Basic interface for a json parser
  *  @details supported types for io:
- *      bool
- *      int
- *      cie::Size
- *      float
- *      double
- *      std::string
- *      JSONObject
- *
- *      std::vector of any above except bool
- *      StaticArray of any above with size 1, 2, or 3
+ *           - bool
+ *           - int
+ *           - cie::Size
+ *           - float
+ *           - double
+ *           - std::string
+ *           - JSONObject
+ *           - std::vector of any above except bool
+ *           - StaticArray of any above with size 1, 2, or 3
+ *  @addtogroup cieutils
  */
 class JSONObject
 {
@@ -268,6 +268,7 @@ private:
 }; // class JSONObject
 
 
+/// @addtogroup cieutils
 std::ostream& operator<<(std::ostream& r_stream, const JSONObject& r_json);
 
 

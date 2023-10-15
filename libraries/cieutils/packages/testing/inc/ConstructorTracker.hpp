@@ -11,6 +11,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <class Tag = void>
 class ConstructorTracker
 {

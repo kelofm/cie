@@ -14,6 +14,7 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 template <class T>
 class NoInitWrapper
 {
@@ -76,6 +77,27 @@ Ptr<const T> makePtrTo(Ref<const T> r_t);
 
 template <class T>
 Ptr<T> makePtrTo(Ref<T> r_t);
+
+template <class T>
+struct VoidSafe
+{
+    using RightRef = T&&;
+
+    using Ref = T&;
+
+    using Ptr = T*;
+};
+
+template <class TVoid>
+requires std::is_same_v<std::remove_const_t<TVoid>,void>
+struct VoidSafe<TVoid>
+{
+    using RightRef = void;
+
+    using Ref = void;
+
+    using Ptr = void;
+};
 
 } // namespace cie
 

@@ -103,6 +103,7 @@ private:
 
 
 
+/// @addtogroup cieutils
 template <class TIterator, class TFunction>
 auto makeTransformIterator(TIterator it, const TFunction* p_function)
 {

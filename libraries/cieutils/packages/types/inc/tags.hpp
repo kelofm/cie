@@ -55,6 +55,10 @@ struct Binary;
 struct Text;
 
 
+/// @addtogroup cieutils
+/// @{
+
+
 /// @brief Tag to indicate a void property.
 struct Null : public detail::Tag<0,Null>
 {};
@@ -107,6 +111,9 @@ struct Text : public detail::Tag<7,Text>
 {
     static constexpr detail::Flags getCompatibility();
 };
+
+
+/// @}
 
 
 #undef CIE_MAX_NUMBER_OF_TAGS

@@ -15,7 +15,8 @@
 namespace cie::utils {
 
 
-// Tree base class
+/// Basic tree class.
+/// @addtogroup cieutils
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 class AbsTree
 {

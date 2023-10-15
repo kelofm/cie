@@ -17,6 +17,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 template <class TStorage>
 class ThreadPoolStorage
 {

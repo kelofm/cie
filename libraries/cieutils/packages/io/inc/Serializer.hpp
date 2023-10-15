@@ -16,6 +16,7 @@
 namespace cie::io {
 
 
+/// @addtogroup cieutils
 template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
 class Serializer
 {
@@ -99,9 +100,11 @@ private:
 }; // class Serializer
 
 
+/// @addtogroup cieutils
 using BinarySerializer = Serializer<tags::Binary>;
 
 
+/// @addtogroup cieutils
 using TextSerializer = Serializer<tags::Text>;
 
 

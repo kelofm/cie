@@ -8,6 +8,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <class TFloat>
 class FloatComparison
 {
@@ -27,10 +28,12 @@ private:
 }; // class Comparison
 
 
+/// @addtogroup cieutils
 template <class T>
 class Comparison {};
 
 
+/// @addtogroup cieutils
 template <std::floating_point TFloat>
 class Comparison<TFloat> : public FloatComparison<TFloat>
 {

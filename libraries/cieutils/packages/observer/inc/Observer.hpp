@@ -13,6 +13,7 @@ using ObserverPtr    = std::shared_ptr<Observer>;
 using SubjectPtr     = std::shared_ptr<Subject>;
 
 
+/// @addtogroup cieutils
 class Observer : public std::enable_shared_from_this<Observer>
 {
 public:
