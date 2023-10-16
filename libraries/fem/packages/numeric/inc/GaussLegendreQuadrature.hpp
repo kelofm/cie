@@ -1,8 +1,14 @@
 #ifndef CIE_FEM_NUMERIC_GAUSS_LEGENDRE_QUADRATURE_HPP
 #define CIE_FEM_NUMERIC_GAUSS_LEGENDRE_QUADRATURE_HPP
 
-// --- Internal Includes ---
+// --- Utility Includes ---
+#include "packages/maths/inc/Comparison.hpp"
+
+// --- FEM Includes ---
 #include "packages/numeric/inc/QuadratureBase.hpp"
+
+// --- STL Includes ---
+#include <limits>
 
 
 namespace cie::fem {
@@ -23,8 +29,9 @@ public:
     GaussLegendreQuadrature() noexcept = default;
 
     GaussLegendreQuadrature(Size integrationOrder,
-                            NT maxAbsoluteNodeError  = 1e-14,
-                            Size maxNewtonIterations = 25ul);
+                            utils::Comparison<NT> comparison = {0x100 * std::numeric_limits<NT>::epsilon(),
+                                                                0x100 * std::numeric_limits<NT>::epsilon()},
+                            Size maxNewtonIterations = 50ul);
 }; // class GaussLegendreQuadrature
 
 ///@}

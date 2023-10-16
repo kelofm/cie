@@ -57,6 +57,28 @@ inline void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> r_expr
 }
 
 
+template <concepts::Numeric TValue, unsigned Dimension>
+template <class TOutputIt>
+void Quadrature<TValue,Dimension>::getIntegrationPoints(TOutputIt it_output) const
+{
+    for (const auto& r_item : _nodesAndWeights) {
+        typename Quadrature::Point point;
+        memcpy(point.data(), r_item.data(), Dimension);
+        *it_output++ = std::move(point);
+    }
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+template <class TOutputIt>
+void Quadrature<TValue,Dimension>::getIntegrationWeights(TOutputIt it_output) const
+{
+    for (const auto& r_item : _nodesAndWeights) {
+        *it_output++ = r_item.back();
+    }
+}
+
+
 } // namespace cie::fem
 
 

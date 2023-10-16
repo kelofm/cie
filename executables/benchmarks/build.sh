@@ -125,8 +125,6 @@ if ! cmake                                                  \
     "-DCMAKE_C_COMPILER:STRING=$cc"                         \
     "-DCMAKE_CXX_COMPILER:STRING=$cxx"                      \
     "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"                     \
-    "-D${projectNameUpper}_BUILD_SHARED_LIBRARY:BOOL=ON"    \
-    "-D${projectNameUpper}_BUILD_TESTS:BOOL=ON"             \
     "$cCacheFlag"                                           \
     $(echo $cmakeArguments | tr '\;' '\n')                  \
     ; then
@@ -134,7 +132,7 @@ if ! cmake                                                  \
 fi
 
 # Build and install
-if ! cmake --build "$buildDir" --config "$buildType" --target install -j; then
+if ! cmake --build "$buildDir" --config "$buildType" -j; then
     exit 1
 fi
 

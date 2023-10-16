@@ -20,9 +20,7 @@ public:
     using Loader = ResourceLoader<TResource>;
 
 public:
-    ResourceQueue();
-
-    ResourceQueue(ThreadPoolBase::SharedPointer p_pool);
+    ResourceQueue(Ref<ThreadPoolBase> r_pool);
 
     ResourceQueue(ResourceQueue&& r_rhs) = default;
 

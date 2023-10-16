@@ -26,13 +26,29 @@ public:
      *  @param direction Index of the direction (negative: false, positive: true).
      *  @details Example in 2D:
      *           @code
-     *                        (1,true)
-     *                      +----------+
-     *                      |          |
-     *           (0, false) |          | (0, true)
-     *                      |          |
-     *                      +----------+
-     *                       (1, false)
+     *                              (1, true)
+     *
+     *                                  y
+     *                                  ^
+     *                                  |
+     *                           + ---- 1 ---- +
+     *                           |      |      |
+     *                           |      |      |
+     *           (0, false)  -- -1 ---- + ---- 1 -- >x   (0, true)
+     *                           |      |      |
+     *                           |      |      |
+     *                           + --- -1 ---- +
+     *                                  |
+     *                                  |
+     *
+     *                              (1, false)
+     *           @endcode
+     *           In this example, the order of boundaries is:
+     *           @code
+     *           0: (0, false)
+     *           1: (0,  true)
+     *           2: (1, false)
+     *           3: (1,  true)
      *           @endcode
      *           In this example, the order of boundaries is:
      *           @code
@@ -43,6 +59,46 @@ public:
      *           @endcode
      */
     constexpr BoundaryID(unsigned dimension, bool direction);
+
+    /** @brief Construct from dimension index and direction.
+     *  @param name full name of the boundary consisting of the:
+     *              - direction ("-" or "+")
+     *              - dimension ("x", "y", or "z")
+     *              The current implementation only allows the following names:
+     *              - "-x"
+     *              - "+x"
+     *              - "-y"
+     *              - "+y"
+     *              - "-z"
+     *              - "+z"
+     *  @details Example in 2D:
+     *           @code
+     *                          "+y"
+     *
+     *                            y
+     *                            ^
+     *                            |
+     *                     + ---- 1 ---- +
+     *                     |      |      |
+     *                     |      |      |
+     *           "-x"  -- -1 ---- + ---- 1 -- >x   "+x"
+     *                     |      |      |
+     *                     |      |      |
+     *                     + --- -1 ---- +
+     *                            |
+     *                            |
+     *
+     *                          "-y"
+     *           @endcode
+     *           In this example, the order of boundaries is:
+     *           @code
+     *           0: "-x"
+     *           1: "+x"
+     *           2: "-y"
+     *           3: "+y"
+     *           @endcode
+     */
+    constexpr BoundaryID(const char name[3]);
 
     /// @brief Increment to the next boundary.
     /// @details The next boundary is either the positive side of the

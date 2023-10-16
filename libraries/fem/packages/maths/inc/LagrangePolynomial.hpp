@@ -18,7 +18,7 @@ public:
     LagrangePolynomial() noexcept = default;
 
     /** @brief Construct a Lagrange polynomial on the provided nodes.
-     *  @details The constructed polynomial is of minimal degree that satisfied the following criteria:
+     *  @details The constructed polynomial is of minimal degree that satisfies the following criteria:
      *           - evaluates to 1 at the base node
      *           - vanishes at all other nodes
      *  @param p_nodeBegin: iterator to the first node.

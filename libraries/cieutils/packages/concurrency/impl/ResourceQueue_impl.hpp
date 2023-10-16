@@ -11,17 +11,8 @@ namespace cie::mp {
 
 
 template <class TResource>
-ResourceQueue<TResource>::ResourceQueue()
-    : _loader(),
-      _queue(),
-      _mutex()
-{
-}
-
-
-template <class TResource>
-ResourceQueue<TResource>::ResourceQueue(ThreadPoolBase::SharedPointer p_pool)
-    : _loader(p_pool),
+ResourceQueue<TResource>::ResourceQueue(Ref<ThreadPoolBase> r_pool)
+    : _loader(r_pool),
       _queue(),
       _mutex()
 {

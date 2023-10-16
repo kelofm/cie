@@ -17,6 +17,28 @@ inline constexpr BoundaryID::BoundaryID() noexcept
 }
 
 
+inline constexpr BoundaryID::BoundaryID(const char name[3])
+{
+    bool direction = false;
+    unsigned dimension = 0;
+
+    switch (name[0]) {
+        case '-': {direction = false; break;}
+        case '+': {direction = true; break;}
+        default: throw std::runtime_error("Invalid boundary name");
+    } // switch name[0]
+
+    switch (name[1]) {
+        case 'x': {dimension = 0u; break;}
+        case 'y': {dimension = 1u; break;}
+        case 'z': {dimension = 2u; break;}
+        default: throw std::runtime_error("Invalid boundary name");
+    }
+
+    *this = BoundaryID(dimension, direction);
+}
+
+
 inline constexpr BoundaryID::BoundaryID(unsigned dimension, bool direction)
     : _id((1u << ++dimension) + direction)
 {

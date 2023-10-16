@@ -17,6 +17,7 @@ CIE_TEST_CASE( "GaussLegendreQuadrature", "[numeric]" )
 
     const double maxAbsoluteError = 5e-15;
     const Size maxIterations = 20;
+    const utils::Comparison<double> comparison(5e-15, 1e-14);
 
     {
         CIE_TEST_CASE_INIT("order = 5")
@@ -39,7 +40,7 @@ CIE_TEST_CASE( "GaussLegendreQuadrature", "[numeric]" )
             }
         };
 
-        GaussLegendreQuadrature<double> quadrature(integrationOrder, maxAbsoluteError, maxIterations);
+        GaussLegendreQuadrature<double> quadrature(integrationOrder, comparison, maxIterations);
         CIE_TEST_REQUIRE(quadrature.nodes().size() == integrationOrder);
         CIE_TEST_REQUIRE(quadrature.weights().size() == integrationOrder);
 
@@ -80,7 +81,7 @@ CIE_TEST_CASE( "GaussLegendreQuadrature", "[numeric]" )
             }
         };
 
-        GaussLegendreQuadrature<double> quadrature(integrationOrder, maxAbsoluteError, maxIterations);
+        GaussLegendreQuadrature<double> quadrature(integrationOrder, comparison, maxIterations);
         CIE_TEST_REQUIRE(quadrature.nodes().size() == integrationOrder);
         CIE_TEST_REQUIRE(quadrature.weights().size() == integrationOrder);
 
@@ -142,7 +143,7 @@ CIE_TEST_CASE( "GaussLegendreQuadrature", "[numeric]" )
             }
         };
 
-        GaussLegendreQuadrature<double> quadrature(integrationOrder, maxAbsoluteError, maxIterations);
+        GaussLegendreQuadrature<double> quadrature(integrationOrder, comparison, maxIterations);
         CIE_TEST_REQUIRE(quadrature.nodes().size() == integrationOrder);
         CIE_TEST_REQUIRE(quadrature.weights().size() == integrationOrder);
 
