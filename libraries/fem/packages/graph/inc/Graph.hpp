@@ -7,10 +7,12 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/OptionalRef.hpp"
+#include "packages/stl_extension/inc/NoOpIterator.hpp"
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
 // --- STL Includes ---
 #include <type_traits> // conditional_t
+#include <ranges> // transform_view
 
 
 namespace cie::fem {
@@ -86,9 +88,9 @@ public:
 
     private:
         std::conditional_t<
-            std::is_same_v<std::remove_const_t<TEdgeData>,void>,
+            std::is_same_v<std::remove_const_t<TVertexData>,void>,
             std::tuple<tsl::robin_set<Size>>,
-            std::tuple<tsl::robin_set<Size>,TEdgeData>
+            std::tuple<tsl::robin_set<Size>,TVertexData>
         > _data;
     }; // class Vertex
 
@@ -154,6 +156,42 @@ public:
     OptionalRef<const Edge> findEdge(Size id) const noexcept;
 
     OptionalRef<Edge> findEdge(Size id) noexcept;
+
+    auto vertices() const noexcept
+    {
+        return std::ranges::transform_view(
+            std::ranges::subrange(utils::makeNoOpIterator(_vertices.begin()),
+                                  utils::makeNoOpIterator(_vertices.end())),
+            [](auto it) -> Ref<const Vertex> {return it.second;}
+        );
+    }
+
+    auto vertices() noexcept
+    {
+        return std::ranges::transform_view(
+            std::ranges::subrange(utils::makeNoOpIterator(_vertices.begin()),
+                                  utils::makeNoOpIterator(_vertices.end())),
+            [](auto it) -> Ref<Vertex> {return it.value();}
+        );
+    }
+
+    auto edges() const noexcept
+    {
+        return std::ranges::transform_view(
+            std::ranges::subrange(utils::makeNoOpIterator(_edges.begin()),
+                                  utils::makeNoOpIterator(_edges.end())),
+            [](auto it) -> Ref<const Edge> {return it.second;}
+        );
+    }
+
+    auto edges() noexcept
+    {
+        return std::ranges::transform_view(
+            std::ranges::subrange(utils::makeNoOpIterator(_edges.begin()),
+                                  utils::makeNoOpIterator(_edges.end())),
+            [](auto it) -> Ref<Edge> {return it.value();}
+        );
+    }
 
 private:
     tsl::robin_map<
