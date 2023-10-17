@@ -34,6 +34,21 @@ OptionalRef<typename CopyConstQualifier<
 }
 
 
+template <class TSecond, class TFirst>
+std::conditional_t<
+    std::is_same_v<std::remove_const_t<TSecond>,void>,
+    std::tuple<TFirst>,
+    std::tuple<TFirst,TSecond>
+> makePartiallyInitializedTuple(TFirst&& r_first)
+{
+    if constexpr (std::is_same_v<std::remove_const_t<TSecond>,void>) {
+        return std::tuple<TFirst>(std::forward<TFirst>(r_first));
+    } else {
+        return std::tuple<TFirst,TSecond>(std::forward<TFirst>(r_first), TSecond());
+    }
+}
+
+
 } // namespace impl
 
 
@@ -41,7 +56,7 @@ template <class TVD, class TED>
 Graph<TVD,TED>::Vertex::Vertex(Size id,
                                RightRef<tsl::robin_set<Size>> r_edges) noexcept
     : ItemBase(id),
-      _data(std::move(r_edges))
+      _data(impl::makePartiallyInitializedTuple<TVD>(std::move(r_edges)))
 {}
 
 
@@ -84,7 +99,7 @@ template <class TVD, class TED>
 typename VoidSafe<const TVD>::Ref Graph<TVD,TED>::Vertex::data() const noexcept
 {
     if constexpr (!std::is_same_v<std::remove_const_t<TVD>,void>) {
-        std::get<1>(_data);
+        return std::get<1>(_data);
     }
 }
 
@@ -93,7 +108,7 @@ template <class TVD, class TED>
 typename VoidSafe<TVD>::Ref Graph<TVD,TED>::Vertex::data() noexcept
 {
     if constexpr (!std::is_same_v<std::remove_const_t<TVD>,void>) {
-        std::get<1>(_data);
+        return std::get<1>(_data);
     }
 }
 
@@ -109,7 +124,7 @@ template <class TVD, class TED>
 Graph<TVD,TED>::Edge::Edge(Size id,
                            std::pair<Size,Size> vertices) noexcept
     : ItemBase(id),
-      _data(vertices)
+      _data(impl::makePartiallyInitializedTuple<TED>(vertices))
 {
 }
 
