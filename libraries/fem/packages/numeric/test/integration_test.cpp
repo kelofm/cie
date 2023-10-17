@@ -105,7 +105,7 @@ CIE_TEST_CASE("integration", "[fem]")
         } // if r_node.isLeaf()
     } // for node in tree
 
-    CIE_TEST_CHECK(integral == Approx(/*sphere volume*/ 4.0 / 3.0 * std::numbers::pi /*but only an eight*/ / 8));
+    CIE_TEST_CHECK(integral == Approx(/*sphere volume*/ 4.0 / 3.0 * std::numbers::pi /*but only an eighth*/ / 8));
 }
 
 

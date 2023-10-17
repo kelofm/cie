@@ -61,8 +61,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
-    file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
-    list(INSERT test_sources 0 "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
+    file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp"
+                                   "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp")
 
     find_package(Catch2 REQUIRED)
     add_executable(${PROJECT_NAME}_testrunner ${test_sources})
