@@ -134,8 +134,10 @@ if ! cmake                                                  \
     exit 1
 fi
 
+physicalCores=$(grep "^cpu\\scores" /proc/cpuinfo | uniq |  awk '{print $4}')
+
 # Build and install
-if ! cmake --build "$buildDir" --config "$buildType" --target install -j; then
+if ! cmake --build "$buildDir" --config "$buildType" --target install -j $physicalCores; then
     exit 1
 fi
 
