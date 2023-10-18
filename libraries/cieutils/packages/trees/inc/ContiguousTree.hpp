@@ -19,6 +19,7 @@
 namespace cie::concepts {
 
 
+/// @addtogroup cieutils
 template <class T>
 concept ContiguousTreeNode
 = requires (T instance, const T constInstance)
@@ -42,6 +43,7 @@ concept ContiguousTreeNode
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TParallelTag = tags::Serial>
 class ContiguousTree
 {

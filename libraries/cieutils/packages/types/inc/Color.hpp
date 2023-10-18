@@ -14,6 +14,7 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 class Color
 {
 public:

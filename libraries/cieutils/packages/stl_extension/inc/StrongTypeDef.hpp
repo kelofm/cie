@@ -30,6 +30,7 @@ class StrongTypeDef {};
  *  @note * operator overloads (templated ones especially) need a bit of explicit nudging
  *  to get picked up by the compiler. Also, there's no efficient and general way to get list
  *  initialization working.
+ *  @ingroup cieutils
  */
 template <concepts::Deriveable T, class Tag>
 class StrongTypeDef<T,Tag> : public T

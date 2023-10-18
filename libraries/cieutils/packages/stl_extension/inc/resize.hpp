@@ -13,21 +13,25 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <concepts::ResizableContainer ContainerType>
 inline void resize(ContainerType& container, Size size)
 {container.resize(size);}
 
 
+/// @addtogroup cieutils
 template <concepts::StaticContainer ContainerType>
 inline void resize(ContainerType& container, Size size )
 {CIE_CHECK(container.size() == size, "Attempt to resize static container")}
 
 
+/// @addtogroup cieutils
 template <concepts::ReservableContainer ContainerType>
 inline void reserve(ContainerType& container, Size size)
 {container.reserve(size);}
 
 
+/// @addtogroup cieutils
 template <concepts::StaticContainer ContainerType>
 inline void reserve(ContainerType& container, Size size)
 {CIE_CHECK(container.size() >= size, "Attempt to reserve static container")}

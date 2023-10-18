@@ -11,6 +11,7 @@
 namespace cie::mpi {
 
 
+/// @addtogroup cieutils
 class RankID
 {
 private:

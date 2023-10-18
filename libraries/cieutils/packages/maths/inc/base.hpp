@@ -13,33 +13,33 @@
 namespace cie::utils {
 
 
-template <  Size NDigits,
-            concepts::Integer NT >
+/// @addtogroup cieutils
+template <Size NDigits, concepts::Integer NT>
 constexpr void
-baseN(  NT base10,
-        NT base,
-        StaticArray<NT,NDigits>& output );
+baseN(NT base10,
+      NT base,
+      StaticArray<NT,NDigits>& output);
 
 
-template <  Size NDigits,
-            concepts::Integer NT >
+/// @addtogroup cieutils
+template <Size NDigits, concepts::Integer NT>
 constexpr StaticArray<NT,NDigits>
-baseN(  NT base10,
-        NT base );
+baseN(NT base10,
+      NT base);
 
 
-template <  Size NDigits,
-            concepts::Integer NT >
+/// @addtogroup cieutils
+template <Size NDigits, concepts::Integer NT>
 constexpr NT
-base10( const StaticArray<NT,NDigits>& base_N,
-        NT base );
+base10(const StaticArray<NT,NDigits>& base_N,
+       NT base);
 
 
-template <  Size NDigits,
-            concepts::Integer NT >
+/// @addtogroup cieutils
+template <Size NDigits, concepts::Integer NT>
 constexpr NT
-reinterpretBase(    const StaticArray<NT,NDigits>& base_N,
-                    NT newBase );
+reinterpretBase(const StaticArray<NT,NDigits>& base_N,
+                NT newBase);
 
 
 

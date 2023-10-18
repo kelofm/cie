@@ -17,7 +17,7 @@ namespace cie::utils {
 ///@addtogroup cieutils
 ///@{
 
-/// A container that stores pointers to items but provides access through references.
+/// @brief A container that stores pointers to items but provides access through references.
 template <class TValue, class TContainer = DynamicArray<TValue*>>
 requires (concepts::Container<TContainer,const TValue*> || concepts::Container<TContainer,TValue*>)
 class UnstructuredView

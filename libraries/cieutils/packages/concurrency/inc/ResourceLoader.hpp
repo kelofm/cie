@@ -11,6 +11,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 template <class TResource>
 class ResourceLoader
 {

@@ -12,22 +12,26 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <concepts::Integer TInteger, concepts::Integer TIndex = Size>
 TInteger flipBit(TInteger integer, TIndex bitIndex);
 
 
+/// @addtogroup cieutils
 template <concepts::Integer TInteger, concepts::Integer TIndex = Size>
 bool getBit(TInteger integer, TIndex bitIndex);
 
 
 /// @brief Get the index of the most significat set bit (counting from LSB)
 /// @note Returns 0 if the input is 0.
+/// @addtogroup cieutils
 template <concepts::UnsignedInteger TInteger>
 std::uint8_t getMSBIndex(TInteger integer) noexcept;
 
 
 /// @brief Find the number of trailing zeros of the input integer's binary representation.
 /// @todo Add compiler-specifics.
+/// @addtogroup cieutils
 template <concepts::UnsignedInteger TInteger>
 std::uint8_t getNumberOfTrailingZeros(TInteger integer) noexcept;
 

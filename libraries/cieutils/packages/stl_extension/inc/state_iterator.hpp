@@ -14,6 +14,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <class IteratorType>
 requires concepts::Container<typename std::iterator_traits<IteratorType>::value_type>
 class StateIterator
@@ -92,7 +93,8 @@ struct container_reference_wrapper : public std::reference_wrapper<TContainer>
 
 
 
-// Helper class for permutations
+/// @brief Helper class for permutations
+/// @addtogroup cieutils
 template <concepts::Container TContainer>
 class InternalStateIterator :
     public StateIterator<typename std::vector<detail::container_reference_wrapper<const TContainer>>::const_iterator>
@@ -110,6 +112,7 @@ protected:
 // CONVENIENCE FUNCTIONS
 // ---------------------------------------------------------
 
+/// @addtogroup cieutils
 template <class IteratorType>
 StateIterator<IteratorType>
 makeStateIterator(  IteratorType begin,
@@ -117,16 +120,18 @@ makeStateIterator(  IteratorType begin,
 requires concepts::Container<typename std::iterator_traits<IteratorType>::value_type>;
 
 
+/// @addtogroup cieutils
 template <concepts::Container ContainerType>
 StateIterator<typename ContainerType::const_iterator>
 makeStateIterator( const ContainerType& container )
 requires concepts::Container<typename ContainerType::value_type>;
 
 
-/** Create a state iterator structure with 'size' components
+/** @details Create a state iterator structure with 'size' components
  *  that has |container.size()|^size number of states.
  *  This basically creates an iterator through all possible
  *  combinations of the container values.
+ *  @ingroup cieutils
  */
 template <concepts::Container ContainerType>
 InternalStateIterator<const ContainerType>

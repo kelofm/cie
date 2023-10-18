@@ -12,6 +12,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <class T>
 requires concepts::Pointer<T>
 inline typename std::pointer_traits<typename std::decay<T>::type>::element_type&
@@ -22,6 +23,7 @@ getRef(T& r_p)
 }
 
 
+/// @addtogroup cieutils
 template <class T>
 requires concepts::Pointer<T>
 inline const typename std::pointer_traits<typename std::decay<T>::type>::element_type&
@@ -32,6 +34,7 @@ getRef(const T& r_p)
 }
 
 
+/// @addtogroup cieutils
 template <class T>
 requires concepts::NonPointer<T>
 inline T&
@@ -41,6 +44,7 @@ getRef(T& r)
 }
 
 
+/// @addtogroup cieutils
 template <class T>
 requires concepts::NonPointer<T>
 inline const T&

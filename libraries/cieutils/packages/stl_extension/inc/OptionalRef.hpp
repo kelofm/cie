@@ -20,6 +20,7 @@ namespace cie {
 ///          and stores the value indicator in the least significant bit of
 ///          the pointer. As a result, the memory alignment of @a OptionalRef
 ///          is identical to that of the stored pointer.
+/// @addtogroup cieutils
 template <class TElement>
 class OptionalRef
 {
@@ -102,6 +103,16 @@ public:
     void reset() noexcept
     {
         mpElement.integer = 0;
+    }
+
+    /// @brief Cast to constant reference
+    operator OptionalRef<const TElement> () noexcept
+    {
+        if (this->has_value()) {
+            return OptionalRef<const TElement>(this->value());
+        } else {
+            return {};
+        }
     }
 
 private:

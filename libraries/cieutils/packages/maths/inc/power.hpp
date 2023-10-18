@@ -8,6 +8,7 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 template <concepts::Integer BaseType, concepts::Integer ExponentType>
 constexpr BaseType intPow(BaseType base, ExponentType exponent);
 

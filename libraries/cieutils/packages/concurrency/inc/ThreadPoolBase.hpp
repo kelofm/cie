@@ -20,6 +20,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 class ThreadPoolBase final
 {
 public:

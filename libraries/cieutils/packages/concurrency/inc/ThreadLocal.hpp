@@ -16,6 +16,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 template <class ...TStored>
 class ThreadLocal
 {

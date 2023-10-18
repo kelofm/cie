@@ -28,6 +28,7 @@ struct TransformViewTraits
 } // namespace detail
 
 
+/// @addtogroup cieutils
 template <class ContainerType, class OutputType>
 class TransformView :
     public std::ranges::transform_view< typename detail::TransformViewTraits<ContainerType,OutputType>::container_view_type,
@@ -50,6 +51,7 @@ public:
 };
 
 
+/// @addtogroup cieutils
 template <class OutputType, class ContainerType>
 TransformView<ContainerType,OutputType> makeTransformView( const ContainerType& r_container,
                                                            typename TransformView<ContainerType,OutputType>::transform_type transformFunctor )
