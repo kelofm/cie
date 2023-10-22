@@ -17,14 +17,14 @@
 namespace cie::fem::maths {
 
 
-template <class TScalarExpression, unsigned Dimension>
-inline void AnsatzSpaceDerivative<TScalarExpression,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                                         ConstIterator it_argumentEnd,
-                                                                         Iterator it_out) const
+template <class TScalarExpression, unsigned Dim>
+inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator it_argumentBegin,
+                                                                   ConstIterator it_argumentEnd,
+                                                                   Iterator it_out) const
 {
     const unsigned setSize = _ansatzSet.size();
     CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dimension)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dim)
 
     Ref<IndexBuffer> r_indexBuffer      = _buffer.template get<0>();
     Ref<ValueBuffer> r_valueBuffer      = _buffer.template get<1>();
@@ -51,7 +51,7 @@ inline void AnsatzSpaceDerivative<TScalarExpression,Dimension>::evaluate(ConstIt
     } // fill the value and derivative buffers
 
     // Compute the modified cartesian product
-    for (unsigned i_derivative=0; i_derivative<Dimension; ++i_derivative) {
+    for (unsigned i_derivative=0; i_derivative<Dim; ++i_derivative) {
         do {
             *it_out = static_cast<Value>(1);
             unsigned i_index = 0;
@@ -72,25 +72,25 @@ inline void AnsatzSpaceDerivative<TScalarExpression,Dimension>::evaluate(ConstIt
             }
 
             ++it_out;
-        } while (CartesianProduct<Dimension>::next(setSize, r_indexBuffer.begin()));
-    } // for i_derivative in range(Dimension)
+        } while (CartesianProduct<Dim>::next(setSize, r_indexBuffer.begin()));
+    } // for i_derivative in range(Dim)
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-Size AnsatzSpaceDerivative<TScalarExpression,Dimension>::size() const noexcept
+template <class TScalarExpression, unsigned Dim>
+Size AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
 {
-    return intPow(_ansatzSet.size(), Dimension) * Dimension;
+    return intPow(_ansatzSet.size(), Dim) * Dim;
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzSpaceDerivative<TScalarExpression,Dimension>::AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace)
+template <class TScalarExpression, unsigned Dim>
+AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> r_ansatzSpace)
     : _ansatzSet(r_ansatzSpace._set),
       _derivativeSet(),
       _buffer(IndexBuffer(),
-              ValueBuffer(intPow(_ansatzSet.size(), Dimension)),
-              ValueBuffer(intPow(_ansatzSet.size(), Dimension)))
+              ValueBuffer(intPow(_ansatzSet.size(), Dim)),
+              ValueBuffer(intPow(_ansatzSet.size(), Dim)))
 {
     Ref<IndexBuffer> r_indexBuffer = _buffer.template get<0>();
     std::fill(r_indexBuffer.begin(),
@@ -104,18 +104,18 @@ AnsatzSpaceDerivative<TScalarExpression,Dimension>::AnsatzSpaceDerivative(Ref<co
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzSpace<TScalarExpression,Dimension>::AnsatzSpace() noexcept
+template <class TScalarExpression, unsigned Dim>
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace() noexcept
     : AnsatzSpace({})
 {
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzSpace<TScalarExpression,Dimension>::AnsatzSpace(AnsatzSet&& r_set) noexcept
+template <class TScalarExpression, unsigned Dim>
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& r_set) noexcept
     : _set(std::move(r_set)),
       _buffer(IndexBuffer(),
-              ValueBuffer(intPow(_set.size(), Dimension)))
+              ValueBuffer(intPow(_set.size(), Dim)))
 {
     std::fill(_buffer.template get<0>().begin(),
               _buffer.template get<0>().end(),
@@ -123,19 +123,19 @@ AnsatzSpace<TScalarExpression,Dimension>::AnsatzSpace(AnsatzSet&& r_set) noexcep
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzSpace<TScalarExpression,Dimension>::AnsatzSpace(const AnsatzSet& r_set)
+template <class TScalarExpression, unsigned Dim>
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& r_set)
     : AnsatzSpace(AnsatzSet(r_set))
 {
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-inline void AnsatzSpace<TScalarExpression,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                               ConstIterator it_argumentEnd,
-                                                               Iterator it_out) const
+template <class TScalarExpression, unsigned Dim>
+inline void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstIterator it_argumentBegin,
+                                                         ConstIterator it_argumentEnd,
+                                                         Iterator it_out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dimension)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dim)
     Ref<IndexBuffer> r_indexBuffer = _buffer.template get<0>();
     Ref<ValueBuffer> r_valueBuffer = _buffer.template get<1>();
 
@@ -161,22 +161,22 @@ inline void AnsatzSpace<TScalarExpression,Dimension>::evaluate(ConstIterator it_
             *it_out *= r_valueBuffer.at(r_indexBuffer.at(i_index) + i_index * setSize);
         }
         ++it_out;
-    } while (CartesianProduct<Dimension>::next(setSize, r_indexBuffer.data()));
+    } while (CartesianProduct<Dim>::next(setSize, r_indexBuffer.data()));
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-typename AnsatzSpace<TScalarExpression,Dimension>::Derivative
-AnsatzSpace<TScalarExpression,Dimension>::makeDerivative() const
+template <class TScalarExpression, unsigned Dim>
+typename AnsatzSpace<TScalarExpression,Dim>::Derivative
+AnsatzSpace<TScalarExpression,Dim>::makeDerivative() const
 {
     return Derivative(*this);
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-unsigned AnsatzSpace<TScalarExpression,Dimension>::size() const noexcept
+template <class TScalarExpression, unsigned Dim>
+unsigned AnsatzSpace<TScalarExpression,Dim>::size() const noexcept
 {
-    return intPow(_set.size(), Dimension);
+    return intPow(_set.size(), Dim);
 }
 
 
