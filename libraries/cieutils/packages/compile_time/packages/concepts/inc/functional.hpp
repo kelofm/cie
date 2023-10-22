@@ -36,9 +36,10 @@ concept FunctionWithArgument
 && std::is_same_v<A, typename FunctionTraits<F>::template Argument<0>::type>;
 
 namespace detail {
-template <STLFunction TFunction, class ...TArguments>
-struct IsFunctionWithArguments
+template <Function TFunction, class ...TArguments>
+class IsFunctionWithArguments
 {
+private:
     template <Size I, bool All>
     struct IsFunctionWithArgumentAtRecursive
     {
@@ -63,6 +64,7 @@ struct IsFunctionWithArguments
 
     using Traits = FunctionTraits<TFunction>;
 
+public:
     static constexpr bool Value = IsFunctionWithArgumentAtRecursive<Traits::NumberOfArguments-1,true>::value();
 }; // struct IsFunctionWithArguments
 } // namespace detail
@@ -70,7 +72,7 @@ struct IsFunctionWithArguments
 
 template <class TFunction, class ...TArguments>
 concept FunctionWithArguments
-=  STLFunction<TFunction>
+=  Function<TFunction>
 && FunctionTraits<TFunction>::NumberOfArguments == sizeof...(TArguments)
 && detail::IsFunctionWithArguments<TFunction,TArguments...>::Value;
 
