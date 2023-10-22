@@ -1,13 +1,17 @@
 #ifndef CIE_FEM_GRAPH_CONNECTIVITY_HPP
 #define CIE_FEM_GRAPH_CONNECTIVITY_HPP
 
+// --- External Includes ---
+#include "tsl/robin_map.h"
+
 // --- FEM Includes ---
-#include "packages/maths/inc/AnsatzSpace.hpp"
+#include "packages/maths/inc/Expression.hpp"
 #include "packages/graph/inc/BoundaryID.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
+#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/maths/inc/Comparison.hpp"
 
@@ -32,12 +36,12 @@ namespace cie::fem {
  *  @param p_sampleEnd Ptr past the last sample node.
  *  @param tolerance Absolute tolerance to check ansatz function values against.
  */
-template <class TScalarExpression, unsigned Dimension, concepts::CallableWith<BoundaryID,Size> TFunctor>
-void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
+template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
+void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
                         TFunctor&& r_functor,
-                        Ptr<const typename TScalarExpression::Value> p_sampleBegin,
-                        Ptr<const typename TScalarExpression::Value> p_sampleEnd,
-                        typename TScalarExpression::Value tolerance);
+                        Ptr<const typename TAnsatzSpace::Value> p_sampleBegin,
+                        Ptr<const typename TAnsatzSpace::Value> p_sampleEnd,
+                        typename TAnsatzSpace::Value tolerance);
 
 
 
@@ -81,21 +85,17 @@ void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension
  *                      |
  *           @endcode
  */
-template <class TScalarExpression, unsigned Dimension>
-class AnsatzMap : public Kernel<Dimension,typename TScalarExpression::Value>
+template <class TValue>
+class AnsatzMap
 {
-private:
-    using BaseTraits = Kernel<Dimension,typename TScalarExpression::Value>;
-
 public:
-    using typename BaseTraits::Value;
+    template <maths::Expression TAnsatzSpace>
+    requires (std::is_same_v<typename TAnsatzSpace::Value,TValue>)
+    AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+              std::span<const TValue> samples,
+              utils::Comparison<TValue> comparison);
 
-public:
-    AnsatzMap(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-              std::span<const Value> samples,
-              utils::Comparison<Value> comparison);
-
-    template <class TOutputIt>
+    template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
     void getPairs(BoundaryID boundary,
                   TOutputIt it_output) const noexcept;
 
@@ -110,10 +110,10 @@ private:
 
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzMap<TScalarExpression,Dimension> makeAnsatzMap(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-                                                     std::span<const typename TScalarExpression::Value> samples,
-                                                     utils::Comparison<typename TScalarExpression::Value> comparison);
+template <maths::Expression TAnsatzSpace>
+AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+                                                      std::span<const typename TAnsatzSpace::Value> samples,
+                                                      utils::Comparison<typename TAnsatzSpace::Value> comparison);
 
 
 } // namespace cie::fem

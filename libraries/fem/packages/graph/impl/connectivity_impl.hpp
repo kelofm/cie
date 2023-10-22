@@ -19,24 +19,24 @@
 namespace std {
 
 
-inline bool operator==(std::pair<cie::fem::BoundaryID,cie::Size> left,
-                       std::pair<cie::fem::BoundaryID,cie::Size> right) noexcept
+inline bool operator==(pair<cie::fem::BoundaryID,cie::Size> left,
+                       pair<cie::fem::BoundaryID,cie::Size> right) noexcept
 {
     return (left.first == right.first) && (left.second == right.second);
 }
 
 
-inline bool operator!=(std::pair<cie::fem::BoundaryID,cie::Size> left,
-                       std::pair<cie::fem::BoundaryID,cie::Size> right) noexcept
+inline bool operator!=(pair<cie::fem::BoundaryID,cie::Size> left,
+                       pair<cie::fem::BoundaryID,cie::Size> right) noexcept
 {
     return left.first != right.first && left.second != right.second;
 }
 
 
 template <>
-struct hash<std::pair<cie::fem::BoundaryID,cie::Size>>
+struct hash<pair<cie::fem::BoundaryID,cie::Size>>
 {
-    auto operator()(std::pair<cie::fem::BoundaryID,cie::Size> item) const
+    auto operator()(pair<cie::fem::BoundaryID,cie::Size> item) const
     {
         const auto tmp = hash<cie::fem::BoundaryID>()(item.first);
         return tmp ^ (hash<cie::Size>()(item.second) + 0x9e3779b9 + (tmp<<6) + (tmp>>2)); // <== from boost::hash_combine
@@ -50,17 +50,18 @@ struct hash<std::pair<cie::fem::BoundaryID,cie::Size>>
 namespace cie::fem {
 
 
-template <class TScalarExpression, unsigned Dimension, concepts::CallableWith<BoundaryID,Size> TFunctor>
-void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
+template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
+void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
                         TFunctor&& r_functor,
-                        Ptr<const typename TScalarExpression::Value> p_sampleBegin,
-                        Ptr<const typename TScalarExpression::Value> p_sampleEnd,
-                        typename TScalarExpression::Value tolerance)
+                        Ptr<const typename TAnsatzSpace::Value> p_sampleBegin,
+                        Ptr<const typename TAnsatzSpace::Value> p_sampleEnd,
+                        typename TAnsatzSpace::Value tolerance)
 {
     CIE_BEGIN_EXCEPTION_TRACING
+    using Value = typename TAnsatzSpace::Value;
+    constexpr unsigned Dimension = TAnsatzSpace::Dimension;
     static_assert(0 < Dimension);
 
-    using Value = typename TScalarExpression::Value;
     const Size ansatzSize = r_ansatzSpace.size();
     const Size numberOfSamples = std::distance(p_sampleBegin, p_sampleEnd);
 
@@ -111,16 +112,18 @@ void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzMap<TScalarExpression,Dimension>::AnsatzMap(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-                                                  std::span<const Value> samples,
-                                                  utils::Comparison<Value> comparison)
+template <class TValue>
+template <maths::Expression TAnsatzSpace>
+requires (std::is_same_v<typename TAnsatzSpace::Value,TValue>)
+AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+                             std::span<const TValue> samples,
+                             utils::Comparison<TValue> comparison)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-
+    constexpr unsigned Dimension = TAnsatzSpace::Dimension;
     static_assert(0 < Dimension);
 
-    using Value = typename TScalarExpression::Value;
+    using Value = typename TAnsatzSpace::Value;
     const Size ansatzSize = r_ansatzSpace.size();   // <== total number of ansatz functions
     const Size numberOfSamples = samples.size();    // <== number of sample nodes per dimension
 
@@ -282,10 +285,10 @@ AnsatzMap<TScalarExpression,Dimension>::AnsatzMap(Ref<const maths::AnsatzSpace<T
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-template <class TOutputIt>
-void AnsatzMap<TScalarExpression,Dimension>::getPairs(BoundaryID boundary,
-                                                      TOutputIt it_output) const noexcept
+template <class TValue>
+template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
+void AnsatzMap<TValue>::getPairs(BoundaryID boundary,
+                                 TOutputIt it_output) const noexcept
 {
     const auto it = _connectivityMap.find(boundary.getDimension());
     if (it != _connectivityMap.end()) {
@@ -304,8 +307,8 @@ void AnsatzMap<TScalarExpression,Dimension>::getPairs(BoundaryID boundary,
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-Size AnsatzMap<TScalarExpression,Dimension>::getPairCount(BoundaryID boundary) const noexcept
+template <class TValue>
+Size AnsatzMap<TValue>::getPairCount(BoundaryID boundary) const noexcept
 {
     const auto it = _connectivityMap.find(boundary.getDimension());
     if (it != _connectivityMap.end()) {
@@ -316,12 +319,12 @@ Size AnsatzMap<TScalarExpression,Dimension>::getPairCount(BoundaryID boundary) c
 }
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzMap<TScalarExpression,Dimension> makeAnsatzMap(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-                                                     std::span<const typename TScalarExpression::Value> samples,
-                                                     utils::Comparison<typename TScalarExpression::Value> comparison)
+template <maths::Expression TAnsatzSpace>
+AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+                                                      std::span<const typename TAnsatzSpace::Value> samples,
+                                                      utils::Comparison<typename TAnsatzSpace::Value> comparison)
 {
-    return AnsatzMap<TScalarExpression,Dimension>(r_ansatzSpace, samples, comparison);
+    return AnsatzMap<typename TAnsatzSpace::Value>(r_ansatzSpace, samples, comparison);
 }
 
 
