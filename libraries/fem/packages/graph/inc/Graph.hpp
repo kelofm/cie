@@ -8,6 +8,7 @@
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 #include "packages/stl_extension/inc/NoOpIterator.hpp"
+#include "packages/stl_extension/inc/StrongTypeDef.hpp"
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
 // --- STL Includes ---
@@ -21,17 +22,20 @@ namespace cie::fem {
 
 /// @brief A directed graph that automatically manages the connectivities of its
 ///        @ref Graph::Vertex "vertices" and @ref Graph::Edge "edges".
+/// @tparam TVertexData additional data type stored in each vertex.
+/// @tparam TEdgeData additional data type stored in each edge.
 template <class TVertexData, class TEdgeData>
 class Graph
 {
 private:
     /// @brief Helper class for features common to @ref Vertex and @ref Edge.
+    template <class TID>
     class ItemBase
     {
     public:
-        ItemBase(Size id) noexcept : _id(id) {}
+        ItemBase(TID id) noexcept : _id(id) {}
 
-        Size id() const noexcept {return _id;}
+        TID id() const noexcept {return _id;}
 
         friend bool operator==(Ref<const ItemBase> rLHS,
                                Ref<const ItemBase> rRHS) noexcept
@@ -44,29 +48,32 @@ private:
         struct hash
         {
             std::size_t operator()(Ref<const ItemBase> rItem) const noexcept
-            {return rItem.id();}
+            {return std::hash<TID>()(rItem.id());}
+
+            std::size_t operator()(TID id) const noexcept
+            {return std::hash<TID>()(id);}
         }; // struct hash
 
     private:
         ItemBase() = delete;
 
     private:
-        Size _id;
+        TID _id;
     }; // class ItemBase
 
 public:
     /// @brief @ref Vertex identifier type.
-    using VertexID = std::size_t;
+    CIE_STRONG_TYPEDEF(unsigned, VertexID);
 
     /// @brief @ref Edge identifier type.
-    using EdgeID = std::size_t;
+    CIE_STRONG_TYPEDEF(unsigned, EdgeID);
 
     /// @brief Vertex type of @ref Graph.
     /// @details This vertex implementation stores the IDs of the @ref Edge "edges" originating from-
     ///          or ending at it, as well as additional data associated with it via @p TVertexData.
     ///          Features and storage for the extra data can be disabled without overhead at compile
     ///          time by setting @p TVertexData to @p void.
-    struct Vertex : public ItemBase
+    struct Vertex : public ItemBase<VertexID>
     {
         /// @copydoc VertexID
         using ID = VertexID;
@@ -141,7 +148,7 @@ public:
     ///          If the edge is directed, it points from the source to the target vertex. Additionally, it
     ///          also stores extra data associated with the edge, which can be disabled without overhead at
     ///          compile time by setting @p TEdgeData to @p void.
-    class Edge : public ItemBase
+    class Edge : public ItemBase<EdgeID>
     {
     public:
         /// @copydoc EdgeID
@@ -317,21 +324,21 @@ public:
     /// @returns a mutable reference to the vertex with the matching @p id,
     ///          or an empty @ref OptionalRef if no such vertex exists in the
     ///          graph.
-    OptionalRef<Vertex> findVertex(Size id) noexcept;
+    OptionalRef<Vertex> findVertex(VertexID id) noexcept;
 
     /// @brief Find an @ref Edge in the @ref Graph by its @ref EdgeID "ID".
     /// @param id identifier of the edge to find.
     /// @returns an immutable reference to the edge with the matching @p id,
     ///          or an empty @ref OptionalRef if no such edge exists in the
     ///          graph.
-    OptionalRef<const Edge> findEdge(Size id) const noexcept;
+    OptionalRef<const Edge> findEdge(EdgeID id) const noexcept;
 
     /// @brief Find an @ref Edge in the @ref Graph by its @ref EdgeID "ID".
     /// @param id identifier of the edge to find.
     /// @returns a mutable reference to the edge with the matching @p id,
     ///          or an empty @ref OptionalRef if no such edge exists in the
     ///          graph.
-    OptionalRef<Edge> findEdge(Size id) noexcept;
+    OptionalRef<Edge> findEdge(EdgeID id) noexcept;
 
     /// @brief Immutable access to @ref Vertex "vertices" in the @ref Graph.
     /// @returns an immutable view over all vertices.
