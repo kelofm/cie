@@ -4,6 +4,11 @@
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 
+// --- STL Includes ---
+#include <concepts> // convertible_to
+#include <iosfwd> // ostream
+#include <functional> // hash
+
 
 namespace cie::utils {
 
@@ -36,6 +41,8 @@ template <concepts::Deriveable T, class Tag>
 class StrongTypeDef<T,Tag> : public T
 {
 public:
+    using Value = T;
+
     /// Inherit all base constructors
     using T::T;
 
@@ -62,24 +69,24 @@ public:
     {}
 
     StrongTypeDef& operator=(T&& r_rhs) noexcept requires concepts::MoveAssignable<T>
-    {return static_cast<T&>(*this) = std::move(r_rhs);}
+    {static_cast<T&>(*this) = std::move(r_rhs); return *this;}
 
     /// Allow move assignment operator if possible
     StrongTypeDef& operator=(StrongTypeDef&& r_rhs) noexcept requires concepts::MoveAssignable<T>
-    {return static_cast<T&>(*this) = std::move(static_cast<T&&>(r_rhs));}
+    {static_cast<T&>(*this) = std::move(static_cast<T&&>(r_rhs)); return *this;}
 
     StrongTypeDef& operator=(const T& r_rhs) requires concepts::CopyAssignable<T>
-    {return static_cast<T&>(*this) = r_rhs;}
+    {static_cast<T&>(*this) = r_rhs; return *this;}
 
     StrongTypeDef& operator=(T& r_rhs) requires concepts::CopyAssignable<T>
-    {return static_cast<T&>(*this) = r_rhs;}
+    {static_cast<T&>(*this) = r_rhs; return *this;}
 
     /// Allow copy assignment operator if possible
     StrongTypeDef& operator=(const StrongTypeDef& r_rhs) requires concepts::CopyAssignable<T>
-    {return static_cast<T&>(*this) = static_cast<const T&>(r_rhs);}
+    {static_cast<T&>(*this) = static_cast<const T&>(r_rhs); return *this;}
 
     StrongTypeDef& operator=(StrongTypeDef& r_rhs) requires concepts::CopyAssignable<T>
-    {return static_cast<T&>(*this) = static_cast<const T&>(r_rhs);}
+    {static_cast<T&>(*this) = static_cast<const T&>(r_rhs); return *this;}
 
     /// Delete every assignment operator that's not in the base class, move or copy assignment operator
     template <class TT>
@@ -97,6 +104,8 @@ template <concepts::Integral T, class Tag>
 class StrongTypeDef<T,Tag>
 {
 public:
+    using Value = T;
+
     StrongTypeDef() noexcept
     {}
 
@@ -105,16 +114,35 @@ public:
     {}
 
     template <class TT>
-    StrongTypeDef(TT tt) = delete;
+    requires std::convertible_to<TT,T>
+    StrongTypeDef(TT wrapped)
+        : _wrapped(wrapped)
+    {}
 
-    StrongTypeDef<T,Tag>& operator=(T rhs) noexcept
-    {return _wrapped = rhs;}
+    StrongTypeDef& operator=(T rhs) noexcept
+    {_wrapped = rhs; return *this;}
 
     operator T() const noexcept
     {return _wrapped;}
 
+    operator const T&() const noexcept
+    {return _wrapped;}
+
     operator T&() noexcept
     {return _wrapped;}
+
+    template <class TT>
+    requires std::convertible_to<T,TT>
+    explicit operator TT() const noexcept
+    {return _wrapped;}
+
+    friend void swap(Ref<StrongTypeDef> rLeft,
+                        Ref<StrongTypeDef> rRight) noexcept
+    {std::swap(rLeft._wrapped, rRight._wrapped);}
+
+    friend std::ostream& operator<<(Ref<std::ostream> rStream,
+                                    StrongTypeDef self)
+    {return rStream << self._wrapped;}
 
 private:
     T _wrapped;
@@ -122,6 +150,24 @@ private:
 
 
 } // namespace cie::utils
+
+
+namespace std {
+
+
+template <class T, class TTag>
+struct hash<cie::utils::StrongTypeDef<T,TTag>>
+{
+    size_t operator()(cie::Ref<const cie::utils::StrongTypeDef<T,TTag>>& rInstance) const noexcept
+    {
+        using Value = typename cie::utils::StrongTypeDef<T,TTag>::Value;
+        hash<Value> hasher;
+        return hasher((const Value&) rInstance);
+    }
+}; // struct hash
+
+
+} // namespace std
 
 
 #define CIE_STRONG_TYPEDEF( BaseType, SubType )                                     \
