@@ -6,6 +6,7 @@
 // --- STL Includes ---
 #include <chrono>
 #include <algorithm>
+#include <numeric>
 
 
 namespace cie::mp {
