@@ -15,6 +15,20 @@ namespace cie::utils {
 template <class TValue>
 struct SymmetricPair
 {
+    SymmetricPair() noexcept = default;
+
+    SymmetricPair(RightRef<TValue> r_first,
+                  RightRef<TValue> r_second) noexcept;
+
+    SymmetricPair(Ref<const TValue> r_first,
+                  Ref<const TValue> r_second);
+
+    SymmetricPair(RightRef<std::pair<TValue,TValue>> r_rhs) noexcept;
+
+    SymmetricPair(Ref<const std::pair<TValue,TValue>> r_rhs);
+
+    explicit operator std::pair<TValue,TValue> () const;
+
     TValue first;
 
     TValue second;
