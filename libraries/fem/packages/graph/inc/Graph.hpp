@@ -62,10 +62,14 @@ private:
     }; // class ItemBase
 
 public:
-    /// @brief @ref Vertex identifier type.
+    /// @brief Vertex identifier type.
+    /// @class VertexID
+    /// @see StrongTypeDef
     CIE_STRONG_TYPEDEF(unsigned, VertexID);
 
-    /// @brief @ref Edge identifier type.
+    /// @brief Edge identifier type.
+    /// @class EdgeID
+    /// @see StrongTypeDef
     CIE_STRONG_TYPEDEF(unsigned, EdgeID);
 
     /// @brief Vertex type of @ref Graph.
@@ -73,8 +77,9 @@ public:
     ///          or ending at it, as well as additional data associated with it via @p TVertexData.
     ///          Features and storage for the extra data can be disabled without overhead at compile
     ///          time by setting @p TVertexData to @p void.
-    struct Vertex : public ItemBase<VertexID>
+    class Vertex : public ItemBase<VertexID>
     {
+    public:
         /// @copydoc VertexID
         using ID = VertexID;
 
@@ -387,6 +392,9 @@ public:
             [](auto it) -> Ref<Edge> {return it.value();}
         );
     }
+
+    /// @brief Return true if the graph contains no vertices, false otherwise.
+    bool empty() const noexcept;
 
 private:
     tsl::robin_map<

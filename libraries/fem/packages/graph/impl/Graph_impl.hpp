@@ -418,6 +418,13 @@ OptionalRef<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(EdgeID id) n
 }
 
 
+template <class TVD, class TED>
+bool Graph<TVD,TED>::empty() const noexcept
+{
+    return _vertices.empty();
+}
+
+
 } // namespace cie::fem
 
 
