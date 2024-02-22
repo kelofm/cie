@@ -28,7 +28,7 @@ namespace cie::fem {
  *           least one non-zero value at one of those points are considered to require
  *           connectivity on that boundary. An input functor is called with each
  *           @ref BoundaryID - ansatz function index pair exactly once.
- *  @param r_ansatzSpace @ref AnsatzSpace to scan the functions of.
+ *  @param r_ansatzSpace @ref maths::AnsatzSpace to scan the functions of.
  *  @param r_functor Functor that gets called with each @ref BoundaryID and non-vanishing
  *                   ansatz function index.
  *  @param p_sampleBegin Ptr to the beginning of the array of sample nodes to evaluate
