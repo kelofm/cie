@@ -13,6 +13,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 template <class ...TArgs>
 class ThreadStorage
 {

@@ -14,6 +14,7 @@ namespace cie {
 
 
 /// @todo incomplete, tests fail - fixme
+/// @addtogroup cieutils
 template <unsigned short Dim, concepts::UnsignedInteger TValue = Size>
 class HierarchicalInteger
 {

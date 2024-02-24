@@ -16,6 +16,7 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 class OutputStream
 {
 private:

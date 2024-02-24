@@ -1,8 +1,6 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
 #include "packages/stl_extension/inc/DynamicArray.hpp"
-
-// --- Internal Includes ---
 #include "packages/stl_extension/inc/StrongTypeDef.hpp"
 
 // --- STL Includes ---

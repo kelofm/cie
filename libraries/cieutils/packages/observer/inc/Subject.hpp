@@ -12,6 +12,7 @@
 namespace cie::utils::observer {
 
 
+/// @addtogroup cieutils
 class Subject : public std::enable_shared_from_this<Subject>
 {
 public:

@@ -15,6 +15,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 template <class TStorage = ThreadStorage<>>
 class ThreadPool final
 {
@@ -47,6 +48,10 @@ public:
 
     ThreadPool& operator=(const ThreadPool& r_rhs);
 
+    template <class ...Ts>
+    ThreadPool<ThreadStorage<Ts...>>
+    firstPrivate(Ts&&... r_storage);
+
     /// @brief Get the maximum number of theads supported on the system.
     static Size maxNumberOfThreads() noexcept;
 
@@ -77,6 +82,10 @@ public:
     /// @brief Provides immutable access to the thread local storage of all threads.
     Ref<const ThreadPoolStorage<TStorage>> getStorage() const noexcept;
 
+    operator const ThreadPoolBase& () const noexcept;
+
+    operator ThreadPoolBase& () noexcept;
+
     template <class TS>
     friend Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, Ref<const ThreadPool<TS>> r_pool);
 
@@ -92,6 +101,7 @@ private:
 
 namespace cie::concepts {
 
+/// @addtogroup cieutils
 template <class T, class ...TStored>
 concept ThreadPool
 = requires (typename std::decay<T>::type instance)

@@ -30,6 +30,15 @@ concept WeakIterator
 = Iterator<TIt> && std::convertible_to<typename std::iterator_traits<TIt>::value_type,TValue>;
 
 
+/// @brief Output iterator concept with an assignable type.
+template <class TIt, class TValue>
+concept OutputIterator
+= requires (TIt it, TValue value)
+{
+    {*it = value};
+};
+
+
 } // namespace cie::concepts
 
 #endif

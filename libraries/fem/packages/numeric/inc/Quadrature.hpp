@@ -9,13 +9,14 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
 #include "packages/numeric/inc/QuadratureBase.hpp"
+#include "packages/utilities/inc/kernel.hpp"
 
 
 namespace cie::fem {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-class Quadrature
+class Quadrature : public Kernel<Dimension,TValue>
 {
 public:
     Quadrature(Ref<const QuadratureBase<TValue>> r_base);
@@ -31,6 +32,12 @@ public:
     template <maths::Expression TExpression>
     void evaluate(Ref<const TExpression> r_expression,
                   typename TExpression::Iterator it_outBegin) const;
+
+    template <class TOutputIt>
+    void getIntegrationPoints(TOutputIt it_output) const;
+
+    template <class TOutputIt>
+    void getIntegrationWeights(TOutputIt it_output) const;
 
 private:
     DynamicArray<StaticArray<TValue,Dimension+1>> _nodesAndWeights;

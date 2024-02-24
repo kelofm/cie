@@ -123,7 +123,7 @@ private:
 /** @brief Class representing a projective transform.
  *  @details Uniquely defines a mapping between any pair of generalized quads.
  *  @note Unfortunately, I haven't found the proper term for quadrilaterals
- *        generalized to arbitrary dimensions, so <emph>generalized quad</emph>
+ *        generalized to arbitrary dimensions, so @a generalized @a quad
  *        will have to do for now.
  */
 template <concepts::Numeric TValue, unsigned Dimension>

@@ -171,12 +171,12 @@ concept Addable
 };
 
 
-template <class T>
+template <class TLeft, class TRight = TLeft>
 concept Subtractable
-= requires (T instance)
+= requires (TLeft left, TRight right)
 {
-    {instance - instance}     -> std::same_as<T>;
-    {instance -= instance}    -> std::same_as<T&>;
+    {left - right}     -> std::same_as<TLeft>;
+    {left -= right}    -> std::same_as<TLeft&>;
 };
 
 

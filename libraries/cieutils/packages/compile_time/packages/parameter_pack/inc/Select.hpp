@@ -12,6 +12,7 @@
 namespace cie::ct {
 
 
+/// @addtogroup cieutils
 template <class ...Ts>
 class Select
 {
@@ -32,6 +33,7 @@ public:
 }; // class Select
 
 
+/// @addtogroup cieutils
 template <>
 class Select<>
 {

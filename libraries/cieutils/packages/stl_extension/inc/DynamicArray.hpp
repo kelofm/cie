@@ -11,6 +11,7 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 template <class TValue, class ...TArgs>
 using DynamicArray = STLContainerBase<std::vector<TValue,TArgs...>>;
 

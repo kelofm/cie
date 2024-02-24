@@ -40,7 +40,8 @@ CIE_TEST_CASE("integration", "[fem]")
         return linalg::norm2(point) < 1;
     };
 
-    const auto treePredicate = [&tree, &domain] (Ref<const QuadTree::Node> r_node) -> bool {
+    const auto treePredicate = [&tree, &domain] (Ref<const QuadTree::Node> r_node, unsigned level) -> bool {
+        if (10 < level) {return false;}
         QuadTree::Point base;
         double edge;
         tree.getNodeGeometry(r_node, base.data(), &edge);
@@ -53,7 +54,7 @@ CIE_TEST_CASE("integration", "[fem]")
         if (isInside != domain(base.begin(), base.end())) return true;
         return false;
     };
-    tree.scan(treePredicate, 10);
+    tree.scan(treePredicate);
 
     // Construct an integrand that will be evaluated over the domain
     const auto integrand = maths::makeLambdaExpression<double>([&domain] (Ptr<const double> it_begin,
@@ -104,7 +105,7 @@ CIE_TEST_CASE("integration", "[fem]")
         } // if r_node.isLeaf()
     } // for node in tree
 
-    CIE_TEST_CHECK(integral == Approx(/*sphere volume*/ 4.0 / 3.0 * std::numbers::pi /*but only an eight*/ / 8));
+    CIE_TEST_CHECK(integral == Approx(/*sphere volume*/ 4.0 / 3.0 * std::numbers::pi /*but only an eighth*/ / 8));
 }
 
 

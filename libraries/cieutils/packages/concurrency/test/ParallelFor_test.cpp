@@ -1,4 +1,4 @@
-// --- Internal Includes ---
+// --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
 #include "packages/concurrency/inc/ParallelFor.hpp"
 #include "packages/stl_extension/inc/DynamicArray.hpp"
@@ -19,24 +19,29 @@ CIE_TEST_CASE("ParallelFor - empty storage", "[concurrency]")
     const Size indexMin       = 5;
     const Size indexMax       = 1005;
     const Size stepSize       = 2;
-    DynamicArray<int> array(2 * indexMax, 0);
 
-    ParallelFor<>()(indexMin,
-                    indexMax,
-                    stepSize,
-                    [&array](Size index) {
-                        ++array[index];
-                    });
+    for (Size i_threadCount=1; i_threadCount<ThreadPoolBase::maxNumberOfThreads() + 1; ++i_threadCount) {
+        const std::string sectionName = std::to_string(i_threadCount) + " threads";
+        CIE_TEST_SECTION(sectionName) {
+            CIE_TEST_CASE_INIT(sectionName)
+            ThreadPoolBase threads(i_threadCount);
+            CIE_TEST_CHECK(threads.size() == i_threadCount);
 
-    std::cout << std::boolalpha;
-    for (Size i=0; i<indexMax + 5; ++i) {
-        const bool touched = indexMin <= i && i < indexMax && (i - indexMin) % stepSize == 0;
-        if (touched) {
-            CIE_TEST_CHECK(array[i] == 1);
-        } else {
-            CIE_TEST_CHECK(array[i] == 0);
-        }
-    }
+            DynamicArray<int> array(2 * indexMax, 0);
+            ParallelFor<>(threads).operator()(indexMin,
+                                              indexMax,
+                                              stepSize,
+                                              [&array](Size index) {
+                                                  ++array[index];
+                                              });
+
+            const Size arraySize = array.size();
+            for (Size i=0; i<arraySize; ++i) {
+                const bool touched = indexMin <= i && i < indexMax && (i - indexMin) % stepSize == 0;
+                CIE_TEST_CHECK(array[i] == (touched ? 1 : 0));
+            }
+        } // CIE_TEST_SECTION
+    } // for i in range(maxNumberOfThreads)
 }
 
 
@@ -55,6 +60,7 @@ CIE_TEST_CASE("ParallelFor - index loop", "[concurrency]")
             int firstPrivateVar = 0;
 
             ThreadPoolBase pool(i_threadCount);
+            CIE_TEST_CHECK(pool.size() == i_threadCount);
             const auto results = ParallelFor<>(pool).firstPrivate(firstPrivateVar)(
                 indexMin,
                 indexMax,
@@ -74,6 +80,7 @@ CIE_TEST_CASE("ParallelFor - index loop", "[concurrency]")
 
             CIE_TEST_CHECK(sum == (indexMax - indexMin) / stepSize);
 
+            CIE_TEST_CHECK(indexMax < array.size());
             for (Size i=0; i<array.size(); ++i) {
                 const bool touched = indexMin <= i && i < indexMax && (i - indexMin) % stepSize == 0;
                 if (touched) {
@@ -97,12 +104,13 @@ CIE_TEST_CASE("ParallelFor - object loop", "[concurrency]")
     std::vector<std::string> objects;
     objects.reserve(indexMax - indexMin);
 
-    for (Size i=0; i<indexMax-indexMin; ++i)
+    for (Size i=0; i<indexMax-indexMin; ++i) {
         objects.push_back(std::to_string(i));
+    }
 
     std::string suffix = "_";
-
-    ParallelFor<>().firstPrivate(suffix)(
+    ThreadPoolBase threads;
+    ParallelFor<>(threads).firstPrivate(suffix)(
         objects,
         [](std::string& r_item, std::string& r_suffix) -> void
         {

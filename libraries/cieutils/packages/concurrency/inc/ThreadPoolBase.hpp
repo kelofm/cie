@@ -20,6 +20,7 @@
 namespace cie::mp {
 
 
+/// @addtogroup cieutils
 class ThreadPoolBase final
 {
 public:
@@ -41,15 +42,14 @@ private:
     using ScopedLock = std::scoped_lock<Mutex>;
 
 public:
-    /// @brief Create a thread pool with 'size' threads
-    /**
+    /** @brief Create a thread pool with 'size' threads
      *  @note @a size must be positive and not greater than the maximum number of threads
      *         on the system. The number of threads is capped at the supported max.
      */
-    ThreadPoolBase(Size size);
+    explicit ThreadPoolBase(Size size);
 
     /// Create a thread pool with the maximum number of threads the system supports
-    ThreadPoolBase();
+    explicit ThreadPoolBase();
 
     ~ThreadPoolBase();
 
@@ -78,13 +78,13 @@ public:
     Ref<const ThreadContainer> threads() const;
 
 private:
-    ThreadPoolBase(ThreadPoolBase&& r_rhs) = delete;
+    ThreadPoolBase(ThreadPoolBase&&) = delete;
 
-    ThreadPoolBase(const ThreadPoolBase& r_rhs) = delete;
+    ThreadPoolBase(const ThreadPoolBase&) = delete;
 
-    ThreadPoolBase& operator=(ThreadPoolBase&& r_rhs) = delete;
+    ThreadPoolBase& operator=(ThreadPoolBase&&) = delete;
 
-    ThreadPoolBase& operator=(const ThreadPoolBase& r_rhs) = delete;
+    ThreadPoolBase& operator=(const ThreadPoolBase&) = delete;
 
     /** @brief Looping function running on all threads
      *  @details Upon notification, sets the lock and checks the job queue,

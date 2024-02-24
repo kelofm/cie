@@ -11,6 +11,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 class FileManager
 {
 public:

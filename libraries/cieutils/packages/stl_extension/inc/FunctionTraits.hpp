@@ -12,12 +12,15 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 template <class T>
 struct FunctionTraits : public std::false_type
 {
     static constexpr bool Value = false;
 }; // struct FunctionTraits
 
+
+/// @addtogroup cieutils
 template <class TReturn, class ...TArguments>
 struct FunctionTraits<std::function<TReturn(TArguments...)>> : public std::true_type
 {

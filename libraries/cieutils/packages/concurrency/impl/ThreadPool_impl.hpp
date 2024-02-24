@@ -8,9 +8,6 @@
 namespace cie::mp {
 
 
-class ThreadPoolSingleton;
-
-
 template <class TStorage>
 ThreadPool<TStorage>::ThreadPool(Ref<ThreadPoolBase> r_pool)
     : ThreadPool(r_pool, TStorage())
@@ -46,7 +43,20 @@ ThreadPool<TStorage>::operator=(const ThreadPool& r_rhs)
 
 
 template <class TStorage>
-inline Size
+template <class ...Ts>
+ThreadPool<ThreadStorage<Ts...>>
+ThreadPool<TStorage>::firstPrivate(Ts&&... r_args)
+{
+    return ThreadPool<ThreadStorage<Ts...>>(
+        _r_pool,
+        ThreadStorage<Ts...>(std::forward<Ts>(r_args)...)
+    );
+}
+
+
+
+template <class TStorage>
+Size
 ThreadPool<TStorage>::maxNumberOfThreads() noexcept
 {
     return ThreadPoolBase::maxNumberOfThreads();
@@ -54,12 +64,11 @@ ThreadPool<TStorage>::maxNumberOfThreads() noexcept
 
 
 template <class TStorage>
-inline void
+void
 ThreadPool<TStorage>::queueTLSJob(RightRef<TLSJob> r_job)
 {
     _r_pool.get().queueJob(
-        [this, r_job = std::move(r_job)]()
-        {
+        [this, r_job = std::move(r_job)]() {
             std::apply(
                 [r_job](auto&... r_args) -> void {r_job(r_args...);},
                 _storage.getLocalStorage().getRefs()
@@ -70,14 +79,13 @@ ThreadPool<TStorage>::queueTLSJob(RightRef<TLSJob> r_job)
 
 
 template <class TStorage>
-inline void
+void
 ThreadPool<TStorage>::queueTLSJob(Ref<const TLSJob> r_job)
 {
     _r_pool.get().queueJob(
-        [this, r_job]()
-        {
+        [this, &r_job]() {
             std::apply(
-                [&r_job](auto&... r_args) -> void {r_job(r_args...);},
+                [r_job](auto&... r_args) -> void {r_job(r_args...);},
                 _storage.getLocalStorage().getRefs()
             );
         }
@@ -86,21 +94,21 @@ ThreadPool<TStorage>::queueTLSJob(Ref<const TLSJob> r_job)
 
 
 template <class TStorage>
-inline void ThreadPool<TStorage>::queueJob(RightRef<Job> r_job)
+void ThreadPool<TStorage>::queueJob(RightRef<Job> r_job)
 {
     _r_pool.get().queueJob(std::move(r_job));
 }
 
 
 template <class TStorage>
-inline void ThreadPool<TStorage>::queueJob(Ref<const Job> r_job)
+void ThreadPool<TStorage>::queueJob(Ref<const Job> r_job)
 {
-    _r_pool.get().queueJob(std::move(r_job));
+    _r_pool.get().queueJob(r_job);
 }
 
 
 template <class TStorage>
-inline Size
+Size
 ThreadPool<TStorage>::size() const noexcept
 {
     return _r_pool.get().size();
@@ -108,7 +116,7 @@ ThreadPool<TStorage>::size() const noexcept
 
 
 template <class TStorage>
-inline Size
+Size
 ThreadPool<TStorage>::numberOfJobs() const noexcept
 {
     return _r_pool.get().numberOfJobs();
@@ -124,7 +132,7 @@ ThreadPool<TStorage>::barrier()
 
 
 template <class TStorage>
-inline Ref<ThreadPoolStorage<TStorage>>
+Ref<ThreadPoolStorage<TStorage>>
 ThreadPool<TStorage>::getStorage() noexcept
 {
     return _storage;
@@ -132,10 +140,24 @@ ThreadPool<TStorage>::getStorage() noexcept
 
 
 template <class TStorage>
-inline Ref<const ThreadPoolStorage<TStorage>>
+Ref<const ThreadPoolStorage<TStorage>>
 ThreadPool<TStorage>::getStorage() const noexcept
 {
     return _storage;
+}
+
+
+template <class TStorage>
+ThreadPool<TStorage>::operator const ThreadPoolBase& () const noexcept
+{
+    return _r_pool.get();
+}
+
+
+template <class TStorage>
+ThreadPool<TStorage>::operator ThreadPoolBase& () noexcept
+{
+    return _r_pool.get();
 }
 
 

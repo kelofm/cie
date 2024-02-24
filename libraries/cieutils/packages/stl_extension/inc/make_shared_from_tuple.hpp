@@ -9,6 +9,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 template <class T, class ...Args>
 std::shared_ptr<T> make_shared_from_tuple( std::tuple<Args...>& args );
 

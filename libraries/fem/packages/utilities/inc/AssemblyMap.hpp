@@ -15,16 +15,16 @@ namespace cie::fem {
 
 
 ///@addtogroup fem
-///@{}
+///@{
 
-/** @brief Class managing the mapping between local and DoFs.
+/** @brief Class managing the mapping between local and global DoFs.
  *
  *  @details Depending on whether a degree of freedom (DoF) is represented in
  *           local or global space, the data used to identify it changes. DoFs in
  *           global space are identified by a single @ref Size (@c globalIndex) while
  *           two are used to uniquely identify them in an object's local space. The
  *           first integer in a DoF's local identifier refers to the ID of the object
- *           it belongs to (an @ref Element for example) while the second one identifies
+ *           it belongs to (an @p Element for example) while the second one identifies
  *           it within that object, so @a AssemblyMap is a \f( N^2 \rightarrow N \f)
  *           mapping of \f( \{objectID,localID\} : globalID \f).
  *  @todo Make accessing/inserting multiple DoFs within the same object more efficient.

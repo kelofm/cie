@@ -8,6 +8,7 @@
 namespace cie {
 
 
+/// @addtogroup cieutils
 class StreamInterceptor : public std::streambuf, public OutputStream
 {
 public:

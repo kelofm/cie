@@ -12,9 +12,8 @@
 namespace cie::utils {
 
 
-/**
- * A container that only holds a specified number of last values
- */
+/// @brief A container that only holds a specified number of latest values.
+/// @addtogroup cieutils
 template <class ValueType>
 class MarchingContainer
 {

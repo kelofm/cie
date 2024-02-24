@@ -8,6 +8,7 @@
 namespace cie::utils {
 
 
+/// @addtogroup cieutils
 class NamedObject
 {
 public:
