@@ -393,12 +393,26 @@ bool Graph<TVD,TED>::eraseEdge(EdgeID id) noexcept
 template <class TVD, class TED>
 OptionalRef<const typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(VertexID id) const noexcept
 {
-    return impl::findGraphItem(id, _vertices);
+    return this->find(id);
 }
 
 
 template <class TVD, class TED>
 OptionalRef<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(VertexID id) noexcept
+{
+    return this->find(id);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<const typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::find(VertexID id) const noexcept
+{
+    return impl::findGraphItem(id, _vertices);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::find(VertexID id) noexcept
 {
     return impl::findGraphItem(id, _vertices);
 }
@@ -407,12 +421,26 @@ OptionalRef<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(VertexID
 template <class TVD, class TED>
 OptionalRef<const typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(EdgeID id) const noexcept
 {
-    return impl::findGraphItem(id, _edges);
+    return this->find(id);
 }
 
 
 template <class TVD, class TED>
 OptionalRef<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(EdgeID id) noexcept
+{
+    return this->find(id);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<const typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::find(EdgeID id) const noexcept
+{
+    return impl::findGraphItem(id, _edges);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::find(EdgeID id) noexcept
 {
     return impl::findGraphItem(id, _edges);
 }
