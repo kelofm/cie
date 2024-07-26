@@ -331,6 +331,12 @@ public:
     ///          graph.
     OptionalRef<Vertex> findVertex(VertexID id) noexcept;
 
+    /// @copydoc findVertex(VertexID) const
+    OptionalRef<const Vertex> find(VertexID id) const noexcept;
+
+    /// @copydoc findVertex(VertexID)
+    OptionalRef<Vertex> find(VertexID id) noexcept;
+
     /// @brief Find an @ref Edge in the @ref Graph by its @ref EdgeID "ID".
     /// @param id identifier of the edge to find.
     /// @returns an immutable reference to the edge with the matching @p id,
@@ -345,6 +351,12 @@ public:
     ///          graph.
     OptionalRef<Edge> findEdge(EdgeID id) noexcept;
 
+    /// @copydoc findEdge(EdgeID) const
+    OptionalRef<const Edge> find(EdgeID id) const noexcept;
+
+    /// @copydoc findEdge(EdgeID)
+    OptionalRef<Edge> find(EdgeID id) noexcept;
+
     /// @brief Immutable access to @ref Vertex "vertices" in the @ref Graph.
     /// @returns an immutable view over all vertices.
     auto vertices() const noexcept
@@ -353,7 +365,7 @@ public:
             std::ranges::subrange(utils::makeNoOpIterator(_vertices.begin()),
                                   utils::makeNoOpIterator(_vertices.end()),
                                   _vertices.size()),
-            [](auto it) -> Ref<const Vertex> {return it.second;}
+            [](auto it) -> Ref<const Vertex> {return it->second;}
         );
     }
 
@@ -377,7 +389,7 @@ public:
             std::ranges::subrange(utils::makeNoOpIterator(_edges.begin()),
                                   utils::makeNoOpIterator(_edges.end()),
                                   _edges.size()),
-            [](auto it) -> Ref<const Edge> {return it.second;}
+            [](auto it) -> Ref<const Edge> {return it->second;}
         );
     }
 
