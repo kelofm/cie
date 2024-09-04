@@ -3,18 +3,20 @@
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Graph.hpp"
-#include "packages/graph/inc/connectivity.hpp"
-#include "packages/maths/inc/Expression.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
+#include "packages/maths/inc/Comparison.hpp"
+#include "packages/stl_extension/inc/DynamicArray.hpp"
+#include "packages/stl_extension/inc/StaticArray.hpp"
+#include "packages/concurrency/inc/ThreadPoolBase.hpp"
 
 // --- STL Includes ---
 #include <packages/macros/inc/checks.hpp>
 #include <unordered_map>
-#include <vector>
-#include <optional>
+#include <optional> // optional
 #include <ranges> // transform_view
+#include <set> // set
 
 
 namespace cie::fem {
@@ -26,8 +28,8 @@ private:
     using DefaultMesh = Graph<void,void>;
 
     using DoFMap = std::unordered_map<
-        DefaultMesh::VertexID,                  // <== ID of the cell
-        std::vector<std::optional<std::size_t>> // <== DoF indices of its basis functions
+        DefaultMesh::VertexID,                      // <== ID of the cell
+        DynamicArray<std::optional<std::size_t>>    // <== DoF indices of its basis functions
     >;
 
     static auto makeIndexView(Ref<const DoFMap::mapped_type> rIndices)
@@ -39,7 +41,7 @@ private:
     }
 
 public:
-    using DoFPairVector = std::vector<std::pair<std::size_t,std::size_t>>;
+    using DoFPairVector = DynamicArray<std::pair<std::size_t,std::size_t>>;
 
     using DoFPairIterator = std::back_insert_iterator<DoFPairVector>;
 
@@ -57,11 +59,24 @@ public:
 
     std::size_t dofCount() const noexcept;
 
+    template <class TIndex, class TValue>
+    void makeCSRMatrix(Ref<TIndex> rRowCount,
+                       Ref<TIndex> rColumnCount,
+                       Ref<DynamicArray<TIndex>> rRowExtents,
+                       Ref<DynamicArray<TIndex>> rColumnIndices,
+                       Ref<DynamicArray<TValue>> rNonzeros,
+                       OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
+
     auto keys() const
+    {
+        return std::ranges::views::keys(_dofMap);
+    }
+
+    auto values() const
     {
         return std::ranges::transform_view(
             _dofMap,
-            [](const auto& rPair) {return rPair.first;}
+            [](const auto& rPair) {return Assembler::makeIndexView(rPair.second);}
         );
     }
 
@@ -87,6 +102,9 @@ private:
     std::size_t _dofCounter;
 
     DoFMap _dofMap;
+
+    using IndexPair = StaticArray<std::size_t,2>;
+    std::set<IndexPair,utils::Ordering<IndexPair>> _sparsityPattern;
 }; // class Assembler
 
 
