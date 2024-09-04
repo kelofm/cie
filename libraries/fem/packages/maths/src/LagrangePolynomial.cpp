@@ -16,14 +16,14 @@ namespace cie::fem::maths {
 
 
 template <class TValue>
-LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> p_nodeBegin,
-                                               Ptr<const TValue> p_nodeEnd,
-                                               Size i_base)
+LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> pNodeBegin,
+                                               Ptr<const TValue> pNodeEnd,
+                                               Size iBase)
     : Polynomial<TValue>()
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    const Size polynomialOrder = std::distance(p_nodeBegin, p_nodeEnd);
+    const Size polynomialOrder = std::distance(pNodeBegin, pNodeEnd);
 
     if (polynomialOrder) [[likely]] {
         DynamicArray<TValue> localNodes;
@@ -31,9 +31,9 @@ LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> p_nodeBegin,
         this->_coefficients.resize(polynomialOrder);
 
         // Get the base node
-        CIE_OUT_OF_RANGE_CHECK(i_base < polynomialOrder)
-        const auto it_baseNode = p_nodeBegin + i_base;
-        const TValue baseNode = *it_baseNode;
+        CIE_OUT_OF_RANGE_CHECK(iBase < polynomialOrder)
+        const auto itBaseNode = pNodeBegin + iBase;
+        const TValue baseNode = *itBaseNode;
 
         // Collect and negate the rest.
         // At the same time, compute the denominator
@@ -44,22 +44,22 @@ LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> p_nodeBegin,
         };
         CIE_DIVISION_BY_ZERO_CHECK(denominator)
 
-        auto it_local = std::back_inserter(localNodes);
-        std::transform(p_nodeBegin, it_baseNode, it_local, transform);
+        auto itLocal = std::back_inserter(localNodes);
+        std::transform(pNodeBegin, itBaseNode, itLocal, transform);
 
-        if (i_base < polynomialOrder - 1)
-            std::transform(it_baseNode + 1, p_nodeEnd, it_local, transform);
+        if (iBase < polynomialOrder - 1)
+            std::transform(itBaseNode + 1, pNodeEnd, itLocal, transform);
 
         // Loop backward through the exponents
-        const auto it_localNodeBegin = localNodes.begin();
+        const auto itLocalNodeBegin = localNodes.begin();
         for (Size numberOfSelectedNodes=0; numberOfSelectedNodes<polynomialOrder; ++numberOfSelectedNodes) {
             const Size exponent = polynomialOrder - 1 - numberOfSelectedNodes;
             utils::NChooseK permutation(polynomialOrder - 1, numberOfSelectedNodes);
             TValue coefficient = 0;
             do {
                 TValue term = static_cast<TValue>(1);
-                for (auto i_node : permutation)
-                    term *= *(it_localNodeBegin + i_node);
+                for (auto iNode : permutation)
+                    term *= *(itLocalNodeBegin + iNode);
                 coefficient += term;
             } while (permutation.next());
 

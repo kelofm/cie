@@ -17,10 +17,10 @@ class CartesianProduct
 public:
     template <concepts::Integer TValue>
     static bool next(unsigned numberOfStates,
-                     Ptr<TValue> it_stateBegin);
+                     Ptr<TValue> itStateBegin);
 
-    constexpr static bool next(Ref<unsigned> r_state)
-    {return r_state++ < (1<<Dimension);}
+    constexpr static bool next(Ref<unsigned> rState)
+    {return rState++ < (1<<Dimension);}
 }; // class CartesianProduct
 
 

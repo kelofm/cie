@@ -18,62 +18,62 @@ namespace cie::fem::maths {
 
 
 template <class TScalarExpression, unsigned Dim>
-inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator it_argumentBegin,
-                                                                   ConstIterator it_argumentEnd,
-                                                                   Iterator it_out) const
+inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator itArgumentBegin,
+                                                                   ConstIterator itArgumentEnd,
+                                                                   Iterator itOut) const
 {
     const unsigned setSize = _ansatzSet.size();
     CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dim)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dim)
 
-    Ref<IndexBuffer> r_indexBuffer      = _buffer.template get<0>();
-    Ref<ValueBuffer> r_valueBuffer      = _buffer.template get<1>();
-    Ref<ValueBuffer> r_derivativeBuffer = _buffer.template get<2>();
+    Ref<IndexBuffer> rIndexBuffer      = _buffer.template get<0>();
+    Ref<ValueBuffer> rValueBuffer      = _buffer.template get<1>();
+    Ref<ValueBuffer> rDerivativeBuffer = _buffer.template get<2>();
 
     // Fill the value and derivative buffers
     {
-        Ptr<Value> p_value      = r_valueBuffer.data();
-        Ptr<Value> p_derivative = r_derivativeBuffer.data();
+        Ptr<Value> pValue      = rValueBuffer.data();
+        Ptr<Value> pDerivative = rDerivativeBuffer.data();
 
-        for (auto it=it_argumentBegin; it!=it_argumentEnd; ++it) {
-            const auto it_end = it + 1;
-            for (const auto& r_scalarExpression : _ansatzSet) {
-                r_scalarExpression.evaluate(it,
-                                            it_end,
-                                            p_value++);
+        for (auto it=itArgumentBegin; it!=itArgumentEnd; ++it) {
+            const auto itEnd = it + 1;
+            for (const auto& rScalarExpression : _ansatzSet) {
+                rScalarExpression.evaluate(it,
+                                            itEnd,
+                                            pValue++);
             } // for scalarExpression in ansatzSet
-            for (const auto& r_scalarExpression : _derivativeSet) {
-                r_scalarExpression.evaluate(it,
-                                            it_end,
-                                            p_derivative++);
+            for (const auto& rScalarExpression : _derivativeSet) {
+                rScalarExpression.evaluate(it,
+                                            itEnd,
+                                            pDerivative++);
             } // for scalarExpression in derivativeSet
         } // for component in arguments
     } // fill the value and derivative buffers
 
     // Compute the modified cartesian product
-    for (unsigned i_derivative=0; i_derivative<Dim; ++i_derivative) {
+    for (unsigned iDerivative=0; iDerivative<Dim; ++iDerivative) {
         do {
-            *it_out = static_cast<Value>(1);
-            unsigned i_index = 0;
+            *itOut = static_cast<Value>(1);
+            unsigned iIndex = 0;
 
             // First loop through the value buffer until
             // the derivative index is hit
-            for (; i_index<i_derivative; ++i_index) {
-                *it_out *= r_valueBuffer[r_indexBuffer[i_index] + i_index * setSize];
+            for (; iIndex<iDerivative; ++iIndex) {
+                *itOut *= rValueBuffer[rIndexBuffer[iIndex] + iIndex * setSize];
             }
 
             // Then, use the derivative
-            *it_out *= r_derivativeBuffer[r_indexBuffer[i_index] + i_index * setSize];
+            *itOut *= rDerivativeBuffer[rIndexBuffer[iIndex] + iIndex * setSize];
 
             // Finally, loop through the rest
             // of the value buffer
-            for (++i_index; i_index<r_indexBuffer.size(); ++i_index) {
-                *it_out *= r_valueBuffer[r_indexBuffer[i_index] + i_index * setSize];
+            for (++iIndex; iIndex<rIndexBuffer.size(); ++iIndex) {
+                *itOut *= rValueBuffer[rIndexBuffer[iIndex] + iIndex * setSize];
             }
 
-            ++it_out;
-        } while (CartesianProduct<Dim>::next(setSize, r_indexBuffer.begin()));
-    } // for i_derivative in range(Dim)
+            ++itOut;
+        } while (CartesianProduct<Dim>::next(setSize, rIndexBuffer.begin()));
+    } // for iDerivative in range(Dim)
 }
 
 
@@ -85,21 +85,21 @@ Size AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
-AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> r_ansatzSpace)
-    : _ansatzSet(r_ansatzSpace._set),
+AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace)
+    : _ansatzSet(rAnsatzSpace._set),
       _derivativeSet(),
       _buffer(IndexBuffer(),
               ValueBuffer(intPow(_ansatzSet.size(), Dim)),
               ValueBuffer(intPow(_ansatzSet.size(), Dim)))
 {
-    Ref<IndexBuffer> r_indexBuffer = _buffer.template get<0>();
-    std::fill(r_indexBuffer.begin(),
-              r_indexBuffer.end(),
+    Ref<IndexBuffer> rIndexBuffer = _buffer.template get<0>();
+    std::fill(rIndexBuffer.begin(),
+              rIndexBuffer.end(),
               0u);
 
     _derivativeSet.reserve(_ansatzSet.size());
-    for (const auto& r_scalarExpression : _ansatzSet) {
-        _derivativeSet.emplace_back(r_scalarExpression.makeDerivative());
+    for (const auto& rScalarExpression : _ansatzSet) {
+        _derivativeSet.emplace_back(rScalarExpression.makeDerivative());
     }
 }
 
@@ -112,8 +112,8 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace() noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
-AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& r_set) noexcept
-    : _set(std::move(r_set)),
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& rSet) noexcept
+    : _set(std::move(rSet)),
       _buffer(IndexBuffer(),
               ValueBuffer(intPow(_set.size(), Dim)))
 {
@@ -124,44 +124,44 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& r_set) noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
-AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& r_set)
-    : AnsatzSpace(AnsatzSet(r_set))
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& rSet)
+    : AnsatzSpace(AnsatzSet(rSet))
 {
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-inline void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstIterator it_argumentBegin,
-                                                         ConstIterator it_argumentEnd,
-                                                         Iterator it_out) const
+inline void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstIterator itArgumentBegin,
+                                                         ConstIterator itArgumentEnd,
+                                                         Iterator itOut) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dim)
-    Ref<IndexBuffer> r_indexBuffer = _buffer.template get<0>();
-    Ref<ValueBuffer> r_valueBuffer = _buffer.template get<1>();
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dim)
+    Ref<IndexBuffer> rIndexBuffer = _buffer.template get<0>();
+    Ref<ValueBuffer> rValueBuffer = _buffer.template get<1>();
 
     // No need to clear the index buffer of its leftover state
     // (the leftover state is all zeros)
-    //std::fill(r_indexBuffer->begin(), r_indexBuffer->end(), 0);
+    //std::fill(rIndexBuffer->begin(), rIndexBuffer->end(), 0);
 
     // Fill the value buffer
-    Ptr<Value> p_value = r_valueBuffer.data();
-    for (; it_argumentBegin!=it_argumentEnd; it_argumentBegin++) {
-        for (const auto& r_scalarExpression : _set) {
-            r_scalarExpression.evaluate(it_argumentBegin,
-                                        it_argumentBegin + 1,
-                                        p_value++);
+    Ptr<Value> pValue = rValueBuffer.data();
+    for (; itArgumentBegin!=itArgumentEnd; itArgumentBegin++) {
+        for (const auto& rScalarExpression : _set) {
+            rScalarExpression.evaluate(itArgumentBegin,
+                                        itArgumentBegin + 1,
+                                        pValue++);
         } // for expression in expressions
     } // for argument in arguments
 
     const unsigned setSize = _set.size();
     do {
         // Compute product of bases
-        *it_out = static_cast<Value>(1);
-        for (unsigned i_index=0; i_index<r_indexBuffer.size(); ++i_index) {
-            *it_out *= r_valueBuffer.at(r_indexBuffer.at(i_index) + i_index * setSize);
+        *itOut = static_cast<Value>(1);
+        for (unsigned iIndex=0; iIndex<rIndexBuffer.size(); ++iIndex) {
+            *itOut *= rValueBuffer.at(rIndexBuffer.at(iIndex) + iIndex * setSize);
         }
-        ++it_out;
-    } while (CartesianProduct<Dim>::next(setSize, r_indexBuffer.data()));
+        ++itOut;
+    } while (CartesianProduct<Dim>::next(setSize, rIndexBuffer.data()));
 }
 
 

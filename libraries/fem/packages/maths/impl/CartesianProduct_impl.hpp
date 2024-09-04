@@ -18,14 +18,14 @@ template <unsigned Dimension>
 template <concepts::Integer TValue>
 inline bool
 CartesianProduct<Dimension>::next(unsigned numberOfStates,
-                                  Ptr<TValue> it_stateBegin)
+                                  Ptr<TValue> itStateBegin)
 {
     CIE_OUT_OF_RANGE_CHECK(numberOfStates != 0)
     constexpr TValue lowerBound       = 0;
     const TValue upperBound           = numberOfStates - 1;
-    Ptr<const TValue> it_stateEnd = it_stateBegin + Dimension;
+    Ptr<const TValue> itStateEnd = itStateBegin + Dimension;
 
-    for (Ptr<TValue> it=it_stateBegin; it!=it_stateEnd; ++it) {
+    for (Ptr<TValue> it=itStateBegin; it!=itStateEnd; ++it) {
         if (*it != upperBound) { // <== found a component to increment
             ++(*it);
             return true;

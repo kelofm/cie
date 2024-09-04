@@ -86,12 +86,12 @@ CIE_TEST_CASE("single element", "[graph]")
 
     // Construct bilinear basis functions
     using Basis = maths::AnsatzSpace<maths::Polynomial<Double>,2>;
-    auto p_basis = std::make_shared<Basis>(Basis::AnsatzSet {
+    auto pBasis = std::make_shared<Basis>(Basis::AnsatzSet {
         maths::Polynomial<Double>({0.5, 0.5}),
         maths::Polynomial<Double>({0.5, -0.5})
     });
 
-    auto p_basisDerivatives = std::make_shared<Basis::Derivative>(p_basis->makeDerivative());
+    auto pBasisDerivatives = std::make_shared<Basis::Derivative>(pBasis->makeDerivative());
 
     // Construct mesh
     AttributeContainer<
@@ -105,30 +105,30 @@ CIE_TEST_CASE("single element", "[graph]")
     AttributeContainer<
         unsigned,                       // <== element ID
         StaticArray<unsigned,2>,        // <== vertex IDs
-        decltype(p_basis),              // <== basis functions
-        decltype(p_basisDerivatives)    // <== basis function derivatives
+        decltype(pBasis),              // <== basis functions
+        decltype(pBasisDerivatives)    // <== basis function derivatives
     > elements;
 
     elements.push_back(0u,
                        {0u, 1u},
-                       p_basis,
-                       p_basisDerivatives);
+                       pBasis,
+                       pBasisDerivatives);
 
     //Partition<decltype(vertices),decltype(elements)> partition(std::move(vertices), std::move(elements));
 
     // Assembly
     Quadrature<Double,2> quadrature(GaussLegendreQuadrature<Double>(2));
-    linalg::DynamicEigenMatrix<Double> stiffness(p_basis->size(), p_basis->size());
+    linalg::DynamicEigenMatrix<Double> stiffness(pBasis->size(), pBasis->size());
     std::fill(stiffness.begin(),
               stiffness.end(),
               0.0);
 
-    mp::ThreadLocal<DynamicArray<Double>> tls(DynamicArray<Double>(p_basisDerivatives->size(), 0.0));
-    for (Size i_element=0; i_element<elements.size(); ++i_element) {
+    mp::ThreadLocal<DynamicArray<Double>> tls(DynamicArray<Double>(pBasisDerivatives->size(), 0.0));
+    for (Size iElement=0; iElement<elements.size(); ++iElement) {
         elements.visit<StaticArray<unsigned,2>,std::shared_ptr<Basis::Derivative>>(
-            i_element,
+            iElement,
             [&vertices, &quadrature, &stiffness, &tls](const auto& vertexIDs,
-                                                       const auto& p_basisDerivatives){
+                                                       const auto& pBasisDerivatives){
                 const auto vertexCoordinates = std::views::transform(vertexIDs,
                                                                     [&vertices](unsigned vertexID){
                                                                         return vertices.at<StaticArray<Double,2>>(vertexID);
@@ -138,24 +138,24 @@ CIE_TEST_CASE("single element", "[graph]")
                     vertexCoordinates.end());
                 const Double jacobianDeterminant = transform.makeDerivative().evaluateDeterminant(nullptr, nullptr);
                 const auto integrand = maths::makeLambdaExpression<Double>(
-                    [&transform, &p_basisDerivatives, &tls, &stiffness](Ptr<const Double> it_argumentBegin,
-                                                                        [[maybe_unused]] Ptr<const Double> it_argumentEnd,
-                                                                        Ptr<Double> it_output){
-                        StaticArray<Double,2> transformedPoint {it_argumentBegin[0], it_argumentBegin[1]};
+                    [&transform, &pBasisDerivatives, &tls, &stiffness](Ptr<const Double> itArgumentBegin,
+                                                                        [[maybe_unused]] Ptr<const Double> itArgumentEnd,
+                                                                        Ptr<Double> itOutput){
+                        StaticArray<Double,2> transformedPoint {itArgumentBegin[0], itArgumentBegin[1]};
                         std::cout << transform.size() << std::endl;
-                        //transform.evaluate(it_argumentBegin, it_argumentEnd, transformedPoint.data());
-                        std::cout << "integration point: " << it_argumentBegin[0] << ", " << it_argumentBegin[1] << "\n"
+                        //transform.evaluate(itArgumentBegin, itArgumentEnd, transformedPoint.data());
+                        std::cout << "integration point: " << itArgumentBegin[0] << ", " << itArgumentBegin[1] << "\n"
                                   << "global space:      " << transformedPoint[0] << ", " << transformedPoint[1] << std::endl;
-                        auto& r_tls = tls.get<0>();
-                        p_basisDerivatives->evaluate(transformedPoint.data(),
+                        auto& rTls = tls.get<0>();
+                        pBasisDerivatives->evaluate(transformedPoint.data(),
                                                      transformedPoint.data() + transformedPoint.size(),
-                                                     r_tls.data());
+                                                     rTls.data());
                         Eigen::Map<Eigen::Matrix<Double,Eigen::Dynamic,Eigen::Dynamic,Eigen::ColMajor>> basisDerivativeValues(
-                            r_tls.data(),
-                            p_basisDerivatives->size() / 2,
+                            rTls.data(),
+                            pBasisDerivatives->size() / 2,
                             2);
                         Eigen::Map<Eigen::Matrix<Double,Eigen::Dynamic,Eigen::Dynamic,Eigen::ColMajor>> output(
-                            it_output,
+                            itOutput,
                             stiffness.rowSize(),
                             stiffness.columnSize());
                         output = basisDerivativeValues * basisDerivativeValues.transpose();
@@ -166,17 +166,17 @@ CIE_TEST_CASE("single element", "[graph]")
                 stiffness.wrapped() *= jacobianDeterminant;
             }
         ); // elements.visit
-    } // for i_element
+    } // for iElement
 
     std::cout << "unconstrained\n" << stiffness.wrapped() << "\n\n";
 
-    for (Size i_constrained : {0ul, 1ul}) {
+    for (Size iConstrained : {0ul, 1ul}) {
         for (Size i=0; i<stiffness.rowSize(); ++i) {
-            if (i == i_constrained) {
-                stiffness(i_constrained, i_constrained) = 1.0;
+            if (i == iConstrained) {
+                stiffness(iConstrained, iConstrained) = 1.0;
             } else {
-                stiffness(i, i_constrained) = 0.0;
-                stiffness(i_constrained, i) = 0.0;
+                stiffness(i, iConstrained) = 0.0;
+                stiffness(iConstrained, i) = 0.0;
             }
         }
     }

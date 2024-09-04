@@ -14,8 +14,8 @@ PartitionBase::PartitionBase() noexcept
 }
 
 
-PartitionBase::PartitionBase(RightRef<std::string> r_name, Size id)
-    : utils::NamedObject(std::move(r_name)),
+PartitionBase::PartitionBase(RightRef<std::string> rName, Size id)
+    : utils::NamedObject(std::move(rName)),
       utils::IDObject<Size>(id)
 {
 }

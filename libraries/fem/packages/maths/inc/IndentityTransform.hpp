@@ -27,10 +27,10 @@ public:
 public:
     IdentityTransform() noexcept = default;
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const noexcept
-    {std::fill(it_out, it_out + Dimension, static_cast<TValue>(1));}
+    void evaluate([[maybe_unused]] ConstIterator itArgumentBegin,
+                  [[maybe_unused]] ConstIterator itArgumentEnd,
+                  Iterator itOut) const noexcept
+    {std::fill(itOut, itOut + Dimension, static_cast<TValue>(1));}
 
     constexpr unsigned size() const noexcept
     {return Dimension;}

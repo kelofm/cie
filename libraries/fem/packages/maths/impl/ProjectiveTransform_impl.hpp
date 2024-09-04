@@ -13,17 +13,17 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_begin,
-                                                          ConstIterator it_end,
-                                                          Iterator it_out) const
+ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator itBegin,
+                                                          ConstIterator itEnd,
+                                                          Iterator itOut) const
 {
     // nD (but more importantly 3D) projective transform derivatives
     // will have to wait until I figure out how to implement them.
     static_assert(Dimension == 2, "Projective transformations are only supported in 2D for now.");
 
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_begin, it_end) == Dimension)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itBegin, itEnd) == Dimension)
     StaticArray<TValue,Dimension+1> homogeneousInput;
-    std::copy(it_begin, it_end, homogeneousInput.begin());
+    std::copy(itBegin, itEnd, homogeneousInput.begin());
     homogeneousInput.back() = 1;
 
     // Linear part: compute the product of the stored 3D matrix with
@@ -38,15 +38,15 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_begin
     StaticArray<TValue, Dimension*Dimension> output;
     {
         auto it = output.begin();
-        typename StaticArray<TValue, Dimension>::const_iterator it_input;
-        for (unsigned i_componentBegin=0; i_componentBegin<Dimension*Dimension*(Dimension+1); i_componentBegin+=(Dimension+1)) {
-            it_input = homogeneousInput.begin();
+        typename StaticArray<TValue, Dimension>::const_iterator itInput;
+        for (unsigned iComponentBegin=0; iComponentBegin<Dimension*Dimension*(Dimension+1); iComponentBegin+=(Dimension+1)) {
+            itInput = homogeneousInput.begin();
             *it = 0;
-            for (unsigned i_dim=0; i_dim<(Dimension+1); ++i_dim) {
-                *it += *it_input * _enumeratorCoefficients[i_componentBegin + i_dim];
-            } // for i_dim in range(Dimension + 1)
+            for (unsigned iDim=0; iDim<(Dimension+1); ++iDim) {
+                *it += *itInput * _enumeratorCoefficients[iComponentBegin + iDim];
+            } // for iDim in range(Dimension + 1)
             ++it;
-        } // for i_component in range(Dimension * Dimension * (Dimension+1), Dimension + 1)
+        } // for iComponent in range(Dimension * Dimension * (Dimension+1), Dimension + 1)
     }
 
     // Nonlinear part
@@ -57,20 +57,20 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator it_begin
 
     // Scale and output
     for (unsigned i=0; i<Dimension*Dimension; ++i) {
-        *it_out++ = scale * output[i];
+        *itOut++ = scale * output[i];
     }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline TValue
-ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator it_begin,
-                                                                     ConstIterator it_end) const
+ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator itBegin,
+                                                                     ConstIterator itEnd) const
 {
     StaticArray<TValue,Dimension*Dimension> derivative;
 
     CIE_BEGIN_EXCEPTION_TRACING
-    this->evaluate(it_begin, it_end, derivative.data());
+    this->evaluate(itBegin, itEnd, derivative.data());
     CIE_END_EXCEPTION_TRACING
 
     return Eigen::Map<Eigen::Matrix<TValue,Dimension,Dimension>>(derivative.data()).determinant();
@@ -79,28 +79,28 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterat
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(TPointIt it_transformedBegin,
-                                                           TPointIt it_transformedEnd)
+ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(TPointIt itTransformedBegin,
+                                                           TPointIt itTransformedEnd)
     : ProjectiveTransform()
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_transformedBegin, it_transformedEnd) == Dimension*Dimension)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == Dimension*Dimension)
 
     // Assemble RHS
     StaticArray<TValue,Dimension*Dimension*(Dimension+1)> homogeneousPoints;
 
     // Copy transformed components to the first {{Dimension}} rows
-    for (Size i_point=0 ; it_transformedBegin!=it_transformedEnd; it_transformedBegin++, i_point++) {
-        CIE_OUT_OF_RANGE_CHECK(Dimension <= it_transformedBegin->size())
-        const auto i_componentBegin = i_point * (Dimension + 1);
-        for (Size i_component=0; i_component<Dimension; i_component++) {
+    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+        const auto iComponentBegin = iPoint * (Dimension + 1);
+        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
             // This array will be interpreted as an eigen matrix, which
             // stores its data columnwise by default, so the order of the
             // components must follow that.
-            homogeneousPoints[i_componentBegin + i_component] = it_transformedBegin->at(i_component);
+            homogeneousPoints[iComponentBegin + iComponent] = itTransformedBegin->at(iComponent);
         } // for component in point
-        homogeneousPoints[i_componentBegin + Dimension] = 1; // <== last row contains homogeneous components
+        homogeneousPoints[iComponentBegin + Dimension] = 1; // <== last row contains homogeneous components
     } // for point in transformedPoints
 
     // Solve for transformation matrix components
@@ -113,21 +113,21 @@ ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(TPointIt it_transform
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-ProjectiveTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                [[maybe_unused]] ConstIterator it_argumentEnd,
-                                                Iterator it_out) const
+ProjectiveTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
+                                                [[maybe_unused]] ConstIterator itArgumentEnd,
+                                                Iterator itOut) const
 {
-    CIE_OUT_OF_RANGE_CHECK(Dimension == std::distance(it_argumentBegin, it_argumentEnd))
+    CIE_OUT_OF_RANGE_CHECK(Dimension == std::distance(itArgumentBegin, itArgumentEnd))
 
     // Copy augmented point
     typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
-    for (Size i_dim=0; i_dim<Dimension; ++i_dim) {
-        augmentedPoint[i_dim] = it_argumentBegin[i_dim];
+    for (Size iDim=0; iDim<Dimension; ++iDim) {
+        augmentedPoint[iDim] = itArgumentBegin[iDim];
     }
 
     // <== GCC thinks this doesn't initialize augmentedPoint ...
-    //std::copy(it_argumentBegin,
-    //          it_argumentEnd,
+    //std::copy(itArgumentBegin,
+    //          itArgumentEnd,
     //          augmentedPoint.begin());
 
     augmentedPoint[Dimension] = static_cast<TValue>(1);
@@ -143,7 +143,7 @@ ProjectiveTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
     std::transform(
         transformed.begin(),
         transformed.begin() + Dimension,
-        it_out,
+        itOut,
         [scale](TValue component) {return component * scale;}
     );
 }

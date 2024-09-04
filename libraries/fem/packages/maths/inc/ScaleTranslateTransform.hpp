@@ -42,13 +42,13 @@ public:
     ScaleTranslateTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const noexcept;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const noexcept;
 
     /// @brief Evaluate the determinant of the original transform's jacobian at the provided location.
-    TValue evaluateDeterminant(ConstIterator it_argumentBegin,
-                               ConstIterator it_argumentEnd) const noexcept;
+    TValue evaluateDeterminant(ConstIterator itArgumentBegin,
+                               ConstIterator itArgumentEnd) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -58,9 +58,9 @@ private:
 
     friend class TranslateScaleTransform<TValue,Dimension>;
 
-    ScaleTranslateTransformDerivative(Ref<const ScaleTranslateTransform<TValue,Dimension>> r_transform) noexcept;
+    ScaleTranslateTransformDerivative(Ref<const ScaleTranslateTransform<TValue,Dimension>> rTransform) noexcept;
 
-    ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> r_transform) noexcept;
+    ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> rTransform) noexcept;
 
 private:
     StaticArray<TValue,Dimension> _scales;
@@ -92,13 +92,13 @@ public:
      *  @note The number of input components must match the dimension.
      */
     template <concepts::Iterator TPointIt>
-    ScaleTranslateTransform(TPointIt it_transformedBegin,
-                            TPointIt it_transformedEnd);
+    ScaleTranslateTransform(TPointIt itTransformedBegin,
+                            TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -110,8 +110,8 @@ public:
     TranslateScaleTransform<TValue,Dimension> makeInverse() const noexcept;
 
 private:
-    ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> r_scales,
-                            RightRef<StaticArray<TValue,Dimension>> r_offsets) noexcept;
+    ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
+                            RightRef<StaticArray<TValue,Dimension>> rOffsets) noexcept;
 
 private:
     friend class ScaleTranslateTransformDerivative<TValue,Dimension>;
@@ -149,13 +149,13 @@ public:
      *  @note The number of input components must match the dimension.
      */
     template <concepts::Iterator TPointIt>
-    TranslateScaleTransform(TPointIt it_transformedBegin,
-                            TPointIt it_transformedEnd);
+    TranslateScaleTransform(TPointIt itTransformedBegin,
+                            TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -167,8 +167,8 @@ public:
     ScaleTranslateTransform<TValue,Dimension> makeInverse() const noexcept;
 
 private:
-    TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> r_scales,
-                            RightRef<StaticArray<TValue,Dimension>> r_offsets) noexcept;
+    TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
+                            RightRef<StaticArray<TValue,Dimension>> rOffsets) noexcept;
 
 private:
     friend class ScaleTranslateTransformDerivative<TValue,Dimension>;

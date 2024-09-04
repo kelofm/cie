@@ -23,10 +23,10 @@ template <class TID, class TContainer>
 OptionalRef<typename CopyConstQualifier<
     TContainer,
     typename std::remove_reference_t<TContainer>::mapped_type
->::Type> findGraphItem(TID id, TContainer&& r_container) noexcept
+>::Type> findGraphItem(TID id, TContainer&& rContainer) noexcept
 {
-    const auto it = r_container.find(id);
-    if (it == r_container.end()) {
+    const auto it = rContainer.find(id);
+    if (it == rContainer.end()) {
         return {};
     } else {
         return it.value();
@@ -39,12 +39,12 @@ std::conditional_t<
     std::is_same_v<std::remove_const_t<TSecond>,void>,
     std::tuple<TFirst>,
     std::tuple<TFirst,TSecond>
-> makePartiallyInitializedTuple(TFirst&& r_first)
+> makePartiallyInitializedTuple(TFirst&& rFirst)
 {
     if constexpr (std::is_same_v<std::remove_const_t<TSecond>,void>) {
-        return std::tuple<TFirst>(std::forward<TFirst>(r_first));
+        return std::tuple<TFirst>(std::forward<TFirst>(rFirst));
     } else {
-        return std::tuple<TFirst,TSecond>(std::forward<TFirst>(r_first), TSecond());
+        return std::tuple<TFirst,TSecond>(std::forward<TFirst>(rFirst), TSecond());
     }
 }
 
@@ -341,16 +341,16 @@ Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> rEdge,
 template <class TVD, class TED>
 bool Graph<TVD,TED>::eraseVertex(VertexID id) noexcept
 {
-    auto it_vertex = _vertices.find(id);
-    if (it_vertex != _vertices.end()) {
-        Ref<const Vertex> rVertex = it_vertex.value();
+    auto itVertex = _vertices.find(id);
+    if (itVertex != _vertices.end()) {
+        Ref<const Vertex> rVertex = itVertex.value();
 
         // Erase associated edges
         for (EdgeID edgeID : rVertex.edges()) {
-            auto it_edge = _edges.find(edgeID);
+            auto itEdge = _edges.find(edgeID);
 
             // Erase edge from the endpoint vertices' edge lists
-            StaticArray<VertexID,2> endpoints = {it_edge.value().source(), it_edge.value().target()};
+            StaticArray<VertexID,2> endpoints = {itEdge.value().source(), itEdge.value().target()};
             for (VertexID endpoint : endpoints) {
                 if (endpoint != id) {
                     _vertices.find(endpoint).value().mutableEdges().erase(edgeID);
@@ -358,11 +358,11 @@ bool Graph<TVD,TED>::eraseVertex(VertexID id) noexcept
             }
 
             // Erase edge
-            _edges.erase(it_edge);
+            _edges.erase(itEdge);
         }
 
         // Erase vertex
-        _vertices.erase(it_vertex);
+        _vertices.erase(itVertex);
         return true;
     } else {
         return false;
@@ -373,16 +373,16 @@ bool Graph<TVD,TED>::eraseVertex(VertexID id) noexcept
 template <class TVD, class TED>
 bool Graph<TVD,TED>::eraseEdge(EdgeID id) noexcept
 {
-    auto it_edge = _edges.find(id);
-    if (it_edge != _edges.end()) {
-        Ref<const Edge> rEdge = it_edge.value();
+    auto itEdge = _edges.find(id);
+    if (itEdge != _edges.end()) {
+        Ref<const Edge> rEdge = itEdge.value();
 
         // Erase edge from the endpoint vertices' edge lists
         _vertices.find(rEdge.source()).value().mutableEdges().erase(id);
         _vertices.find(rEdge.target()).value().mutableEdges().erase(id);
 
         // Erase edge
-        _edges.erase(it_edge);
+        _edges.erase(itEdge);
         return true;
     } else {
         return false;

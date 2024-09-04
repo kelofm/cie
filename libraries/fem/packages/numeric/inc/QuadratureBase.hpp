@@ -35,13 +35,13 @@ public:
 protected:
     QuadratureBase() noexcept = default;
 
-    QuadratureBase(NodeContainer&& r_nodes,
-                   WeightContainer&& r_weights);
+    QuadratureBase(NodeContainer&& rNodes,
+                   WeightContainer&& rWeights);
 
-    QuadratureBase(std::pair<NodeContainer, WeightContainer>&& r_nodesAndWeights);
+    QuadratureBase(std::pair<NodeContainer, WeightContainer>&& rNodesAndWeights);
 
-    QuadratureBase(Ref<const NodeContainer> r_nodes,
-                   Ref<const WeightContainer> r_weights);
+    QuadratureBase(Ref<const NodeContainer> rNodes,
+                   Ref<const WeightContainer> rWeights);
 
 private:
     NodeContainer   _nodes;

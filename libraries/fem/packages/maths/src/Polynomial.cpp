@@ -10,8 +10,8 @@ namespace cie::fem::maths {
 
 
 template <class TValue>
-Polynomial<TValue>::Polynomial(RightRef<Coefficients> r_coefficients) noexcept
-    : _coefficients(std::move(r_coefficients))
+Polynomial<TValue>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
+    : _coefficients(std::move(rCoefficients))
 {
 }
 
@@ -29,10 +29,10 @@ Polynomial<TValue> Polynomial<TValue>::makeDerivative() const
         derivativeCoefficients.push_back(_coefficients[1]);
         if (2 < polynomialOrder) {
             derivativeCoefficients.reserve(polynomialOrder - 1u);
-            const auto it_coefficientEnd = _coefficients.end();
+            const auto itCoefficientEnd = _coefficients.end();
             TValue power = static_cast<TValue>(2);
-            for (auto it_coefficient=_coefficients.begin()+2; it_coefficient!=it_coefficientEnd; ++it_coefficient, ++power)
-                derivativeCoefficients.push_back(power * (*it_coefficient));
+            for (auto itCoefficient=_coefficients.begin()+2; itCoefficient!=itCoefficientEnd; ++itCoefficient, ++power)
+                derivativeCoefficients.push_back(power * (*itCoefficient));
         } // if 2 < polynoialOrder
     } // if 1 < polynomialOrder
 
