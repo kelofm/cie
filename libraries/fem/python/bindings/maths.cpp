@@ -39,11 +39,13 @@ void addVectorExpressionInterface(TPyBindClass rClass)
                 "Get the number of scalar components returned by the 'evaluate' member function.")
     .def("evaluate", [] (Ref<const TExpression> rThis,
                          Ref<const StaticArray<TValue,InDimension>> rArguments) {
-        auto array = makeNumpyArray<TValue,1>(StaticArray<Size,1> {OutDimension} .data());
+        StaticArray<Size,1> array;
+        array.front() = OutDimension;
+        auto adaptor = makeNumpyArray<TValue,1>(array.data());
         rThis.evaluate(rArguments.begin(),
-                        rArguments.end(),
-                        array.mutable_data());
-        return array;
+                       rArguments.end(),
+                       adaptor.mutable_data());
+        return adaptor;
     });
 }
 
