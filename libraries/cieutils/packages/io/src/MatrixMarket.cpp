@@ -59,11 +59,28 @@ MatrixMarket::Output::~Output() = default;
         CIE_END_EXCEPTION_TRACING                                                                                   \
     }
 
+#define CIE_MATRIX_MARKET_OUTPUT_DEFINITION_FOR_VALUE(TValue)                                                       \
+    Ref<MatrixMarket::Output> MatrixMarket::Output::operator()(Ptr<const TValue> itBegin,                           \
+                                                               const std::size_t size)                              \
+    {                                                                                                               \
+        CIE_BEGIN_EXCEPTION_TRACING                                                                                 \
+        Ref<std::ostream> rStream = *_pImpl->_pStream;                                                              \
+        rStream << "%%MatrixMarket matrix array real general\n"                                                     \
+                << size << ' ' << 1 << '\n';                                                                        \
+        Ptr<const TValue> itEnd = itBegin + size;                                                                   \
+        for (; itBegin!=itEnd; ++itBegin) rStream << *itBegin << '\n';                                              \
+        return *this;                                                                                               \
+        CIE_END_EXCEPTION_TRACING                                                                                   \
+    }                                                                                                               \
+                                                                                                                    \
+    CIE_MATRIX_MARKET_OUTPUT_DEFINITION(int, TValue)                                                                \
+    CIE_MATRIX_MARKET_OUTPUT_DEFINITION(unsigned, TValue)                                                           \
+    CIE_MATRIX_MARKET_OUTPUT_DEFINITION(std::size_t, TValue)
 
-CIE_MATRIX_MARKET_OUTPUT_DEFINITION(unsigned, double)
-CIE_MATRIX_MARKET_OUTPUT_DEFINITION(std::size_t, double)
 
+CIE_MATRIX_MARKET_OUTPUT_DEFINITION_FOR_VALUE(double)
 #undef CIE_MATRIX_MARKET_OUTPUT_DEFINITION
+#undef CIE_MATRIX_MARKET_OUTPUT_DEFINITION_FOR_VALUE
 
 
 } // namespace cie::utils::io

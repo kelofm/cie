@@ -26,10 +26,10 @@ public:
     class Output
     {
     public:
-        /// @brief Construct a matrix market input object reading from @a stdin.
+        /// @brief Construct a matrix market output object reading from @p stdin.
         Output();
 
-        /// @brief Construct a matrix market input object reading from the provided stream.
+        /// @brief Construct a matrix market output object reading from the provided stream.
         Output(Ref<std::ostream> rStream, Settings settings = {});
 
         /// @brief Default destructor required by PIMPL.
@@ -43,10 +43,16 @@ public:
                                    Ptr<const TIndex> pColumnIndices,    \
                                    Ptr<const TValue> pNonzeros)
 
-        CIE_MATRIX_MARKET_OUTPUT_INTERFACE(unsigned, double);
+        #define CIE_MATRIX_MARKET_OUTPUT_INTERFACE_FOR_VALUE(TValue)    \
+            Ref<Output> operator()(Ptr<const TValue> itBegin,           \
+                                   const std::size_t size);             \
+                                                                        \
+            CIE_MATRIX_MARKET_OUTPUT_INTERFACE(int, TValue);            \
+            CIE_MATRIX_MARKET_OUTPUT_INTERFACE(unsigned, TValue);       \
+            CIE_MATRIX_MARKET_OUTPUT_INTERFACE(std::size_t, TValue)
 
-        CIE_MATRIX_MARKET_OUTPUT_INTERFACE(std::size_t, double);
-
+        CIE_MATRIX_MARKET_OUTPUT_INTERFACE_FOR_VALUE(double);
+        #undef CIE_MATRIX_MARKET_OUTPUT_INTERFACE_FOR_VALUE
         #undef CIE_MATRIX_MARKET_OUTPUT_INTERFACE
 
     private:
