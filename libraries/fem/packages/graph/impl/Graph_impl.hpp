@@ -209,7 +209,7 @@ Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(RightRef<Vertex> rVe
     CIE_CHECK(rVertex.edges().empty(), "Attempt to insert vertex " << rVertex.id() << " that already has edges")
 
     const auto id = rVertex.id();
-    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult {{}, false};
+    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult(_vertices.end(), false);
 
     // Make sure that no vertex exists in the graph with the given ID
     // if overwriting was requested.
@@ -243,7 +243,7 @@ Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(Ref<const Vertex> rV
     CIE_CHECK(rVertex.edges().empty(), "Attempt to insert vertex " << rVertex.id() << " that already has edges")
 
     const auto id = rVertex.id();
-    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult {{}, false};
+    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult(_vertices.end(), false);
 
     // Make sure that no vertex exists in the graph with the given ID
     // if overwriting was requested.
@@ -275,7 +275,7 @@ Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(RightRef<Edge> rEdge,
                                                           bool overwrite)
 {
     const auto id = rEdge.id();
-    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult {{}, false};
+    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult(_edges.end(), false);
 
     // Make sure that no edge exists in the graph with the given ID
     // if overwriting was requested.
@@ -309,7 +309,7 @@ Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> rEdge,
                                                           bool overwrite)
 {
     const auto id = rEdge.id();
-    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult {{}, false};
+    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult(_edges.end(), false);
 
     // Make sure that no edge exists in the graph with the given ID
     // if overwriting was requested.
