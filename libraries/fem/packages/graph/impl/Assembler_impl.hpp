@@ -50,6 +50,9 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData>> rGraph,
         visited.insert(rVertex.id());
         visitQueue.pop();
 
+        // Insert the vertex to handle disconnected cells.
+        _dofMap.emplace(rVertex.id(), DoFMap::mapped_type {}).first->second.resize(rDoFCounter(rVertex));
+
         for (const auto edgeID : rVertex.edges()) {
             Ref<const Edge> rEdge = rGraph.find(edgeID).value();
 
