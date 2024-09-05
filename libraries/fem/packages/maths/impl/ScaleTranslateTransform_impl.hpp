@@ -62,7 +62,7 @@ inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPoint
     const auto& rBase = *itTransformedBegin;
     const auto& rOp = *(itTransformedBegin + 1);
     for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        const TValue diff = (rOp[iDim] - rBase[iDim]);
+        const TValue diff = rOp[iDim] - rBase[iDim];
         CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
         this->_scales[iDim] = diff / static_cast<TValue>(2);
         this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / static_cast<TValue>(2);
