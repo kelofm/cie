@@ -50,9 +50,9 @@ concept HasBack
 
 
 template < class T,
-           class ...Arguments>
+           class ...TArgs>
 concept HasResize
-= requires (T instance, Arguments... arguments)
+= requires (T instance, TArgs... arguments)
 {
     {instance.resize(arguments...)} -> std::same_as<void>;
 };
@@ -106,20 +106,27 @@ concept HasPushBack
 
 
 template < class T,
-           class ...Arguments >
+           class ...TArgs >
 concept HasEmplaceFront
-= requires (T instance, Arguments&&... r_arguments)
+= requires (T instance, TArgs&&... rArgs)
 {
-    {instance.emplace_front(std::forward<Arguments>(r_arguments)...)} -> std::same_as<typename T::reference>;
+    {instance.emplace_front(std::forward<TArgs>(rArgs)...)} -> std::same_as<typename T::reference>;
 };
 
 
 template < class T,
-           class ...Arguments >
+           class ...TArgs >
 concept HasEmplaceBack
-= requires (T instance, Arguments&&... r_arguments)
+= requires (T instance, TArgs&&... rArgs)
 {
-    {instance.emplace_back(std::forward<Arguments>(r_arguments)...)} -> std::same_as<typename T::reference>;
+    {instance.emplace_back(std::forward<TArgs>(rArgs)...)} -> std::same_as<typename T::reference>;
+};
+
+
+template <class T, class ...TArgs>
+concept HasInsert
+= requires (T instance, TArgs&&... rTArgs) {
+    {instance.insert(std::forward<TArgs>(rTArgs)...)};
 };
 
 

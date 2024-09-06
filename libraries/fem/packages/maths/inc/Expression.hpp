@@ -29,7 +29,7 @@ concept Expression
     //typename T::Derivative;
 
     /// Require the evaluation through the following signature:
-    /// void Expression::evaluate(ConstIterator it_begin, ConstIterator it_end, Iterator it_out)
+    /// void Expression::evaluate(ConstIterator itBegin, ConstIterator itEnd, Iterator itOut)
     {
         instance.evaluate(std::declval<typename T::ConstIterator>(),
                           std::declval<typename T::ConstIterator>(),
@@ -66,9 +66,9 @@ struct DynamicExpression : ExpressionTraits<TValue>
 
     using Derivative = DynamicExpression;
 
-    virtual void evaluate(ConstIterator it_argumentBegin,
-                          ConstIterator it_argumentEnd,
-                          Iterator it_output) const = 0;
+    virtual void evaluate(ConstIterator itArgumentBegin,
+                          ConstIterator itArgumentEnd,
+                          Iterator itOutput) const = 0;
 
     virtual void makeDerivative(Ref<Ptr<Derivative>> rp_derivative) const = 0;
 }; // class DynamicExpression
@@ -92,13 +92,13 @@ public:
 private:
     WrappedExpression() = default;
 
-    WrappedExpression(TExpression&& r_expression) noexcept;
+    WrappedExpression(TExpression&& rExpression) noexcept;
 
-    WrappedExpression(const TExpression& r_expression);
+    WrappedExpression(const TExpression& rExpression);
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_output) const override;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOutput) const override;
 
     void makeDerivative(Ref<Ptr<Derivative>> rp_derivative) const override;
 }; // class WrappedExpression

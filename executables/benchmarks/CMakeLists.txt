@@ -38,7 +38,7 @@ if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
     add_compile_definitions(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
 endif()
 
-add_compile_options(-Wall -Wpedantic -Wextra -Werror)
+add_compile_options(-Wall -Wpedantic -Wextra -Wno-dangling-reference -Werror)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE cie::fem benchmark::benchmark)
 target_include_directories(${PROJECT_NAME} PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")

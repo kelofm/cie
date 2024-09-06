@@ -13,7 +13,7 @@ CIE_TEST_CASE( "DoubleVector operator overloads", "[overloads]" )
     DoubleVector v3({ 10.0, 15.0, 14.0, 12.0});
     DoubleVector resultDoubleVector;
     double scalar = 2.5;
-    double resultScalar;
+    double resultScalar = 0.0;
 
     // SCALAR ADDITION
     CIE_TEST_REQUIRE_NOTHROW( resultDoubleVector = v1 + scalar );

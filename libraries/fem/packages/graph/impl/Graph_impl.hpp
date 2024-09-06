@@ -19,14 +19,14 @@ namespace cie::fem {
 namespace impl {
 
 
-template <class TContainer>
+template <class TID, class TContainer>
 OptionalRef<typename CopyConstQualifier<
     TContainer,
     typename std::remove_reference_t<TContainer>::mapped_type
->::Type> findGraphItem(Size id, TContainer&& r_container) noexcept
+>::Type> findGraphItem(TID id, TContainer&& rContainer) noexcept
 {
-    const auto it = r_container.find(id);
-    if (it == r_container.end()) {
+    const auto it = rContainer.find(id);
+    if (it == rContainer.end()) {
         return {};
     } else {
         return it.value();
@@ -39,12 +39,12 @@ std::conditional_t<
     std::is_same_v<std::remove_const_t<TSecond>,void>,
     std::tuple<TFirst>,
     std::tuple<TFirst,TSecond>
-> makePartiallyInitializedTuple(TFirst&& r_first)
+> makePartiallyInitializedTuple(TFirst&& rFirst)
 {
     if constexpr (std::is_same_v<std::remove_const_t<TSecond>,void>) {
-        return std::tuple<TFirst>(std::forward<TFirst>(r_first));
+        return std::tuple<TFirst>(std::forward<TFirst>(rFirst));
     } else {
-        return std::tuple<TFirst,TSecond>(std::forward<TFirst>(r_first), TSecond());
+        return std::tuple<TFirst,TSecond>(std::forward<TFirst>(rFirst), TSecond());
     }
 }
 
@@ -53,43 +53,44 @@ std::conditional_t<
 
 
 template <class TVD, class TED>
-Graph<TVD,TED>::Vertex::Vertex(Size id,
-                               RightRef<tsl::robin_set<Size>> r_edges) noexcept
-    : ItemBase(id),
-      _data(impl::makePartiallyInitializedTuple<TVD>(std::move(r_edges)))
+Graph<TVD,TED>::Vertex::Vertex(VertexID id,
+                               RightRef<tsl::robin_set<EdgeID>> rEdges) noexcept
+    : ItemBase<VertexID>(id),
+      _data(impl::makePartiallyInitializedTuple<TVD>(std::move(rEdges)))
 {}
 
 
 template <class TVD, class TED>
-Graph<TVD,TED>::Vertex::Vertex(Size id,
-                               RightRef<tsl::robin_set<Size>> r_edges,
+Graph<TVD,TED>::Vertex::Vertex(VertexID id,
+                               RightRef<tsl::robin_set<EdgeID>> rEdges,
                                std::conditional_t<
                                     std::is_same_v<std::remove_const_t<TVD>,void>,
                                     char, // dummy type, cannot be void
                                     typename VoidSafe<TVD>::RightRef
-                               > r_data) noexcept
+                               > rData) noexcept
 requires (!std::is_same_v<std::remove_const_t<TVD>,void>)
-    : ItemBase(id),
-      _data(std::move(r_edges), std::move(r_data))
+    : ItemBase<VertexID>(id),
+      _data(std::move(rEdges), std::move(rData))
 {}
 
 
 template <class TVD, class TED>
-Graph<TVD,TED>::Vertex::Vertex(Size id,
-                               RightRef<tsl::robin_set<Size>> r_edges,
+Graph<TVD,TED>::Vertex::Vertex(VertexID id,
+                               RightRef<tsl::robin_set<EdgeID>> rEdges,
                                std::conditional_t<
                                     std::is_same_v<std::remove_const_t<TVD>,void>,
                                     int, // dummy type, cannot be void
                                     typename VoidSafe<const TVD>::Ref
-                               > r_data)
+                               > rData)
 requires (!std::is_same_v<std::remove_const_t<TVD>,void>)
-    : ItemBase(id),
-      _data(std::move(r_edges), r_data)
+    : ItemBase<VertexID>(id),
+      _data(std::move(rEdges), rData)
 {}
 
 
 template <class TVD, class TED>
-Ref<const tsl::robin_set<Size>> Graph<TVD,TED>::Vertex::edges() const noexcept
+Ref<const tsl::robin_set<typename Graph<TVD,TED>::EdgeID>>
+Graph<TVD,TED>::Vertex::edges() const noexcept
 {
     return std::get<0>(_data);
 }
@@ -114,67 +115,70 @@ typename VoidSafe<TVD>::Ref Graph<TVD,TED>::Vertex::data() noexcept
 
 
 template <class TVD, class TED>
-Ref<tsl::robin_set<Size>> Graph<TVD,TED>::Vertex::mutableEdges() noexcept
+Ref<tsl::robin_set<typename Graph<TVD,TED>::EdgeID>> Graph<TVD,TED>::Vertex::mutableEdges() noexcept
 {
     return std::get<0>(_data);
 }
 
 
 template <class TVD, class TED>
-Graph<TVD,TED>::Edge::Edge(Size id,
-                           std::pair<Size,Size> vertices) noexcept
-    : ItemBase(id),
+Graph<TVD,TED>::Edge::Edge(EdgeID id,
+                           std::pair<VertexID,VertexID> vertices) noexcept
+    : ItemBase<EdgeID>(id),
       _data(impl::makePartiallyInitializedTuple<TED>(vertices))
 {
 }
 
 
 template <class TVD, class TED>
-Graph<TVD,TED>::Edge::Edge(Size id,
-                           std::pair<Size,Size> vertices,
+Graph<TVD,TED>::Edge::Edge(EdgeID id,
+                           std::pair<VertexID,VertexID> vertices,
                            std::conditional_t<
                                 std::is_same_v<std::remove_const_t<TED>,void>,
                                 char, // dummy type, cannot be void
                                 typename VoidSafe<TED>::RightRef
-                           > r_data) noexcept
+                           > rData) noexcept
 requires (!std::is_same_v<std::remove_const_t<TED>,void>)
-    : ItemBase(id),
-      _data(vertices, std::move(r_data))
+    : ItemBase<EdgeID>(id),
+      _data(vertices, std::move(rData))
 {
 }
 
 
 template <class TVD, class TED>
-Graph<TVD,TED>::Edge::Edge(Size id,
-                           std::pair<Size,Size> vertices,
+Graph<TVD,TED>::Edge::Edge(EdgeID id,
+                           std::pair<VertexID,VertexID> vertices,
                            std::conditional_t<
                                 std::is_same_v<std::remove_const_t<TED>,void>,
                                 int, // dummy type, cannot be void
                                 typename VoidSafe<const TED>::Ref
-                           > r_data)
+                           > rData)
 requires (!std::is_same_v<std::remove_const_t<TED>,void>)
-    : ItemBase(id),
-      _data(vertices, r_data)
+    : ItemBase<EdgeID>(id),
+      _data(vertices, rData)
 {
 }
 
 
 template <class TVD, class TED>
-std::pair<Size,Size> Graph<TVD,TED>::Edge::vertices() const noexcept
+std::pair<typename Graph<TVD,TED>::VertexID,typename Graph<TVD,TED>::VertexID>
+Graph<TVD,TED>::Edge::vertices() const noexcept
 {
     return std::get<0>(_data);
 }
 
 
 template <class TVD, class TED>
-Size Graph<TVD,TED>::Edge::source() const noexcept
+typename Graph<TVD,TED>::VertexID
+Graph<TVD,TED>::Edge::source() const noexcept
 {
     return std::get<0>(_data).first;
 }
 
 
 template <class TVD, class TED>
-Size Graph<TVD,TED>::Edge::target() const noexcept
+typename Graph<TVD,TED>::VertexID
+Graph<TVD,TED>::Edge::target() const noexcept
 {
     return std::get<0>(_data).second;
 }
@@ -199,13 +203,13 @@ typename VoidSafe<TED>::Ref Graph<TVD,TED>::Edge::data() noexcept
 
 
 template <class TVD, class TED>
-Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(Ref<const Vertex> r_vertex,
+Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(RightRef<Vertex> rVertex,
                                                             bool overwrite)
 {
-    CIE_CHECK(r_vertex.edges().empty(), "Attempt to insert vertex " << r_vertex.id() << " that already has edges")
+    CIE_CHECK(rVertex.edges().empty(), "Attempt to insert vertex " << rVertex.id() << " that already has edges")
 
-    const auto id = r_vertex.id();
-    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult {{}, false};
+    const auto id = rVertex.id();
+    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult(_vertices.end(), false);
 
     // Make sure that no vertex exists in the graph with the given ID
     // if overwriting was requested.
@@ -214,13 +218,13 @@ Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(Ref<const Vertex> r_
     }
 
     CIE_BEGIN_EXCEPTION_TRACING
-    emplaceResult = _vertices.emplace(id, r_vertex);
+    emplaceResult = _vertices.emplace(id, std::move(rVertex));
     CIE_END_EXCEPTION_TRACING
 
     // Check whether every edge connected to
     // the newly inserted vertex exists.
     if (emplaceResult.second) {
-        for (Size edgeID : emplaceResult.first.value().edges()) {
+        for (EdgeID edgeID : emplaceResult.first.value().edges()) {
             CIE_CHECK(
                 this->findEdge(edgeID).has_value(),
                 "Vertex " << id << " is connected to edge " << edgeID << " that is not part of the graph\n"
@@ -233,11 +237,45 @@ Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(Ref<const Vertex> r_
 
 
 template <class TVD, class TED>
-Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> r_edge,
+Ref<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::insert(Ref<const Vertex> rVertex,
+                                                            bool overwrite)
+{
+    CIE_CHECK(rVertex.edges().empty(), "Attempt to insert vertex " << rVertex.id() << " that already has edges")
+
+    const auto id = rVertex.id();
+    std::pair<typename decltype(_vertices)::iterator,bool> emplaceResult(_vertices.end(), false);
+
+    // Make sure that no vertex exists in the graph with the given ID
+    // if overwriting was requested.
+    if (overwrite) {
+        this->eraseVertex(id);
+    }
+
+    CIE_BEGIN_EXCEPTION_TRACING
+    emplaceResult = _vertices.emplace(id, rVertex);
+    CIE_END_EXCEPTION_TRACING
+
+    // Check whether every edge connected to
+    // the newly inserted vertex exists.
+    if (emplaceResult.second) {
+        for (EdgeID edgeID : emplaceResult.first.value().edges()) {
+            CIE_CHECK(
+                this->findEdge(edgeID).has_value(),
+                "Vertex " << id << " is connected to edge " << edgeID << " that is not part of the graph\n"
+            );
+        }
+    }
+
+    return emplaceResult.first.value();
+}
+
+
+template <class TVD, class TED>
+Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(RightRef<Edge> rEdge,
                                                           bool overwrite)
 {
-    const auto id = r_edge.id();
-    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult {{}, false};
+    const auto id = rEdge.id();
+    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult(_edges.end(), false);
 
     // Make sure that no edge exists in the graph with the given ID
     // if overwriting was requested.
@@ -246,7 +284,7 @@ Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> r_edge
     }
 
     CIE_BEGIN_EXCEPTION_TRACING
-    emplaceResult = _edges.emplace(id, r_edge);
+    emplaceResult = _edges.emplace(id, std::move(rEdge));
     CIE_END_EXCEPTION_TRACING
 
     // Ensure that both endpoints of the edge exist in the graph,
@@ -254,9 +292,11 @@ Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> r_edge
     if (emplaceResult.second) {
         CIE_BEGIN_EXCEPTION_TRACING
         this->insert(Vertex(emplaceResult.first.value().source(), {}))
-              .mutableEdges().insert(id);
+              .mutableEdges()
+              .insert(id);
         this->insert(Vertex(emplaceResult.first.value().target(), {}))
-              .mutableEdges().insert(id);
+              .mutableEdges()
+              .insert(id);
         CIE_END_EXCEPTION_TRACING
     }
 
@@ -265,30 +305,64 @@ Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> r_edge
 
 
 template <class TVD, class TED>
-bool Graph<TVD,TED>::eraseVertex(Size id) noexcept
+Ref<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::insert(Ref<const Edge> rEdge,
+                                                          bool overwrite)
 {
-    auto it_vertex = _vertices.find(id);
-    if (it_vertex != _vertices.end()) {
-        Ref<const Vertex> r_vertex = it_vertex.value();
+    const auto id = rEdge.id();
+    std::pair<typename decltype(_edges)::iterator,bool> emplaceResult(_edges.end(), false);
+
+    // Make sure that no edge exists in the graph with the given ID
+    // if overwriting was requested.
+    if (overwrite) {
+        this->eraseEdge(id);
+    }
+
+    CIE_BEGIN_EXCEPTION_TRACING
+    emplaceResult = _edges.emplace(id, rEdge);
+    CIE_END_EXCEPTION_TRACING
+
+    // Ensure that both endpoints of the edge exist in the graph,
+    // and both end points reference the edge.
+    if (emplaceResult.second) {
+        CIE_BEGIN_EXCEPTION_TRACING
+        this->insert(Vertex(emplaceResult.first.value().source(), {}))
+              .mutableEdges()
+              .insert(id);
+        this->insert(Vertex(emplaceResult.first.value().target(), {}))
+              .mutableEdges()
+              .insert(id);
+        CIE_END_EXCEPTION_TRACING
+    }
+
+    return emplaceResult.first.value();
+}
+
+
+template <class TVD, class TED>
+bool Graph<TVD,TED>::eraseVertex(VertexID id) noexcept
+{
+    auto itVertex = _vertices.find(id);
+    if (itVertex != _vertices.end()) {
+        Ref<const Vertex> rVertex = itVertex.value();
 
         // Erase associated edges
-        for (Size edgeID : r_vertex.edges()) {
-            auto it_edge = _edges.find(edgeID);
+        for (EdgeID edgeID : rVertex.edges()) {
+            auto itEdge = _edges.find(edgeID);
 
             // Erase edge from the endpoint vertices' edge lists
-            StaticArray<Size,2> endpoints = {it_edge.value().source(), it_edge.value().target()};
-            for (Size endpoint : endpoints) {
+            StaticArray<VertexID,2> endpoints = {itEdge.value().source(), itEdge.value().target()};
+            for (VertexID endpoint : endpoints) {
                 if (endpoint != id) {
                     _vertices.find(endpoint).value().mutableEdges().erase(edgeID);
                 }
             }
 
             // Erase edge
-            _edges.erase(it_edge);
+            _edges.erase(itEdge);
         }
 
         // Erase vertex
-        _vertices.erase(it_vertex);
+        _vertices.erase(itVertex);
         return true;
     } else {
         return false;
@@ -297,18 +371,18 @@ bool Graph<TVD,TED>::eraseVertex(Size id) noexcept
 
 
 template <class TVD, class TED>
-bool Graph<TVD,TED>::eraseEdge(Size id) noexcept
+bool Graph<TVD,TED>::eraseEdge(EdgeID id) noexcept
 {
-    auto it_edge = _edges.find(id);
-    if (it_edge != _edges.end()) {
-        Ref<const Edge> r_edge = it_edge.value();
+    auto itEdge = _edges.find(id);
+    if (itEdge != _edges.end()) {
+        Ref<const Edge> rEdge = itEdge.value();
 
         // Erase edge from the endpoint vertices' edge lists
-        _vertices.find(r_edge.source()).value().mutableEdges().erase(id);
-        _vertices.find(r_edge.target()).value().mutableEdges().erase(id);
+        _vertices.find(rEdge.source()).value().mutableEdges().erase(id);
+        _vertices.find(rEdge.target()).value().mutableEdges().erase(id);
 
         // Erase edge
-        _edges.erase(it_edge);
+        _edges.erase(itEdge);
         return true;
     } else {
         return false;
@@ -317,30 +391,65 @@ bool Graph<TVD,TED>::eraseEdge(Size id) noexcept
 
 
 template <class TVD, class TED>
-OptionalRef<const typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(Size id) const noexcept
+OptionalRef<const typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(VertexID id) const noexcept
+{
+    return this->find(id);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(VertexID id) noexcept
+{
+    return this->find(id);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<const typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::find(VertexID id) const noexcept
 {
     return impl::findGraphItem(id, _vertices);
 }
 
 
 template <class TVD, class TED>
-OptionalRef<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::findVertex(Size id) noexcept
+OptionalRef<typename Graph<TVD,TED>::Vertex> Graph<TVD,TED>::find(VertexID id) noexcept
 {
     return impl::findGraphItem(id, _vertices);
 }
 
 
 template <class TVD, class TED>
-OptionalRef<const typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(Size id) const noexcept
+OptionalRef<const typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(EdgeID id) const noexcept
+{
+    return this->find(id);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(EdgeID id) noexcept
+{
+    return this->find(id);
+}
+
+
+template <class TVD, class TED>
+OptionalRef<const typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::find(EdgeID id) const noexcept
 {
     return impl::findGraphItem(id, _edges);
 }
 
 
 template <class TVD, class TED>
-OptionalRef<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::findEdge(Size id) noexcept
+OptionalRef<typename Graph<TVD,TED>::Edge> Graph<TVD,TED>::find(EdgeID id) noexcept
 {
     return impl::findGraphItem(id, _edges);
+}
+
+
+template <class TVD, class TED>
+bool Graph<TVD,TED>::empty() const noexcept
+{
+    return _vertices.empty();
 }
 
 

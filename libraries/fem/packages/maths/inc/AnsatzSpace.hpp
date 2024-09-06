@@ -13,15 +13,17 @@
 namespace cie::fem::maths {
 
 
-template <class TScalarExpression, unsigned Dimension>
+template <class TScalarExpression, unsigned Dim>
 class AnsatzSpace;
 
 
 
-template <class TScalarExpression, unsigned Dimension>
+template <class TScalarExpression, unsigned Dim>
 class AnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value>
 {
 public:
+    static constexpr unsigned Dimension = Dim;
+
     using typename ExpressionTraits<typename TScalarExpression::Value>::Value;
 
     using typename ExpressionTraits<Value>::ConstIterator;
@@ -31,23 +33,23 @@ public:
 public:
     AnsatzSpaceDerivative() noexcept = default;
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     Size size() const noexcept;
 
 private:
-    friend class AnsatzSpace<TScalarExpression,Dimension>;
+    friend class AnsatzSpace<TScalarExpression,Dim>;
 
-    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace);
+    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace);
 
 private:
     DynamicArray<TScalarExpression> _ansatzSet;
 
     DynamicArray<typename TScalarExpression::Derivative> _derivativeSet;
 
-    using IndexBuffer = StaticArray<unsigned,Dimension>;
+    using IndexBuffer = StaticArray<unsigned,Dim>;
 
     using ValueBuffer = DynamicArray<Value>;
 
@@ -63,13 +65,15 @@ private:
 
 /** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
  */
-template <class TScalarExpression, unsigned Dimension>
+template <class TScalarExpression, unsigned Dim>
 class AnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value>
 {
 private:
     using Base = ExpressionTraits<typename TScalarExpression::Value>;
 
 public:
+    static constexpr unsigned Dimension = Dim;
+
     using typename Base::Value;
 
     using typename Base::Iterator;
@@ -78,18 +82,18 @@ public:
 
     using AnsatzSet = DynamicArray<TScalarExpression>;
 
-    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dimension>;
+    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim>;
 
 public:
     AnsatzSpace() noexcept;
 
-    AnsatzSpace(AnsatzSet&& r_set) noexcept;
+    AnsatzSpace(AnsatzSet&& rSet) noexcept;
 
-    AnsatzSpace(const AnsatzSet& r_set);
+    AnsatzSpace(const AnsatzSet& rSet);
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     Derivative makeDerivative() const;
 
@@ -98,11 +102,11 @@ public:
 private:
     AnsatzSet _set;
 
-    using IndexBuffer = StaticArray<unsigned,Dimension>;
+    using IndexBuffer = StaticArray<unsigned,Dim>;
 
     using ValueBuffer = DynamicArray<Value>;
 
-    friend class AnsatzSpaceDerivative<TScalarExpression,Dimension>;
+    friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;
 
     /// @brief A threadsafe container for eliminating allocations from @ref AnsatzSpace::evaluate.
     mutable mp::ThreadLocal<

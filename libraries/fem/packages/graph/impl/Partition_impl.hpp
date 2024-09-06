@@ -12,24 +12,24 @@ namespace cie::fem {
 
 
 template <class TVA, class TPA>
-Partition<TVA,TPA>::Partition(RightRef<TVA> r_vertexAttributes,
-                              RightRef<TPA> r_polytopeAttributes) noexcept
+Partition<TVA,TPA>::Partition(RightRef<TVA> rVertexAttributes,
+                              RightRef<TPA> rPolytopeAttributes) noexcept
     : Partition("",
                 std::numeric_limits<Size>::max(),
-                std::move(r_vertexAttributes),
-                std::move(r_polytopeAttributes))
+                std::move(rVertexAttributes),
+                std::move(rPolytopeAttributes))
 {
 }
 
 
 template <class TVA, class TPA>
-Partition<TVA,TPA>::Partition(RightRef<std::string> r_name,
+Partition<TVA,TPA>::Partition(RightRef<std::string> rName,
                               Size id,
-                              RightRef<TVA> r_vertexAttributes,
-                              RightRef<TPA> r_polytopeAttributes) noexcept
-    : PartitionBase(std::move(r_name), id),
-      _vertexAttributes(std::move(r_vertexAttributes)),
-      _polytopeAttributes(std::move(r_polytopeAttributes))
+                              RightRef<TVA> rVertexAttributes,
+                              RightRef<TPA> rPolytopeAttributes) noexcept
+    : PartitionBase(std::move(rName), id),
+      _vertexAttributes(std::move(rVertexAttributes)),
+      _polytopeAttributes(std::move(rPolytopeAttributes))
 {
 }
 

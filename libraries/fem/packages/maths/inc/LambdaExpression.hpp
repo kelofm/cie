@@ -25,21 +25,21 @@ public:
     using typename ExpressionTraits<TValue>::Iterator;
 
 public:
-    LambdaExpression(RightRef<TLambda> r_lambda,
+    LambdaExpression(RightRef<TLambda> rLambda,
                      unsigned size) noexcept
-        : _wrapped(std::move(r_lambda)),
+        : _wrapped(std::move(rLambda)),
           _size(size)
     {}
 
-    LambdaExpression(Ref<const TLambda> r_lambda,
+    LambdaExpression(Ref<const TLambda> rLambda,
                      unsigned size)
-        : LambdaExpression(TLambda(r_lambda), size)
+        : LambdaExpression(TLambda(rLambda), size)
     {}
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const
-    {this->_wrapped(it_argumentBegin, it_argumentEnd, it_out);}
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const
+    {this->_wrapped(itArgumentBegin, itArgumentEnd, itOut);}
 
     unsigned size() const noexcept
     {return this->_size;}
@@ -52,8 +52,8 @@ private:
 
 
 template <class TValue, class TLambda>
-LambdaExpression<TLambda,TValue> makeLambdaExpression(TLambda&& r_lambda, unsigned size)
-{return LambdaExpression<TLambda,TValue>(std::forward<TLambda>(r_lambda), size);}
+LambdaExpression<TLambda,TValue> makeLambdaExpression(TLambda&& rLambda, unsigned size)
+{return LambdaExpression<TLambda,TValue>(std::forward<TLambda>(rLambda), size);}
 
 
 } // namespace cie::fem::maths

@@ -2,6 +2,7 @@
 #define CIE_UTILS_NOOP_ITERATOR_HPP
 
 // --- Utility Includes ---
+#include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/types/inc/types.hpp"
 
@@ -42,13 +43,19 @@ public:
 
     NoOpIterator& operator+=(difference_type difference) noexcept {_it+=difference; return *this;}
 
-    NoOpIterator& operator-=(difference_type difference) noexcept {_it-=difference; return *this;}
+    NoOpIterator& operator-=(difference_type difference) noexcept
+    requires concepts::Subtractable<T,difference_type>
+    {_it-=difference; return *this;}
 
     NoOpIterator operator+(difference_type difference) const noexcept {return _it+difference;}
 
-    NoOpIterator operator-(difference_type difference) const noexcept {return _it-difference;}
+    NoOpIterator operator-(difference_type difference) const noexcept
+    requires concepts::Subtractable<T,difference_type>
+    {return _it-difference;}
 
-    difference_type operator-(NoOpIterator rhs) const noexcept {return _it-rhs._it;}
+    difference_type operator-(NoOpIterator rhs) const noexcept
+    requires concepts::Subtractable<T,T>
+    {return _it - rhs._it;}
 
     bool operator==(NoOpIterator rhs) const noexcept {return _it==rhs._it;}
 

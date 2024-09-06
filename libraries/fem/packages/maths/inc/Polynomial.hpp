@@ -33,25 +33,25 @@ public:
     /// @brief Construct from a container of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    Polynomial(RightRef<Coefficients> r_coefficients) noexcept;
+    Polynomial(RightRef<Coefficients> rCoefficients) noexcept;
 
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
     template <concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-    Polynomial(TItBegin it_begin, TItEnd it_end);
+    Polynomial(TItBegin itBegin, TItEnd itEnd);
 
-    Polynomial(Polynomial&& r_rhs) noexcept = default;
+    Polynomial(Polynomial&& rRhs) noexcept = default;
 
-    Polynomial(Ref<const Polynomial> r_rhs) = default;
+    Polynomial(Ref<const Polynomial> rRhs) = default;
 
-    Ref<Polynomial> operator=(RightRef<Polynomial> r_rhs) noexcept = default;
+    Ref<Polynomial> operator=(RightRef<Polynomial> rRhs) noexcept = default;
 
-    Ref<Polynomial> operator=(Ref<const Polynomial> r_rhs) = default;
+    Ref<Polynomial> operator=(Ref<const Polynomial> rRhs) = default;
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_resultBegin) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itResultBegin) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;

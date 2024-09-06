@@ -5,10 +5,10 @@
 namespace cie::fem {
 
 
-Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, BoundaryID id)
+Ref<std::ostream> operator<<(Ref<std::ostream> rStream, BoundaryID id)
 {
-    r_stream << (id.getDirection() ? '+' : '-') << id.getDimension();
-    return r_stream;
+    rStream << (id.getDirection() ? '+' : '-') << id.getDimension();
+    return rStream;
 }
 
 

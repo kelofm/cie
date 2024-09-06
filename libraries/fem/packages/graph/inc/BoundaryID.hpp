@@ -137,7 +137,7 @@ private:
 
 
 /// @brief Get a string representation of the boundary ("+x", "-y", ...).
-Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, BoundaryID id);
+Ref<std::ostream> operator<<(Ref<std::ostream> rStream, BoundaryID id);
 
 
 } // namespace cie::fem
@@ -146,7 +146,7 @@ Ref<std::ostream> operator<<(Ref<std::ostream> r_stream, BoundaryID id);
 namespace std {
 
 
-/// @brief Standard @a hash specialization for @ref BoundaryID.
+/// @brief Standard @a hash specialization for @ref cie::fem::BoundaryID.
 template <>
 struct hash<cie::fem::BoundaryID>
 {

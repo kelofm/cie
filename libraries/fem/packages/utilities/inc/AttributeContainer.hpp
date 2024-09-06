@@ -30,7 +30,7 @@ public:
 
     void resize(Size size);
 
-    void erase(Size i_begin, Size i_end);
+    void erase(Size iBegin, Size iEnd);
 
     void erase(Size index);
 
@@ -55,9 +55,9 @@ public:
     Ref<TValue> at(Size index) noexcept;
 
     template <class ...TArguments, class TVisitor>
-    auto visit(Size index, TVisitor&& r_visitor) const
+    auto visit(Size index, TVisitor&& rVisitor) const
     {
-        return r_visitor(std::get<DynamicArray<TArguments>>(_containers)[index]...);
+        return rVisitor(std::get<DynamicArray<TArguments>>(_containers)[index]...);
     }
 
     template <class TValue>

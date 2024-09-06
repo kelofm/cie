@@ -22,28 +22,28 @@ ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDeri
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const ScaleTranslateTransform<TValue,Dimension>> r_transform) noexcept
+ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const ScaleTranslateTransform<TValue,Dimension>> rTransform) noexcept
 {
-    std::copy(r_transform._scales.begin(),
-              r_transform._scales.end(),
+    std::copy(rTransform._scales.begin(),
+              rTransform._scales.end(),
               this->_scales.begin());
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> r_transform) noexcept
+ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> rTransform) noexcept
 {
-    std::copy(r_transform._scales.begin(),
-              r_transform._scales.end(),
+    std::copy(rTransform._scales.begin(),
+              rTransform._scales.end(),
               this->_scales.begin());
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> r_scales,
-                                                                   RightRef<StaticArray<TValue,Dimension>> r_offset) noexcept
-    : _scales(std::move(r_scales)),
-      _offset(std::move(r_offset))
+ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
+                                                                   RightRef<StaticArray<TValue,Dimension>> rOffset) noexcept
+    : _scales(std::move(rScales)),
+      _offset(std::move(rOffset))
 {
 }
 
@@ -81,10 +81,10 @@ ScaleTranslateTransform<TValue,Dimension>::makeInverse() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> r_scales,
-                                                                   RightRef<StaticArray<TValue,Dimension>> r_offset) noexcept
-    : _scales(std::move(r_scales)),
-      _offset(std::move(r_offset))
+TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
+                                                                   RightRef<StaticArray<TValue,Dimension>> rOffset) noexcept
+    : _scales(std::move(rScales)),
+      _offset(std::move(rOffset))
 {
 }
 

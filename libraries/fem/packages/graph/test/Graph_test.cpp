@@ -26,15 +26,15 @@ CIE_TEST_CASE("simple Graph", "[graph]")
 
         CIE_TEST_CHECK(!graph.findVertex(0).has_value());
 
-        auto r_vertex1 = graph.findVertex(1);
-        CIE_TEST_CHECK(r_vertex1.has_value());
-        CIE_TEST_CHECK(r_vertex1.value().edges().size() == 1);
-        CIE_TEST_CHECK(r_vertex1.value().edges().contains(3));
+        auto rVertex1 = graph.findVertex(1);
+        CIE_TEST_CHECK(rVertex1.has_value());
+        CIE_TEST_CHECK(rVertex1.value().edges().size() == 1);
+        CIE_TEST_CHECK(rVertex1.value().edges().contains(3));
 
-        auto r_vertex2 = graph.findVertex(2);
-        CIE_TEST_CHECK(r_vertex2.has_value());
-        CIE_TEST_CHECK(r_vertex2.value().edges().size() == 1);
-        CIE_TEST_CHECK(r_vertex2.value().edges().contains(3));
+        auto rVertex2 = graph.findVertex(2);
+        CIE_TEST_CHECK(rVertex2.has_value());
+        CIE_TEST_CHECK(rVertex2.value().edges().size() == 1);
+        CIE_TEST_CHECK(rVertex2.value().edges().contains(3));
 
         CIE_TEST_CHECK(!graph.findVertex(3).has_value());
 
@@ -42,10 +42,10 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         CIE_TEST_CHECK(!graph.findEdge(1).has_value());
         CIE_TEST_CHECK(!graph.findEdge(2).has_value());
 
-        auto r_edge3 = graph.findEdge(3);
-        CIE_TEST_CHECK(r_edge3.has_value());
-        CIE_TEST_CHECK(r_edge3.value().source() == 1);
-        CIE_TEST_CHECK(r_edge3.value().target() == 2);
+        auto rEdge3 = graph.findEdge(3);
+        CIE_TEST_CHECK(rEdge3.has_value());
+        CIE_TEST_CHECK(rEdge3.value().source() == G::VertexID(1));
+        CIE_TEST_CHECK(rEdge3.value().target() == G::VertexID(2));
     }
 
     {
@@ -61,8 +61,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == 1);
-        CIE_TEST_CHECK(e.value().target() == 2);
+        CIE_TEST_CHECK(e.value().source() == G::VertexID(1));
+        CIE_TEST_CHECK(e.value().target() == G::VertexID(2));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
@@ -87,8 +87,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == 1);
-        CIE_TEST_CHECK(e.value().target() == 2);
+        CIE_TEST_CHECK(e.value().source() == G::VertexID(1));
+        CIE_TEST_CHECK(e.value().target() == G::VertexID(2));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
@@ -113,8 +113,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == 2);
-        CIE_TEST_CHECK(e.value().target() == 3);
+        CIE_TEST_CHECK(e.value().source() == G::VertexID(2));
+        CIE_TEST_CHECK(e.value().target() == G::VertexID(3));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
@@ -140,8 +140,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == 2);
-        CIE_TEST_CHECK(e.value().target() == 3);
+        CIE_TEST_CHECK(e.value().source() == G::VertexID(2));
+        CIE_TEST_CHECK(e.value().target() == G::VertexID(3));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());

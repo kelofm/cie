@@ -21,10 +21,10 @@ OrthogonalScaleTransformDerivative<TValue,Dimension>::OrthogonalScaleTransformDe
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-OrthogonalScaleTransformDerivative<TValue,Dimension>::OrthogonalScaleTransformDerivative(Ref<const OrthogonalScaleTransform<TValue,Dimension>> r_transform) noexcept
+OrthogonalScaleTransformDerivative<TValue,Dimension>::OrthogonalScaleTransformDerivative(Ref<const OrthogonalScaleTransform<TValue,Dimension>> rTransform) noexcept
 {
-    std::copy(r_transform._scales.begin(),
-              r_transform._scales.end(),
+    std::copy(rTransform._scales.begin(),
+              rTransform._scales.end(),
               this->_scales.begin());
 }
 

@@ -2,6 +2,7 @@
 #define CIE_UTILS_PARALLEL_FOR_IMPL_HPP
 
 // --- Utility Includes ---
+#include "packages/concurrency/inc/IndexPartitionFactory.hpp"
 #include "packages/concurrency/inc/ParallelFor.hpp"
 #include "packages/concurrency/inc/ThreadPool.hpp"
 #include "packages/macros/inc/exceptions.hpp"
@@ -17,8 +18,8 @@ requires (std::is_same_v<
             std::tuple<typename std::remove_reference_t<std::decay_t<TArgs>>...>,
             typename TStorage::StorageType // <== tuple of stored types
           >)
-ParallelFor<TIndex,TStorage>::ParallelFor(Ref<ThreadPoolBase> r_pool, TArgs&&... r_args) :
-    _pool(r_pool, TStorage(std::forward<TArgs>(r_args)...))
+ParallelFor<TIndex,TStorage>::ParallelFor(Ref<ThreadPoolBase> r_pool, TArgs&&... rArgs) :
+    _pool(r_pool, TStorage(std::forward<TArgs>(rArgs)...))
 {
 }
 
@@ -26,13 +27,28 @@ ParallelFor<TIndex,TStorage>::ParallelFor(Ref<ThreadPoolBase> r_pool, TArgs&&...
 template <concepts::Integer TIndex, class TStorage>
 template <class ...TArgs>
 ParallelFor<TIndex,ThreadStorage<typename std::remove_reference_t<TArgs>...>>
-ParallelFor<TIndex,TStorage>::firstPrivate(TArgs&&... r_args)
+ParallelFor<TIndex,TStorage>::firstPrivate(TArgs&&... rArgs)
 {
     CIE_BEGIN_EXCEPTION_TRACING
     return ParallelFor<
         TIndex,
         ThreadStorage<typename std::remove_reference_t<TArgs>...>
-    >(_pool, std::forward<TArgs>(r_args)...);
+    >(_pool, std::forward<TArgs>(rArgs)...);
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Integer TIndex, class TStorage>
+template <class TFunction>
+ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>::operator()(Ref<const IndexPartitionFactory> rPartitionFactory,
+                                         Ref<const TFunction> rFunction)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    this->execute(rPartitionFactory,
+                  rFunction,
+                  true);
+    return *this;
     CIE_END_EXCEPTION_TRACING
 }
 
@@ -42,13 +58,13 @@ template <class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(TIndex indexMin,
                                          TIndex indexMax,
-                                         TIndex stepSize,
-                                         Ref<const TFunction> r_function)
+                                         long stepSize,
+                                         Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(this->makeIndexPartition(indexMin, indexMax, stepSize),
-                  stepSize,
-                  r_function);
+    this->execute(DynamicIndexPartitionFactory({indexMin, indexMax, stepSize}, _pool.size()),
+                  rFunction,
+                  true);
     return *this;
     CIE_END_EXCEPTION_TRACING
 }
@@ -58,12 +74,12 @@ template <concepts::Integer TIndex, class TStorage>
 template <class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(TIndex indexMax,
-                                         Ref<const TFunction> r_function)
+                                         Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(this->makeIndexPartition(0, indexMax, 1),
-                  1,
-                  r_function);
+    this->execute(DynamicIndexPartitionFactory({0, indexMax, 1}, _pool.size()),
+                  rFunction,
+                  true);
     return *this;
     CIE_END_EXCEPTION_TRACING
 }
@@ -72,14 +88,13 @@ ParallelFor<TIndex,TStorage>::operator()(TIndex indexMax,
 template <concepts::Integer TIndex, class TStorage>
 template <concepts::Container TContainer, class TFunction>
 ParallelFor<TIndex,TStorage>&
-ParallelFor<TIndex,TStorage>::operator()(Ref<TContainer> r_container,
-                                         Ref<const TFunction> r_function)
+ParallelFor<TIndex,TStorage>::operator()(Ref<TContainer> rContainer,
+                                         Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(this->makeIndexPartition(0,r_container.size(),1),
-                  1,
-                  r_container,
-                  r_function);
+    this->execute(DynamicIndexPartitionFactory({0, rContainer.size(), 1}, _pool.size()),
+                  rContainer,
+                  rFunction);
     return *this;
     CIE_END_EXCEPTION_TRACING
 }
@@ -88,14 +103,29 @@ ParallelFor<TIndex,TStorage>::operator()(Ref<TContainer> r_container,
 template <concepts::Integer TIndex, class TStorage>
 template <concepts::Container TContainer, class TFunction>
 ParallelFor<TIndex,TStorage>&
-ParallelFor<TIndex,TStorage>::operator()(Ref<const TContainer> r_container,
-                                         Ref<const TFunction> r_function)
+ParallelFor<TIndex,TStorage>::operator()(Ref<const TContainer> rContainer,
+                                         Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(this->makeIndexPartition(0,r_container.size(),1),
-                  1,
-                  r_container,
-                  r_function);
+    this->execute(DynamicIndexPartitionFactory({0, rContainer.size(), 1}, _pool.size()),
+                  rContainer,
+                  rFunction);
+    return *this;
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Integer TIndex, class TStorage>
+template <concepts::Iterator TIterator, class TFunction>
+ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>::operator()(TIterator itBegin,
+                                         TIterator itEnd,
+                                         Ref<const TFunction> rFunction)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    this->execute(DynamicIndexPartitionFactory({0, std::distance(itBegin, itEnd), 1}, _pool.size()),
+                  itBegin,
+                  rFunction);
     return *this;
     CIE_END_EXCEPTION_TRACING
 }
@@ -118,93 +148,78 @@ ParallelFor<TIndex,TStorage>::getPool() noexcept
 
 
 template <concepts::Integer TIndex, class TStorage>
-typename ParallelFor<TIndex,TStorage>::IndexPartition
-ParallelFor<TIndex,TStorage>::makeIndexPartition(TIndex indexMin,
-                                                 TIndex indexMax,
-                                                 TIndex stepSize)
+template <class TFunction>
+void
+ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+                                      Ref<const TFunction> rFunction,
+                                      bool barrier)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    IndexPartition indexPartition;
+    const Size partitionCount = rIndexPartitionFactory.size();
+    if (!partitionCount) return;
 
-    // Check index range
-    CIE_CHECK(stepSize != 0, "0 step size in ParallelFor")
-    CIE_CHECK((indexMin <= indexMax) == (0 < stepSize), "Invalid step direction in ParallelFor");
-
-    // Handle reverse loops
-    if (stepSize < 0) {
-        std::swap(indexMin, indexMax);
-        stepSize = -stepSize;
+    // Schedule jobs
+    if (barrier) {
+        // The function is captured by reference because this function imposes
+        // a barrier before it exits, so the function is guaranteed to stay alive
+        // for the duration of the loop.
+        for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+            const auto partition = rIndexPartitionFactory.getPartition(iPartition);
+            _pool.queueTLSJob(
+                [partition, &rFunction](auto&... rArgs) -> void {
+                    for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                        rFunction(i, rArgs...);
+                    }
+                }
+            ); // queueJob
+        } // for iPartition in range(partitionCount)
+        _pool.barrier();
+    } else {
+        // The function must be copied into the lambda because the jobs are
+        // not guaranteed to finish before exiting this function.
+        for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+            const auto partition = rIndexPartitionFactory.getPartition(iPartition);
+            _pool.queueTLSJob(
+                [partition, rFunction](auto&... rArgs) -> void {
+                    for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                        rFunction(i, rArgs...);
+                    }
+                }
+            ); // queueJob
+        } // for iPartition in range(partitionCount)
     }
-
-    // Initialize index blocks
-    TIndex blockSize = (indexMax - indexMin) / stepSize / _pool.size();
-    blockSize += blockSize % stepSize;
-    blockSize = std::max(blockSize, 1ul);
-
-    const Size numberOfThreads = _pool.size();
-    indexPartition.reserve(numberOfThreads + 1);
-    TIndex tmp = indexMin;
-    for (TIndex i=0; i<numberOfThreads && tmp<indexMax; ++i, tmp+=blockSize) {
-        indexPartition.push_back(tmp);
-    }
-    indexPartition.push_back(indexMax);
-    return indexPartition;
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Integer TIndex, class TStorage>
-template <class TFunction>
+template <concepts::Container TContainer, class TFunction>
 void
-ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartition> r_indexPartition,
-                                      TIndex stepSize,
-                                      Ref<const TFunction> r_function)
+ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+                                      Ref<TContainer> rContainer,
+                                      Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    if (r_indexPartition.empty()) return;
-    CIE_OUT_OF_RANGE_CHECK(r_indexPartition.size() <= _pool.size() + 1)
+    const auto partitionCount = rIndexPartitionFactory.size();
+    if (!partitionCount) return;
 
     // Schedule jobs
-    for (TIndex partitionIndex=0; partitionIndex<r_indexPartition.size()-1; ++partitionIndex) {
+    // The function and container are captured by reference because this function imposes
+    // a barrier before it exits, so the captured objects are guaranteed to stay alive
+    // for the duration of the loop.
+    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+        const auto partition = rIndexPartitionFactory.getPartition(iPartition);
         _pool.queueTLSJob(
-            [partitionIndex, stepSize, &r_indexPartition, &r_function](auto&... r_args) -> void {
-                for (TIndex i=r_indexPartition[partitionIndex]; i<r_indexPartition[partitionIndex+1]; i+=stepSize) {
-                    r_function(i, r_args...);
+            [partition, &rFunction, &rContainer](auto&... rArgs) -> void {
+                for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                    rFunction(rContainer[i], rArgs...);
                 }
             }
         ); // queueJob
-    }
-
-    _pool.barrier();
-    CIE_END_EXCEPTION_TRACING
-}
-
-
-template <concepts::Integer TIndex, class TStorage>
-template <concepts::Container TContainer, class TFunction>
-void
-ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartition> r_indexPartition,
-                                      TIndex stepSize,
-                                      Ref<TContainer> r_container,
-                                      Ref<const TFunction> r_function)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    if (r_indexPartition.empty()) return;
-    CIE_OUT_OF_RANGE_CHECK(r_indexPartition.size() <= _pool.size() + 1)
-
-    // Schedule jobs
-    for (TIndex partitionIndex=0; partitionIndex<r_indexPartition.size()-1; ++partitionIndex) {
-        _pool.queueTLSJob(
-            [partitionIndex, stepSize, &r_indexPartition, &r_function, &r_container](auto&... r_args) -> void {
-                for (TIndex i=r_indexPartition[partitionIndex]; i<r_indexPartition[partitionIndex+1]; i+=stepSize)
-                    r_function(r_container[i], r_args...);
-            }
-        ); // queueJob
-    }
+    } // for iPartition in range(partitionCount)
 
     _pool.barrier();
 
@@ -215,28 +230,62 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartition> r_indexPartition
 template <concepts::Integer TIndex, class TStorage>
 template <concepts::Container TContainer, class TFunction>
 void
-ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartition> r_indexPartition,
-                                      TIndex stepSize,
-                                      Ref<const TContainer> r_container,
-                                      Ref<const TFunction> r_function)
+ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+                                      Ref<const TContainer> rContainer,
+                                      Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    if (r_indexPartition.empty()) return;
-    CIE_OUT_OF_RANGE_CHECK(r_indexPartition.size() <= _pool.size() + 1)
+    const auto partitionCount = rIndexPartitionFactory.size();
+    if (!partitionCount) return;
 
     // Schedule jobs
-    for (TIndex partitionIndex=0; partitionIndex<r_indexPartition.size()-1; ++partitionIndex) {
+    // The function and container are captured by reference because this function imposes
+    // a barrier before it exits, so the captured objects are guaranteed to stay alive
+    // for the duration of the loop.
+    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+        const auto partition = rIndexPartitionFactory.getPartition(iPartition);
         _pool.queueTLSJob(
-            [partitionIndex, stepSize, &r_indexPartition, &r_function, &r_container](auto&... r_args) -> void {
-                for (TIndex i=r_indexPartition[partitionIndex]; i<r_indexPartition[partitionIndex+1]; i+=stepSize)
-                    r_function(r_container[i], r_args...);
+            [partition, &rFunction, &rContainer](auto&... rArgs) -> void {
+                for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                    rFunction(rContainer[i], rArgs...);
+                }
             }
         ); // queueJob
-    }
+    } // for iPartition in range(partitionCount)
 
     _pool.barrier();
 
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Integer TIndex, class TStorage>
+template <concepts::Iterator TIterator, class TFunction>
+void
+ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+                                      TIterator itBegin,
+                                      Ref<const TFunction> rFunction)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    const auto partitionCount = rIndexPartitionFactory.size();
+    if (!partitionCount) return;
+
+    // Schedule jobs
+    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+        const auto partition = rIndexPartitionFactory.getPartition(iPartition);
+        _pool.queueTLSJob(
+            [partition, itBegin, &rFunction] (auto&... rArgs) -> void {
+                for (TIndex i=partition.begin; i<partition.end; i+= partition.step) {
+                    auto it = itBegin;
+                    std::ranges::advance(it, i);
+                    rFunction(*it, rArgs...);
+                }
+            }
+        );
+    }
+
+    _pool.barrier();
     CIE_END_EXCEPTION_TRACING
 }
 

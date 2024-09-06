@@ -6,7 +6,7 @@ projectName="$(basename $scriptDir)"
 projectNameUpper=$(printf '%s\n' "$projectName" | awk '{ print toupper($0) }')
 
 print_help() {
-    echo "$scriptName - Configure, build, and install $(basename $scriptDir)"
+    echo "$scriptName - Configure, build, and install $projectName"
     echo "Usage: $scriptName [OPTION [ARGUMENT]]"
     echo "-h                : print this help and exit"
     echo "-p                : package after building"
@@ -69,12 +69,16 @@ done
 
 case "$(uname -s)" in
     Linux*)
-        compilerFlags=""
+        #export ACPP_TARGETS="hip:gfx1030"
+        #toolchainRoot="/opt/hipSYCL/ROCm"
+        #toolchainBin="$toolchainRoot/bin"
+        #export cc="$toolchainBin/acpp"
+        #export cxx="$toolchainBin/acpp"
         ;;
     Darwin*)
         # Set clang from homebrew
         if ! command -v brew &> /dev/null; then
-            echo "Error: $script_name requires Homebrew"
+            echo "Error: $scriptName requires Homebrew"
             exit 1
         fi
 

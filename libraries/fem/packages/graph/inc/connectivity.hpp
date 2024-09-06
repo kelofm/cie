@@ -1,13 +1,17 @@
 #ifndef CIE_FEM_GRAPH_CONNECTIVITY_HPP
 #define CIE_FEM_GRAPH_CONNECTIVITY_HPP
 
+// --- External Includes ---
+#include "tsl/robin_map.h"
+
 // --- FEM Includes ---
-#include "packages/maths/inc/AnsatzSpace.hpp"
+#include "packages/maths/inc/Expression.hpp"
 #include "packages/graph/inc/BoundaryID.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
+#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/maths/inc/Comparison.hpp"
 
@@ -24,20 +28,20 @@ namespace cie::fem {
  *           least one non-zero value at one of those points are considered to require
  *           connectivity on that boundary. An input functor is called with each
  *           @ref BoundaryID - ansatz function index pair exactly once.
- *  @param r_ansatzSpace @ref AnsatzSpace to scan the functions of.
- *  @param r_functor Functor that gets called with each @ref BoundaryID and non-vanishing
+ *  @param rAnsatzSpace @ref maths::AnsatzSpace to scan the functions of.
+ *  @param rFunctor Functor that gets called with each @ref BoundaryID and non-vanishing
  *                   ansatz function index.
- *  @param p_sampleBegin Ptr to the beginning of the array of sample nodes to evaluate
+ *  @param pSampleBegin Ptr to the beginning of the array of sample nodes to evaluate
  *                       the ansatz functions at.
- *  @param p_sampleEnd Ptr past the last sample node.
+ *  @param pSampleEnd Ptr past the last sample node.
  *  @param tolerance Absolute tolerance to check ansatz function values against.
  */
-template <class TScalarExpression, unsigned Dimension, concepts::CallableWith<BoundaryID,Size> TFunctor>
-void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-                        TFunctor&& r_functor,
-                        Ptr<const typename TScalarExpression::Value> p_sampleBegin,
-                        Ptr<const typename TScalarExpression::Value> p_sampleEnd,
-                        typename TScalarExpression::Value tolerance);
+template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
+void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
+                        TFunctor&& rFunctor,
+                        Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
+                        Ptr<const typename TAnsatzSpace::Value> pSampleEnd,
+                        typename TAnsatzSpace::Value tolerance);
 
 
 
@@ -52,7 +56,7 @@ void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension
  *           @f]
  *           The resulting ansatz functions in 2D local space:
  *           @f[
- *              [N_i(\xi,\eta)] = \frac{1}{4}
+ *              [NI(\xi,\eta)] = \frac{1}{4}
  *              \begin{bmatrix}
  *                  (1+\xi) (1+\eta)         \\
  *                  (1-\xi) (1+\eta)         \\
@@ -81,23 +85,19 @@ void scanConnectivities(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension
  *                      |
  *           @endcode
  */
-template <class TScalarExpression, unsigned Dimension>
-class AnsatzMap : public Kernel<Dimension,typename TScalarExpression::Value>
+template <class TValue>
+class AnsatzMap
 {
-private:
-    using BaseTraits = Kernel<Dimension,typename TScalarExpression::Value>;
-
 public:
-    using typename BaseTraits::Value;
+    template <maths::Expression TAnsatzSpace>
+    requires (std::is_same_v<typename TAnsatzSpace::Value,TValue>)
+    AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
+              std::span<const TValue> samples,
+              utils::Comparison<TValue> comparison);
 
-public:
-    AnsatzMap(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-              std::span<const Value> samples,
-              utils::Comparison<Value> comparison);
-
-    template <class TOutputIt>
+    template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
     void getPairs(BoundaryID boundary,
-                  TOutputIt it_output) const noexcept;
+                  TOutputIt itOutput) const noexcept;
 
     Size getPairCount(BoundaryID boundary) const noexcept;
 
@@ -110,10 +110,10 @@ private:
 
 
 
-template <class TScalarExpression, unsigned Dimension>
-AnsatzMap<TScalarExpression,Dimension> makeAnsatzMap(Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> r_ansatzSpace,
-                                                     std::span<const typename TScalarExpression::Value> samples,
-                                                     utils::Comparison<typename TScalarExpression::Value> comparison);
+template <maths::Expression TAnsatzSpace>
+AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
+                                                      std::span<const typename TAnsatzSpace::Value> samples,
+                                                      utils::Comparison<typename TAnsatzSpace::Value> comparison);
 
 
 } // namespace cie::fem
