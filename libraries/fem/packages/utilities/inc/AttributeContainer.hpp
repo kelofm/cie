@@ -12,6 +12,11 @@
 namespace cie::fem {
 
 
+/// @brief Composite vector providing uniform access to all its internal vectors and their items.
+/// @details @p AttributeContainer stores a separate contiguous array for each template parameter
+///          it is instantiated with. The basic vector interface is duplicated, providing querying
+///          and manipulating all stored arrays. No access is provided for individual arrays.
+/// @ingroup fem
 template <class ...TValues>
 class AttributeContainer
 {
