@@ -1,6 +1,9 @@
 #ifndef CIE_FEM_GRAPH_BOUNDARY_ID_IMPL_HPP
 #define CIE_FEM_GRAPH_BOUNDARY_ID_IMPL_HPP
 
+// --- Utility Includes ---
+#include "packages/maths/inc/bit.hpp"
+
 // --- FEM Includes ---
 #include "packages/graph/inc/BoundaryID.hpp"
 

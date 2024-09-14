@@ -27,9 +27,6 @@ namespace cie::fem {
 
 
 using Scalar = double;
-using CellID = Size;
-using NodeID = Size;
-using DoFID  = Size;
 
 
 template <class TAnsatzSpace>
@@ -42,12 +39,6 @@ struct CellData
     std::shared_ptr<TAnsatzSpace>                       pAnsatzSpace;
     std::shared_ptr<typename TAnsatzSpace::Derivative>  pAnsatzDerivatives;
 }; // struct CellData
-
-
-struct VertexData
-{
-    double position;
-}; // struct VertexData
 
 
 /** @brief 1D system test.
@@ -102,8 +93,13 @@ CIE_TEST_CASE("1D", "[systemTests]")
     const Scalar elementSize = 1.0 / (nodeCount - 1);
     for (Size iCell : std::ranges::views::iota(0ul, nodeCount - 1)) {
         StaticArray<StaticArray<Scalar,1>,2> transformed;
-        transformed[0].front() = iCell * elementSize;
-        transformed[1].front() = (iCell + 1.0) * elementSize;
+        if (iCell % 2) {
+            transformed[0].front() = (iCell + 1.0) * elementSize;
+            transformed[1].front() = iCell * elementSize;
+        } else {
+            transformed[0].front() = iCell * elementSize;
+            transformed[1].front() = (iCell + 1.0) * elementSize;
+        }
 
         // Insert the cell into the adjacency graph (mesh) as a vertex
         mesh.insert(Mesh::Vertex(
@@ -111,7 +107,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
             {}, ///< edges of the adjacency graph are added automatically during edge insertion
             Mesh::Vertex::Data {
                 .diffusivity = 1.0,
-                .spatialTransform = maths::ScaleTranslateTransform<Scalar,1>(transformed.begin(), transformed.end()),
+                .spatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>(transformed.begin(), transformed.end()),
                 .pAnsatzSpace = pAnsatzSpace,
                 .pAnsatzDerivatives = pAnsatzDerivatives
             }
@@ -125,7 +121,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
         mesh.insert(Mesh::Edge(
             iBoundary,
             {iLeftCell, iRightCell},
-            "+x" // <== all bundaries connect cells on the left to cells on the right
+            iBoundary % 2 ? "-x" : "+x" // <== all bundaries connect cells on the left to cells on the right
         ));
     }
 
@@ -192,15 +188,87 @@ CIE_TEST_CASE("1D", "[systemTests]")
         } // for rCell in mesh.vertices
     }
 
+    // Find boundary DoFs
+    std::optional<std::size_t> iLeftmostDof, iRightmostDof;
+    {
+        auto rLeftmostCell = mesh.findVertex(0);
+        CIE_TEST_REQUIRE(rLeftmostCell.has_value());
+
+        utils::Comparison<Scalar> comparison(1e-8, 1-6);
+        DynamicArray<Scalar> ansatzBuffer(rLeftmostCell.value().data().pAnsatzSpace->size());
+        StaticArray<Scalar,1> localCoordinates, globalCoordinates;
+
+        localCoordinates.front() = -1.0;
+        rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                               localCoordinates.data() + Dimension,
+                                                               globalCoordinates.data());
+        if (!comparison.equal(globalCoordinates.front(), 0.0)) {
+            localCoordinates.front() = 1.0;
+            rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                                   localCoordinates.data() + Dimension,
+                                                                   globalCoordinates.data());
+            CIE_TEST_REQUIRE(comparison.equal(globalCoordinates.front(), 0.0));
+        }
+
+        rLeftmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates.data(),
+                                                            localCoordinates.data() + Dimension,
+                                                            ansatzBuffer.data());
+        for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
+            if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
+                iLeftmostDof = assembler[0][iAnsatz];
+                break;
+            }
+        }
+    }
+
+    {
+        auto rRightmostCell = mesh.findVertex(nodeCount - 2);
+        CIE_TEST_REQUIRE(rRightmostCell.has_value());
+
+        utils::Comparison<Scalar> comparison(1e-8, 1-6);
+        DynamicArray<Scalar> ansatzBuffer(rRightmostCell.value().data().pAnsatzSpace->size());
+        StaticArray<Scalar,1> localCoordinates, globalCoordinates;
+
+        localCoordinates.front() = -1.0;
+        rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                                localCoordinates.data() + Dimension,
+                                                                globalCoordinates.data());
+        if (!comparison.equal(globalCoordinates.front(), 1.0)) {
+            localCoordinates.front() = 1.0;
+            rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                                    localCoordinates.data() + Dimension,
+                                                                    globalCoordinates.data());
+            CIE_TEST_REQUIRE(comparison.equal(globalCoordinates.front(), 1.0));
+        }
+
+        rRightmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates.data(),
+                                                             localCoordinates.data() + Dimension,
+                                                             ansatzBuffer.data());
+        for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
+            if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
+                iRightmostDof = assembler[nodeCount - 2][iAnsatz];
+                break;
+            }
+        }
+    }
+
+    CIE_TEST_CHECK(iLeftmostDof.has_value());
+    CIE_TEST_CHECK(iRightmostDof.has_value());
+    for (const auto& rCell : mesh.vertices()) {
+        for (const auto iBoundary : rCell.edges()) {
+            const auto [leftCellID, rightCellID] = mesh.findEdge(iBoundary).value().vertices();
+            std::cout << "cell " << rCell.id() << " connecting " << leftCellID << " to " << rightCellID << " with DoFs [";
+            for (const auto iDof : assembler[rCell.id()]) std::cout << iDof << ", ";
+            std::cout << "]\n";
+        }
+    }
+    std::cout << "leftmost ID: " << iLeftmostDof.value() << "\nrightmost ID: " << iRightmostDof.value() << std::endl;
+
     // Barbaric dirichlet conditions.
     DynamicArray<Scalar> rhs(rowCount, 0.0);
-    const auto& rFirstCellIndices = assembler[0];
-    const auto& rLastCellIndices  = assembler[2 < nodeCount ? nodeCount - 2 : 0];
-    const auto iFirstDof = rFirstCellIndices[1];
-    const auto iLastDof = rLastCellIndices[0];
     DynamicArray<std::pair<std::size_t,Scalar>> dirichletConditions;
-    dirichletConditions.emplace_back(iFirstDof, 1.0);
-    dirichletConditions.emplace_back(iLastDof, 0.0);
+    dirichletConditions.emplace_back(iLeftmostDof.value(), 1.0);
+    dirichletConditions.emplace_back(iRightmostDof.value(), 0.0);
 
     for (const auto& [iDof, value] : dirichletConditions) {
         for (std::size_t iRow=0ul; iRow<static_cast<std::size_t>(rowCount); ++iRow) {

@@ -96,14 +96,15 @@ public:
               utils::Comparison<TValue> comparison);
 
     template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
-    void getPairs(BoundaryID boundary,
+    void getPairs(BoundaryID first,
+                  BoundaryID second,
                   TOutputIt itOutput) const noexcept;
 
     Size getPairCount(BoundaryID boundary) const noexcept;
 
 private:
     tsl::robin_map<
-        unsigned,                           // <== dimension index
+        std::pair<BoundaryID,BoundaryID>,   // <== dimension index
         DynamicArray<std::pair<Size,Size>>  // <== list of coincident ansatz function indices on opposite boundaries
     > _connectivityMap;
 }; // class AnsatzMap
