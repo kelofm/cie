@@ -12,12 +12,12 @@
 namespace cie::fem {
 
 
-inline AssemblyMap::Index AssemblyMap::at(const AssemblyMap::Key& r_key) const
+inline AssemblyMap::Index AssemblyMap::at(const AssemblyMap::Key& rKey) const
 {
-    const auto it = _map.find(r_key);
+    const auto it = _map.find(rKey);
     CIE_OUT_OF_RANGE_CHECK(
         it != _map.end(),
-        "No DoF found for local ID: (" << r_key[0] << ", " << r_key[1] << ")"
+        "No DoF found for local ID: (" << rKey[0] << ", " << rKey[1] << ")"
     );
     return it->second;
 }
@@ -31,35 +31,35 @@ inline AssemblyMap::Index AssemblyMap::at(AssemblyMap::Index objectID, AssemblyM
 
 template <concepts::Iterator<AssemblyMap::Index> TInputIT, concepts::Iterator<AssemblyMap::Index> TOutputIT>
 inline void AssemblyMap::at(AssemblyMap::Index objectID,
-                            TInputIT it_localBegin,
-                            const TInputIT it_localEnd,
-                            TOutputIT it_globalBegin) const
+                            TInputIT itLocalBegin,
+                            const TInputIT itLocalEnd,
+                            TOutputIT itGlobalBegin) const
 {
-    for (; it_localBegin!=it_localEnd; ++it_localBegin, ++it_globalBegin)
-        *it_globalBegin++ = this->at(objectID, *it_localBegin);
+    for (; itLocalBegin!=itLocalEnd; ++itLocalBegin, ++itGlobalBegin)
+        *itGlobalBegin++ = this->at(objectID, *itLocalBegin);
 }
 
 
 template <concepts::Iterator<AssemblyMap::Index> TObjectIT>
-inline void AssemblyMap::getObjectIDs(Index globalID, TObjectIT it_objectIDBegin) const
+inline void AssemblyMap::getObjectIDs(Index globalID, TObjectIT itObjectIDBegin) const
 {
-    for (const auto& r_pair : _map)
-        if (r_pair.second == globalID)
-            *it_objectIDBegin++ = *r_pair.first.begin();
+    for (const auto& rPair : _map)
+        if (rPair.second == globalID)
+            *itObjectIDBegin++ = *rPair.first.begin();
 }
 
 
 template <concepts::Iterator<AssemblyMap::Index> TLocalIT, concepts::Iterator<AssemblyMap::Index> TGlobalIT>
 inline AssemblyMap::iterator
 AssemblyMap::insert(AssemblyMap::Index objectID,
-                    TLocalIT it_localBegin,
-                    const TLocalIT it_localEnd,
-                    TGlobalIT it_globalBegin)
+                    TLocalIT itLocalBegin,
+                    const TLocalIT itLocalEnd,
+                    TGlobalIT itGlobalBegin)
 {
-    CIE_OUT_OF_RANGE_CHECK(it_localBegin != it_localEnd)
-    auto it = this->insert(objectID, it_localBegin++, it_localEnd++);
-    for (; it_localBegin!=it_localEnd; ++it_localBegin, ++it_localEnd)
-        this->insert({objectID, *it_localBegin}, *it_globalBegin);
+    CIE_OUT_OF_RANGE_CHECK(itLocalBegin != itLocalEnd)
+    auto it = this->insert(objectID, itLocalBegin++, itLocalEnd++);
+    for (; itLocalBegin!=itLocalEnd; ++itLocalBegin, ++itLocalEnd)
+        this->insert({objectID, *itLocalBegin}, *itGlobalBegin);
     return it;
 }
 

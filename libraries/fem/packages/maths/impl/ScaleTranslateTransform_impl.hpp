@@ -20,18 +20,18 @@ template <concepts::Numeric TValue, unsigned Dimension>
 inline void
 ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
                                                               ConstIterator,
-                                                              Iterator it_out) const noexcept
+                                                              Iterator itOut) const noexcept
 {
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
     static_assert(0 < Dimension);
-    auto it_scale = this->_scales.cbegin();
-    *it_out++ = *it_scale++;
-    for (unsigned i_column=0; i_column<Dimension-1; ++i_column) {
-        for (unsigned i_nullComponent=0; i_nullComponent<Dimension; ++i_nullComponent) {
-            *it_out++ = static_cast<TValue>(0);
-        } // for i_nullComponent in range(Dimension)
-        *it_out++ = *it_scale++;
-    } // for i_column in range(Dimension-1)
+    auto itScale = this->_scales.cbegin();
+    *itOut++ = *itScale++;
+    for (unsigned iColumn=0; iColumn<Dimension-1; ++iColumn) {
+        for (unsigned iNullComponent=0; iNullComponent<Dimension; ++iNullComponent) {
+            *itOut++ = static_cast<TValue>(0);
+        } // for iNullComponent in range(Dimension)
+        *itOut++ = *itScale++;
+    } // for iColumn in range(Dimension-1)
 }
 
 
@@ -54,31 +54,31 @@ unsigned ScaleTranslateTransformDerivative<TValue,Dimension>::size() const noexc
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt it_transformedBegin,
-                                                                          [[maybe_unused]] TPointIt it_transformedEnd)
+inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt itTransformedBegin,
+                                                                          [[maybe_unused]] TPointIt itTransformedEnd)
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_transformedBegin, it_transformedEnd) == 2)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == 2)
 
-    const auto& r_base = *it_transformedBegin;
-    const auto& r_op = *(it_transformedBegin + 1);
-    for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-        const TValue diff = (r_op[i_dim] - r_base[i_dim]);
+    const auto& rBase = *itTransformedBegin;
+    const auto& rOp = *(itTransformedBegin + 1);
+    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+        const TValue diff = rOp[iDim] - rBase[iDim];
         CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
-        this->_scales[i_dim] = diff / static_cast<TValue>(2);
-        this->_offset[i_dim] = (r_op[i_dim] + r_base[i_dim]) / static_cast<TValue>(2);
+        this->_scales[iDim] = diff / static_cast<TValue>(2);
+        this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / static_cast<TValue>(2);
     }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-ScaleTranslateTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                    [[maybe_unused]] ConstIterator it_argumentEnd,
-                                                    Iterator it_out) const
+ScaleTranslateTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
+                                                    [[maybe_unused]] ConstIterator itArgumentEnd,
+                                                    Iterator itOut) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dimension)
-    for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-        *it_out++ = it_argumentBegin[i_dim] * this->_scales[i_dim] + this->_offset[i_dim];
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dimension)
+    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+        *itOut++ = itArgumentBegin[iDim] * this->_scales[iDim] + this->_offset[iDim];
     }
 }
 
@@ -94,31 +94,31 @@ ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform() noexcept
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-inline TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPointIt it_transformedBegin,
-                                                                          [[maybe_unused]] TPointIt it_transformedEnd)
+inline TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPointIt itTransformedBegin,
+                                                                          [[maybe_unused]] TPointIt itTransformedEnd)
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_transformedBegin, it_transformedEnd) == 2)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == 2)
 
-    const auto& r_base = *it_transformedBegin;
-    const auto& r_op = *(it_transformedBegin + 1);
-    for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-        const TValue diff = (r_op[i_dim] - r_base[i_dim]);
+    const auto& rBase = *itTransformedBegin;
+    const auto& rOp = *(itTransformedBegin + 1);
+    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+        const TValue diff = (rOp[iDim] - rBase[iDim]);
         CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
-        this->_scales[i_dim] = diff / static_cast<TValue>(2);
-        this->_offset[i_dim] = (r_op[i_dim] + r_base[i_dim]) / diff;
+        this->_scales[iDim] = diff / static_cast<TValue>(2);
+        this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / diff;
     }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-TranslateScaleTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                                    [[maybe_unused]] ConstIterator it_argumentEnd,
-                                                    Iterator it_out) const
+TranslateScaleTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
+                                                    [[maybe_unused]] ConstIterator itArgumentEnd,
+                                                    Iterator itOut) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_argumentBegin, it_argumentEnd) == Dimension)
-    for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-        *it_out++ = (it_argumentBegin[i_dim] + this->_offset[i_dim]) * this->_scales[i_dim];
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dimension)
+    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+        *itOut++ = (itArgumentBegin[iDim] + this->_offset[iDim]) * this->_scales[iDim];
     }
 }
 

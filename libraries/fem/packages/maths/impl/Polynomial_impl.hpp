@@ -14,23 +14,23 @@ namespace cie::fem::maths {
 
 template <class TValue>
 template <concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-Polynomial<TValue>::Polynomial(TItBegin it_begin, TItEnd it_end)
+Polynomial<TValue>::Polynomial(TItBegin itBegin, TItEnd itEnd)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    _coefficients.reserve(std::distance(it_begin, it_end));
-    std::copy(it_begin, it_end, std::back_inserter(_coefficients));
+    _coefficients.reserve(std::distance(itBegin, itEnd));
+    std::copy(itBegin, itEnd, std::back_inserter(_coefficients));
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <class TValue>
-inline void Polynomial<TValue>::evaluate(ConstIterator it_argumentBegin,
+inline void Polynomial<TValue>::evaluate(ConstIterator itArgumentBegin,
                                          ConstIterator,
-                                         Iterator it_resultBegin) const
+                                         Iterator itResultBegin) const
 {
-    *it_resultBegin = utils::evaluatePolynomialHorner(*it_argumentBegin,
+    *itResultBegin = utils::evaluatePolynomialHorner(*itArgumentBegin,
                                                       _coefficients.begin(),
                                                       _coefficients.end());
 }

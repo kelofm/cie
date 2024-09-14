@@ -116,6 +116,22 @@ ParallelFor<TIndex,TStorage>::operator()(Ref<const TContainer> rContainer,
 
 
 template <concepts::Integer TIndex, class TStorage>
+template <concepts::Iterator TIterator, class TFunction>
+ParallelFor<TIndex,TStorage>&
+ParallelFor<TIndex,TStorage>::operator()(TIterator itBegin,
+                                         TIterator itEnd,
+                                         Ref<const TFunction> rFunction)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    this->execute(DynamicIndexPartitionFactory({0, std::distance(itBegin, itEnd), 1}, _pool.size()),
+                  itBegin,
+                  rFunction);
+    return *this;
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Integer TIndex, class TStorage>
 Ref<const typename ParallelFor<TIndex,TStorage>::Pool>
 ParallelFor<TIndex,TStorage>::getPool() const noexcept
 {
@@ -240,6 +256,36 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
 
     _pool.barrier();
 
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Integer TIndex, class TStorage>
+template <concepts::Iterator TIterator, class TFunction>
+void
+ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+                                      TIterator itBegin,
+                                      Ref<const TFunction> rFunction)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    const auto partitionCount = rIndexPartitionFactory.size();
+    if (!partitionCount) return;
+
+    // Schedule jobs
+    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+        const auto partition = rIndexPartitionFactory.getPartition(iPartition);
+        _pool.queueTLSJob(
+            [partition, itBegin, &rFunction] (auto&... rArgs) -> void {
+                for (TIndex i=partition.begin; i<partition.end; i+= partition.step) {
+                    auto it = itBegin;
+                    std::ranges::advance(it, i);
+                    rFunction(*it, rArgs...);
+                }
+            }
+        );
+    }
+
+    _pool.barrier();
     CIE_END_EXCEPTION_TRACING
 }
 

@@ -51,10 +51,10 @@ namespace cie::fem {
 
 
 template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
-void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
-                        TFunctor&& r_functor,
-                        Ptr<const typename TAnsatzSpace::Value> p_sampleBegin,
-                        Ptr<const typename TAnsatzSpace::Value> p_sampleEnd,
+void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
+                        TFunctor&& rFunctor,
+                        Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
+                        Ptr<const typename TAnsatzSpace::Value> pSampleEnd,
                         typename TAnsatzSpace::Value tolerance)
 {
     CIE_BEGIN_EXCEPTION_TRACING
@@ -62,8 +62,8 @@ void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
     constexpr unsigned Dimension = TAnsatzSpace::Dimension;
     static_assert(0 < Dimension);
 
-    const Size ansatzSize = r_ansatzSpace.size();
-    const Size numberOfSamples = std::distance(p_sampleBegin, p_sampleEnd);
+    const Size ansatzSize = rAnsatzSpace.size();
+    const Size numberOfSamples = std::distance(pSampleBegin, pSampleEnd);
 
     StaticArray<Value,Dimension> argument;
     StaticArray<Size,Dimension-1> argumentState;
@@ -77,37 +77,37 @@ void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
     BoundaryID boundaryID;
     tsl::robin_set<std::pair<BoundaryID,Size>> activeBoundaries;
 
-    for (unsigned i_boundary=0; i_boundary<maxBoundaries; ++i_boundary, ++boundaryID) {
+    for (unsigned iBoundary=0; iBoundary<maxBoundaries; ++iBoundary, ++boundaryID) {
         activeBoundaries.clear();
-        const unsigned i_dim = boundaryID.getDimension();
+        const unsigned iDim = boundaryID.getDimension();
 
         do {
             // Compute the current sample point
-            Size i_state = 0;
+            Size iState = 0;
             for (unsigned i=0; i<Dimension; ++i) {
-                if (i == i_dim) {
+                if (i == iDim) {
                     argument[i] = static_cast<Value>(boundaryID.getDirection() ? 1 : -1);
                 } else {
-                    argument[i] = *(p_sampleBegin + argumentState[i_state++]);
+                    argument[i] = *(pSampleBegin + argumentState[iState++]);
                 }
             } // for i in range(Dimension)
 
             // Evaluate the ansatz space
-            r_ansatzSpace.evaluate(argument.begin(),
+            rAnsatzSpace.evaluate(argument.begin(),
                                    argument.end(),
                                    valueBuffer.data());
 
-            for (Size i_ansatz=0; i_ansatz<ansatzSize; ++i_ansatz) {
-                if (tolerance < valueBuffer[i_ansatz]) {
-                    activeBoundaries.emplace(boundaryID, i_ansatz);
+            for (Size iAnsatz=0; iAnsatz<ansatzSize; ++iAnsatz) {
+                if (tolerance < valueBuffer[iAnsatz]) {
+                    activeBoundaries.emplace(boundaryID, iAnsatz);
                 }
             }
         } while (maths::CartesianProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
 
         for (auto pair : activeBoundaries) {
-            r_functor(pair.first, pair.second);
+            rFunctor(pair.first, pair.second);
         }
-    } // for i_boundary in range(maxBoundaries)
+    } // for iBoundary in range(maxBoundaries)
     CIE_END_EXCEPTION_TRACING
 }
 
@@ -115,7 +115,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
 template <class TValue>
 template <maths::Expression TAnsatzSpace>
 requires (std::is_same_v<typename TAnsatzSpace::Value,TValue>)
-AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                              std::span<const TValue> samples,
                              utils::Comparison<TValue> comparison)
 {
@@ -124,7 +124,7 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
     static_assert(0 < Dimension);
 
     using Value = typename TAnsatzSpace::Value;
-    const Size ansatzSize = r_ansatzSpace.size();   // <== total number of ansatz functions
+    const Size ansatzSize = rAnsatzSpace.size();   // <== total number of ansatz functions
     const Size numberOfSamples = samples.size();    // <== number of sample nodes per dimension
 
     StaticArray<Value,Dimension> argument; // <== sample point
@@ -149,7 +149,7 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
     tsl::robin_set<std::pair<BoundaryID,Size>> nonzeros;
 
     // Loop over dimensions and find coincident ansatz functions on opposite boundaries
-    for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
+    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
         // Assume every ansatz function vanishes on both boundaries
         nonzeros.clear();
 
@@ -159,56 +159,56 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
             tsl::robin_set<Size> all;
             all.reserve(ansatzSize);
             for (Size i=0; i<ansatzSize; ++i) all.insert(i);
-            for (Size i_ansatz=0; i_ansatz<ansatzSize; ++i_ansatz) ansatzPairs.insert_or_assign(i_ansatz, all);
+            for (Size iAnsatz=0; iAnsatz<ansatzSize; ++iAnsatz) ansatzPairs.insert_or_assign(iAnsatz, all);
         }
 
         do {
             // Compute the current sample point
-            unsigned i_state = 0;
+            unsigned iState = 0;
             for (unsigned i=0; i<Dimension; ++i) {
-                if (i != i_dim) {
-                    argument[i] = samples[argumentState[i_state++]];
+                if (i != iDim) {
+                    argument[i] = samples[argumentState[iState++]];
                 }
             } // for i in range(Dimension)
 
             // Evaluate the ansatz space on the negative boundary
-            argument[i_dim] = Value(-1);
-            r_ansatzSpace.evaluate(argument.begin(),
+            argument[iDim] = Value(-1);
+            rAnsatzSpace.evaluate(argument.begin(),
                                    argument.end(),
                                    valueBuffer.data());
 
             // Evaluate the ansatz space on the positive boundary
-            argument[i_dim] = Value(1);
-            r_ansatzSpace.evaluate(argument.begin(),
+            argument[iDim] = Value(1);
+            rAnsatzSpace.evaluate(argument.begin(),
                                    argument.end(),
                                    valueBuffer.data() + ansatzSize);
 
             // Compare ansatz function values at opposite boundaries
-            for (unsigned i_ansatz=0; i_ansatz<ansatzSize; ++i_ansatz) {
+            for (unsigned iAnsatz=0; iAnsatz<ansatzSize; ++iAnsatz) {
                 // Check whether the negative boundary is nonzero
-                if (!comparison.equal(valueBuffer[i_ansatz], Value(0))) {
-                    nonzeros.emplace(BoundaryID(i_dim, false), i_ansatz);
+                if (!comparison.equal(valueBuffer[iAnsatz], Value(0))) {
+                    nonzeros.emplace(BoundaryID(iDim, false), iAnsatz);
                 }
 
                 // Check whether the positive boundary is nonzero
-                if (!comparison.equal(valueBuffer[i_ansatz + ansatzSize], Value(0))) {
-                    nonzeros.emplace(BoundaryID(i_dim, true), i_ansatz);
+                if (!comparison.equal(valueBuffer[iAnsatz + ansatzSize], Value(0))) {
+                    nonzeros.emplace(BoundaryID(iDim, true), iAnsatz);
                 }
             }
 
             // Update the coincidence map
             for (auto it=ansatzPairs.begin(); it!=ansatzPairs.end(); ++it) {
-                const Size i_negative = it.key(); // <== index of the ansatz function on the negative boundary
+                const Size iNegative = it.key(); // <== index of the ansatz function on the negative boundary
                 DynamicArray<Size> erase;
 
-                for (Size i_positive : it.value()) {
-                    if (!comparison.equal(valueBuffer[i_negative], valueBuffer[i_positive + ansatzSize])) {
-                        erase.push_back(i_positive);
+                for (Size iPositive : it.value()) {
+                    if (!comparison.equal(valueBuffer[iNegative], valueBuffer[iPositive + ansatzSize])) {
+                        erase.push_back(iPositive);
                     } // if not coincident
-                } // for i_positive in pair.second
+                } // for iPositive in pair.second
 
-                for (auto i_erase : erase) {
-                    it.value().erase(i_erase);
+                for (auto iErase : erase) {
+                    it.value().erase(iErase);
                 }
             } // for pair in ansatzPairs
         } while (maths::CartesianProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
@@ -223,9 +223,9 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
         //             on what boundary.
 
         // Erase entries from the coincidence map that vanish on the negative boundary
-        for (Size i_ansatz=0; i_ansatz<ansatzSize; ++i_ansatz) {
-            if (nonzeros.find({{i_dim, false}, i_ansatz}) == nonzeros.end()) {
-                ansatzPairs.erase(i_ansatz);
+        for (Size iAnsatz=0; iAnsatz<ansatzSize; ++iAnsatz) {
+            if (nonzeros.find({{iDim, false}, iAnsatz}) == nonzeros.end()) {
+                ansatzPairs.erase(iAnsatz);
             }
         }
 
@@ -234,7 +234,7 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
         for (auto it=ansatzPairs.begin(); it!=ansatzPairs.end(); ++it) {
             if (it.value().size() != 1) {
                 std::stringstream message;
-                message << "Ansatz function " << it.key() << " at the negative boundary of dimension " << i_dim
+                message << "Ansatz function " << it.key() << " at the negative boundary of dimension " << iDim
                         << " should have exactly 1 coincident ansatz function on the positive boundary, but has "
                         << it.value().size();
                 if (!it.value().empty()) {
@@ -252,19 +252,19 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
 
         // Check whether each ansatz funtion that doesn't vanish on the positive boundary
         // has a coincident ansatz function on the negative boundary.
-        for (auto [boundary, i_ansatz] : nonzeros) {
+        for (auto [boundary, iAnsatz] : nonzeros) {
             if (boundary.getDirection()) {
                 bool foundCoincidentPair = false;
-                for (const auto& r_pair : ansatzPairs) {
-                    if (r_pair.second.find(i_ansatz) != r_pair.second.end()) {
+                for (const auto& rPair : ansatzPairs) {
+                    if (rPair.second.find(iAnsatz) != rPair.second.end()) {
                         foundCoincidentPair = true;
                         break;
                     }
                 }
                 if (!foundCoincidentPair) {
                     std::stringstream message;
-                    message << "Ansatz function " << i_ansatz
-                            << " does not vanish on the positive boundary of dimension " << i_dim
+                    message << "Ansatz function " << iAnsatz
+                            << " does not vanish on the positive boundary of dimension " << iDim
                             << " but has no coincident ansatz function on the negative boundary.\n";
                     CIE_THROW(Exception, message.str())
                 }
@@ -277,8 +277,8 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
         std::transform(ansatzPairs.begin(),
                        ansatzPairs.end(),
                        std::back_inserter(connectivities),
-                       [](const auto& r_pair){return std::pair<Size,Size>(r_pair.first, *r_pair.second.begin());});
-        _connectivityMap.emplace(i_dim, std::move(connectivities));
+                       [](const auto& rPair){return std::pair<Size,Size>(rPair.first, *rPair.second.begin());});
+        _connectivityMap.emplace(iDim, std::move(connectivities));
     }
 
     CIE_END_EXCEPTION_TRACING
@@ -288,20 +288,20 @@ AnsatzMap<TValue>::AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
 template <class TValue>
 template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
 void AnsatzMap<TValue>::getPairs(BoundaryID boundary,
-                                 TOutputIt it_output) const noexcept
+                                 TOutputIt itOutput) const noexcept
 {
     const auto it = _connectivityMap.find(boundary.getDimension());
     if (it != _connectivityMap.end()) {
         if (boundary.getDirection()) {
             std::transform(it.value().begin(),
                            it.value().end(),
-                           it_output,
+                           itOutput,
                            [](auto pair) -> std::pair<Size,Size>
                             {std::swap(pair.first, pair.second); return pair;});
         } else {
             std::copy(it.value().begin(),
                       it.value().end(),
-                      it_output);
+                      itOutput);
         }
     }
 }
@@ -320,11 +320,11 @@ Size AnsatzMap<TValue>::getPairCount(BoundaryID boundary) const noexcept
 
 
 template <maths::Expression TAnsatzSpace>
-AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                                                       std::span<const typename TAnsatzSpace::Value> samples,
                                                       utils::Comparison<typename TAnsatzSpace::Value> comparison)
 {
-    return AnsatzMap<typename TAnsatzSpace::Value>(r_ansatzSpace, samples, comparison);
+    return AnsatzMap<typename TAnsatzSpace::Value>(rAnsatzSpace, samples, comparison);
 }
 
 

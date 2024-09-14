@@ -13,16 +13,16 @@ class PartitionManager
 {
 public:
     template <PartitionBase::Item TItem, class ...TPartitions>
-    static auto collectAttributes(Size leafIndex, Ref<const TPartitions>... r_partitions)
+    static auto collectAttributes(Size leafIndex, Ref<const TPartitions>... rPartitions)
     {
         if constexpr (TItem == PartitionBase::Item::Vertex) {
             return impl::AttributeAggregate<typename TPartitions::VertexAttributes...>::get(
-                r_partitions._vertexAttributes ...,
+                rPartitions._vertexAttributes ...,
                 leafIndex
             );
         } else if constexpr (TItem == PartitionBase::Item::Polytope) {
             return impl::AttributeAggregate<typename TPartitions::PolytopeAttributes...>::get(
-                r_partitions._polytopeAttributes ...,
+                rPartitions._polytopeAttributes ...,
                 leafIndex
             );
         } else {

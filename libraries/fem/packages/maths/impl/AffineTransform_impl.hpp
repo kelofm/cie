@@ -19,11 +19,11 @@ template <concepts::Numeric TValue, unsigned Dimension>
 inline void
 AffineTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
                                                       ConstIterator,
-                                                      Iterator it_out) const
+                                                      Iterator itOut) const
 {
     std::copy(this->_matrix.wrapped().data(),
               this->_matrix.wrapped().data() + Dimension * Dimension,
-              it_out);
+              itOut);
 }
 
 
@@ -38,27 +38,27 @@ AffineTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator,
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator PointIterator>
-AffineTransform<TValue,Dimension>::AffineTransform(PointIterator it_transformedBegin,
-                                                   PointIterator it_transformedEnd)
+AffineTransform<TValue,Dimension>::AffineTransform(PointIterator itTransformedBegin,
+                                                   PointIterator itTransformedEnd)
     : AffineTransform()
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    CIE_OUT_OF_RANGE_CHECK(std::distance(it_transformedBegin, it_transformedEnd) == Dimension + 1)
+    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == Dimension + 1)
 
     // Assemble RHS
     StaticArray<TValue,(Dimension+1)*(Dimension+1)> homogeneousPoints;
 
     // Copy transformed components to the first {{Dimension}} rows
-    for (Size i_point=0 ; it_transformedBegin!=it_transformedEnd; it_transformedBegin++, i_point++) {
-        CIE_OUT_OF_RANGE_CHECK(Dimension <= it_transformedBegin->size())
-        for (Size i_component=0; i_component<Dimension; i_component++) {
+    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
             // This array will be interpreted as an eigen matrix, which
             // stores its data columnwise by default, so the order of the
             // components must follow that.
-            homogeneousPoints[i_component + i_point * (Dimension + 1)] = it_transformedBegin->at(i_component);
+            homogeneousPoints[iComponent + iPoint * (Dimension + 1)] = itTransformedBegin->at(iComponent);
         } // for component in point
-        homogeneousPoints[Dimension + i_point * (Dimension + 1)] = 1; // <== last row contains homogeneous components
+        homogeneousPoints[Dimension + iPoint * (Dimension + 1)] = 1; // <== last row contains homogeneous components
     } // for point in transformedPoints
 
     // Solve for transformation matrix components
@@ -71,21 +71,21 @@ AffineTransform<TValue,Dimension>::AffineTransform(PointIterator it_transformedB
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-AffineTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
-                                            [[maybe_unused]] ConstIterator it_argumentEnd,
-                                            Iterator it_out) const
+AffineTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
+                                            [[maybe_unused]] ConstIterator itArgumentEnd,
+                                            Iterator itOut) const
 {
-    CIE_OUT_OF_RANGE_CHECK(Dimension == std::distance(it_argumentBegin, it_argumentEnd))
+    CIE_OUT_OF_RANGE_CHECK(Dimension == std::distance(itArgumentBegin, itArgumentEnd))
 
     // Copy augmented point
     typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
-    for (Size i_dim=0; i_dim<Dimension; ++i_dim) {
-        augmentedPoint[i_dim] = it_argumentBegin[i_dim];
+    for (Size iDim=0; iDim<Dimension; ++iDim) {
+        augmentedPoint[iDim] = itArgumentBegin[iDim];
     }
 
     // <== GCC thinks this doesn't initialize augmentedPoint ...
-    //std::copy(it_argumentBegin,
-    //          it_argumentEnd,
+    //std::copy(itArgumentBegin,
+    //          itArgumentEnd,
     //          augmentedPoint.begin());
 
     augmentedPoint[Dimension] = static_cast<TValue>(1);
@@ -96,7 +96,7 @@ AffineTransform<TValue,Dimension>::evaluate(ConstIterator it_argumentBegin,
     // Output result components
     std::copy(transformed.begin(),
               transformed.begin() + Dimension,
-              it_out);
+              itOut);
 }
 
 

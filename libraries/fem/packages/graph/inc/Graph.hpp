@@ -83,6 +83,9 @@ public:
         /// @copydoc VertexID
         using ID = VertexID;
 
+        /// @brief Alias for the data type stored in vertices of the graph.
+        using Data = TVertexData;
+
         /// @brief Construct a new @ref Vertex with an @ref ID and set of @ref Edge "edges".
         /// @param id identifier of the new vertex.
         /// @param rEdges set of edges originating from, or ending at the new vertex.
@@ -158,6 +161,9 @@ public:
     public:
         /// @copydoc EdgeID
         using ID = EdgeID;
+
+        /// @brief Alias for the data type stored in edges of the graph.
+        using Data = TEdgeData;
 
         /// @brief Construct an @ref Edge from an @ref ID and a source-target @ref Vertex pair.
         /// @param id identifier of the new edge.

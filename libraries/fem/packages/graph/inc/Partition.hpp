@@ -54,7 +54,7 @@ public:
 
     PartitionBase(PartitionBase&&) noexcept = default;
 
-    PartitionBase(RightRef<std::string> r_name, Size id);
+    PartitionBase(RightRef<std::string> rName, Size id);
 
     PartitionBase& operator=(const PartitionBase&) = delete;
 
@@ -81,13 +81,13 @@ public:
 public:
     Partition() noexcept = default;
 
-    Partition(RightRef<VertexAttributes> r_vertexAttributes,
-              RightRef<PolytopeAttributes> r_polytopeAttributes) noexcept;
+    Partition(RightRef<VertexAttributes> rVertexAttributes,
+              RightRef<PolytopeAttributes> rPolytopeAttributes) noexcept;
 
-    Partition(RightRef<std::string> r_name,
+    Partition(RightRef<std::string> rName,
               Size id,
-              RightRef<VertexAttributes> r_vertexAttributes,
-              RightRef<PolytopeAttributes> r_polytopeAttributes) noexcept;
+              RightRef<VertexAttributes> rVertexAttributes,
+              RightRef<PolytopeAttributes> rPolytopeAttributes) noexcept;
 
 private:
     friend class PartitionManager;

@@ -30,10 +30,10 @@ AffineTransformDerivative<TValue,Dimension>::AffineTransformDerivative() noexcep
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-AffineTransformDerivative<TValue,Dimension>::AffineTransformDerivative(Ref<const AffineTransform<TValue,Dimension>> r_transform)
+AffineTransformDerivative<TValue,Dimension>::AffineTransformDerivative(Ref<const AffineTransform<TValue,Dimension>> rTransform)
 {
     // First Dimension x Dimension sub of the original transformation matrix
-    this->_matrix.wrapped() = r_transform.getTransformationMatrix().wrapped().template block<Dimension,Dimension>(0, 0);
+    this->_matrix.wrapped() = rTransform.getTransformationMatrix().wrapped().template block<Dimension,Dimension>(0, 0);
 }
 
 
@@ -68,18 +68,18 @@ public:
                   -1);
         point.back() = 1; // <== augmented component
 
-        for (unsigned i_point=0; i_point<numberOfPoints; i_point++) {
+        for (unsigned iPoint=0; iPoint<numberOfPoints; iPoint++) {
             // Copy point components into the coefficient matrix
-            for (unsigned i_component=0; i_component<Dimension+1; i_component++) {
-                _matrix(i_component, i_point) = point[i_component];
+            for (unsigned iComponent=0; iComponent<Dimension+1; iComponent++) {
+                _matrix(iComponent, iPoint) = point[iComponent];
             }
 
             // Update point for the next iteration
-            point[i_point] = 1;
-            if (i_point) {
-                point[i_point - 1] = -1;
+            point[iPoint] = 1;
+            if (iPoint) {
+                point[iPoint - 1] = -1;
             }
-        } // for i_point in range(Dimension + 1)
+        } // for iPoint in range(Dimension + 1)
 
         this->_matrix.wrapped() = this->_matrix.wrapped().inverse().eval();
 
@@ -134,8 +134,8 @@ AffineTransform<TValue,Dimension>::AffineTransform() noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-AffineTransform<TValue,Dimension>::AffineTransform(RightRef<TransformationMatrix> r_matrix) noexcept
-    : _transformationMatrix(std::move(r_matrix))
+AffineTransform<TValue,Dimension>::AffineTransform(RightRef<TransformationMatrix> rMatrix) noexcept
+    : _transformationMatrix(std::move(rMatrix))
 {
 }
 
@@ -156,12 +156,12 @@ AffineTransformDerivative<TValue,Dimension> AffineTransform<TValue,Dimension>::m
 
 template <concepts::Numeric TValue, unsigned Dimension>
 void
-AffineTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<const TValue> p_transformedBegin,
-                                                               Ref<TransformationMatrix> r_matrix)
+AffineTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<const TValue> pTransformedBegin,
+                                                               Ref<TransformationMatrix> rMatrix)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(p_transformedBegin);
-    r_matrix.wrapped().noalias() = homogeneousPoints * detail::AffineCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
+    Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
+    rMatrix.wrapped().noalias() = homogeneousPoints * detail::AffineCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
     CIE_END_EXCEPTION_TRACING
 }
 

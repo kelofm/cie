@@ -50,21 +50,21 @@ public:
     ///@name Constructor / Destructor
     ///@{
 
-    STLContainerBase(const std::initializer_list<value_type>& r_initializer)
+    STLContainerBase(const std::initializer_list<value_type>& rInitializer)
     requires concepts::detail::HasPushBack<TBase, const value_type&, void>
     {
         CIE_BEGIN_EXCEPTION_TRACING
-        utils::reserve(*this, r_initializer.size());
-        std::copy(r_initializer.begin(), r_initializer.end(), std::back_inserter(*this));
+        utils::reserve(*this, rInitializer.size());
+        std::copy(rInitializer.begin(), rInitializer.end(), std::back_inserter(*this));
         CIE_END_EXCEPTION_TRACING
     }
 
-    STLContainerBase(const std::initializer_list<value_type>& r_initializer)
+    STLContainerBase(const std::initializer_list<value_type>& rInitializer)
     requires (!concepts::detail::HasPushBack<TBase, const value_type&, void>)
     {
         CIE_BEGIN_EXCEPTION_TRACING
-        utils::resize(*this, r_initializer.size());
-        std::copy(r_initializer.begin(), r_initializer.end(), this->begin());
+        utils::resize(*this, rInitializer.size());
+        std::copy(rInitializer.begin(), rInitializer.end(), this->begin());
         CIE_END_EXCEPTION_TRACING
     }
 
@@ -81,8 +81,8 @@ public:
     STLContainerBase(const STLContainerBase<TBase>& r_rhs) = default;
 
     template <class ...TArgs>
-    STLContainerBase(TArgs&&... r_arguments)
-        : TBase(std::forward<TArgs>(r_arguments)...)
+    STLContainerBase(TArgs&&... rArgs)
+        : TBase(std::forward<TArgs>(rArgs)...)
     {}
 
     STLContainerBase<TBase>& operator=(STLContainerBase<TBase>&& r_rhs) noexcept = default;
@@ -202,31 +202,36 @@ public:
     requires concepts::detail::HasErase<TBase, iterator>
     {return TBase::erase(begin, end);}
 
-    void push_front(const value_type& r_value)
+    void push_front(const value_type& rValue)
     requires concepts::detail::HasPushBack<TBase, const value_type&, void>
-    {TBase::push_front(r_value);}
+    {TBase::push_front(rValue);}
 
-    void push_front(value_type&& r_value)
+    void push_front(value_type&& rValue)
     requires concepts::detail::HasPushBack<TBase, const value_type&, void>
-    {TBase::push_front(std::move(r_value));}
+    {TBase::push_front(std::move(rValue));}
 
-    void push_back(const value_type& r_value)
+    void push_back(const value_type& rValue)
     requires concepts::detail::HasPushBack<TBase, const value_type&, void>
-    {TBase::push_back(r_value);}
+    {TBase::push_back(rValue);}
 
-    void push_back(value_type&& r_value)
+    void push_back(value_type&& rValue)
     requires concepts::detail::HasPushBack<TBase, const value_type&, void>
-    {TBase::push_back(std::move(r_value));}
+    {TBase::push_back(std::move(rValue));}
 
     template <class ...TArgs>
-    reference emplace_front(TArgs&&... r_arguments)
+    reference emplace_front(TArgs&&... rArgs)
     requires concepts::detail::HasEmplaceBack<TBase, TArgs...>
-    {return TBase::emplace_back(std::forward<TArgs>(r_arguments)...);}
+    {return TBase::emplace_back(std::forward<TArgs>(rArgs)...);}
 
     template <class ...TArgs>
-    reference emplace_back(TArgs&&... r_arguments)
+    reference emplace_back(TArgs&&... rArgs)
     requires concepts::detail::HasEmplaceBack<TBase, TArgs...>
-    {return TBase::emplace_back(std::forward<TArgs>(r_arguments)...);}
+    {return TBase::emplace_back(std::forward<TArgs>(rArgs)...);}
+
+    template <class ...TArgs>
+    void insert(TArgs&&... rArgs)
+    requires concepts::detail::HasInsert<TBase, TArgs...>
+    {TBase::insert(std::forward<TArgs>(rArgs)...);}
 
     void pop_front()
     requires concepts::detail::HasPopFront<TBase>

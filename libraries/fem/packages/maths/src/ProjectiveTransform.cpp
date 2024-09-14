@@ -29,14 +29,14 @@ ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative()
               _enumeratorCoefficients.end(),
               0);
 
-    for (unsigned i_component=Dimension; i_component<_enumeratorCoefficients.size(); i_component+=(Dimension+1)*Dimension) {
-        _enumeratorCoefficients[i_component] = 1;
+    for (unsigned iComponent=Dimension; iComponent<_enumeratorCoefficients.size(); iComponent+=(Dimension+1)*Dimension) {
+        _enumeratorCoefficients[iComponent] = 1;
     }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(Ref<const ProjectiveTransform<TValue,Dimension>> r_projection)
+ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(Ref<const ProjectiveTransform<TValue,Dimension>> rProjection)
     : _enumeratorCoefficients(),
       _denominatorCoefficients()
 {
@@ -44,9 +44,9 @@ ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(R
 
     // Compute denominator coefficients
 
-    const auto& r_matrix = r_projection.getTransformationMatrix();
-    for (unsigned i_coefficient=0; i_coefficient<=Dimension; ++i_coefficient) {
-        _denominatorCoefficients[i_coefficient] = r_matrix(Dimension, i_coefficient);
+    const auto& rMatrix = rProjection.getTransformationMatrix();
+    for (unsigned iCoefficient=0; iCoefficient<=Dimension; ++iCoefficient) {
+        _denominatorCoefficients[iCoefficient] = rMatrix(Dimension, iCoefficient);
     }
 
     // Suppose the the projective transform matrix looks like this:
@@ -66,18 +66,18 @@ ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(R
     // Compute temporaries
 
     // ah-bg
-    const TValue ahbg =   r_matrix(0, 0) * r_matrix(Dimension, 1)
-                        - r_matrix(0, 1) * r_matrix(Dimension, 0);
+    const TValue ahbg =   rMatrix(0, 0) * rMatrix(Dimension, 1)
+                        - rMatrix(0, 1) * rMatrix(Dimension, 0);
 
     // dh-eg
-    const TValue dheg =   r_matrix(1, 0) * r_matrix(Dimension, 1)
-                        - r_matrix(1, 1) * r_matrix(Dimension, 0);
+    const TValue dheg =   rMatrix(1, 0) * rMatrix(Dimension, 1)
+                        - rMatrix(1, 1) * rMatrix(Dimension, 0);
 
     // i-c
-    const TValue omc = r_matrix(Dimension, Dimension) - r_matrix(0, Dimension);
+    const TValue omc = rMatrix(Dimension, Dimension) - rMatrix(0, Dimension);
 
     // i-f
-    const TValue omf = r_matrix(Dimension, Dimension) - r_matrix(1, Dimension);
+    const TValue omf = rMatrix(Dimension, Dimension) - rMatrix(1, Dimension);
 
     // Compute enumerator coefficients
 
@@ -129,25 +129,25 @@ public:
         StaticArray<TValue,2> states {-1, 1};
         auto permutation = utils::makeInternalStateIterator(states, Dimension);
 
-        for (unsigned i_point=0; i_point<Dimension+1; i_point++, ++permutation) {
-            for (unsigned i_component=0; i_component<Dimension; i_component++) {
-                _matrix(i_component, i_point) = *(*permutation)[i_component];
+        for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++, ++permutation) {
+            for (unsigned iComponent=0; iComponent<Dimension; iComponent++) {
+                _matrix(iComponent, iPoint) = *(*permutation)[iComponent];
             }
-            _matrix(Dimension, i_point) = 1;
+            _matrix(Dimension, iPoint) = 1;
         }
 
         // Right hand side == [1]^(D+1)
         Eigen::Matrix<TValue,Dimension+1,1> rhs;
-        for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-            rhs(i_dim, 0) = *(*permutation)[i_dim];
+        for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+            rhs(iDim, 0) = *(*permutation)[iDim];
         }
         rhs(Dimension, 0) = 1;
 
         // Solve for column coefficients and scale the columns
         Eigen::Matrix<TValue,Dimension+1,1> columnCoefficients = _matrix.wrapped().fullPivLu().solve(rhs);
-        for (unsigned i_row=0; i_row<Dimension+1; ++i_row) {
-            for (unsigned i_column=0; i_column<Dimension+1; ++i_column) {
-                _matrix(i_row, i_column) *= columnCoefficients(i_column, 0);
+        for (unsigned iRow=0; iRow<Dimension+1; ++iRow) {
+            for (unsigned iColumn=0; iColumn<Dimension+1; ++iColumn) {
+                _matrix(iRow, iColumn) *= columnCoefficients(iColumn, 0);
             }
         }
 
@@ -207,24 +207,24 @@ struct ComputeProjectiveMatrix
 template <class TValue>
 struct ComputeProjectiveMatrix<TValue,2>
 {
-    static void compute(Ptr<TValue> p_transformedBegin,
-                        Ref<typename ProjectiveTransform<TValue,2>::TransformationMatrix> r_matrix)
+    static void compute(Ptr<TValue> pTransformedBegin,
+                        Ref<typename ProjectiveTransform<TValue,2>::TransformationMatrix> rMatrix)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
         constexpr unsigned Dimension = 2;
-        Eigen::Map<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(p_transformedBegin);
-        Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,1>> rhs(p_transformedBegin + (Dimension + 1) * (Dimension + 1));
+        Eigen::Map<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
+        Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,1>> rhs(pTransformedBegin + (Dimension + 1) * (Dimension + 1));
 
         const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>>(homogeneousPoints).solve(rhs);
-        for (unsigned i_point=0; i_point<Dimension+1; i_point++) {
-            const TValue scale = homogeneousSolution[i_point];
-            for (unsigned i_component=0; i_component<Dimension+1; i_component++) {
-                homogeneousPoints(i_component, i_point) *= scale;
+        for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++) {
+            const TValue scale = homogeneousSolution[iPoint];
+            for (unsigned iComponent=0; iComponent<Dimension+1; iComponent++) {
+                homogeneousPoints(iComponent, iPoint) *= scale;
             }
         }
 
-        r_matrix.wrapped().noalias() = homogeneousPoints * detail::ProjectiveCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
+        rMatrix.wrapped().noalias() = homogeneousPoints * detail::ProjectiveCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
         CIE_END_EXCEPTION_TRACING
     }
 };
@@ -241,19 +241,19 @@ ProjectiveTransform<TValue,Dimension>::ProjectiveTransform() noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(RightRef<TransformationMatrix> r_matrix) noexcept
-    : _transformationMatrix(std::move(r_matrix))
+ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(RightRef<TransformationMatrix> rMatrix) noexcept
+    : _transformationMatrix(std::move(rMatrix))
 {
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 void
-ProjectiveTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<TValue> p_transformedBegin,
-                                                                   Ref<TransformationMatrix> r_matrix)
+ProjectiveTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<TValue> pTransformedBegin,
+                                                                   Ref<TransformationMatrix> rMatrix)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    detail::ComputeProjectiveMatrix<TValue,Dimension>::compute(p_transformedBegin, r_matrix);
+    detail::ComputeProjectiveMatrix<TValue,Dimension>::compute(pTransformedBegin, rMatrix);
     CIE_END_EXCEPTION_TRACING
 }
 

@@ -23,8 +23,8 @@ CIE_TEST_CASE("scanConnectivities", "[graph]")
 
     StaticArray<double,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
     DynamicArray<std::pair<BoundaryID,unsigned>> connectivities;
-    const auto functor = [&connectivities] (BoundaryID boundaryID, unsigned i_ansatz) {
-        connectivities.emplace_back(boundaryID, i_ansatz);
+    const auto functor = [&connectivities] (BoundaryID boundaryID, unsigned iAnsatz) {
+        connectivities.emplace_back(boundaryID, iAnsatz);
     };
 
     { // Linear shape functions on a square

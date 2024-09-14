@@ -5,7 +5,8 @@
 #include "packages/graph/inc/Assembler.hpp"
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
-#include <iostream>
+#include "packages/graph/inc/BoundaryID.hpp"
+#include "packages/graph/inc/connectivity.hpp"
 
 
 namespace cie::fem {

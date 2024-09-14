@@ -104,8 +104,8 @@ public:
      *  @tparam TFunction Function to execute at each iteration. Must be callable
      *          with the index type followed by thread local storage types as
      *          arguments.
-     *  @param indexMax index end
-     *  @param rFunction target function to execute at each iteration
+     *  @param indexMax index end.
+     *  @param rFunction target function to execute at each iteration.
      */
     template <class TFunction>
     ParallelFor& operator()(TIndex indexMax,
@@ -115,8 +115,8 @@ public:
      *  @tparam TFunction Function to execute at each iteration. Must be callable
      *          with the container's value type followed by thread local storage
      *          types as arguments.
-     *  @param rContainer container holding the items to loop through
-     *  @param rFunction target function to execute at each iteration
+     *  @param rContainer container holding the items to loop through.
+     *  @param rFunction target function to execute at each iteration.
      */
     template <concepts::Container TContainer, class TFunction>
     ParallelFor& operator()(Ref<TContainer> rContainer,
@@ -126,11 +126,23 @@ public:
      *  @tparam TFunction Function to execute at each iteration. Must be callable
      *          with the container's value type followed by thread local storage
      *          types as arguments.
-     *  @param rContainer container holding the items to loop through
-     *  @param rFunction target function to execute at each iteration
+     *  @param rContainer container holding the items to loop through.
+     *  @param rFunction target function to execute at each iteration.
      */
     template <concepts::Container TContainer, class TFunction>
     ParallelFor& operator()(Ref<const TContainer> rContainer,
+                            Ref<const TFunction> rFunction);
+
+    /** @brief Execute a range-based for loop over a range.
+     *  @tparam TFunction Function to execute at each iteration. Must be callable
+     *          with the container's value type followed by thread local storage
+     *          types as arguments.
+     *  @param rContainer container holding the items to loop through.
+     *  @param rFunction target function to execute at each iteration.
+     */
+    template <concepts::Iterator TIterator, class TFunction>
+    ParallelFor& operator()(TIterator itBegin,
+                            TIterator itEnd,
                             Ref<const TFunction> rFunction);
 
     Ref<const Pool> getPool() const noexcept;
@@ -155,6 +167,11 @@ private:
     template <concepts::Container TContainer, class TFunction>
     void execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
                  Ref<const TContainer> rContainer,
+                 Ref<const TFunction> rFunction);
+
+    template <concepts::Iterator TIterator, class TFunction>
+    void execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+                 TIterator itBegin,
                  Ref<const TFunction> rFunction);
 
 private:

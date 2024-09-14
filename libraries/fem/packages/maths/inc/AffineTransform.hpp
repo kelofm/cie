@@ -39,20 +39,20 @@ public:
     AffineTransformDerivative() noexcept;
 
     /// @brief This function is constant so the arguments are not necessary.
-    void evaluate(ConstIterator it_begin,
-                  ConstIterator it_end,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itBegin,
+                  ConstIterator itEnd,
+                  Iterator itOut) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
 
     /// @brief Compute the determinant of the affine transform's jacobian.
-    TValue evaluateDeterminant(ConstIterator it_begin, ConstIterator it_end) const;
+    TValue evaluateDeterminant(ConstIterator itBegin, ConstIterator itEnd) const;
 
 private:
     friend class AffineTransform<TValue,Dimension>;
 
-    AffineTransformDerivative(Ref<const AffineTransform<TValue,Dimension>> r_transform);
+    AffineTransformDerivative(Ref<const AffineTransform<TValue,Dimension>> rTransform);
 
 private:
     TransformationMatrix _matrix;
@@ -101,17 +101,17 @@ public:
      *           -1 & -1 & -1 &  1
      *           \end{bmatrix} @f]
      *
-     *  @param it_transformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
-     *  @param it_transformedEnd iterator past the last transformed point (should be identical to it_transformedBegin + D + 1 + 1).
+     *  @param itTransformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
+     *  @param itTransformedEnd iterator past the last transformed point (should be identical to itTransformedBegin + D + 1 + 1).
      */
     template <concepts::Iterator TPointIt>
-    AffineTransform(TPointIt it_transformedBegin,
-                    TPointIt it_transformedEnd);
+    AffineTransform(TPointIt itTransformedBegin,
+                    TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
@@ -127,16 +127,16 @@ public:
 
 private:
     /// @brief Construct from a precomputed transformation matrix.
-    AffineTransform(RightRef<TransformationMatrix> r_matrix) noexcept;
+    AffineTransform(RightRef<TransformationMatrix> rMatrix) noexcept;
 
     /// @brief Get the matrix representation of the transformation.
     Ref<TransformationMatrix> getTransformationMatrix() noexcept;
 
     /// @brief Compute the transformation matrix from the homogeneous representation of transformed points.
-    /// @param[in] p_transformedBegin Ptr to the first component of the homogenized transformed points.
-    /// @param[out] r_matrix Transformation matrix to write to.
-    static void computeTransformationMatrix(Ptr<const TValue> p_transformedBegin,
-                                            Ref<TransformationMatrix> r_matrix);
+    /// @param[in] pTransformedBegin Ptr to the first component of the homogenized transformed points.
+    /// @param[out] rMatrix Transformation matrix to write to.
+    static void computeTransformationMatrix(Ptr<const TValue> pTransformedBegin,
+                                            Ref<TransformationMatrix> rMatrix);
 
 private:
     TransformationMatrix _transformationMatrix;

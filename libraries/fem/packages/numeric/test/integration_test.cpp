@@ -34,17 +34,17 @@ CIE_TEST_CASE("integration", "[fem]")
     const Quadrature<double,2> quadrature(GaussLegendreQuadrature<double>(8));
     QuadTree tree(QuadTree::Point {0.0, 0.0}, 1.0);
 
-    const auto domain = [] (Ptr<const double> it_begin,
+    const auto domain = [] (Ptr<const double> itBegin,
                             Ptr<const double>) -> bool {
-        StaticArray<double,2> point {*it_begin, *(it_begin + 1)};
+        StaticArray<double,2> point {*itBegin, *(itBegin + 1)};
         return linalg::norm2(point) < 1;
     };
 
-    const auto treePredicate = [&tree, &domain] (Ref<const QuadTree::Node> r_node, unsigned level) -> bool {
+    const auto treePredicate = [&tree, &domain] (Ref<const QuadTree::Node> rNode, unsigned level) -> bool {
         if (10 < level) {return false;}
         QuadTree::Point base;
         double edge;
-        tree.getNodeGeometry(r_node, base.data(), &edge);
+        tree.getNodeGeometry(rNode, base.data(), &edge);
         bool isInside = domain(base.begin(), base.end());
         base[0] += edge;
         if (isInside != domain(base.begin(), base.end())) return true;
@@ -57,24 +57,24 @@ CIE_TEST_CASE("integration", "[fem]")
     tree.scan(treePredicate);
 
     // Construct an integrand that will be evaluated over the domain
-    const auto integrand = maths::makeLambdaExpression<double>([&domain] (Ptr<const double> it_begin,
-                                                                          Ptr<const double> it_end,
-                                                                          Ptr<double> it_out) {
-        if (domain(it_begin, it_end)) {
+    const auto integrand = maths::makeLambdaExpression<double>([&domain] (Ptr<const double> itBegin,
+                                                                          Ptr<const double> itEnd,
+                                                                          Ptr<double> itOut) {
+        if (domain(itBegin, itEnd)) {
             // A unit halfsphere
-            *it_out = std::sqrt(1.0 - std::pow(*it_begin, 2) - std::pow(*(it_begin + 1), 2));
+            *itOut = std::sqrt(1.0 - std::pow(*itBegin, 2) - std::pow(*(itBegin + 1), 2));
         } else {
-            *it_out = 0;
+            *itOut = 0;
         }
     }, 1);
 
     double integral = 0;
-    for (const auto& r_node : tree) {
-        if (r_node.isLeaf()) {
+    for (const auto& rNode : tree) {
+        if (rNode.isLeaf()) {
             // Recover the node's geometry
             double base[2];
             double edge;
-            tree.getNodeGeometry(r_node,
+            tree.getNodeGeometry(rNode,
                                  base,
                                  &edge);
 
@@ -88,21 +88,21 @@ CIE_TEST_CASE("integration", "[fem]")
 
             // Construct the transformed integrand
             const auto transformedIntegrand = maths::makeLambdaExpression<double>(
-                [&transform, determinant, &integrand] (Ptr<const double> it_begin,
-                                                       Ptr<const double> it_end,
-                                                       Ptr<double> it_out) {
+                [&transform, determinant, &integrand] (Ptr<const double> itBegin,
+                                                       Ptr<const double> itEnd,
+                                                       Ptr<double> itOut) {
                 StaticArray<double,2> transformedPoint;
-                transform.evaluate(it_begin, it_end, transformedPoint.data());
+                transform.evaluate(itBegin, itEnd, transformedPoint.data());
                 integrand.evaluate(transformedPoint.begin(),
                                    transformedPoint.end(),
-                                   it_out);
-                *it_out *= determinant;
+                                   itOut);
+                *itOut *= determinant;
             }, integrand.size());
 
             double term;
             quadrature.evaluate(transformedIntegrand, &term);
             integral += term;
-        } // if r_node.isLeaf()
+        } // if rNode.isLeaf()
     } // for node in tree
 
     CIE_TEST_CHECK(integral == Approx(/*sphere volume*/ 4.0 / 3.0 * std::numbers::pi /*but only an eighth*/ / 8));

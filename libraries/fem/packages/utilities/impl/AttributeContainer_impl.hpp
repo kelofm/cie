@@ -29,32 +29,32 @@ struct AttributeContainer<std::index_sequence<Indices...>, TValues...>
 
     using IndexSequence = std::index_sequence<Indices...>;
 
-    static void resize(Ref<Tuple> r_containers, Size size)
+    static void resize(Ref<Tuple> rContainers, Size size)
     {
-        (..., std::get<Indices>(r_containers).resize(size));
+        (..., std::get<Indices>(rContainers).resize(size));
     }
 
-    static void erase(Ref<Tuple> r_containers, Size i_begin, Size i_end)
+    static void erase(Ref<Tuple> rContainers, Size iBegin, Size iEnd)
     {
-        (..., std::get<Indices>(r_containers).erase(
-                std::get<Indices>(r_containers).begin() + i_begin,
-                std::get<Indices>(r_containers).begin() + i_end
+        (..., std::get<Indices>(rContainers).erase(
+                std::get<Indices>(rContainers).begin() + iBegin,
+                std::get<Indices>(rContainers).begin() + iEnd
         ));
     }
 
-    static void clear(Ref<Tuple> r_containers)
+    static void clear(Ref<Tuple> rContainers)
     {
-        (..., std::get<Indices>(r_containers).clear());
+        (..., std::get<Indices>(rContainers).clear());
     }
 
-    static void reserve(Ref<Tuple> r_containers, Size capacity)
+    static void reserve(Ref<Tuple> rContainers, Size capacity)
     {
-        (..., std::get<Indices>(r_containers).reserve(capacity));
+        (..., std::get<Indices>(rContainers).reserve(capacity));
     }
 
-    static void push_back(Ref<Tuple> r_containers, TValues... values)
+    static void push_back(Ref<Tuple> rContainers, TValues... values)
     {
-        (..., std::get<Indices>(r_containers).push_back(values));
+        (..., std::get<Indices>(rContainers).push_back(values));
     }
 }; // struct AttributeContainer
 
@@ -71,9 +71,9 @@ AttributeContainer<TValues...>::resize(Size size)
 
 template <class ...TValues>
 void
-AttributeContainer<TValues...>::erase(Size i_begin, Size i_end)
+AttributeContainer<TValues...>::erase(Size iBegin, Size iEnd)
 {
-    Impl::AttributeContainer<std::remove_const_t<decltype(TupleIndices)>,TValues...>::erase(_containers, i_begin, i_end);
+    Impl::AttributeContainer<std::remove_const_t<decltype(TupleIndices)>,TValues...>::erase(_containers, iBegin, iEnd);
 }
 
 

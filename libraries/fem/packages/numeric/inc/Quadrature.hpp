@@ -19,25 +19,25 @@ template <concepts::Numeric TValue, unsigned Dimension>
 class Quadrature : public Kernel<Dimension,TValue>
 {
 public:
-    Quadrature(Ref<const QuadratureBase<TValue>> r_base);
+    Quadrature(Ref<const QuadratureBase<TValue>> rBase);
 
-    Quadrature(Ref<const typename QuadratureBase<TValue>::NodeContainer> r_nodes,
-               Ref<const typename QuadratureBase<TValue>::WeightContainer> r_weights);
-
-    template <maths::Expression TExpression>
-    void evaluate(Ref<const TExpression> r_expression,
-                  typename TExpression::Iterator it_bufferBegin,
-                  typename TExpression::Iterator it_out) const;
+    Quadrature(Ref<const typename QuadratureBase<TValue>::NodeContainer> rNodes,
+               Ref<const typename QuadratureBase<TValue>::WeightContainer> rWeights);
 
     template <maths::Expression TExpression>
-    void evaluate(Ref<const TExpression> r_expression,
-                  typename TExpression::Iterator it_outBegin) const;
+    void evaluate(Ref<const TExpression> rExpression,
+                  typename TExpression::Iterator itBufferBegin,
+                  typename TExpression::Iterator itOut) const;
+
+    template <maths::Expression TExpression>
+    void evaluate(Ref<const TExpression> rExpression,
+                  typename TExpression::Iterator itOutBegin) const;
 
     template <class TOutputIt>
-    void getIntegrationPoints(TOutputIt it_output) const;
+    void getIntegrationPoints(TOutputIt itOutput) const;
 
     template <class TOutputIt>
-    void getIntegrationWeights(TOutputIt it_output) const;
+    void getIntegrationWeights(TOutputIt itOutput) const;
 
 private:
     DynamicArray<StaticArray<TValue,Dimension+1>> _nodesAndWeights;

@@ -39,13 +39,13 @@ public:
     OrthogonalScaleTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const noexcept;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const noexcept;
 
     /// @brief Evaluate the determinant of the original transform's jacobian at the provided location.
-    TValue evaluateDeterminant(ConstIterator it_argumentBegin,
-                               ConstIterator it_argumentEnd) const noexcept;
+    TValue evaluateDeterminant(ConstIterator itArgumentBegin,
+                               ConstIterator itArgumentEnd) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -53,7 +53,7 @@ public:
 private:
     friend class OrthogonalScaleTransform<TValue,Dimension>;
 
-    OrthogonalScaleTransformDerivative(Ref<const OrthogonalScaleTransform<TValue,Dimension>> r_transform) noexcept;
+    OrthogonalScaleTransformDerivative(Ref<const OrthogonalScaleTransform<TValue,Dimension>> rTransform) noexcept;
 
 private:
     StaticArray<TValue,Dimension> _scales;
@@ -86,13 +86,13 @@ public:
      *  @note The number of input components must match the dimension.
      */
     template <concepts::Iterator TPointIt>
-    OrthogonalScaleTransform(TPointIt it_transformedBegin,
-                             TPointIt it_transformedEnd);
+    OrthogonalScaleTransform(TPointIt itTransformedBegin,
+                             TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;

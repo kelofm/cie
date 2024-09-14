@@ -28,19 +28,19 @@ namespace cie::fem {
  *           least one non-zero value at one of those points are considered to require
  *           connectivity on that boundary. An input functor is called with each
  *           @ref BoundaryID - ansatz function index pair exactly once.
- *  @param r_ansatzSpace @ref maths::AnsatzSpace to scan the functions of.
- *  @param r_functor Functor that gets called with each @ref BoundaryID and non-vanishing
+ *  @param rAnsatzSpace @ref maths::AnsatzSpace to scan the functions of.
+ *  @param rFunctor Functor that gets called with each @ref BoundaryID and non-vanishing
  *                   ansatz function index.
- *  @param p_sampleBegin Ptr to the beginning of the array of sample nodes to evaluate
+ *  @param pSampleBegin Ptr to the beginning of the array of sample nodes to evaluate
  *                       the ansatz functions at.
- *  @param p_sampleEnd Ptr past the last sample node.
+ *  @param pSampleEnd Ptr past the last sample node.
  *  @param tolerance Absolute tolerance to check ansatz function values against.
  */
 template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
-void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
-                        TFunctor&& r_functor,
-                        Ptr<const typename TAnsatzSpace::Value> p_sampleBegin,
-                        Ptr<const typename TAnsatzSpace::Value> p_sampleEnd,
+void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
+                        TFunctor&& rFunctor,
+                        Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
+                        Ptr<const typename TAnsatzSpace::Value> pSampleEnd,
                         typename TAnsatzSpace::Value tolerance);
 
 
@@ -56,7 +56,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> r_ansatzSpace,
  *           @f]
  *           The resulting ansatz functions in 2D local space:
  *           @f[
- *              [N_i(\xi,\eta)] = \frac{1}{4}
+ *              [NI(\xi,\eta)] = \frac{1}{4}
  *              \begin{bmatrix}
  *                  (1+\xi) (1+\eta)         \\
  *                  (1-\xi) (1+\eta)         \\
@@ -91,13 +91,13 @@ class AnsatzMap
 public:
     template <maths::Expression TAnsatzSpace>
     requires (std::is_same_v<typename TAnsatzSpace::Value,TValue>)
-    AnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+    AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
               std::span<const TValue> samples,
               utils::Comparison<TValue> comparison);
 
     template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
     void getPairs(BoundaryID boundary,
-                  TOutputIt it_output) const noexcept;
+                  TOutputIt itOutput) const noexcept;
 
     Size getPairCount(BoundaryID boundary) const noexcept;
 
@@ -111,7 +111,7 @@ private:
 
 
 template <maths::Expression TAnsatzSpace>
-AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> r_ansatzSpace,
+AnsatzMap<typename TAnsatzSpace::Value> makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                                                       std::span<const typename TAnsatzSpace::Value> samples,
                                                       utils::Comparison<typename TAnsatzSpace::Value> comparison);
 

@@ -33,16 +33,16 @@ public:
 public:
     AnsatzSpaceDerivative() noexcept = default;
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     Size size() const noexcept;
 
 private:
     friend class AnsatzSpace<TScalarExpression,Dim>;
 
-    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> r_ansatzSpace);
+    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace);
 
 private:
     DynamicArray<TScalarExpression> _ansatzSet;
@@ -87,13 +87,13 @@ public:
 public:
     AnsatzSpace() noexcept;
 
-    AnsatzSpace(AnsatzSet&& r_set) noexcept;
+    AnsatzSpace(AnsatzSet&& rSet) noexcept;
 
-    AnsatzSpace(const AnsatzSet& r_set);
+    AnsatzSpace(const AnsatzSet& rSet);
 
-    void evaluate(ConstIterator it_argumentBegin,
-                  ConstIterator it_argumentEnd,
-                  Iterator it_out) const;
+    void evaluate(ConstIterator itArgumentBegin,
+                  ConstIterator itArgumentEnd,
+                  Iterator itOut) const;
 
     Derivative makeDerivative() const;
 

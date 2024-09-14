@@ -122,9 +122,6 @@ public:
     StrongTypeDef& operator=(T rhs) noexcept
     {_wrapped = rhs; return *this;}
 
-    operator T() const noexcept
-    {return _wrapped;}
-
     operator const T&() const noexcept
     {return _wrapped;}
 

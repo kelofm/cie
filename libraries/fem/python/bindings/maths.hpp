@@ -8,7 +8,7 @@
 namespace cie::fem::maths {
 
 
-void makeFEMMathsBindings(Ref<pybind11::module_> r_module);
+void makeFEMMathsBindings(Ref<pybind11::module_> rModule);
 
 
 } // namespace cie::fem::maths
