@@ -14,7 +14,7 @@
 #include "packages/trees/inc/Cell.hpp"
 
 // --- FEM Includes ---
-#include "packages/maths/inc/CartesianProduct.hpp"
+#include "packages/maths/inc/OuterProduct.hpp"
 
 // --- STL Includes ---
 #include <array>
@@ -123,7 +123,7 @@ void contiguousTree(benchmark::State& r_state)
                     result = 0b100;
                     break;
                 }
-            } while (cie::fem::maths::CartesianProduct<Dimension>::next(CELL_RESOLUTION, state.data()));
+            } while (cie::fem::maths::OuterProduct<Dimension>::next(CELL_RESOLUTION, state.data()));
 
             // Add contribution if the cell is fully inside
             if (result & 0b100) {
