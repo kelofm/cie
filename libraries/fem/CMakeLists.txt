@@ -25,6 +25,10 @@ find_package(linalg CONFIG REQUIRED)
 find_package(geo REQUIRED)
 
 # Compile definitions
+if (${PROJECT_NAME_UPPER}_ENABLE_EXCEPTION_TRACING)
+    add_compile_definitions(CIE_ENABLE_EXCEPTION_TRACING=1)
+endif()
+
 if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
     add_compile_definitions(CIE_ENABLE_PROFILING=1)
 endif()
