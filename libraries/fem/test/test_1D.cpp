@@ -7,6 +7,8 @@
 #include "packages/io/inc/MatrixMarket.hpp"
 
 // --- FEM Includes ---
+#include "packages/graph/inc/OrientedBoundary.hpp"
+#include "packages/graph/inc/OrientedAxes.hpp"
 #include "packages/graph/inc/Graph.hpp"
 #include "packages/graph/inc/BoundaryID.hpp"
 #include "packages/graph/inc/connectivity.hpp"
@@ -35,6 +37,7 @@ struct CellData
     using SpatialTransform = maths::ScaleTranslateTransform<Scalar,1>;
 
     Scalar                                              diffusivity;
+    OrientedAxes<TAnsatzSpace::Dimension>               axes;
     SpatialTransform                                    spatialTransform;
     std::shared_ptr<TAnsatzSpace>                       pAnsatzSpace;
     std::shared_ptr<typename TAnsatzSpace::Derivative>  pAnsatzDerivatives;
@@ -86,17 +89,24 @@ CIE_TEST_CASE("1D", "[systemTests]")
     // and edges represent the boundaries between adjacent cells. The graph
     // is not directed, but the BoundaryID of the graph edge is always
     // defined on the edge's source cell.
-    using Mesh = Graph<CellData<Ansatz>,BoundaryID>;
+    using Mesh = Graph<
+        CellData<Ansatz>,
+        std::pair<BoundaryID,BoundaryID>
+    >;
     Mesh mesh;
 
     // Insert cells into the adjacency graph
     const Scalar elementSize = 1.0 / (nodeCount - 1);
     for (Size iCell : std::ranges::views::iota(0ul, nodeCount - 1)) {
         StaticArray<StaticArray<Scalar,1>,2> transformed;
+        OrientedAxes<1> axes;
+
         if (iCell % 2) {
+            axes[0] = "-x";
             transformed[0].front() = (iCell + 1.0) * elementSize;
             transformed[1].front() = iCell * elementSize;
         } else {
+            axes[0] = "+x";
             transformed[0].front() = iCell * elementSize;
             transformed[1].front() = (iCell + 1.0) * elementSize;
         }
@@ -107,6 +117,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
             {}, ///< edges of the adjacency graph are added automatically during edge insertion
             Mesh::Vertex::Data {
                 .diffusivity = 1.0,
+                .axes = axes,
                 .spatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>(transformed.begin(), transformed.end()),
                 .pAnsatzSpace = pAnsatzSpace,
                 .pAnsatzDerivatives = pAnsatzDerivatives
@@ -118,17 +129,32 @@ CIE_TEST_CASE("1D", "[systemTests]")
     for (Size iBoundary : std::ranges::views::iota(0ul, nodeCount - 2)) {
         const Size iLeftCell = iBoundary;
         const Size iRightCell = iBoundary + 1;
+
+        BoundaryID left("+x"), right("+x");
+        if (iBoundary % 2) {
+            left = "-x";
+            right = "-x";
+        }
+
         mesh.insert(Mesh::Edge(
             iBoundary,
             {iLeftCell, iRightCell},
-            iBoundary % 2 ? "-x" : "+x" // <== all bundaries connect cells on the left to cells on the right
+            std::make_pair(left, right) // <== all bundaries connect cells on the left to cells on the right
         ));
     }
 
     Assembler assembler;
     assembler.addGraph(mesh,
-                       [pAnsatzSpace]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {return pAnsatzSpace->size();},
-                       [&ansatzMap](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {ansatzMap.getPairs(rEdge.data(), it);});
+                       [pAnsatzSpace]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
+                            return pAnsatzSpace->size();
+                        },
+                       [&ansatzMap, &mesh](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
+                            const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes;
+                            const auto targetAxes = mesh.find(rEdge.target()).value().data().axes;
+                            ansatzMap.getPairs(OrientedBoundary<1>(sourceAxes, rEdge.data().first),
+                                               OrientedBoundary<1>(targetAxes, rEdge.data().second),
+                                               it);
+                        });
 
     // Create empty CSR matrix
     int rowCount, columnCount;
@@ -152,6 +178,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
                     const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(itBegin, itEnd);
                     rCell.data().pAnsatzDerivatives->evaluate(itBegin, itEnd, ansatzBuffer.data());
 
+                    std::cout << jacobianDeterminant << "\n";
                     for (unsigned iLocalRow=0u; iLocalRow<ansatzBuffer.size(); ++iLocalRow) {
                         for (unsigned iLocalColumn=0u; iLocalColumn<ansatzBuffer.size(); ++iLocalColumn) {
                             *itOut++ += rCell.data().diffusivity * ansatzBuffer[iLocalRow] * ansatzBuffer[iLocalColumn] / jacobianDeterminant;
@@ -288,23 +315,6 @@ CIE_TEST_CASE("1D", "[systemTests]")
         rhs[iDof] = value;
     }
 
-//    {
-//        std::ofstream file("lhs.mm");
-//        utils::io::MatrixMarket::Output io(file);
-//        io(rowCount,
-//           columnCount,
-//           nonzeros.size(),
-//           rowExtents.data(),
-//           columnIndices.data(),
-//           nonzeros.data());
-//    }
-//
-//    {
-//        std::ofstream file("rhs.mm");
-//        utils::io::MatrixMarket::Output io(file);
-//        io(rhs.data(), rhs.size());
-//    }
-
     DynamicArray<Scalar> solution(rhs.size());
     {
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
@@ -321,6 +331,29 @@ CIE_TEST_CASE("1D", "[systemTests]")
         solver.compute(lhsAdaptor);
         const auto x = solver.solve(rhsAdaptor);
         std::copy(x.begin(), x.end(), solution.begin());
+    }
+
+    {
+        std::ofstream file("lhs.mm");
+        utils::io::MatrixMarket::Output io(file);
+        io(rowCount,
+           columnCount,
+           nonzeros.size(),
+           rowExtents.data(),
+           columnIndices.data(),
+           nonzeros.data());
+    }
+
+    {
+        std::ofstream file("rhs.mm");
+        utils::io::MatrixMarket::Output io(file);
+        io(rhs.data(), rhs.size());
+    }
+
+    {
+        std::ofstream file("u.mm");
+        utils::io::MatrixMarket::Output io(file);
+        io(solution.data(), solution.size());
     }
 
     // Postprocessing
