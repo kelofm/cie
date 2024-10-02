@@ -26,7 +26,7 @@ bool getBit(TInteger integer, TIndex bitIndex);
 /// @note Returns 0 if the input is 0.
 /// @addtogroup cieutils
 template <concepts::UnsignedInteger TInteger>
-std::uint8_t getMSBIndex(TInteger integer) noexcept;
+constexpr std::uint8_t getMSBIndex(TInteger integer) noexcept;
 
 
 /// @brief Find the number of trailing zeros of the input integer's binary representation.

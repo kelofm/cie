@@ -24,7 +24,7 @@ bool getBit( TInteger integer, TIndex bitIndex)
 
 
 template <concepts::UnsignedInteger TInteger>
-std::uint8_t getMSBIndex(TInteger integer) noexcept
+constexpr std::uint8_t getMSBIndex(TInteger integer) noexcept
 {
     std::uint8_t index = 0;
     while(integer >>= 1) {++index;}
