@@ -1,6 +1,6 @@
 // --- FEM Includes ---
 #include "packages/numeric/inc/Quadrature.hpp"
-#include "packages/maths/inc/CartesianProduct.hpp"
+#include "packages/maths/inc/OuterProduct.hpp"
 #include "packages/utilities/inc/template_macros.hpp"
 
 // --- Utility Includes ---
@@ -53,7 +53,7 @@ Quadrature<TValue,Dimension>::Quadrature(Ref<const typename QuadratureBase<TValu
                 r_weight *= r_weights[i];
             } // for index in indexBuffer
             ++it_item;
-        } while (maths::CartesianProduct<Dimension>::next(numberOfNodes, indexBuffer.data()));
+        } while (maths::OuterProduct<Dimension>::next(numberOfNodes, indexBuffer.data()));
     } // if r_nodes
 }
 

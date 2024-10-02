@@ -3,7 +3,7 @@
 
 // --- FEM Includes ---
 #include "packages/maths/inc/AnsatzSpace.hpp"
-#include "packages/maths/inc/CartesianProduct.hpp"
+#include "packages/maths/inc/OuterProduct.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
@@ -72,7 +72,7 @@ inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator
             }
 
             ++itOut;
-        } while (CartesianProduct<Dim>::next(setSize, rIndexBuffer.begin()));
+        } while (OuterProduct<Dim>::next(setSize, rIndexBuffer.begin()));
     } // for iDerivative in range(Dim)
 }
 
@@ -161,7 +161,7 @@ inline void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstIterator itArgumen
             *itOut *= rValueBuffer.at(rIndexBuffer.at(iIndex) + iIndex * setSize);
         }
         ++itOut;
-    } while (CartesianProduct<Dim>::next(setSize, rIndexBuffer.data()));
+    } while (OuterProduct<Dim>::next(setSize, rIndexBuffer.data()));
 }
 
 
