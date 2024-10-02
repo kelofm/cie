@@ -28,15 +28,15 @@ inline constexpr BoundaryID::BoundaryID(const char name[3])
     switch (name[0]) {
         case '-': {direction = false; break;}
         case '+': {direction = true; break;}
-        default: throw std::runtime_error("Invalid boundary name");
+        default: throw std::runtime_error("Invalid boundary name " + std::string(name));
     } // switch name[0]
 
     switch (name[1]) {
         case 'x': {dimension = 0u; break;}
         case 'y': {dimension = 1u; break;}
         case 'z': {dimension = 2u; break;}
-        default: throw std::runtime_error("Invalid boundary name");
-    }
+        default: throw std::runtime_error("Invalid boundary name " + std::string(name));
+    } // switch name[1]
 
     *this = BoundaryID(dimension, direction);
 }
@@ -68,9 +68,11 @@ inline constexpr BoundaryID BoundaryID::operator++(int) noexcept
 }
 
 
-inline constexpr void BoundaryID::flip() noexcept
+inline constexpr BoundaryID BoundaryID::operator-() const noexcept
 {
-    _id ^= 1u;
+    BoundaryID copy = *this;
+    copy._id ^= 1u;
+    return copy;
 }
 
 
