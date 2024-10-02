@@ -1,38 +1,65 @@
 #ifndef CIE_UTILS_STL_EXTENSION_HASH_HPP
 #define CIE_UTILS_STL_EXTENSION_HASH_HPP
 
-// --- Utility Includes ---
-#include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
-#include "packages/types/inc/types.hpp"
+// --- STL Includes ---
+#include <concepts> // default_initializable, equality_comparable
+#include <functional> // std::equal_to
 
 
 namespace cie::utils {
 
 
 template <class T>
-struct Hash : private std::hash<T>
-{
-    std::size_t operator()(const T& r_value) const noexcept;
-};
+struct Hash
+{Hash() = delete;};
 
 
 template <class T>
-struct Equal {};
+struct Equal {Equal() = delete;};
 
 
-template <concepts::Integer TFirst, concepts::Integer TSecond>
+template <class T>
+requires std::default_initializable<std::hash<T>>
+struct Hash<T>
+{
+    std::size_t operator()(const T& rInstance) const noexcept;
+};
+
+
+template <class TFirst, class TSecond>
+requires (std::default_initializable<std::hash<TFirst>>
+          && std::default_initializable<std::hash<TSecond>>)
 struct Hash<std::pair<TFirst,TSecond>>
 {
-    std::size_t operator()(std::pair<TFirst,TSecond> value) const noexcept;
-}; // struct Hash
+    std::size_t operator()(const std::pair<TFirst,TSecond>& rInstance) const noexcept;
+}; // Hash<pair>
 
 
-template <concepts::Integer TFirst, concepts::Integer TSecond>
+template <class TFirst, class TSecond>
+requires (std::default_initializable<Hash<TFirst>>
+          && std::default_initializable<Hash<TSecond>>)
+struct Hash<std::pair<TFirst,TSecond>>
+{
+    std::size_t operator()(const std::pair<TFirst,TSecond>& rInstance) const noexcept;
+}; // Hash<pair>
+
+
+template <class T>
+requires std::default_initializable<std::equal_to<T>>
+struct Equal<T>
+{
+    bool operator()(const T& rLeft, const T& rRight) const noexcept;
+};
+
+
+template <class TFirst, class TSecond>
+requires (std::equality_comparable<TFirst>
+          && std::equality_comparable<TSecond>)
 struct Equal<std::pair<TFirst,TSecond>>
 {
-    bool operator()(std::pair<TFirst,TSecond> left,
-                    std::pair<TFirst,TSecond> right) const noexcept;
-}; // struct Equaö
+    bool operator()(const std::pair<TFirst,TSecond>& left,
+                    const std::pair<TFirst,TSecond>& right) const noexcept;
+}; // struct Equal
 
 
 } // namespace cie::utils
