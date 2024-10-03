@@ -16,7 +16,6 @@ namespace cie::utils::io {
 /// @ingroup cieutils
 struct MatrixMarket
 {
-public:
     struct Settings
     {}; // struct Settings
 
@@ -26,10 +25,10 @@ public:
     class Output
     {
     public:
-        /// @brief Construct a matrix market output object reading from @p stdin.
+        /// @brief Construct a matrix market output object writing to @p stdout.
         Output();
 
-        /// @brief Construct a matrix market output object reading from the provided stream.
+        /// @brief Construct a matrix market output object writing to the provided stream.
         Output(Ref<std::ostream> rStream, Settings settings = {});
 
         /// @brief Default destructor required by PIMPL.
@@ -51,6 +50,7 @@ public:
             CIE_MATRIX_MARKET_OUTPUT_INTERFACE(unsigned, TValue);       \
             CIE_MATRIX_MARKET_OUTPUT_INTERFACE(std::size_t, TValue)
 
+        CIE_MATRIX_MARKET_OUTPUT_INTERFACE_FOR_VALUE(float);
         CIE_MATRIX_MARKET_OUTPUT_INTERFACE_FOR_VALUE(double);
         #undef CIE_MATRIX_MARKET_OUTPUT_INTERFACE_FOR_VALUE
         #undef CIE_MATRIX_MARKET_OUTPUT_INTERFACE

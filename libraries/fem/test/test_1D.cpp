@@ -7,6 +7,8 @@
 #include "packages/io/inc/MatrixMarket.hpp"
 
 // --- FEM Includes ---
+#include "packages/graph/inc/OrientedBoundary.hpp"
+#include "packages/graph/inc/OrientedAxes.hpp"
 #include "packages/graph/inc/Graph.hpp"
 #include "packages/graph/inc/BoundaryID.hpp"
 #include "packages/graph/inc/connectivity.hpp"
@@ -20,16 +22,12 @@
 
 // --- STL Includes ---
 #include <ranges> // ranges::iota
-#include <iostream>
 
 
 namespace cie::fem {
 
 
 using Scalar = double;
-using CellID = Size;
-using NodeID = Size;
-using DoFID  = Size;
 
 
 template <class TAnsatzSpace>
@@ -38,23 +36,16 @@ struct CellData
     using SpatialTransform = maths::ScaleTranslateTransform<Scalar,1>;
 
     Scalar                                              diffusivity;
+    OrientedAxes<TAnsatzSpace::Dimension>               axes;
     SpatialTransform                                    spatialTransform;
     std::shared_ptr<TAnsatzSpace>                       pAnsatzSpace;
     std::shared_ptr<typename TAnsatzSpace::Derivative>  pAnsatzDerivatives;
 }; // struct CellData
 
 
-struct VertexData
-{
-    double position;
-}; // struct VertexData
-
-
 /** @brief 1D system test.
  *  @details This test models linear steady-state heat convection on a 1D bar
- *           with Neumann conditions on both boundaries. The heat flux on the
- *           left boundary is set to 1 while no heat flux is prescribed on the
- *           right boundary.
+ *           with Dirichlet conditions on both boundaries.
  *
  *           The mesh conforms to the boundaries and consists of 10 1D elements
  *           with linear basis functions.
@@ -62,7 +53,7 @@ struct VertexData
  *           Mesh:
  *           @code
  *                    +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+
- *           [q(0)=1] | 0 |-0-| 1 |-1-| 2 |-2-| 3 |-3-| 4 |-4-| 5 |-5-| 6 |-6-| 7 |-7-| 8 |-8-| 9 | [q(L)=0]
+ *           [u(0)=1] | 0 |-0-| 1 |-1-| 2 |-2-| 3 |-3-| 4 |-4-| 5 |-5-| 6 |-6-| 7 |-7-| 8 |-8-| 9 | [u(L)=0]
  *                    +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+
  *           @endcode
  */
@@ -78,7 +69,9 @@ CIE_TEST_CASE("1D", "[systemTests]")
     auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
         Basis({ 0.5,  0.5}),
         Basis({ 0.5, -0.5})
-        //,Basis({ 1.0,  0.0, -1.0})
+        //Basis({ 0.0, -0.5,  0.5}),
+        //Basis({ 0.0,  0.5,  0.5}),
+        //Basis({ 1.0,  0.0, -1.0})
     });
     auto pAnsatzDerivatives = std::make_shared<Ansatz::Derivative>(pAnsatzSpace->makeDerivative());
 
@@ -95,15 +88,27 @@ CIE_TEST_CASE("1D", "[systemTests]")
     // and edges represent the boundaries between adjacent cells. The graph
     // is not directed, but the BoundaryID of the graph edge is always
     // defined on the edge's source cell.
-    using Mesh = Graph<CellData<Ansatz>,BoundaryID>;
+    using Mesh = Graph<
+        CellData<Ansatz>,
+        std::pair<BoundaryID,BoundaryID>
+    >;
     Mesh mesh;
 
     // Insert cells into the adjacency graph
     const Scalar elementSize = 1.0 / (nodeCount - 1);
     for (Size iCell : std::ranges::views::iota(0ul, nodeCount - 1)) {
-        StaticArray<StaticArray<Scalar,1>,2> transformed;
-        transformed[0].front() = iCell * elementSize;
-        transformed[1].front() = (iCell + 1.0) * elementSize;
+        StaticArray<StaticArray<Scalar,Dimension>,2> transformed;
+        OrientedAxes<Dimension> axes;
+
+        if (iCell % 2) {
+            axes[0] = "-x";
+            transformed[0].front() = (iCell + 1.0) * elementSize;
+            transformed[1].front() = iCell * elementSize;
+        } else {
+            axes[0] = "+x";
+            transformed[0].front() = iCell * elementSize;
+            transformed[1].front() = (iCell + 1.0) * elementSize;
+        }
 
         // Insert the cell into the adjacency graph (mesh) as a vertex
         mesh.insert(Mesh::Vertex(
@@ -111,7 +116,8 @@ CIE_TEST_CASE("1D", "[systemTests]")
             {}, ///< edges of the adjacency graph are added automatically during edge insertion
             Mesh::Vertex::Data {
                 .diffusivity = 1.0,
-                .spatialTransform = maths::ScaleTranslateTransform<Scalar,1>(transformed.begin(), transformed.end()),
+                .axes = axes,
+                .spatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>(transformed.begin(), transformed.end()),
                 .pAnsatzSpace = pAnsatzSpace,
                 .pAnsatzDerivatives = pAnsatzDerivatives
             }
@@ -122,17 +128,32 @@ CIE_TEST_CASE("1D", "[systemTests]")
     for (Size iBoundary : std::ranges::views::iota(0ul, nodeCount - 2)) {
         const Size iLeftCell = iBoundary;
         const Size iRightCell = iBoundary + 1;
+
+        BoundaryID left("+x"), right("+x");
+        if (iBoundary % 2) {
+            left = "-x";
+            right = "-x";
+        }
+
         mesh.insert(Mesh::Edge(
             iBoundary,
             {iLeftCell, iRightCell},
-            "+x" // <== all bundaries connect cells on the left to cells on the right
+            std::make_pair(left, right) // <== all bundaries connect cells on the left to cells on the right
         ));
     }
 
     Assembler assembler;
     assembler.addGraph(mesh,
-                       [pAnsatzSpace]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {return pAnsatzSpace->size();},
-                       [&ansatzMap](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {ansatzMap.getPairs(rEdge.data(), it);});
+                       [pAnsatzSpace]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
+                            return pAnsatzSpace->size();
+                        },
+                       [&ansatzMap, &mesh](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
+                            const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes;
+                            const auto targetAxes = mesh.find(rEdge.target()).value().data().axes;
+                            ansatzMap.getPairs(OrientedBoundary<1>(sourceAxes, rEdge.data().first),
+                                               OrientedBoundary<1>(targetAxes, rEdge.data().second),
+                                               it);
+                        });
 
     // Create empty CSR matrix
     int rowCount, columnCount;
@@ -143,26 +164,37 @@ CIE_TEST_CASE("1D", "[systemTests]")
     // Compute element contributions and assemble them into the matrix
     {
         const Quadrature<Scalar,1> quadrature(GaussLegendreQuadrature<Scalar>(/*integrationOrder=*/2));
-        DynamicArray<Scalar> ansatzBuffer(pAnsatzDerivatives->size());
-        DynamicArray<Scalar> integrandBuffer(ansatzBuffer.size() * ansatzBuffer.size());
+        DynamicArray<Scalar> derivativeBuffer(pAnsatzDerivatives->size());
+        DynamicArray<Scalar> integrandBuffer(pAnsatzSpace->size() * pAnsatzSpace->size());
+        DynamicArray<Scalar> productBuffer(integrandBuffer.size());
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             const auto jacobian = rCell.data().spatialTransform.makeDerivative();
 
             const auto localIntegrand = maths::makeLambdaExpression<Scalar>(
-                [&jacobian, &ansatzBuffer, &rCell] (Ptr<const Scalar> itBegin,
-                                                    Ptr<const Scalar> itEnd,
-                                                    Ptr<Scalar> itOut) -> void {
+                [&jacobian, &derivativeBuffer, &rCell, &productBuffer]
+                        (Ptr<const Scalar> itBegin,
+                         Ptr<const Scalar> itEnd,
+                         Ptr<Scalar> itOut) -> void {
                     const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(itBegin, itEnd);
-                    rCell.data().pAnsatzDerivatives->evaluate(itBegin, itEnd, ansatzBuffer.data());
+                    rCell.data().pAnsatzDerivatives->evaluate(itBegin, itEnd, derivativeBuffer.data());
 
-                    for (unsigned iLocalRow=0u; iLocalRow<ansatzBuffer.size(); ++iLocalRow) {
-                        for (unsigned iLocalColumn=0u; iLocalColumn<ansatzBuffer.size(); ++iLocalColumn) {
-                            *itOut++ += rCell.data().diffusivity * ansatzBuffer[iLocalRow] * ansatzBuffer[iLocalColumn] / jacobianDeterminant;
+                    using MatrixAdaptor = Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>>;
+                    MatrixAdaptor derivativeAdaptor(derivativeBuffer.data(),
+                                                    Dimension,
+                                                    rCell.data().pAnsatzSpace->size());
+                    MatrixAdaptor productAdaptor(productBuffer.data(),
+                                                 rCell.data().pAnsatzSpace->size(),
+                                                 rCell.data().pAnsatzSpace->size());
+                    productAdaptor = derivativeAdaptor.transpose() * derivativeAdaptor;
+
+                    for (unsigned iLocalRow=0u; iLocalRow<productAdaptor.rows(); ++iLocalRow) {
+                        for (unsigned iLocalColumn=0u; iLocalColumn<productAdaptor.cols(); ++iLocalColumn) {
+                            *itOut++ += rCell.data().diffusivity * productAdaptor(iLocalRow, iLocalColumn) * std::abs(jacobianDeterminant);
                         } // for iLocalColumn in range(ansatzBuffer.size)
                     } // for iLocalRow in range(ansatzBuffer.size)
                 },
-                ansatzBuffer.size() * ansatzBuffer.size());
+                integrandBuffer.size());
 
             quadrature.evaluate(localIntegrand, integrandBuffer.data());
 
@@ -171,7 +203,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
                 CIE_TEST_REQUIRE(std::find(keys.begin(), keys.end(), rCell.id()) != keys.end());
             }
             const auto& rGlobalDofIndices = assembler[rCell.id()];
-            const unsigned localSystemSize = rCell.data().pAnsatzDerivatives->size();
+            const unsigned localSystemSize = rCell.data().pAnsatzSpace->size();
 
             for (unsigned iLocalRow=0u; iLocalRow<localSystemSize; ++iLocalRow) {
                 for (unsigned iLocalColumn=0u; iLocalColumn<localSystemSize; ++iLocalColumn) {
@@ -192,15 +224,78 @@ CIE_TEST_CASE("1D", "[systemTests]")
         } // for rCell in mesh.vertices
     }
 
+    // Find boundary DoFs
+    std::optional<std::size_t> iLeftmostDof, iRightmostDof;
+    {
+        auto rLeftmostCell = mesh.findVertex(0);
+        CIE_TEST_REQUIRE(rLeftmostCell.has_value());
+
+        utils::Comparison<Scalar> comparison(1e-8, 1-6);
+        DynamicArray<Scalar> ansatzBuffer(rLeftmostCell.value().data().pAnsatzSpace->size());
+        StaticArray<Scalar,1> localCoordinates, globalCoordinates;
+
+        localCoordinates.front() = -1.0;
+        rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                               localCoordinates.data() + Dimension,
+                                                               globalCoordinates.data());
+        if (!comparison.equal(globalCoordinates.front(), 0.0)) {
+            localCoordinates.front() = 1.0;
+            rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                                   localCoordinates.data() + Dimension,
+                                                                   globalCoordinates.data());
+            CIE_TEST_REQUIRE(comparison.equal(globalCoordinates.front(), 0.0));
+        }
+
+        rLeftmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates.data(),
+                                                            localCoordinates.data() + Dimension,
+                                                            ansatzBuffer.data());
+        for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
+            if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
+                iLeftmostDof = assembler[0][iAnsatz];
+                break;
+            }
+        }
+    }
+
+    {
+        auto rRightmostCell = mesh.findVertex(nodeCount - 2);
+        CIE_TEST_REQUIRE(rRightmostCell.has_value());
+
+        utils::Comparison<Scalar> comparison(1e-8, 1-6);
+        DynamicArray<Scalar> ansatzBuffer(rRightmostCell.value().data().pAnsatzSpace->size());
+        StaticArray<Scalar,1> localCoordinates, globalCoordinates;
+
+        localCoordinates.front() = -1.0;
+        rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                                localCoordinates.data() + Dimension,
+                                                                globalCoordinates.data());
+        if (!comparison.equal(globalCoordinates.front(), 1.0)) {
+            localCoordinates.front() = 1.0;
+            rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
+                                                                    localCoordinates.data() + Dimension,
+                                                                    globalCoordinates.data());
+            CIE_TEST_REQUIRE(comparison.equal(globalCoordinates.front(), 1.0));
+        }
+
+        rRightmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates.data(),
+                                                             localCoordinates.data() + Dimension,
+                                                             ansatzBuffer.data());
+        for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
+            if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
+                iRightmostDof = assembler[nodeCount - 2][iAnsatz];
+                break;
+            }
+        }
+    }
+
+    CIE_TEST_CHECK(iLeftmostDof.has_value());
+    CIE_TEST_CHECK(iRightmostDof.has_value());
+
     // Barbaric dirichlet conditions.
     DynamicArray<Scalar> rhs(rowCount, 0.0);
-    const auto& rFirstCellIndices = assembler[0];
-    const auto& rLastCellIndices  = assembler[2 < nodeCount ? nodeCount - 2 : 0];
-    const auto iFirstDof = rFirstCellIndices[1];
-    const auto iLastDof = rLastCellIndices[0];
     DynamicArray<std::pair<std::size_t,Scalar>> dirichletConditions;
-    dirichletConditions.emplace_back(iFirstDof, 1.0);
-    dirichletConditions.emplace_back(iLastDof, 0.0);
+    dirichletConditions.emplace_back(iLeftmostDof.value(), 1.0);
+    dirichletConditions.emplace_back(iRightmostDof.value(), 0.0);
 
     for (const auto& [iDof, value] : dirichletConditions) {
         for (std::size_t iRow=0ul; iRow<static_cast<std::size_t>(rowCount); ++iRow) {
@@ -220,6 +315,29 @@ CIE_TEST_CASE("1D", "[systemTests]")
         rhs[iDof] = value;
     }
 
+    DynamicArray<Scalar> solution(rhs.size());
+    {
+        using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
+        Eigen::Map<EigenSparseMatrix> lhsAdaptor(
+            rowCount,
+            columnCount,
+            nonzeros.size(),
+            rowExtents.data(),
+            columnIndices.data(),
+            nonzeros.data());
+        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
+        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
+
+        Eigen::ConjugateGradient<EigenSparseMatrix,Eigen::Lower|Eigen::Upper,Eigen::IncompleteLUT<Scalar>> solver;
+        solver.setMaxIterations(int(1e3));
+        solver.setTolerance(1e-6);
+
+        solver.compute(lhsAdaptor);
+        const auto x = solver.solve(rhsAdaptor);
+
+        std::copy(x.begin(), x.end(), solution.begin());
+    }
+
 //    {
 //        std::ofstream file("lhs.mm");
 //        utils::io::MatrixMarket::Output io(file);
@@ -236,37 +354,25 @@ CIE_TEST_CASE("1D", "[systemTests]")
 //        utils::io::MatrixMarket::Output io(file);
 //        io(rhs.data(), rhs.size());
 //    }
-
-    DynamicArray<Scalar> solution(rhs.size());
-    {
-        using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
-        Eigen::Map<EigenSparseMatrix> lhsAdaptor(
-            rowCount,
-            columnCount,
-            nonzeros.size(),
-            rowExtents.data(),
-            columnIndices.data(),
-            nonzeros.data());
-        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
-        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
-        Eigen::ConjugateGradient<EigenSparseMatrix> solver;
-        solver.compute(lhsAdaptor);
-        const auto x = solver.solve(rhsAdaptor);
-        std::copy(x.begin(), x.end(), solution.begin());
-    }
+//
+//    {
+//        std::ofstream file("u.mm");
+//        utils::io::MatrixMarket::Output io(file);
+//        io(solution.data(), solution.size());
+//    }
 
     // Postprocessing
-    constexpr unsigned samplesPerElement = 5;
+    constexpr unsigned samplesPerCell = 5;
     DynamicArray<std::pair<StaticArray<Scalar,1>,Scalar>> solutionSamples;
-    solutionSamples.reserve(samplesPerElement * (nodeCount - 1));
+    solutionSamples.reserve(samplesPerCell * (nodeCount - 1));
 
     {
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
         DynamicArray<StaticArray<Scalar,1>> sampleCoordinates;
 
-        for (unsigned iCoordinate=0u; iCoordinate<samplesPerElement; ++iCoordinate) {
+        for (unsigned iCoordinate=0u; iCoordinate<samplesPerCell; ++iCoordinate) {
             sampleCoordinates.emplace_back();
-            sampleCoordinates.back().front() = -1.0 + iCoordinate * 2.0 / (samplesPerElement - 1.0);
+            sampleCoordinates.back().front() = -1.0 + iCoordinate * 2.0 / (samplesPerCell - 1.0);
         }
 
         for (const auto& rCell : mesh.vertices()) {
@@ -274,13 +380,13 @@ CIE_TEST_CASE("1D", "[systemTests]")
 
             for (const auto& localCoordinates : sampleCoordinates) {
                 StaticArray<Scalar,1> globalCoordinates;
-                rCell.data().spatialTransform.evaluate(localCoordinates.begin(),
-                                                       localCoordinates.end(),
-                                                       globalCoordinates.begin());
+                rCell.data().spatialTransform.evaluate(localCoordinates.data(),
+                                                       localCoordinates.data() + localCoordinates.size(),
+                                                       globalCoordinates.data());
                 solutionSamples.emplace_back(globalCoordinates, 0.0);
                 ansatzBuffer.resize(rCell.data().pAnsatzSpace->size());
-                rCell.data().pAnsatzSpace->evaluate(localCoordinates.begin(),
-                                                    localCoordinates.end(),
+                rCell.data().pAnsatzSpace->evaluate(localCoordinates.data(),
+                                                    localCoordinates.data() + localCoordinates.size(),
                                                     ansatzBuffer.data());
 
                 for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
@@ -289,7 +395,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
             }
         }
 
-        std::ofstream file("solution.csv");
+        std::ofstream file("test_1d_solution.csv");
         for (const auto& [rCoordinates, rValue] : solutionSamples) {
             file << rCoordinates.front() << ',' << rValue << '\n';
         }

@@ -33,8 +33,8 @@ buildDir="$scriptDir/build"
 installDir=$(get_site_packages_dir)
 generator="Unix Makefiles"
 cCacheFlag=""
-cmakeArguments=""
-cc="gcc"
+cmakeArguments=""                       # <== semicolon-separated list of options to pass to CMake
+cmakeCxxFlags=""                        # <== value to set for CMAKE_CXX_FLAGS
 cxx="g++"
 
 while getopts ":h p t: b: i: o:" arg; do
@@ -57,11 +57,15 @@ while getopts ":h p t: b: i: o:" arg; do
             installDir="$OPTARG"
             ;;
         o)  # Append CMake arguments
-            cmakeArguments="$cmakeArguments;$OPTARG"
+            if [[ "$OPTARG" == -DCMAKE_CXX_FLAGS* ]]; then
+                cmakeCxxFlags="${cmakeCxxFlags}${OPTARG#*-DCMAKE_CXX_FLAGS=} "
+            else
+                cmakeArguments="$cmakeArguments;$OPTARG"
+            fi
             ;;
         \?) # Unrecognized argument
             print_help
-            echo "Error: unrecognized argument -$OPTARG"
+            echo "Error: unrecognized argument: -$OPTARG"
             exit 1
             ;;
     esac
@@ -82,18 +86,29 @@ case "$(uname -s)" in
             exit 1
         fi
 
-        if ! brew list llvm >/dev/null 2>&1; then
-            echo "Error: missing dependency: llvm"
-            echo "Consider running 'brew install llvm'"
-            exit 1
-        fi
+        foundPackage=""
+        get_homebrew_package() {
+            foundPackage=""
+            package_versions="$(brew search --formula "/$1@[0-9]+/")"
+            for package_version in $(echo $package_versions | tr ' ' '\n' | sort -r | tr '\n' ' '); do
+                if brew list "$package_version" >/dev/null 2>&1; then
+                    foundPackage="$package_version"
+                    echo "using '$package_version' for dependency '$1'"
+                    return 0
+                fi
+            done
 
-        toolchainRoot="$(brew --prefix llvm)"
+            echo "Error: no installed version of '$1' was found."
+            echo "Consider running 'brew install $1'."
+            exit 1
+        }
+
+        get_homebrew_package llvm
+        toolchainRoot="$(brew --prefix $foundPackage)"
         toolchainBin="${toolchainRoot}/bin"
         toolchainLib="${toolchainRoot}/lib"
         toolchainInclude="${toolchainRoot}/include"
-        export cc="$toolchainBin/clang"
-        export cxx="$toolchainBin/clang++"
+        cxx="$toolchainBin/clang++"
         ;;
     \?)
         echo "Error: unsupported OS $(uname -s)"
@@ -126,20 +141,22 @@ if ! cmake                                                  \
     "-DCMAKE_INSTALL_PREFIX:STRING=$installDir"             \
     "-G${generator}"                                        \
     "-DCMAKE_BUILD_TYPE:STRING=$buildType"                  \
-    "-DCMAKE_C_COMPILER:STRING=$cc"                         \
     "-DCMAKE_CXX_COMPILER:STRING=$cxx"                      \
+    "-DCMAKE_CXX_FLAGS=${cmakeCxxFlags}"                    \
     "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"                     \
     "-D${projectNameUpper}_BUILD_SHARED_LIBRARY:BOOL=ON"    \
     "-D${projectNameUpper}_BUILD_PYTHON_MODULE:BOOL=ON"     \
     "-D${projectNameUpper}_BUILD_TESTS:BOOL=ON"             \
     "$cCacheFlag"                                           \
-    $(echo $cmakeArguments | tr '\;' '\n')                  \
+    "${cmakeArguments[@]}"                                  \
     ; then
     exit 1
 fi
 
+physicalCores=$(grep "^cpu\\scores" /proc/cpuinfo | uniq |  awk '{print $4}')
+
 # Build and install
-if ! cmake --build "$buildDir" --config "$buildType" --target install -j; then
+if ! cmake --build "$buildDir" --config "$buildType" --target install -j $physicalCores; then
     exit 1
 fi
 

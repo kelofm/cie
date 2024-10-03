@@ -26,7 +26,7 @@ ContiguousTree<TNode,TIndex,TTag>::ContiguousTree()
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline void
+void
 ContiguousTree<TNode,TIndex,TTag>::erase(TIndex nodeIndex)
 {
     CIE_BEGIN_EXCEPTION_TRACING
@@ -40,18 +40,18 @@ ContiguousTree<TNode,TIndex,TTag>::erase(TIndex nodeIndex)
     indexStack.push(nodeIndex);
 
     while (!indexStack.empty()) {
-        const auto i_node = indexStack.top();
+        const auto iNode = indexStack.top();
         indexStack.pop();
 
-        for (unsigned i_sibling=0; i_sibling<ContiguousTree::ChildrenPerNode; ++i_sibling) {
-            Ref<TNode> r_node = this->_nodes[i_node + i_sibling];
-            if (!r_node.isLeaf()) {
-                indexStack.push(r_node.getChildBegin());
+        for (unsigned iSibling=0; iSibling<ContiguousTree::ChildrenPerNode; ++iSibling) {
+            Ref<TNode> rNode = this->_nodes[iNode + iSibling];
+            if (!rNode.isLeaf()) {
+                indexStack.push(rNode.getChildBegin());
             }
-            r_node.setNull();
+            rNode.setNull();
         }
 
-        _availableIndices.push(i_node);
+        _availableIndices.push(iNode);
     }
 
     CIE_END_EXCEPTION_TRACING
@@ -60,13 +60,13 @@ ContiguousTree<TNode,TIndex,TTag>::erase(TIndex nodeIndex)
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
 template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor>
-inline void
-ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor& r_visitFunctor) const
+void
+ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor& rVisitFunctor) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
     CIE_OUT_OF_RANGE_CHECK(!_nodes.empty())
-    using IndexPair = std::pair<TIndex,TIndex>; // {i_node, depth}
+    using IndexPair = std::pair<TIndex,TIndex>; // {iNode, depth}
     std::stack<IndexPair,DynamicArray<IndexPair>> indexStack;
 
     if (!_nodes.front().isLeaf()) {
@@ -77,14 +77,14 @@ ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor& r_visitFunctor) const
         const auto indexPair = indexStack.top();
         indexStack.pop();
 
-        for (TIndex i_sibling=0; i_sibling<TNode::ChildrenPerNode; ++i_sibling) {
-            const TIndex i_node = indexPair.first + i_sibling;
-            Ref<const Node> r_node = _nodes[i_node];
-            if (!r_visitFunctor(r_node, indexPair.second)) {
+        for (TIndex iSibling=0; iSibling<TNode::ChildrenPerNode; ++iSibling) {
+            const TIndex iNode = indexPair.first + iSibling;
+            Ref<const Node> rNode = _nodes[iNode];
+            if (!rVisitFunctor(rNode, indexPair.second)) {
                 return;
             }
-            if (!r_node.isLeaf()) {
-                indexStack.emplace(r_node.getChildBegin(), indexPair.second + 1);
+            if (!rNode.isLeaf()) {
+                indexStack.emplace(rNode.getChildBegin(), indexPair.second + 1);
             }
         }
     } // while indexStack
@@ -95,7 +95,7 @@ ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor& r_visitFunctor) const
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
 template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor, concepts::ThreadPool TPool>
-inline void
+void
 ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor&, TPool&) const
 {
     CIE_THROW(NotImplementedException, "Multithreaded node visiting is not implemented yet")
@@ -104,7 +104,7 @@ ContiguousTree<TNode,TIndex,TTag>::visit(const TFunctor&, TPool&) const
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
 template <concepts::Iterator<TNode> TIterator>
-inline TIndex ContiguousTree<TNode,TIndex,TTag>::insert(TIterator it_nodeBegin)
+TIndex ContiguousTree<TNode,TIndex,TTag>::insert(TIterator itNodeBegin)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
@@ -113,34 +113,34 @@ inline TIndex ContiguousTree<TNode,TIndex,TTag>::insert(TIterator it_nodeBegin)
 
     const auto lock = _mutex.makeScopedLock();
 
-    TIndex i_begin;
+    TIndex iBegin;
 
     if (_availableIndices.empty()) {
         // Check for overflows
         const auto size = _nodes.size();
-        i_begin = size;
+        iBegin = size;
         const auto extendedSize = _nodes.size() + TNode::ChildrenPerNode;
         CIE_CHECK(size < extendedSize && extendedSize <= std::numeric_limits<TIndex>::max(),
                   "Index overflow!")
 
-        // _nodes.reserve(extendedSize); // <-- this isn't that relevant here
-        for (TIndex i=0; i<ContiguousTree::ChildrenPerNode; ++i, ++it_nodeBegin) {
-            _nodes.emplace_back(*it_nodeBegin);
+        _nodes.reserve(extendedSize); // <-- this isn't that relevant here
+        for (TIndex i=0; i<ContiguousTree::ChildrenPerNode; ++i, ++itNodeBegin) {
+            _nodes.emplace_back(*itNodeBegin);
         }
     } else {
         // Pop an available begin from the set.
-        i_begin = _availableIndices.front();
+        iBegin = _availableIndices.front();
         _availableIndices.pop();
 
         // Insert nodes
-        auto it_node = _nodes.begin() + i_begin;
-        const auto it_nodeEnd = it_node + ContiguousTree::ChildrenPerNode;
-        for (; it_node!=it_nodeEnd; ++it_node, ++it_nodeBegin) {
-            *it_node = *it_nodeBegin;
+        auto itNode = _nodes.begin() + iBegin;
+        const auto itNodeEnd = itNode + ContiguousTree::ChildrenPerNode;
+        for (; itNode!=itNodeEnd; ++itNode, ++itNodeBegin) {
+            *itNode = *itNodeBegin;
         }
     }
 
-    return i_begin;
+    return iBegin;
 
     CIE_END_EXCEPTION_TRACING
 }
@@ -170,17 +170,17 @@ ContiguousTree<TNode,TIndex,TTag>::reset()
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline Size
+Size
 ContiguousTree<TNode,TIndex,TTag>::size() const noexcept
 {
     return std::count_if(_nodes.begin(),
                          _nodes.end(),
-                         [](const auto& r_node){return !r_node.isNull();});
+                         [](const auto& rNode){return !rNode.isNull();});
 }
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline Bool
+Bool
 ContiguousTree<TNode,TIndex,TTag>::empty() const noexcept
 {
     return this->size() == 0;
@@ -188,7 +188,7 @@ ContiguousTree<TNode,TIndex,TTag>::empty() const noexcept
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline Size
+Size
 ContiguousTree<TNode,TIndex,TTag>::numberOfNodes() const
 {
     return _nodes.size();
@@ -196,7 +196,7 @@ ContiguousTree<TNode,TIndex,TTag>::numberOfNodes() const
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline Size
+Size
 ContiguousTree<TNode,TIndex,TTag>::numberOfNulls() const
 {
     return _nodes.size() - this->size();
@@ -204,42 +204,34 @@ ContiguousTree<TNode,TIndex,TTag>::numberOfNulls() const
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline typename ContiguousTree<TNode,TIndex,TTag>::const_iterator
+typename ContiguousTree<TNode,TIndex,TTag>::const_iterator
 ContiguousTree<TNode,TIndex,TTag>::begin() const noexcept
 {
-    return Iterator(this->_nodes.begin(),
-                    this->_nodes.begin(),
-                    this->_nodes.end());
+    return _nodes.begin();
 }
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline typename ContiguousTree<TNode,TIndex,TTag>::iterator
+typename ContiguousTree<TNode,TIndex,TTag>::iterator
 ContiguousTree<TNode,TIndex,TTag>::begin() noexcept
 {
-    return Iterator(this->_nodes.begin(),
-                    this->_nodes.begin(),
-                    this->_nodes.end());
+    return _nodes.begin();
 }
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline typename ContiguousTree<TNode,TIndex,TTag>::const_iterator
+typename ContiguousTree<TNode,TIndex,TTag>::const_iterator
 ContiguousTree<TNode,TIndex,TTag>::end() const noexcept
 {
-    return Iterator(this->_nodes.end(),
-                    this->_nodes.begin(),
-                    this->_nodes.end());
+    return _nodes.end();
 }
 
 
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TTag>
-inline typename ContiguousTree<TNode,TIndex,TTag>::iterator
+typename ContiguousTree<TNode,TIndex,TTag>::iterator
 ContiguousTree<TNode,TIndex,TTag>::end() noexcept
 {
-    return Iterator(this->_nodes.end(),
-                    this->_nodes.begin(),
-                    this->_nodes.end());
+    return _nodes.end();
 }
 
 

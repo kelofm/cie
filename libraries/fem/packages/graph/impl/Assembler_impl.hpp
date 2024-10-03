@@ -111,7 +111,10 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData>> rGraph,
         } // for rEdge in rVertex.edges()
     } // while visitQueue
 
-    for (auto& rPair : _dofMap) for (auto& riDoF : rPair.second) if (!riDoF.has_value()) riDoF = _dofCounter++;
+    for (auto& rPair : _dofMap)
+        for (auto& riDoF : rPair.second)
+            if (!riDoF.has_value())
+                riDoF = _dofCounter++;
 
     CIE_END_EXCEPTION_TRACING
 }
@@ -186,7 +189,7 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
 
     // Make column indices sorted and unique
     {
-        const auto job = [&columnIndices] (Ref<DynamicArray<TIndex>> rIndices) {
+        const auto job = [] (Ref<DynamicArray<TIndex>> rIndices) {
             std::sort(rIndices.begin(), rIndices.end());
             rIndices.erase(std::unique(rIndices.begin(), rIndices.end()), rIndices.end());
         };

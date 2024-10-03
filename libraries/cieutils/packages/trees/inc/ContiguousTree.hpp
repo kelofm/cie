@@ -56,63 +56,6 @@ private:
 
     static inline constexpr const Size ChildrenPerNode = TNode::ChildrenPerNode;
 
-    class Iterator
-    {
-    public:
-        using value_type = TNode;
-
-        using pointer = Ptr<const TNode>;
-
-        using reference = Ref<const TNode>;
-
-        using iterator_category = std::bidirectional_iterator_tag;
-
-        using difference_type = std::ptrdiff_t;
-
-    public:
-        // Invalid default constructor
-        Iterator() {throw std::runtime_error("");}
-
-        Iterator(typename ContiguousTree::NodeContainer::const_iterator it,
-                 typename ContiguousTree::NodeContainer::const_iterator begin,
-                 typename ContiguousTree::NodeContainer::const_iterator end) noexcept
-            : _it(it),
-              _begin(begin),
-              _end(end)
-        {}
-
-        reference operator*() const noexcept {return *_it;}
-
-        pointer operator->() const noexcept {return _it.operator->();}
-
-        Iterator& operator++() noexcept {while ((++_it)->isNull() && _it!=_end) {} return *this;}
-
-        Iterator& operator++(int) noexcept {Iterator copy = *this; ++(*this); return copy;}
-
-        Iterator& operator--() noexcept {while ((--_it)->isNull() && _it!=_begin) {} return *this;}
-
-        Iterator& operator--(int) noexcept {Iterator copy = *this; --(*this); return copy;}
-
-        friend bool operator<(Ref<const Iterator> left, Ref<const Iterator> right) noexcept {return left._it < right._it;}
-
-        friend bool operator<=(Ref<const Iterator> left, Ref<const Iterator> right) noexcept {return left._it <= right._it;}
-
-        friend bool operator>(Ref<const Iterator> left, Ref<const Iterator> right) noexcept {return left._it > right._it;}
-
-        friend bool operator>=(Ref<const Iterator> left, Ref<const Iterator> right) noexcept {return left._it >= right._it;}
-
-        friend bool operator==(Ref<const Iterator> left, Ref<const Iterator> right) noexcept {return left._it == right._it;}
-
-        friend bool operator!=(Ref<const Iterator> left, Ref<const Iterator> right) noexcept {return left._it != right._it;}
-
-    private:
-        typename ContiguousTree::NodeContainer::const_iterator _it;
-
-        typename ContiguousTree::NodeContainer::const_iterator _begin;
-
-        typename ContiguousTree::NodeContainer::const_iterator _end;
-    }; // class Iterator
-
 public:
     CIE_DEFINE_CLASS_POINTERS(ContiguousTree)
 
@@ -120,9 +63,9 @@ public:
 
     using Index = TIndex;
 
-    using iterator = Iterator;
+    using iterator = typename NodeContainer::iterator;
 
-    using const_iterator = Iterator;
+    using const_iterator = typename NodeContainer::const_iterator;
 
     using value_type = TNode;
 
@@ -143,31 +86,31 @@ public:
     ///          an index representing its depth. If the depth is not required,
     ///          use @ref begin and @ref end to loop through the nodes in
     ///          unspecified order instead.
-    /// @param r_visitFunctor: function to invoke on each node. It must take a node
+    /// @param rVisitFunctor: function to invoke on each node. It must take a node
     ///                        and level as argument, and produce a bool that
     ///                        indicates whether the visit loop should be continued.
     /// @details Single thread version.
     template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor>
-    void visit(const TFunctor& r_visitFunctor) const;
+    void visit(const TFunctor& rVisitFunctor) const;
 
     /// @brief Invoke a functor on every node in the tree.
     /// @details The callable functor should take a reference to a node and
     ///          an index representing its depth. If the depth is not required,
     ///          use @ref begin and @ref end to loop through the nodes in
     ///          unspecified order instead.
-    /// @param r_visitFunctor: function to invoke on each node. It must take a node
+    /// @param rVisitFunctor: function to invoke on each node. It must take a node
     ///                        and level as argument, and produce a bool that
     ///                        indicates whether the visit loop should be continued.
-    /// @param r_pool: Thread pool to use for multithreading.
+    /// @param rPool: Thread pool to use for multithreading.
     /// @details Multithread version.
     /// @todo Implement multithreaded version.
     template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor, concepts::ThreadPool TPool>
-    void visit(const TFunctor& r_visitFunctor, TPool& r_pool) const;
+    void visit(const TFunctor& rVisitFunctor, TPool& rPool) const;
 
     /// @brief Insert @ref TNode::ChildrenPerNode nodes at once (thread safe if tags::SMP).
     /// @return Index of the first inserted node in the internal node list.
     template <concepts::Iterator<TNode> TIterator>
-    TIndex insert(TIterator it_nodeBegin);
+    TIndex insert(TIterator itNodeBegin);
 
     /// @brief Reset the tree (all iterators and indices are invalidated).
     void clear() noexcept;
