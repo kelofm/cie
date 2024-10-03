@@ -8,7 +8,6 @@
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
 #include "packages/maths/inc/power.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
 
 // --- STL Includes ---
 #include <algorithm>
@@ -38,19 +37,15 @@ inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator
         for (auto it=itArgumentBegin; it!=itArgumentEnd; ++it) {
             const auto itEnd = it + 1;
             for (const auto& rScalarExpression : _ansatzSet) {
-                rScalarExpression.evaluate(it,
-                                            itEnd,
-                                            pValue++);
+                rScalarExpression.evaluate(it, itEnd, pValue++);
             } // for scalarExpression in ansatzSet
             for (const auto& rScalarExpression : _derivativeSet) {
-                rScalarExpression.evaluate(it,
-                                            itEnd,
-                                            pDerivative++);
+                rScalarExpression.evaluate(it, itEnd, pDerivative++);
             } // for scalarExpression in derivativeSet
         } // for component in arguments
     } // fill the value and derivative buffers
 
-    // Compute the modified cartesian product
+    // Compute the modified outer product
     for (unsigned iDerivative=0; iDerivative<Dim; ++iDerivative) {
         do {
             *itOut = static_cast<Value>(1);
