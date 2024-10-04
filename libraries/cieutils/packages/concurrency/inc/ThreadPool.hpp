@@ -15,7 +15,7 @@
 namespace cie::mp {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TStorage = ThreadStorage<>>
 class ThreadPool final
 {
@@ -101,7 +101,7 @@ private:
 
 namespace cie::concepts {
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T, class ...TStored>
 concept ThreadPool
 = requires (typename std::decay<T>::type instance)

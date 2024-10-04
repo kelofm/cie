@@ -32,7 +32,7 @@ std::string getDate();
 class LogBlock;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 class Logger : public OutputStream
 {
 public:

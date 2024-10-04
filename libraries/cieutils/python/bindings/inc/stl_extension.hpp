@@ -16,16 +16,20 @@
 #include <span>
 
 
+/// @cond
 template <class T, class TAllocator>
 struct pybind11::detail::type_caster<cie::DynamicArray<T,TAllocator>>
     : pybind11::detail::list_caster<cie::DynamicArray<T,TAllocator>,T>
 {};
+/// @endcond
 
 
+/// @cond
 template <class T, cie::Size ArraySize>
 struct pybind11::detail::type_caster<cie::StaticArray<T,ArraySize>>
     : pybind11::detail::array_caster<cie::StaticArray<T,ArraySize>,T,false,ArraySize>
 {};
+/// @endcond
 
 
 namespace cie {

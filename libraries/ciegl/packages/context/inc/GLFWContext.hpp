@@ -53,9 +53,9 @@ public:
 
     /** @brief Make this context the current one.
      *
-     *  @warning Must be called @b after @ref glfwCreateWindow but @b before any other GL calls,
-     *           which includes the construction of a @ref GLFWWindow. This is why the constructor
-     *           of @ref GLFWWindow is private.
+     *  @warning Must be called @b after @p glfwCreateWindow but @b before any other GL calls,
+     *           which includes the construction of a @p GLFWWindow. This is why the constructor
+     *           of @p GLFWWindow is private.
      *  @todo Eliminate repeated calls, and check for bugs.
      */
     void makeCurrent(GLFWwindow* p_window);

@@ -14,7 +14,7 @@
 namespace cie {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 class NoInitWrapper
 {

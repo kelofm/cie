@@ -28,6 +28,7 @@ namespace cie::gl {
   *           as well as a configuration in JSON format, defining the
   *           various in- and outputs of the shader. The configuration is
   *           expected to conform to the following format:
+  *           @code
   *           {
   *               "attributes" : {
   *                   "<attribute name>" {
@@ -57,6 +58,7 @@ namespace cie::gl {
   *                   "TODO" : ""
   *               }
   *           }
+  *           @endcode
   *  @ingroup ciegl
   */
 class Shader : public utils::IDObject<Size>

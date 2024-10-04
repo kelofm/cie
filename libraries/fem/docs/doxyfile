@@ -23,8 +23,6 @@ MACRO_EXPANSION        = YES
 
 INPUT                  = ../readme      \
                          ../packages    \
-                         ../inc         \
-                         ../src         \
                          ../python
 FILE_PATTERNS          = *.h \
                          *.hpp \

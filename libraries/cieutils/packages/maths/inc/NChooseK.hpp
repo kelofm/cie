@@ -12,7 +12,7 @@
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 class NChooseK
 {
 public:

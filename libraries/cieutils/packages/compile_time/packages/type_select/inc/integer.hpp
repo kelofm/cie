@@ -84,7 +84,7 @@ using UnsignedIntegers = std::tuple<uint_least8_t,
 } // namespace detail
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct Signed
 {
     using Longest = intmax_t;
@@ -96,7 +96,7 @@ struct Signed
 }; // struct SelectSigned
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct Unsigned
 {
     using Longest = uintmax_t;

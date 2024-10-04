@@ -1,6 +1,8 @@
 #ifndef CIE_GL_GL_TRAITS_HPP
 #define CIE_GL_GL_TRAITS_HPP
 
+/// @defgroup ciegl Graphics Module (obsolete)
+
 // --- External Includes ---
 #include <glad/glad.h>
 
@@ -11,7 +13,6 @@
 #include "packages/stl_extension/inc/StaticArray.hpp"
 
 // --- STL Includes ---
-#include <array>
 #include <vector>
 
 

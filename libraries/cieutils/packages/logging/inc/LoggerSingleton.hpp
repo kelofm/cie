@@ -16,7 +16,7 @@ extern const std::filesystem::path DEFAULT_LOGGER_FILE_PATH;
 } // namespace detail
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 class LoggerSingleton
 {
 public:

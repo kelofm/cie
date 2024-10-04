@@ -11,13 +11,13 @@
 namespace cie::mp {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TTag>
 class Mutex
 {}; // class Mutex
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <>
 class Mutex<tags::SMP>
 {
@@ -38,7 +38,7 @@ private:
 }; // class Mutex<SMP>
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <>
 class Mutex<tags::Serial>
 {

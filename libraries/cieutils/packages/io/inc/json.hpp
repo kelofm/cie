@@ -59,7 +59,7 @@ namespace cie::io
  *           - JSONObject
  *           - std::vector of any above except bool
  *           - StaticArray of any above with size 1, 2, or 3
- *  @addtogroup cieutils
+ *  @ingroup cieutils
  */
 class JSONObject
 {
@@ -268,7 +268,7 @@ private:
 }; // class JSONObject
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 std::ostream& operator<<(std::ostream& r_stream, const JSONObject& r_json);
 
 

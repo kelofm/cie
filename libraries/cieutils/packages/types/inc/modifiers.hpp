@@ -11,13 +11,13 @@
 namespace cie {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class Source, class Target>
 struct CopyConstQualifier
 {using Type = Target;};
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::Const Source, class Target>
 struct CopyConstQualifier<Source, Target>
 {using Type = const Target;};

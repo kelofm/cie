@@ -137,7 +137,8 @@ public:
      *  @tparam TFunction Function to execute at each iteration. Must be callable
      *          with the container's value type followed by thread local storage
      *          types as arguments.
-     *  @param rContainer container holding the items to loop through.
+     *  @param itBegin iterator pointing to the first item to loop through.
+     *  @param itEnd iterator pointing past the last item to loop through.
      *  @param rFunction target function to execute at each iteration.
      */
     template <concepts::Iterator TIterator, class TFunction>

@@ -13,7 +13,7 @@ namespace cie::utils {
 
 
 /// @brief A container that only holds a specified number of latest values.
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class ValueType>
 class MarchingContainer
 {
@@ -57,8 +57,8 @@ public:
     ValueType& operator[]( Size index );
     const ValueType& operator[]( Size index ) const;
 
-    /** Return the number of times this container was pushed to
-     * @note the number of values held will always be <capacity>
+    /** @brief Return the number of times this container was pushed to
+     *  @note The number of values held will always be @p capacity.
      */
     Size size() const;
 

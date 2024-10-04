@@ -253,7 +253,7 @@ concept Zippables
 } // namespace detail
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <detail::Zippables ...TContainers>
 detail::ZipObject<TContainers...> zip(Size size, TContainers&&... r_containers)
 {
@@ -261,7 +261,7 @@ detail::ZipObject<TContainers...> zip(Size size, TContainers&&... r_containers)
 }
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <detail::Zippables ...TContainers>
 detail::ZipObject<TContainers...> zip(TContainers&&... r_containers)
 {

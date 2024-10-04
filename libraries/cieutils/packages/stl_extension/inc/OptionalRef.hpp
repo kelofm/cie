@@ -5,10 +5,7 @@
 #include "packages/macros/inc/exceptions.hpp"
 
 // --- STL Includes ---
-#include <optional>
-#include <stdexcept>
 #include <type_traits> // alignment_of
-#include <bitset> // bitset
 #include <cstdint> // uintptr_t
 
 
@@ -20,7 +17,7 @@ namespace cie {
 ///          and stores the value indicator in the least significant bit of
 ///          the pointer. As a result, the memory alignment of @a OptionalRef
 ///          is identical to that of the stored pointer.
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TElement>
 class OptionalRef
 {

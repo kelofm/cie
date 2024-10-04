@@ -18,12 +18,12 @@ class Exception;
 
 namespace cie::concepts {
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept CIEException
 = std::derived_from<T,cie::Exception>;
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept STLException
 = std::derived_from<T,std::exception>
@@ -35,7 +35,7 @@ concept STLException
 namespace cie {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 class Exception : public std::exception
 {
 public:
@@ -85,7 +85,7 @@ private:
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct NullPtrException : public Exception
 {
     NullPtrException(const String& r_location, const String& r_message);
@@ -98,7 +98,7 @@ struct NullPtrException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct AbstractCallException : public Exception
 {
     AbstractCallException(const String& r_location, const String& r_message);
@@ -111,7 +111,7 @@ struct AbstractCallException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct NotImplementedException : public Exception
 {
     NotImplementedException(const String& r_location, const String& r_message);
@@ -124,7 +124,7 @@ struct NotImplementedException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct OutOfRangeException : public Exception
 {
     OutOfRangeException(const String& r_location, const String& r_message);
@@ -137,7 +137,7 @@ struct OutOfRangeException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct DivisionByZeroException : public Exception
 {
     DivisionByZeroException(const String& r_location, const String& r_message);
@@ -150,7 +150,7 @@ struct DivisionByZeroException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct GeometryException : public Exception
 {
     GeometryException(const String& r_location, const String& r_message);
@@ -163,7 +163,7 @@ struct GeometryException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct MemoryException : public Exception
 {
     MemoryException(const String& r_location, const String& r_message);
@@ -176,12 +176,12 @@ struct MemoryException : public Exception
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::STLException TException>
 TException exceptionFactory(const String& r_location, const String& r_message, const String& r_name) noexcept;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::STLException TException>
 TException exceptionFactory(TException& r_exception, const String& r_location, const String& r_additionalMessage) noexcept;
 

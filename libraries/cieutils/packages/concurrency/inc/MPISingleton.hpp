@@ -32,7 +32,7 @@ public:
      *           it will be after this function is called. If CiE was not compiled
      *           wiht MPI support, a serial dummy MPI interface is constructed.
      *  @note If you need to control what kind of MPI interface to construct, use
-     *        @ref MPISingleton::get(bool).
+     *        @ref MPISingleton::get(Ptr<MPI_Comm>).
      */
     static Ref<MPI> get();
 
@@ -56,7 +56,7 @@ public:
      *           it will be after this function is called. If CiE was not compiled
      *           wiht MPI support, a serial dummy MPI interface is constructed.
      *  @note If you need to control what kind of MPI interface to construct, use
-     *        @ref MPISingleton::get(bool).
+     *        @ref MPISingleton::get(Ptr<MPI_Comm>).
      */
     static std::shared_ptr<MPI> share();
 

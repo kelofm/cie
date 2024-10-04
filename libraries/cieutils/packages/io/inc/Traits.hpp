@@ -12,7 +12,7 @@
 namespace cie::io {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 struct Traits
 {
     using SerializerStream = std::ostream;
@@ -50,7 +50,7 @@ concept TriviallySerializable
     || T::isTriviallySerializable;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept BinarySerializable
 = TriviallySerializable<T>
@@ -60,7 +60,7 @@ concept BinarySerializable
 }; // concept BinarySerializable
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept TextSerializable
 = TriviallySerializable<T>
@@ -70,7 +70,7 @@ concept TextSerializable
 }; // concept TextSerializable
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T, class TTag = tags::Null>
 concept Serializable
   = (std::is_same_v<TTag,tags::Null> && (BinarySerializable<T> || TextSerializable<T>))
@@ -78,7 +78,7 @@ concept Serializable
     || (std::is_same_v<TTag,tags::Text> && TextSerializable<T>);
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept NonTriviallySerializable
 = !TriviallySerializable<T> && Serializable<T>;
@@ -100,7 +100,7 @@ concept TriviallyDeserializable
 = TriviallySerializable<T>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept BinaryDeserializable
 = TriviallyDeserializable<T>
@@ -110,7 +110,7 @@ concept BinaryDeserializable
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept TextDeserializable
 = TriviallyDeserializable<T>
@@ -120,7 +120,7 @@ concept TextDeserializable
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T, class TTag = tags::Null>
 concept Deserializable
   = (std::is_same_v<TTag,tags::Null> && (BinaryDeserializable<T> || TextDeserializable<T>))
@@ -128,7 +128,7 @@ concept Deserializable
     || (std::is_same_v<TTag,tags::Text> && TextDeserializable<T>);
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept NonTriviallyDeserializable
 = !TriviallyDeserializable<T> && Deserializable<T>;
