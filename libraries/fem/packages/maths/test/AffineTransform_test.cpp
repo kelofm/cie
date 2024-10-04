@@ -35,6 +35,8 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
         using Transform = AffineTransform<double, 2>;
         using Point = Kernel<2,double>::Point;
 
+        CIE_TEST_CHECK(SpatialTransform<Transform>);
+
         std::vector<Point> locals {
             {-1.0, -1.0},
             { 1.0, -1.0},

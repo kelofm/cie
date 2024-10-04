@@ -36,6 +36,7 @@ namespace cie::fem::maths {
         */                                                                                                                  \
         using Transform = TransformType<double,2>;                                                                          \
         using Point = Kernel<2,double>::Point;                                                                              \
+        CIE_TEST_CHECK(SpatialTransform<Transform>);                                                                        \
                                                                                                                             \
         const std::vector<Point> locals {                                                                                   \
             {-1.0, -1.0},                                                                                                   \
@@ -56,7 +57,7 @@ namespace cie::fem::maths {
         Transform transform;                                                                                                \
         {                                                                                                                   \
             CIE_TEST_CASE_INIT("construction")                                                                              \
-            CIE_TEST_CHECK_NOTHROW(transform = Transform(transformed.begin(), transformed.begin() + 1));                    \
+            CIE_TEST_CHECK_NOTHROW(transform = Transform(transformed.begin(), transformed.begin() + 2));                    \
         } /*"construction"*/                                                                                                \
                                                                                                                             \
         {                                                                                                                   \

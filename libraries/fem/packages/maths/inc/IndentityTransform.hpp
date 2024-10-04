@@ -24,6 +24,8 @@ public:
 
     using Derivative = IdentityTransform;
 
+    using Inverse = IdentityTransform;
+
 public:
     IdentityTransform() noexcept = default;
 
@@ -35,11 +37,15 @@ public:
     constexpr unsigned size() const noexcept
     {return Dimension;}
 
-    constexpr IdentityTransform makeInverse() const noexcept
+    constexpr Inverse makeInverse() const noexcept
     {return *this;}
 
     constexpr Derivative makeDerivative() const noexcept
     {return *this;}
+
+    constexpr TValue evaluateDeterminant([[maybe_unused]] ConstIterator itArgumentBegin,
+                                         [[maybe_unused]] ConstIterator itArgumentEnd) const noexcept
+    {return 1;}
 }; // class IdentityTransform
 
 

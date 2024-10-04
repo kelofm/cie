@@ -10,6 +10,7 @@
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/resize.hpp"
 #include "packages/macros/inc/checks.hpp"
+#include "packages/stl_extension/inc/StaticArray.hpp"
 
 
 namespace cie::fem::maths {

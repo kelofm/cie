@@ -3,6 +3,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
+#include "packages/stl_extension/inc/StaticArray.hpp"
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
@@ -140,6 +141,10 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstIterator;
 
+    using Derivative = ProjectiveTransformDerivative<TValue,Dimension>;
+
+    using Inverse = ProjectiveTransform;
+
 public:
     /// @brief Identity transform by default
     ProjectiveTransform() noexcept;
@@ -174,10 +179,10 @@ public:
     unsigned size() const noexcept;
 
     /// @brief Construct the inverse transform.
-    ProjectiveTransform makeInverse() const;
+    Inverse makeInverse() const;
 
     /// @brief Construct the derivative of the projective transform.
-    ProjectiveTransformDerivative<TValue,Dimension> makeDerivative() const;
+    Derivative makeDerivative() const;
 
     /// @brief Get the matrix representation of the transformation.
     Ref<const TransformationMatrix> getTransformationMatrix() const noexcept;

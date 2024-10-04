@@ -3,6 +3,7 @@
 
 // --- Utilty Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
+#include "packages/macros/inc/typedefs.hpp"
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
@@ -62,6 +63,7 @@ private:
 
 /** @brief Class representing an affine transformation.
  *  @details Uniquely defines a mapping between any pair of triangles in the specified dimension.
+ *           Implements the @ref SpatialTransform interface.
  */
 template <concepts::Numeric TValue, unsigned Dimension>
 class AffineTransform final : private ExpressionTraits<TValue>
@@ -76,6 +78,10 @@ public:
     using typename ExpressionTraits<TValue>::Iterator;
 
     using typename ExpressionTraits<TValue>::ConstIterator;
+
+    using Derivative = AffineTransformDerivative<TValue,Dimension>;
+
+    using Inverse = AffineTransform;
 
 public:
     /// @brief Identity transform by default
@@ -117,10 +123,10 @@ public:
     unsigned size() const noexcept;
 
     /// @brief Construct the derivative of the affine transform.
-    AffineTransformDerivative<TValue,Dimension> makeDerivative() const noexcept;
+    Derivative makeDerivative() const noexcept;
 
     /// @brief Construct the inverse transform.
-    AffineTransform makeInverse() const;
+    Inverse makeInverse() const;
 
     /// @brief Get the matrix representation of the transformation.
     Ref<const TransformationMatrix> getTransformationMatrix() const noexcept;

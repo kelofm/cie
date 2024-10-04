@@ -66,15 +66,15 @@ unsigned OrthogonalScaleTransform<TValue,Dimension>::size() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-OrthogonalScaleTransformDerivative<TValue,Dimension>
+typename OrthogonalScaleTransform<TValue,Dimension>::Derivative
 OrthogonalScaleTransform<TValue,Dimension>::makeDerivative() const noexcept
 {
-    return OrthogonalScaleTransformDerivative<TValue,Dimension>(*this);
+    return Derivative(*this);
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-OrthogonalScaleTransform<TValue,Dimension>
+typename OrthogonalScaleTransform<TValue,Dimension>::Inverse
 OrthogonalScaleTransform<TValue,Dimension>::makeInverse() const
 {
     CIE_DIVISION_BY_ZERO_CHECK(!std::any(this->_scales.begin(),

@@ -57,7 +57,10 @@ template <concepts::Iterator TPointIt>
 inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt itTransformedBegin,
                                                                           [[maybe_unused]] TPointIt itTransformedEnd)
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == 2)
+    CIE_OUT_OF_RANGE_CHECK(
+        std::distance(itTransformedBegin, itTransformedEnd) == 2,
+        "Expecting 2 points, but got " << std::distance(itTransformedBegin, itTransformedEnd)
+    )
 
     const auto& rBase = *itTransformedBegin;
     const auto& rOp = *(itTransformedBegin + 1);
@@ -97,7 +100,10 @@ template <concepts::Iterator TPointIt>
 inline TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPointIt itTransformedBegin,
                                                                           [[maybe_unused]] TPointIt itTransformedEnd)
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == 2)
+    CIE_OUT_OF_RANGE_CHECK(
+        std::distance(itTransformedBegin, itTransformedEnd) == 2,
+        "Expecting 2 points, but got " << std::distance(itTransformedBegin, itTransformedEnd)
+    )
 
     const auto& rBase = *itTransformedBegin;
     const auto& rOp = *(itTransformedBegin + 1);
