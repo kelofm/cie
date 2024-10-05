@@ -73,7 +73,7 @@ inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator
 
 
 template <class TScalarExpression, unsigned Dim>
-Size AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
+unsigned AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
 {
     return intPow(_ansatzSet.size(), Dim) * Dim;
 }

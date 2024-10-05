@@ -70,7 +70,7 @@ concept Expression
     // typename T::Derivative;
 
     /// @brief Require a size function indicating the of scalar components returned by @a evaluate.
-    {constInstance.size()} -> std::same_as<unsigned>;
+    {constInstance.size()} -> concepts::UnsignedInteger;
 
     /// @details Require the evaluation through the following signature:
     ///          @code
