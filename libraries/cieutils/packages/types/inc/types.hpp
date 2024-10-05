@@ -1,6 +1,8 @@
 #ifndef CIE_CIEUTILS_TYPES_HPP
 #define CIE_CIEUTILS_TYPES_HPP
 
+/// @defgroup cieutils Utility Library
+
 // --- Utility Includes ---
 #include "packages/macros/inc/debug.hpp"
 

@@ -1,7 +1,7 @@
 #ifndef CIE_GL_GL_TRAITS_HPP
 #define CIE_GL_GL_TRAITS_HPP
 
-/// @defgroup ciegl Graphics Module (obsolete)
+/// @defgroup ciegl Visualization Library (obsolete)
 
 // --- External Includes ---
 #include <glad/glad.h>

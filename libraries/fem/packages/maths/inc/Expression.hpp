@@ -2,20 +2,57 @@
 #define CIE_MATHS_CONCEPTS_EXPRESSION_HPP
 
 
-/// @defgroup fem Finite Element Module
+/// @defgroup fem Finite Element Library
 
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
+#include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 
 // --- STL Includes ---
-#include <utility> // std::declval
-#include <concepts> // std::same_as
+#include <utility> // declval
+#include <concepts> // same_as
+#include <span> // span
+#include <memory> // shared_ptr
 
 
 namespace cie::fem::maths {
 
 
+/// @brief General static interface for classes doing numerics.
+/// @details A class satisfying @p Expression models a multivariate vector function
+///          with a narrow range of features. Interacting with the function is wholly based on
+///          preallocated contiguous arrays of scalars. The convention is that the input array's size is
+///          known by both @p T and its user, but the size of the output array may only be known
+///          to @p T. A query function that exposes this information to the user is thus required.
+///
+///          Specifically, a class implementing @p Expression must have:
+///
+///          - An alias for the scalar type: @p Value
+///
+///          - An alias for an immutable iterator spanning the input array: @p ConstIterator.
+///            It is expected to be a raw pointer (<tt>using ConstIterator = const Value*</tt>).
+///
+///          - An alias for a mutable iterator spanning the output array: @p Iterator.
+///            It is expected to be a raw pointer (<tt>using Iterator = Value*</tt>).
+///
+///          - A member function querying the size of the output array with the following signature:
+///            @code
+///            unsigned T::size() const
+///            @endcode
+///
+///          - A member function for the evaluation of the mathematical function at a specific point.
+///            - @p itArgumentBegin Iterator pointing to the first component of the input array.
+///            - @p itArgumentEnd Iterator pointing one past the last component of the input array.
+///            - @p itOut Iterator pointing the the first component of the output array, where the
+///                       function will begin writing its results.
+///            @code
+///            void T::evaluate(ConstIterator itArgumentBegin,
+///                             ConstIterator itArgumentEnd,
+///                             Iterator itOut) const
+///            @endcode
+/// @see cie::fem::maths::ExpressionTraits
+/// @ingroup fem
 template <class T>
 concept Expression
 = requires (T instance, const T constInstance)
@@ -29,8 +66,11 @@ concept Expression
     /// @brief Iterator over a contiguous array of const value types.
     typename T::ConstIterator;
 
-    // /// @brief Type of the function's derivative; must also be a @a Expression.
+    // /// @brief Type of the function's derivative; must also be an @p Expression.
     // typename T::Derivative;
+
+    /// @brief Require a size function indicating the of scalar components returned by @a evaluate.
+    {constInstance.size()} -> std::same_as<unsigned>;
 
     /// @details Require the evaluation through the following signature:
     ///          @code
@@ -41,9 +81,6 @@ concept Expression
                           std::declval<typename T::ConstIterator>(),
                           std::declval<typename T::Iterator>())
     } -> std::same_as<void>;
-
-    /// @brief Require a size function indicating the of scalar components returned by @a evaluate.
-    {constInstance.size()} -> std::same_as<unsigned>;
 
     // /// @brief Require a derivative factory
     // /// @note Concepts cannot be recursive so the same requirements
@@ -61,6 +98,7 @@ concept Expression
 ///          typename T::Value T::
 ///          @endcode
 /// @see cie::fem::maths::SpatialTransform
+/// @ingroup fem
 template <class T>
 concept SpatialTransformDerivative
 = Expression<T> && requires (const T constInstance)
@@ -78,21 +116,21 @@ concept SpatialTransformDerivative
 /// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression",
 ///          @p SpatialTransform adds 2 extra requirements:
 ///
-///          1) the class must have a derivative factory computing the Jacobian of the transform.
-///             The class must have an alias <tt>typename T::Derivative</tt> for the type of its derivative, which must
-///             satisfy @ref cie::fem::maths::SpatialTransformDerivative "SpatialTransformDerivative". The member function
-///             constructing the derivative expression must have the following signature:
-///             @code{.cpp}
-///             typename T::Derivative T::makeDerivative() const
-///             @endcode
+///          - the class must have a derivative factory computing the Jacobian of the transform.
+///            The class must have an alias <tt>typename T::Derivative</tt> for the type of its derivative, which must
+///            satisfy @ref cie::fem::maths::SpatialTransformDerivative "SpatialTransformDerivative". The member function
+///            constructing the derivative expression must have the following signature:
+///            @code{.cpp}
+///            typename T::Derivative T::makeDerivative() const
+///            @endcode
 ///
-///          2) the class must have an inverse factory computing the reverse transformation
-///             that must also satisfy @p SpatialTransform and must be exposed as an alias
-///             <tt>typename T::Inverse</tt>. The member function constructing the inverse
-///             expression musthave the following signature:
-///             @code{.cpp}
-///             typename T::Inverse T::makeInverse() const
-///             @endcode
+///          - the class must have an inverse factory computing the reverse transformation
+///            that must also satisfy @p SpatialTransform and must be exposed as an alias
+///            <tt>typename T::Inverse</tt>. The member function constructing the inverse
+///            expression must have the following signature:
+///            @code{.cpp}
+///            typename T::Inverse T::makeInverse() const
+///            @endcode
 ///
 ///          Implemented spatial transformations include:
 ///          - @ref cie::fem::maths::IdentityTransform "IdentityTransform"
@@ -117,6 +155,44 @@ concept SpatialTransform
 }; // concept SpatialTransform
 
 
+/// @brief Static interface for an @ref cie::fem::maths::Expression "Expression" that requires a buffer during its operation.
+/// @details The expression does not own the memory the buffer occupies, nor does it have the
+///          means of manipulating its size. Whoever uses a @p BufferedExpression must ensure
+///          that the instance is provided with an adequately sized buffer before invoking
+///          <tt>T::evaluate</tt>. The purpose of such ownership is to give the option of completely
+///          eliminating memory allocations from expressions for performance or use on accelerators.
+///
+///          On top of the requirements laid out by @ref Expression, @p BufferedExpression adds
+///          2 extra functions:
+///
+///          - A query for the minimum buffer size with the following signature:
+///            @code{.cpp}
+///            unsigned T::getMinBufferSize() const
+///            @endcode
+///
+///          - A setter for the buffer with the following signature:
+///            @code
+///            void T::setBuffer(std::span<typename T::Value>)
+///            @endcode
+///
+/// @note Any class satisfying @p BufferedExpression is not expected to own the memory of its
+///       buffer but rely on external management, and thus may throw exceptions when
+///       provided with insufficiently sized buffers to prevent segmentation faults.
+/// @ingroup fem
+template <class T>
+concept BufferedExpression
+= Expression<T> && requires(T instance, const T constInstance)
+{
+    /// @brief Require a query for the minimum required buffer size.
+    {constInstance.getMinBufferSize()} -> concepts::UnsignedInteger;
+
+    /// @brief Require setting a contiguous, volatile buffer.
+    {instance.setBuffer(std::span<typename T::Value>())} -> std::same_as<void>;
+}; // concept BufferedExpression
+
+
+/// @brief Trait class exposing type aliases required by @ref Expression.
+/// @ingroup fem
 template <class TValue>
 struct ExpressionTraits
 {
@@ -128,6 +204,8 @@ struct ExpressionTraits
 }; // struct Traits
 
 
+/// @brief Base class for expressions with dynamic polymorphism.
+/// @ingroup fem
 template <class TValue>
 struct DynamicExpression : ExpressionTraits<TValue>
 {
@@ -137,14 +215,18 @@ struct DynamicExpression : ExpressionTraits<TValue>
 
     using Derivative = DynamicExpression;
 
+    unsigned size() const = 0;
+
     virtual void evaluate(ConstIterator itArgumentBegin,
                           ConstIterator itArgumentEnd,
                           Iterator itOutput) const = 0;
 
-    virtual void makeDerivative(Ref<Ptr<Derivative>> rp_derivative) const = 0;
+    virtual std::shared_ptr<Derivative> makeDerivative() const = 0;
 }; // class DynamicExpression
 
 
+/// @brief Wrapper class embedding the functionality of an @ref Expression with static polynmorphism into @ref DynamicExpression.
+/// @ingroup fem
 template <Expression TExpression>
 class WrappedExpression : public DynamicExpression<typename TExpression::Value>
 {
@@ -160,18 +242,23 @@ public:
 
     using ExpressionType = TExpression;
 
-private:
+public:
     WrappedExpression() = default;
 
     WrappedExpression(TExpression&& rExpression) noexcept;
 
     WrappedExpression(const TExpression& rExpression);
 
+    unsigned size() const override;
+
     void evaluate(ConstIterator itArgumentBegin,
                   ConstIterator itArgumentEnd,
                   Iterator itOutput) const override;
 
-    void makeDerivative(Ref<Ptr<Derivative>> rp_derivative) const override;
+    std::shared_ptr<Derivative> makeDerivative() const override;
+
+private:
+    TExpression _wrapped;
 }; // class WrappedExpression
 
 
