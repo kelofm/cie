@@ -4,9 +4,6 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
 
-// --- Utility Includes ---
-#include "packages/stl_extension/inc/DynamicArray.hpp"
-
 // --- STL Includes ---
 #include <memory> // shared_ptr
 #include <span> // span
