@@ -82,6 +82,10 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstIterator;
 
+    using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
+
+    using Inverse = TranslateScaleTransform<TValue,Dimension>;
+
 public:
     /// @brief Identity transform by default.
     ScaleTranslateTransform() noexcept;
@@ -104,10 +108,10 @@ public:
     unsigned size() const noexcept;
 
     /// @brief Construct the derivative of the transform.
-    ScaleTranslateTransformDerivative<TValue,Dimension> makeDerivative() const noexcept;
+    Derivative makeDerivative() const noexcept;
 
     /// @brief Construct the inverse of the transform.
-    TranslateScaleTransform<TValue,Dimension> makeInverse() const noexcept;
+    Inverse makeInverse() const noexcept;
 
 private:
     ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
@@ -138,6 +142,10 @@ public:
     using typename ExpressionTraits<TValue>::Iterator;
 
     using typename ExpressionTraits<TValue>::ConstIterator;
+
+    using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
+
+    using Inverse = ScaleTranslateTransform<TValue,Dimension>;
 
 public:
     /// @brief Identity transform by default.

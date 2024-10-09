@@ -11,7 +11,7 @@
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TInteger>
 struct IntegerComparison
 {
@@ -23,7 +23,7 @@ struct IntegerComparison
 }; // struct IntegerComparison
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TFloat>
 class FloatComparison
 {
@@ -46,12 +46,12 @@ private:
 }; // class Comparison
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 class Comparison {};
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <std::floating_point TFloat>
 class Comparison<TFloat> : public FloatComparison<TFloat>
 {
@@ -60,7 +60,7 @@ public:
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TContainer>
 requires concepts::Container<TContainer>
 class Comparison<TContainer>
@@ -82,7 +82,7 @@ private:
 }; // class Comparison<TContainer>
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 class EqualityComparison
 {
@@ -98,7 +98,7 @@ private:
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 class Ordering
 {

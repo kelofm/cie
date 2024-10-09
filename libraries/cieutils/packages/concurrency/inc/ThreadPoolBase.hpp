@@ -12,7 +12,6 @@
 #include <vector>
 #include <queue>
 #include <functional>
-#include <memory>
 #include <atomic>
 #include <iosfwd>
 
@@ -20,7 +19,7 @@
 namespace cie::mp {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 class ThreadPoolBase final
 {
 public:

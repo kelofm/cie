@@ -266,7 +266,7 @@ unsigned ProjectiveTransform<TValue,Dimension>::size() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ProjectiveTransform<TValue,Dimension>
+typename ProjectiveTransform<TValue,Dimension>::Inverse
 ProjectiveTransform<TValue,Dimension>::makeInverse() const
 {
     CIE_BEGIN_EXCEPTION_TRACING
@@ -278,7 +278,7 @@ ProjectiveTransform<TValue,Dimension>::makeInverse() const
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ProjectiveTransformDerivative<TValue,Dimension>
+typename ProjectiveTransform<TValue,Dimension>::Derivative
 ProjectiveTransform<TValue,Dimension>::makeDerivative() const
 {
     return ProjectiveTransformDerivative<TValue,Dimension>(*this);

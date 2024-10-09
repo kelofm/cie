@@ -11,18 +11,18 @@
 namespace cie {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TValue, Size ArraySize>
 using StaticArray = STLContainerBase<std::array<TValue,ArraySize>>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 struct StaticArrayTraits
 {};
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T, Size S>
 struct StaticArrayTraits<StaticArray<T,S>>
 {
@@ -30,7 +30,7 @@ struct StaticArrayTraits<StaticArray<T,S>>
 };
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T, Size S>
 struct StaticArrayTraits<std::array<T,S>>
 {

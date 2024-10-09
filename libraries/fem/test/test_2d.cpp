@@ -16,10 +16,11 @@
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
-#include "packages/maths/inc/LambdaExpression.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 #include "packages/utilities/inc/Graphviz.hpp"
+#include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
+#include "packages/maths/inc/TransformedIntegrand.hpp"
 
 // --- STL Includes ---
 #include <ranges> // ranges::iota
@@ -201,31 +202,12 @@ CIE_TEST_CASE("2D", "[systemTests]")
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             const auto jacobian = rCell.data().spatialTransform.makeDerivative();
 
-            const auto localIntegrand = maths::makeLambdaExpression<Scalar>(
-                [&jacobian, &derivativeBuffer, &rCell, &productBuffer]
-                        (Ptr<const Scalar> itBegin,
-                         Ptr<const Scalar> itEnd,
-                         Ptr<Scalar> itOut) -> void {
-                    const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(itBegin, itEnd);
-                    rCell.data().pAnsatzDerivatives->evaluate(itBegin, itEnd, derivativeBuffer.data());
-
-                    using MatrixAdaptor = Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>>;
-                    MatrixAdaptor derivativeAdaptor(derivativeBuffer.data(),
-                                                    Dimension,
-                                                    rCell.data().pAnsatzSpace->size());
-                    MatrixAdaptor productAdaptor(productBuffer.data(),
-                                                 rCell.data().pAnsatzSpace->size(),
-                                                 rCell.data().pAnsatzSpace->size());
-                    productAdaptor = derivativeAdaptor.transpose() * derivativeAdaptor;
-
-                    for (unsigned iLocalRow=0u; iLocalRow<productAdaptor.rows(); ++iLocalRow) {
-                        for (unsigned iLocalColumn=0u; iLocalColumn<productAdaptor.cols(); ++iLocalColumn) {
-                            *itOut++ += rCell.data().diffusivity * productAdaptor(iLocalRow, iLocalColumn) * std::abs(jacobianDeterminant);
-                        } // for iLocalColumn in range(ansatzBuffer.size)
-                    } // for iLocalRow in range(ansatzBuffer.size)
-                },
-                integrandBuffer.size());
-
+            const auto localIntegrand = maths::makeTransformedIntegrand(
+                maths::LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
+                                                                             rCell.data().pAnsatzDerivatives,
+                                                                             {derivativeBuffer.data(), derivativeBuffer.size()}),
+                jacobian
+            );
             quadrature.evaluate(localIntegrand, integrandBuffer.data());
 
             {

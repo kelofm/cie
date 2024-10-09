@@ -14,21 +14,24 @@ namespace cie::fem::maths {
 CIE_TEST_CASE("ProjectiveTransform", "[ProjectiveTransform][!mayfail]")
 {
     CIE_TEST_CASE_INIT("ProjectiveTransform")
-    using Point = Kernel<2,double>::Point;
+    constexpr unsigned Dimension = 2u;
+    using Point = Kernel<Dimension,double>::Point;
+    using Transform = ProjectiveTransform<double,Dimension>;
+    CIE_TEST_CHECK(SpatialTransform<Transform>);
 
     StaticArray<Point,4> transformedPoints {{1.0, 1.0},
                                             {3.0, 3.0},
                                             {0.0, 1.0},
                                             {3.0, 4.0}};
-    const auto transform = ProjectiveTransform<double,2>(transformedPoints.begin(),
-                                                         transformedPoints.end());
+    const auto transform = Transform(transformedPoints.begin(),
+                                     transformedPoints.end());
     const auto jacobian = transform.makeDerivative();
 
 
     const double delta = 1e-10;
     Point input {-1.0, -1.0};
     Point inputDelta;
-    Eigen::Matrix<double,2,2> output, outputBase, outputDelta;
+    Eigen::Matrix<double,Dimension,Dimension> output, outputBase, outputDelta;
 
 
     jacobian.evaluate(input.data(),

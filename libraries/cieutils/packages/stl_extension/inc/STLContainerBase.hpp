@@ -15,7 +15,7 @@
 namespace cie {
 
 
-///@addtogroup cieutils
+///@ingroup cieutils
 ///@{
 
 template <concepts::Container TBase>

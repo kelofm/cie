@@ -148,7 +148,8 @@ unsigned AffineTransform<TValue,Dimension>::size() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-AffineTransformDerivative<TValue,Dimension> AffineTransform<TValue,Dimension>::makeDerivative() const noexcept
+typename AffineTransform<TValue,Dimension>::Derivative
+AffineTransform<TValue,Dimension>::makeDerivative() const noexcept
 {
     return AffineTransformDerivative<TValue,Dimension>(*this);
 }
@@ -167,7 +168,7 @@ AffineTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<const TValue>
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-AffineTransform<TValue,Dimension>
+typename AffineTransform<TValue,Dimension>::Inverse
 AffineTransform<TValue,Dimension>::makeInverse() const
 {
     CIE_BEGIN_EXCEPTION_TRACING

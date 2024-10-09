@@ -56,7 +56,6 @@ public:
 
 
 /// Compare two parameter packs.
-/// @addtogroup cieutils
 template <class ...Ts>
 class Match
 {
@@ -138,7 +137,6 @@ class MatchTuple {};
 
 
 /// Compare the parameter packs of two tuples.
-/// @addtogroup cieutils
 template <class ...Ts>
 class MatchTuple<std::tuple<Ts...>>
 {

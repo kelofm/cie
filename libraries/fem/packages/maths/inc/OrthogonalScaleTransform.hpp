@@ -76,6 +76,10 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstIterator;
 
+    using Derivative = OrthogonalScaleTransformDerivative<TValue,Dimension>;
+
+    using Inverse = OrthogonalScaleTransform;
+
 public:
     /// @brief Identity transform by default.
     OrthogonalScaleTransform() noexcept;
@@ -98,10 +102,10 @@ public:
     unsigned size() const noexcept;
 
     /// @brief Construct the derivative of the transform.
-    OrthogonalScaleTransformDerivative<TValue,Dimension> makeDerivative() const noexcept;
+    Derivative makeDerivative() const noexcept;
 
     /// @brief Construct the inverse transform.
-    OrthogonalScaleTransform makeInverse() const;
+    Inverse makeInverse() const;
 
 private:
     friend class OrthogonalScaleTransformDerivative<TValue,Dimension>;

@@ -8,7 +8,7 @@
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TID = Size>
 class IDObject
 {

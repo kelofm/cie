@@ -13,7 +13,7 @@
 namespace cie::mp {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TResource>
 class ResourceQueue
 {

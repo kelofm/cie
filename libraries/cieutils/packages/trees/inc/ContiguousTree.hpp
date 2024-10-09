@@ -12,14 +12,13 @@
 #include "packages/concurrency/inc/Mutex.hpp"
 
 // --- STL Includes ---
-#include <iterator>
 #include <queue>
 
 
 namespace cie::concepts {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 concept ContiguousTreeNode
 = requires (T instance, const T constInstance)
@@ -43,7 +42,7 @@ concept ContiguousTreeNode
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::ContiguousTreeNode TNode, concepts::Integer TIndex, class TParallelTag = tags::Serial>
 class ContiguousTree
 {
@@ -78,7 +77,7 @@ public:
 
     CIE_DEFINE_CLASS_DEFAULT_COPIES(ContiguousTree)
 
-    /// @brief Erase @ref TNode::ChildrenPerNode nodes at once (thread safe if tags::SMP) beginning at @a nodeIndex.
+    /// @brief Erase @p TNode::ChildrenPerNode nodes at once (thread safe if tags::SMP) beginning at @a nodeIndex.
     void erase(TIndex nodeIndex);
 
     /// @brief Invoke a functor on every node in the tree.
@@ -107,7 +106,7 @@ public:
     template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor, concepts::ThreadPool TPool>
     void visit(const TFunctor& rVisitFunctor, TPool& rPool) const;
 
-    /// @brief Insert @ref TNode::ChildrenPerNode nodes at once (thread safe if tags::SMP).
+    /// @brief Insert @p TNode::ChildrenPerNode nodes at once (thread safe if tags::SMP).
     /// @return Index of the first inserted node in the internal node list.
     template <concepts::Iterator<TNode> TIterator>
     TIndex insert(TIterator itNodeBegin);
@@ -140,7 +139,7 @@ protected:
     NodeContainer _nodes;
 
 private:
-    /// @brief Indices pointing to the beginning of @ref TNode::ChildrenPerNode long sets of erased nodes.
+    /// @brief Indices pointing to the beginning of @p TNode::ChildrenPerNode long sets of erased nodes.
     IndexContainer _availableIndices;
 
     mutable Mutex _mutex;

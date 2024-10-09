@@ -7,17 +7,12 @@
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/types/inc/types.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
 #include "packages/stl_extension/inc/StrongTypeDef.hpp"
 
 // --- LinAlg Includes ---
 #include "packages/matrix/inc/StaticEigenMatrix.hpp"
 #include "packages/matrix/inc/DynamicEigenMatrix.hpp"
 #include "packages/matrix/inc/SparseEigenMatrix.hpp"
-
-// --- STL Includes ---
-#include <array>
-#include <complex>
 
 
 namespace cie::fem {
@@ -63,6 +58,8 @@ struct Kernel
     struct dense
     {
         using dynamic_matrix = linalg::DynamicEigenMatrix<NT>;
+
+        using DynamicAdaptor = Eigen::Map<dynamic_matrix>;
 
         template <Size RowSize, Size ColumnSize>
         using static_matrix = linalg::StaticEigenMatrix<NT,RowSize,ColumnSize>;

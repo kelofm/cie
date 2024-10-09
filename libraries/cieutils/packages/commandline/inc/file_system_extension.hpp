@@ -11,13 +11,10 @@
 namespace cie::utils {
 
 
-///@addtogroup cieutils
-///@{
-
+/// @ingroup cieutils
 template <>
 struct ArgParse::Results::ValueConverter<std::filesystem::path>;
 
-///@}
 
 } // namespace cie::utils
 

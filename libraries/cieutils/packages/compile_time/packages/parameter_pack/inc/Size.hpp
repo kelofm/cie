@@ -9,12 +9,12 @@
 namespace cie::ct {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class ...Ts>
 inline constexpr Size PackSize = sizeof...(Ts);
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class ...Ts>
 inline constexpr bool Empty = PackSize<Ts...> == 0;
 

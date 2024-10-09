@@ -37,7 +37,7 @@ public:
                   ConstIterator itArgumentEnd,
                   Iterator itOut) const;
 
-    Size size() const noexcept;
+    unsigned size() const noexcept;
 
 private:
     friend class AnsatzSpace<TScalarExpression,Dim>;

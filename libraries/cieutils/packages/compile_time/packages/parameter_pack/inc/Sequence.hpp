@@ -20,23 +20,23 @@ struct ReverseIndexSequence<N, std::index_sequence<Is...>>
 } // namespace impl
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <std::size_t N>
 using MakeIndexSequence = std::make_index_sequence<N>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <std::size_t ...Is>
 using IndexSequence = std::index_sequence<Is...>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <std::size_t N>
 requires (0 < N)
 using MakeReverseIndexSequence = impl::ReverseIndexSequence<N-1, std::make_index_sequence<N>>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <std::size_t ...Is>
 using ReverseIndexSequence = IndexSequence<Is...>;
 

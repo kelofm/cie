@@ -53,6 +53,6 @@ struct Graphviz
 
 } // namespace cie::io
 
-#include "packages/utilities/impl/Graphviz_impl.hpp"
+#include "packages/io/impl/Graphviz_impl.hpp"
 
 #endif

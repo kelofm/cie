@@ -15,7 +15,7 @@
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TTimeUnit>
 class Profiler
 {

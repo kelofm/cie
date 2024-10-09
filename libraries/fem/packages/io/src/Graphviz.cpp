@@ -1,5 +1,5 @@
 // --- FEM Includes ---
-#include "packages/utilities/inc/Graphviz.hpp"
+#include "packages/io/inc/Graphviz.hpp"
 
 namespace cie::io {
 

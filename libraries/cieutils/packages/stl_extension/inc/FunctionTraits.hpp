@@ -12,7 +12,7 @@
 namespace cie {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class T>
 struct FunctionTraits : public std::false_type
 {
@@ -20,7 +20,7 @@ struct FunctionTraits : public std::false_type
 }; // struct FunctionTraits
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class TReturn, class ...TArguments>
 struct FunctionTraits<std::function<TReturn(TArguments...)>> : public std::true_type
 {

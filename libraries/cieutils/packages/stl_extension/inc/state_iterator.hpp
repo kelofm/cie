@@ -14,7 +14,7 @@
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class IteratorType>
 requires concepts::Container<typename std::iterator_traits<IteratorType>::value_type>
 class StateIterator
@@ -94,7 +94,7 @@ struct container_reference_wrapper : public std::reference_wrapper<TContainer>
 
 
 /// @brief Helper class for permutations
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::Container TContainer>
 class InternalStateIterator :
     public StateIterator<typename std::vector<detail::container_reference_wrapper<const TContainer>>::const_iterator>
@@ -112,7 +112,7 @@ protected:
 // CONVENIENCE FUNCTIONS
 // ---------------------------------------------------------
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <class IteratorType>
 StateIterator<IteratorType>
 makeStateIterator(  IteratorType begin,
@@ -120,7 +120,7 @@ makeStateIterator(  IteratorType begin,
 requires concepts::Container<typename std::iterator_traits<IteratorType>::value_type>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::Container ContainerType>
 StateIterator<typename ContainerType::const_iterator>
 makeStateIterator( const ContainerType& container )

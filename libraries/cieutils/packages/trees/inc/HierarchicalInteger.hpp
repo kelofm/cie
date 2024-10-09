@@ -14,7 +14,7 @@ namespace cie {
 
 
 /// @todo incomplete, tests fail - fixme
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <unsigned short Dim, concepts::UnsignedInteger TValue = Size>
 class HierarchicalInteger
 {
@@ -120,8 +120,8 @@ public:
     static constexpr Local getLocalCell(Cell cell) noexcept;
 
     /** @brief Convert the input integer to its level-wise local representation.
-     *  @param value: node to get the level-wise representation of.
-     *  @param level: level of @a node.
+     *  @param node node to get the level-wise representation of.
+     *  @param level level of @p node.
      *  @note The level-wise local representation is ambiguous for fixed-size integers,
      *        which is why the precomputed level is required as an input.
      */

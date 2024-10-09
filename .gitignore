@@ -1,6 +1,7 @@
 /*
 !.gitignore
 !build.sh
+!mkdocs.sh
 !CMakeLists.txt
 !license
 !readme

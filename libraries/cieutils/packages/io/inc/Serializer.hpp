@@ -8,15 +8,11 @@
 #include "packages/types/inc/types.hpp"
 #include "packages/macros/inc/checks.hpp"
 
-// --- STL Includes ---
-#include <string>
-#include <tuple>
-
 
 namespace cie::io {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
 class Serializer
 {
@@ -100,11 +96,11 @@ private:
 }; // class Serializer
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 using BinarySerializer = Serializer<tags::Binary>;
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 using TextSerializer = Serializer<tags::Text>;
 
 

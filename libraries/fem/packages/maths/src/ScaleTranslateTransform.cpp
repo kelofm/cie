@@ -56,7 +56,7 @@ unsigned ScaleTranslateTransform<TValue,Dimension>::size() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ScaleTranslateTransformDerivative<TValue,Dimension>
+typename ScaleTranslateTransform<TValue,Dimension>::Derivative
 ScaleTranslateTransform<TValue,Dimension>::makeDerivative() const noexcept
 {
     return ScaleTranslateTransformDerivative<TValue,Dimension>(*this);
@@ -64,7 +64,7 @@ ScaleTranslateTransform<TValue,Dimension>::makeDerivative() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TranslateScaleTransform<TValue,Dimension>
+typename ScaleTranslateTransform<TValue,Dimension>::Inverse
 ScaleTranslateTransform<TValue,Dimension>::makeInverse() const noexcept
 {
     StaticArray<TValue,Dimension> scales, offset;
@@ -99,7 +99,7 @@ TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform() noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ScaleTranslateTransformDerivative<TValue,Dimension>
+typename TranslateScaleTransform<TValue,Dimension>::Derivative
 TranslateScaleTransform<TValue,Dimension>::makeDerivative() const noexcept
 {
     return ScaleTranslateTransformDerivative<TValue,Dimension>(*this);
@@ -107,7 +107,7 @@ TranslateScaleTransform<TValue,Dimension>::makeDerivative() const noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ScaleTranslateTransform<TValue,Dimension>
+typename TranslateScaleTransform<TValue,Dimension>::Inverse
 TranslateScaleTransform<TValue,Dimension>::makeInverse() const noexcept
 {
     StaticArray<TValue,Dimension> scales, offset;

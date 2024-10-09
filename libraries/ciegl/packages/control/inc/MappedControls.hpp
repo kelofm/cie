@@ -28,11 +28,13 @@ public:
 
     void configure( configuration_map_type& r_configMap );
 
-    /** Load control configuration from a json file with the following layout:
+    /** @details Load control configuration from a json file with the following layout:
+     *  @code
      *  "<control_name>" : ["key_caharacter_1", ..., "key_character_n"]
      *  .
      *  .
      *  .
+     *  @endcode
      */
     void configure( std::istream& r_configurationFile );
 

@@ -56,15 +56,14 @@ public:
      */
     void load( const std::filesystem::path& r_filePath);
 
-    /// Write image to file
-    /**
-     * Method is deduced from the extension. Supported image formats:
-     *  - png, bmp, tga, jpg
-     * (all lower case)
+    /// @brief Write image to file
+    /** @details Method is deduced from the extension. Supported image formats:
+     *            - png, bmp, tga, jpg
+     *              (all lower case)
      *
-     * @param r_filePath path to file to be written to
-     * @param quality quality used for JPEG compression [1;100]
-     * @note other extensions (even uppercase) will throw an exception
+     *  @param r_filePath path to file to be written to
+     *  @param quality quality used for JPEG compression [1;100]
+     *  @note other extensions (even uppercase) will throw an exception
      */
     void write( const std::filesystem::path& r_filePath, Size quailty=100 ) const;
 

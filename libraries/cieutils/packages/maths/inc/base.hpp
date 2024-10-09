@@ -13,7 +13,7 @@
 namespace cie::utils {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <Size NDigits, concepts::Integer NT>
 constexpr void
 baseN(NT base10,
@@ -21,21 +21,21 @@ baseN(NT base10,
       StaticArray<NT,NDigits>& output);
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <Size NDigits, concepts::Integer NT>
 constexpr StaticArray<NT,NDigits>
 baseN(NT base10,
       NT base);
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <Size NDigits, concepts::Integer NT>
 constexpr NT
 base10(const StaticArray<NT,NDigits>& base_N,
        NT base);
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 template <Size NDigits, concepts::Integer NT>
 constexpr NT
 reinterpretBase(const StaticArray<NT,NDigits>& base_N,

@@ -9,7 +9,7 @@
 namespace cie::mp {
 
 
-/// @addtogroup cieutils
+/// @ingroup cieutils
 const std::unordered_set<std::thread::id>& getThreadIDs();
 
 
