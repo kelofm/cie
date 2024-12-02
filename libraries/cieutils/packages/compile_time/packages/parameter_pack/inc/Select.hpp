@@ -5,8 +5,8 @@
 #include "packages/types/inc/types.hpp"
 
 // --- STL Includes ---
-#include <type_traits>
 #include <tuple>
+#include <concepts> // std::integral
 
 
 namespace cie::ct {
@@ -46,6 +46,38 @@ public:
 
     using Back = void;
 }; // class Select<>
+
+
+namespace impl {
+template <std::integral T, T ...TValues>
+struct StripIntegralArray
+{}; // struct StripIntegralArray<T,T...>
+
+template <std::integral T, T TLast>
+struct StripIntegralArray<T,TLast>
+{
+    constexpr static T First = TLast;
+    using Bottom = std::integer_sequence<T>;
+    constexpr static T Last = TLast;
+}; // struct StripIntegralArray<T,T>
+
+template <std::integral T, T TFirst, T ...TRest>
+struct StripIntegralArray<T,TFirst,TRest...>
+{
+    constexpr static T First = TFirst;
+    using Bottom = std::integer_sequence<T,TRest...>;
+    constexpr static T Last = StripIntegralArray<T, TRest...>::Value;
+}; // struct StripIntegralArray<T,T,T...>
+} // namespace impl
+
+
+template <std::integral T, T ...Is>
+struct SelectIntegral
+{
+    constexpr static T First = impl::StripIntegralArray<T,Is...>::First;
+    using Bottom = typename impl::StripIntegralArray<T,Is...>::Bottom;
+    constexpr static T Last = impl::StripIntegralArray<T,Is...>::Last;
+}; // struct SelectIntegral
 
 
 } // namespace cie::ct
