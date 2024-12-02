@@ -18,7 +18,7 @@
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
-#include "packages/utilities/inc/Graphviz.hpp"
+#include "packages/io/inc/Graphviz.hpp"
 #include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/maths/inc/TransformedIntegrand.hpp"
 
