@@ -1,5 +1,5 @@
-#ifndef CIE_FEM_PARTITION_MANAGER_PRE_IMPL_HPP
-#define CIE_FEM_PARTITION_MANAGER_PRE_IMPL_HPP
+#ifndef CIE_FEM_PARTITION_VISITOR_PRE_IMPL_HPP
+#define CIE_FEM_PARTITION_VISITOR_PRE_IMPL_HPP
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Partition.hpp"
@@ -91,7 +91,6 @@ struct AttributeAggregate
                                  ct::MakeIndexSequence<packSize+1>());
     }
 }; // struct AttributeAggregate
-
 
 
 } // namespace cie::fem::impl
