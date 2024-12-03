@@ -19,9 +19,9 @@ private:
                                       Ref<const std::tuple<Ptr<TPartitions>...>> rPartitions,
                                       ct::IndexSequence<Is...>)
     {
-        return impl::AttributeAggregate<typename TPartitions::CellAttributeContainer...>::get(
-            std::get<Is>(rPartitions)->_cellAttributes ...,
-            leafIndex
+        return impl::AttributeAggregate::get(
+            leafIndex,
+            std::get<Is>(rPartitions)->_cellAttributes ...
         );
     }
 
@@ -37,9 +37,9 @@ public:
     requires (concepts::Partition<TPartitions> && ...)
     static auto collectCellAttributes(Size leafIndex, Ref<const TPartitions>... rPartitions)
     {
-        return impl::AttributeAggregate<typename TPartitions::CellAttributeContainer...>::get(
-            rPartitions._cellAttributes ...,
-            leafIndex
+        return impl::AttributeAggregate::get(
+            leafIndex,
+            rPartitions._cellAttributes ...
         );
     }
 

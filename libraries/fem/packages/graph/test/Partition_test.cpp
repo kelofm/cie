@@ -29,7 +29,7 @@ CIE_TEST_CASE("PartitionVisitor", "[graph]")
 
     AttributeContainer<double> root;
     AttributeContainer<int, unsigned, ParentIndex> mid;
-    AttributeContainer<bool, ParentIndex> leaf;
+    AttributeContainer<char, ParentIndex> leaf;
 
     for (int i=0; i<10; ++i) {
         root.push_back(double(i) / 10.0);
@@ -64,7 +64,7 @@ CIE_TEST_CASE("PartitionVisitor", "[graph]")
 
     // Collect attributes from a set of partition references
     {
-        const auto [d, i, u, b] = PartitionVisitor::collectCellAttributes(
+        const auto& [d, i, u, b] = PartitionVisitor::collectCellAttributes(
             0,
             *pRootPartition,
             pRootPartition->child<0>(),
@@ -159,6 +159,20 @@ CIE_TEST_CASE("PartitionVisitor", "[graph]")
         CIE_TEST_CHECK(b == true);
     }
 
+    // Collect mutable attributes.
+    {
+        auto partitionHandle = makePartitionHandle<0,0>(*pRootPartition);
+        const auto [d, i, u, b] = PartitionVisitor::collectCellAttributes(
+            0,
+            partitionHandle.flatten());
+        d = 2.0;
+        CIE_TEST_CHECK(
+            std::get<0>(PartitionVisitor::collectCellAttributes(0, partitionHandle.flatten()))
+            ==
+            Approx(2.0)
+        );
+    }
+
     // Collect attributes from a partial tree.
     {
         const auto [i, u, b] = PartitionVisitor::collectCellAttributes(
@@ -173,6 +187,27 @@ CIE_TEST_CASE("PartitionVisitor", "[graph]")
         const auto [i, u, b] = PartitionVisitor::collectCellAttributes(
             1,
             makePartitionHandle<0>(pRootPartition->child<0>()).flatten());
+        CIE_TEST_CHECK(i == 0);
+        CIE_TEST_CHECK(u == 0u);
+        CIE_TEST_CHECK(b == true);
+    }
+
+    // Collect attributes from an immutable partial tree.
+    {
+        const auto partitionHandle = makePartitionHandle<0>(pRootPartition->child<0>());
+        const auto& [i, u, b] = PartitionVisitor::collectCellAttributes(
+            0,
+            partitionHandle.flatten());
+        CIE_TEST_CHECK(i == 30);
+        CIE_TEST_CHECK(u == 15u);
+        CIE_TEST_CHECK(b == false);
+    }
+
+    {
+        const auto partitionHandle = makePartitionHandle<0>(pRootPartition->child<0>());
+        const auto [i, u, b] = PartitionVisitor::collectCellAttributes(
+            1,
+            partitionHandle.flatten());
         CIE_TEST_CHECK(i == 0);
         CIE_TEST_CHECK(u == 0u);
         CIE_TEST_CHECK(b == true);
