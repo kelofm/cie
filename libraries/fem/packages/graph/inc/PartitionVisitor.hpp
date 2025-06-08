@@ -27,7 +27,7 @@ private:
 
 public:
     /// @brief  Fetch all attributes of an entry defined by its index in the leaf partition.
-    /// @tparam ...TPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
+    /// @tparam TPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
     ///         and every partition between them must be ordered accordingly.
     /// @param leafIndex The entry's index in the leaf partition.
     /// @param ...rPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
@@ -45,7 +45,7 @@ public:
 
 
     /// @brief  Fetch all attributes of an entry defined by its index in the leaf partition.
-    /// @tparam ...TPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
+    /// @tparam TPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
     ///         and every partition between them must be ordered accordingly.
     /// @param leafIndex The entry's index in the leaf partition.
     /// @param ...pPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
@@ -60,7 +60,7 @@ public:
 
 
     /// @brief  Fetch all attributes of an entry defined by its index in the leaf partition.
-    /// @tparam ...TPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
+    /// @tparam TPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
     ///         and every partition between them must be ordered accordingly.
     /// @param leafIndex The entry's index in the leaf partition.
     /// @param ...rPartitions Set of partitions to fetch attributes from. First is root, last is leaf,
