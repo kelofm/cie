@@ -56,12 +56,12 @@ TGeometry makeRootGeometry()
 
 
 template <class TValue>
-bool isInside(const TValue* it_begin,
-              const TValue* it_end)
+bool isInside(const TValue* itBegin,
+              const TValue* itEnd)
 {
     TValue level = 1;
-    for (; it_begin!=it_end; ++it_begin) {
-        level *= (*it_begin) * (*it_begin);
+    for (; itBegin!=itEnd; ++itBegin) {
+        level -= (*itBegin) * (*itBegin);
     }
     return 0 < level;
 }
@@ -113,8 +113,8 @@ void contiguousTree(benchmark::State& r_state)
                                         // third bit indicates whether the cell is split
             do {
                 typename Tree::Point sample;
-                for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-                    sample[i_dim] = base[i_dim] + state[i_dim] * lengths[i_dim];
+                for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+                    sample[iDim] = base[iDim] + state[iDim] * lengths[iDim];
                 }
                 const bool inside = isInside(sample.data(), sample.data() + Dimension);
                 if (result & 0b1) {
@@ -130,8 +130,8 @@ void contiguousTree(benchmark::State& r_state)
                 return true;
             } else if (result & 0b10) {
                 Value cellVolume = 1;
-                for (unsigned i_dim=0; i_dim<Dimension; ++i_dim) {
-                    cellVolume *= lengths[i_dim] * (CELL_RESOLUTION - 1);
+                for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+                    cellVolume *= lengths[iDim];
                 }
                 volume += cellVolume;
             }
