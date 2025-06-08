@@ -52,7 +52,6 @@ auto getAttributes(Ptr<const std::size_t> pAttributeIndexBegin,
     return std::tie(
         std::get<ContainerIndex>(rContainers)->template at<TAttributes>(pAttributeIndexBegin[ContainerIndex])...
     );
-    //return std::get<ContainerIndex>(rContainers)->get(pAttributeIndexBegin[ContainerIndex]);
 }
 
 
