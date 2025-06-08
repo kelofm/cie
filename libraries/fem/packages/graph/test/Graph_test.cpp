@@ -162,9 +162,9 @@ CIE_TEST_CASE("simple Graph", "[graph]")
 
         graph.insert(Vertex(3, {}), true); // <== force insert: graph is mutated
 
-        // +---+       +---+
-        // | 1 |       | 2 |
-        // +---+       +---+
+        // +---+       +---+       +---+
+        // | 1 |       | 2 |       | 3 |
+        // +---+       +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(!e.has_value());
 
