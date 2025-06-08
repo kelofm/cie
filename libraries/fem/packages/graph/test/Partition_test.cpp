@@ -212,6 +212,67 @@ CIE_TEST_CASE("PartitionVisitor", "[graph]")
         CIE_TEST_CHECK(u == 0u);
         CIE_TEST_CHECK(b == true);
     }
+
+    // Collect and mutate attributes from a mutable partial tree.
+    {
+        auto [i, u, b] = PartitionVisitor::collectCellAttributes(
+            0,
+            makePartitionHandle<0>(pRootPartition->child<0>()).flatten());
+
+        CIE_TEST_CHECK(i == 30);
+        CIE_TEST_CHECK(u == 15u);
+        CIE_TEST_CHECK(b == false);
+
+        i *= 2;
+        u *= 2;
+        b = !b;
+
+        CIE_TEST_CHECK(i == 60);
+        CIE_TEST_CHECK(u == 30u);
+        CIE_TEST_CHECK(b == true);
+
+        const auto& [ii, uu, bb] = PartitionVisitor::collectCellAttributes(
+            0,
+            makePartitionHandle<0>(pRootPartition->child<0>()).flatten());
+
+        CIE_TEST_CHECK(i == ii);
+        CIE_TEST_CHECK(u == uu);
+        CIE_TEST_CHECK(b == bb);
+
+        CIE_TEST_CHECK(ii == 60);
+        CIE_TEST_CHECK(uu == 30u);
+        CIE_TEST_CHECK(bb == true);
+    }
+
+    {
+        auto [i, u, b] = PartitionVisitor::collectCellAttributes(
+            1,
+            makePartitionHandle<0>(pRootPartition->child<0>()).flatten());
+
+        CIE_TEST_CHECK(i == 0);
+        CIE_TEST_CHECK(u == 0u);
+        CIE_TEST_CHECK(b == true);
+
+        i += 2;
+        u += 3;
+        b = !b;
+
+        CIE_TEST_CHECK(i == 2);
+        CIE_TEST_CHECK(u == 3u);
+        CIE_TEST_CHECK(b == false);
+
+        const auto& [ii, uu, bb] = PartitionVisitor::collectCellAttributes(
+            1,
+            makePartitionHandle<0>(pRootPartition->child<0>()).flatten());
+
+        CIE_TEST_CHECK(i == ii);
+        CIE_TEST_CHECK(u == uu);
+        CIE_TEST_CHECK(b == bb);
+
+        CIE_TEST_CHECK(ii == 2);
+        CIE_TEST_CHECK(uu == 3u);
+        CIE_TEST_CHECK(bb == false);
+    }
 }
 
 
