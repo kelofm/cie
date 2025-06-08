@@ -23,6 +23,7 @@ list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
 find_package(cieutils CONFIG REQUIRED)
 find_package(linalg CONFIG REQUIRED)
 find_package(geo REQUIRED)
+find_package(LibXml2 REQUIRED)
 
 # Compile definitions
 if (${PROJECT_NAME_UPPER}_ENABLE_EXCEPTION_TRACING)
@@ -60,7 +61,9 @@ else()
     add_library(${PROJECT_NAME} STATIC ${sources})
 endif()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC cie::cieutils cie::linalg cie::geo)
+target_link_libraries(${PROJECT_NAME}
+                      PUBLIC cie::cieutils cie::linalg cie::geo
+                      PRIVATE LibXml2::LibXml2)
 target_include_directories(${PROJECT_NAME}
                            PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                            INTERFACE "$<INSTALL_INTERFACE:cie/include>"

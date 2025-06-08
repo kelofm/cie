@@ -9,7 +9,6 @@
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 #include "packages/stl_extension/inc/NoOpIterator.hpp"
 #include "packages/stl_extension/inc/StrongTypeDef.hpp"
-#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
 // --- STL Includes ---
 #include <type_traits> // conditional_t
