@@ -3,11 +3,15 @@
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
+#include "packages/io/inc/GraphML.hpp" // io::GraphML::Serializer
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/StaticArray.hpp"
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/macros/inc/typedefs.hpp"
+
+// --- STL Includes ---
+#include <ostream> // std::ostream
 
 
 namespace cie::fem::maths {
@@ -52,6 +56,9 @@ public:
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
+
+    friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                                        Ref<const ScaleTranslateTransformDerivative> rObject);
 
 private:
     friend class ScaleTranslateTransform<TValue,Dimension>;
@@ -112,6 +119,9 @@ public:
 
     /// @brief Construct the inverse of the transform.
     Inverse makeInverse() const noexcept;
+
+    friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                                        Ref<const ScaleTranslateTransform> rObject);
 
 private:
     ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
@@ -174,6 +184,9 @@ public:
     /// @brief Construct the inverse of the transform.
     ScaleTranslateTransform<TValue,Dimension> makeInverse() const noexcept;
 
+    Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                                 Ref<const TranslateScaleTransform> rObject);
+
 private:
     TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
                             RightRef<StaticArray<TValue,Dimension>> rOffsets) noexcept;
@@ -193,6 +206,43 @@ private:
 
 
 } // namespace cie::fem::maths
+
+
+
+// --- IO --- //
+
+
+namespace cie::fem::io {
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+struct GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>>
+{
+    void header(Ref<XMLElement> rElement) noexcept;
+
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) noexcept;
+}; // struct io::GraphML::Serializer<ScaleTranslateTransformDerivative<TValue,Dimension>>
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>
+{
+    void header(Ref<XMLElement> rElement) noexcept;
+
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept;
+}; // struct io::GraphML::Serializer<ScaleTranslateTransform<TValue,Dimension>>
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+struct GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>
+{
+    void header(Ref<XMLElement> rElement) noexcept;
+
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) noexcept;
+}; // struct io::GraphML::Serializer<TranslateScaleTransform<TValue,Dimension>>
+
+
+} // namespace cie::fem::io
 
 #include "packages/maths/impl/ScaleTranslateTransform_impl.hpp"
 

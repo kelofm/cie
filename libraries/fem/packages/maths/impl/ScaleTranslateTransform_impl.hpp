@@ -53,6 +53,16 @@ unsigned ScaleTranslateTransformDerivative<TValue,Dimension>::size() const noexc
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                             Ref<ScaleTranslateTransformDerivative<TValue,Dimension>> rObject)
+{
+    for (const auto scale : rObject._scales)
+        rStream << scale << ' ';
+    return rStream;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
 inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt itTransformedBegin,
                                                                           [[maybe_unused]] TPointIt itTransformedEnd)
@@ -136,7 +146,96 @@ unsigned TranslateScaleTransform<TValue,Dimension>::size() const noexcept
 }
 
 
+template <concepts::Numeric TValue, unsigned Dimension>
+Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                             Ref<const ScaleTranslateTransform<TValue,Dimension>> rObject)
+{
+    for (const auto scale : rObject._scales) rStream << scale << ' ';
+    for (const auto component : rObject._offset) rStream << component << ' ';
+    return rStream;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                             Ref<const TranslateScaleTransform<TValue,Dimension>> rObject)
+{
+    for (const auto scale : rObject._scales) rStream << scale << ' ';
+    for (const auto component : rObject._offset) rStream << component << ' ';
+    return rStream;
+}
+
+
 } // namespace cie::fem::maths
+
+
+// --- IO --- //
+
+
+namespace cie::fem::io {
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>>::header(Ref<XMLElement> rElement) noexcept
+{
+    auto descriptionElement = rElement.addChild("desc");
+    std::stringstream description;
+    description << "Derivative of a scaling in " << Dimension << " dimensions.";
+    descriptionElement.setValue(description.view());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
+                                                                                       Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) noexcept
+{
+    std::stringstream stream;
+    stream << rObject;
+    rElement.setValue(stream.view());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::header(Ref<XMLElement> rElement) noexcept
+{
+    auto descriptionElement = rElement.addChild("desc");
+    std::stringstream description;
+    description << "Scaling followed by a translation in " << Dimension << " dimensions.";
+    descriptionElement.setValue(description.view());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
+                                                                                       Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept
+{
+    std::stringstream stream;
+    stream << rObject;
+    rElement.setValue(stream.view());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::header(Ref<XMLElement> rElement) noexcept
+{
+    auto descriptionElement = rElement.addChild("desc");
+    std::stringstream description;
+    description << "Translation followed by scaling in " << Dimension << " dimensions.";
+    descriptionElement.setValue(description.view());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
+                                                                                       Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) noexcept
+{
+    std::stringstream stream;
+    stream << rObject;
+    rElement.setValue(stream.view());
+}
+
+
+} // namespace cie::fem::io
 
 
 #endif
