@@ -352,6 +352,29 @@ OrientedAxes<Dimension>::end() noexcept
 }
 
 
+template <unsigned Dimension>
+void io::GraphML::Serializer<OrientedAxes<Dimension>>::header(Ref<XMLElement> rElement) noexcept
+{
+    auto descriptionElement = rElement.addChild("desc");
+
+    std::stringstream description;
+    description << Dimension << "-dimensional cube spanning [-1, 1]^"
+                << Dimension << " in any axis-parallel orientation within "
+                << Dimension << "-dimensional space.";
+    descriptionElement.setValue(description.view());
+}
+
+
+template <unsigned Dimension>
+void io::GraphML::Serializer<OrientedAxes<Dimension>>::operator()(Ref<XMLElement> rElement,
+                                                                  Ref<const OrientedAxes<Dimension>> rObject) noexcept
+{
+    std::stringstream stream;
+    stream << rObject;
+    rElement.setValue(stream.view());
+}
+
+
 } // namespace cie::fem
 
 

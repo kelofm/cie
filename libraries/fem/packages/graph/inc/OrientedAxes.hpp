@@ -7,6 +7,7 @@
 
 // --- FEM Includes ---
 #include "packages/graph/inc/BoundaryID.hpp" // BoundaryID
+#include "packages/io/inc/GraphML.hpp" // GraphML::Serializer
 
 // --- STL Includes ---
 #include <bitset> // std::bitset, std::hash
@@ -198,8 +199,18 @@ private:
 }; // class OrientedAxes
 
 
+template <unsigned D>
+std::ostream& operator<<(std::ostream& rStream, OrientedAxes<D> boundary);
+
+
 template <unsigned Dimension>
-std::ostream& operator<<(std::ostream& rStream, OrientedAxes<Dimension> boundary);
+struct io::GraphML::Serializer<OrientedAxes<Dimension>>
+{
+    void header(Ref<XMLElement> rElement) noexcept;
+
+    void operator()(Ref<XMLElement> rElement, Ref<const OrientedAxes<Dimension>> rObject) noexcept;
+}; // GraphML::Serializer<OrientedAxes<Dimension>>
+
 
 
 } // namespace cie::fem
@@ -216,7 +227,6 @@ struct Hash<fem::OrientedAxes<Dimension>>
         return std::hash<typename fem::OrientedAxes<Dimension>::Data>()(instance._data);
     }
 }; // struct hash<OrientedAxes>
-
 
 
 } // namespace cie::utils
