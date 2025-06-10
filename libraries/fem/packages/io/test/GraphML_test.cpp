@@ -48,14 +48,11 @@ template <>
 struct io::GraphML::Serializer<GraphMLTestVertexData>
 {
     void header(Ref<XMLElement> rElement) {
-        rElement.addAttribute("id", "GraphMLTestVertexData");
-        rElement.addAttribute("for", "node");
         XMLElement defaultData = rElement.addChild("default");
         defaultData.setValue("default GraphMLTestVertexData");
     }
 
     void operator()(Ref<XMLElement> rElement, Ref<const GraphMLTestVertexData> rData) {
-        rElement.addAttribute("key", "GraphMLTestVertexData");
         rElement.setValue(rData.data);
     }
 }; // struct GraphML::Serializer<GraphMLTestVertexData>
@@ -65,14 +62,11 @@ template <>
 struct io::GraphML::Serializer<GraphMLTestEdgeData>
 {
     void header(Ref<XMLElement> rElement) {
-        rElement.addAttribute("id", "GraphMLTestEdgeData");
-        rElement.addAttribute("for", "edge");
         XMLElement defaultData = rElement.addChild("default");
         defaultData.setValue("default GraphMLTestEdgeData");
     }
 
     void operator()(Ref<XMLElement> rElement, Ref<const GraphMLTestEdgeData> rData) {
-        rElement.addAttribute("key", "GraphMLTestEdgeData");
         rElement.setValue(rData.data);
     }
 }; // struct GraphML::Serializer<GraphMLTestEdgeData>
