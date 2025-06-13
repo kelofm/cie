@@ -1,0 +1,37 @@
+If:
+    PathMatch: ".*libraries/cieutils/.*"
+
+CompileFlags:
+    CompilationDatabase: libraries/cieutils/build
+
+---
+
+If:
+    PathMatch: ".*libraries/linalg/.*"
+
+CompileFlags:
+    CompilationDatabase: libraries/linalg/build
+
+---
+
+If:
+    PathMatch: ".*libraries/geo/.*"
+
+CompileFlags:
+    CompilationDatabase: libraries/geo/build
+
+---
+
+If:
+    PathMatch: ".*libraries/fem/.*"
+
+CompileFlags:
+    CompilationDatabase: libraries/fem/build
+
+---
+
+If:
+    PathMatch: ".*libraries/ciegl/.*"
+
+CompileFlags:
+    CompilationDatabase: libraries/ciegl/build
