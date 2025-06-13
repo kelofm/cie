@@ -57,8 +57,9 @@ public:
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
 
+    template <concepts::Numeric TTNumeric, unsigned Dim>
     friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                                        Ref<const ScaleTranslateTransformDerivative> rObject);
+                                        Ref<const ScaleTranslateTransformDerivative<TTNumeric,Dim>> rObject);
 
 private:
     friend class ScaleTranslateTransform<TValue,Dimension>;
@@ -120,8 +121,9 @@ public:
     /// @brief Construct the inverse of the transform.
     Inverse makeInverse() const noexcept;
 
+    template <concepts::Numeric TTNumeric, unsigned Dim>
     friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                                        Ref<const ScaleTranslateTransform> rObject);
+                                        Ref<const ScaleTranslateTransform<TTNumeric,Dim>> rObject);
 
 private:
     ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
@@ -184,8 +186,9 @@ public:
     /// @brief Construct the inverse of the transform.
     ScaleTranslateTransform<TValue,Dimension> makeInverse() const noexcept;
 
-    Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                                 Ref<const TranslateScaleTransform> rObject);
+    template <concepts::Numeric TTNumeric, unsigned Dim>
+    friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
+                                        Ref<const TranslateScaleTransform<TTNumeric,Dim>> rObject);
 
 private:
     TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
