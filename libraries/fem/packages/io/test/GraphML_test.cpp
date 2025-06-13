@@ -32,6 +32,12 @@ CIE_TEST_CASE("GraphML no data", "[graph]")
 }
 
 
+struct GraphMLTestGraphData
+{
+    std::string data;
+}; // struct GraphMLTestGraphData
+
+
 struct GraphMLTestVertexData
 {
     std::string data;
@@ -42,6 +48,20 @@ struct GraphMLTestEdgeData
 {
     std::string data;
 }; // struct GraphMLTestEdgeData
+
+
+template <>
+struct io::GraphML::Serializer<GraphMLTestGraphData>
+{
+    void header(Ref<XMLElement> rElement) {
+        XMLElement defaultData = rElement.addChild("default");
+        defaultData.setValue("default GraphMLTestGraphData");
+    }
+
+    void operator()(Ref<XMLElement> rElement, Ref<const GraphMLTestGraphData> rData) {
+        rElement.setValue(rData.data);
+    }
+}; // GraphML::Serializer<GraphMLTestGraphData>
 
 
 template <>
@@ -75,14 +95,16 @@ struct io::GraphML::Serializer<GraphMLTestEdgeData>
 CIE_TEST_CASE("GraphML custom data", "[graph]")
 {
     CIE_TEST_CASE_INIT("GraphML custom data")
+    using GraphData = GraphMLTestGraphData;
     using VertexData = GraphMLTestVertexData;
     using EdgeData = GraphMLTestEdgeData;
-    using G = Graph<VertexData,EdgeData>;
+    using G = Graph<VertexData,EdgeData,GraphData>;
     using Edge = G::Edge;
 
     {
         CIE_TEST_CASE_INIT("output")
         G graph;
+        graph.data().data = "dummy graph data";
 
         // +---+   1   +---+   2   +---+
         // | 1 |<----->| 2 |<----->| 3 |

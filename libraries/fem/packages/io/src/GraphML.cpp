@@ -6,6 +6,8 @@
 
 // --- STL Includes ---
 #include <algorithm> // std::copy
+#include <cstring> // std::memset
+#include <stack> // std::stack
 
 
 namespace cie::fem::io {
@@ -75,6 +77,108 @@ GraphML::XMLElement GraphML::XMLElement::addChild(std::string_view name)
                                        nullptr);
 
     return child;
+}
+
+
+struct GraphML::SAXHandler::Impl
+{
+    std::istream* _pStream;
+
+    xmlSAXHandler _wrapped;
+
+    xmlParserCtxtPtr _pParserContext;
+
+    std::stack<State> _stateStack;
+
+    static XMLStringView makeView(const xmlChar* pBegin) noexcept
+    {
+        const xmlChar* pEnd = pBegin;
+        while (*pEnd != '\0') {++pEnd;}
+        return {pBegin, pEnd};
+    }
+
+    static void onElementBegin(void* pContext,
+                               const xmlChar* pLocalName,
+                               [[maybe_unused]] const xmlChar* pPrefix,
+                               [[maybe_unused]] const xmlChar* pURI,
+                               [[maybe_unused]] int namespaceCount,
+                               [[maybe_unused]] const xmlChar** pNamespaces,
+                               int attributeCount,
+                               [[maybe_unused]] int defaultAttributeCount,
+                               const xmlChar** pAttributes)
+    {
+        SAXHandler::Impl& rThis = *static_cast<SAXHandler::Impl*>(pContext);
+
+        XMLStringView tagName = makeView(pLocalName);
+        std::vector<std::pair<XMLStringView,XMLStringView>> attributes(attributeCount);
+        for (int iAttribute=0ul; iAttribute<attributeCount; ++iAttribute) {
+            attributes[iAttribute].second = makeView(pAttributes[iAttribute]);
+        }
+
+        std::get<0>(rThis._state)(std::get<3>(rThis._state),
+                                  std::get<4>(rThis._state),
+                                  tagName,
+                                  {attributes.data(), attributes.data() + attributeCount});
+    }
+
+    static void onText(void* pContext,
+                       const xmlChar* pBegin,
+                       int size)
+    {
+        SAXHandler::Impl& rThis = *static_cast<SAXHandler::Impl*>(pContext);
+        std::get<1>(rThis._state)(std::get<3>(rThis._state),
+                                  std::get<4>(rThis._state),
+                                  {pBegin, pBegin + size});
+    }
+
+    static void onElementEnd(void* pContext,
+                             const xmlChar* pLocalName,
+                             [[maybe_unused]] const xmlChar* pPrefix,
+                             [[maybe_unused]] const xmlChar* pURI)
+    {
+        SAXHandler::Impl& rThis = *static_cast<SAXHandler::Impl*>(pContext);
+        std::get<2>(rThis._state)(std::get<3>(rThis._state),
+                                  std::get<4>(rThis._state),
+                                  makeView(pLocalName));
+    }
+}; // struct GraphML::SAXHandler::Impl
+
+
+GraphML::SAXHandler::SAXHandler(std::istream& rStream)
+    : _pImpl(new Impl)
+{
+    _pImpl->_pStream = &rStream;
+    std::memset(&_pImpl->_wrapped, 0, sizeof(xmlSAXHandler));
+
+    _pImpl->_pParserContext = xmlCreatePushParserCtxt(&_pImpl->_wrapped,
+                                                      static_cast<void*>(_pImpl.get()),
+                                                      nullptr,
+                                                      0,
+                                                      nullptr);
+    if (!_pImpl->_pParserContext) CIE_THROW(Exception, "call to xmlCreatePushParserCtxt failed");
+
+    _pImpl->_wrapped.startElementNs = &Impl::onElementBegin;
+    _pImpl->_wrapped.characters = &Impl::onText;
+    _pImpl->_wrapped.endElementNs = &Impl::onElementEnd;
+}
+
+
+GraphML::SAXHandler::~SAXHandler()
+{
+    xmlFreeParserCtxt(_pImpl->_pParserContext);
+    //xmlCleanupParser();
+}
+
+
+GraphML::SAXHandler::State GraphML::SAXHandler::getState() const noexcept
+{
+    return _pImpl->_state;
+}
+
+
+void GraphML::SAXHandler::setState(State state) noexcept
+{
+    _pImpl->_state = state;
 }
 
 
