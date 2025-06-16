@@ -14,15 +14,23 @@
 namespace cie::fem::io {
 
 
-inline GraphML::DeserializerBase::DeserializerBase(Ref<GraphML::SAXHandler> rSAX)
-    : _pSAX(&rSAX)
+template <class TVertexData, class TEdgeData, class TGraphData>
+void GraphML::Input::operator()(Ref<Graph<TVertexData,TEdgeData,TGraphData>> rGraph)
 {
-}
+    CIE_BEGIN_EXCEPTION_TRACING
 
+    SAXHandler sax(this->stream());
 
-inline Ref<GraphML::SAXHandler> GraphML::DeserializerBase::getSAX() noexcept
-{
-    return *_pSAX;
+    using Deserializer = GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>;
+    auto pDeserializer = std::make_unique<Deserializer>();
+    sax.push({Deserializer::onElementBegin,
+              Deserializer::onText,
+              Deserializer::onElementEnd,
+              &rGraph});
+
+    sax.parse();
+
+    CIE_END_EXCEPTION_TRACING
 }
 
 

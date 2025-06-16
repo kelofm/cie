@@ -13,20 +13,6 @@
 
 
 
-namespace cie::concepts {
-template <class TDeserializer>
-concept GraphMLDeserializer
-= requires (void* pVoid,
-            std::basic_string_view<unsigned char> view,
-            std::span<std::pair<std::basic_string_view<unsigned char>,std::basic_string_view<unsigned char>>> views) {
-    {TDeserializer::onElementBegin(pVoid, pVoid, view, views)}  -> std::same_as<void>;
-    {TDeserializer::onElementEnd(pVoid, pVoid, view)}           -> std::same_as<void>;
-    {TDeserializer::onText(pVoid, pVoid, view)}                 -> std::same_as<void>;
-};
-} // namespace cie::concepts
-
-
-
 namespace cie::fem::io {
 
 
@@ -65,45 +51,52 @@ public:
     class SAXHandler;
 
 
-    struct DeserializerBase
-    {
-    public:
-        DeserializerBase(Ref<SAXHandler> rSAX);
-
-        virtual ~DeserializerBase() = default;
-
-        Ref<SAXHandler> getSAX() noexcept;
-
-    private:
-        Ptr<SAXHandler> _pSAX;
-    };
-
-
     template <class T>
-    struct Deserializer : public GraphML::DeserializerBase {};
+    struct Deserializer {};
 
 
     class Input
-    {}; // class Input
+    {
+    public:
+        Input();
+
+        Input(Input&&) noexcept;
+
+        Input(Ref<std::istream> rStream);
+
+        ~Input();
+
+        template <class TVertexData, class TEdgeData, class TGraphData>
+        void operator()(Ref<Graph<TVertexData,TEdgeData,TGraphData>> rGraph);
+
+    private:
+        Ref<std::istream> stream() noexcept;
+
+        struct Impl;
+        std::unique_ptr<Impl> _pImpl;
+    }; // class Input
 
 
     class SAXHandler final
     {
     public:
         typedef void (*OnElementBeginCallback)(void*,
-                                               void*,
+                                               Ref<SAXHandler>,
                                                XMLStringView,
                                                std::span<std::pair<XMLStringView,XMLStringView>>);
 
-        typedef void (*OnTextCallback)(void*, void*, XMLStringView);
+        typedef void (*OnTextCallback)(void*,
+                                       Ref<SAXHandler>,
+                                       XMLStringView);
 
-        typedef void (*OnElementEndCallback)(void*, void*, XMLStringView);
+        typedef void (*OnElementEndCallback)(void*,
+                                             Ref<SAXHandler>,
+                                             XMLStringView);
 
         using State = std::tuple<
             OnElementBeginCallback,
             OnTextCallback,
             OnElementEndCallback,
-            void*,
             void*
         >;
 
@@ -111,14 +104,14 @@ public:
 
         void push(State state);
 
-        State pop();
-
     private:
         SAXHandler(std::istream& rStream);
 
         SAXHandler(SAXHandler&&) = delete;
 
         SAXHandler(const SAXHandler&) = delete;
+
+        void parse(std::size_t bufferSize = 0x800000);
 
         friend class GraphML::Input;
 

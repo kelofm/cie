@@ -8,6 +8,7 @@
 #include <algorithm> // std::copy
 #include <cstring> // std::memset
 #include <stack> // std::stack
+#include <iostream> // std::cin
 
 
 namespace cie::fem::io {
@@ -80,6 +81,36 @@ GraphML::XMLElement GraphML::XMLElement::addChild(std::string_view name)
 }
 
 
+struct GraphML::Input::Impl
+{
+    Ptr<std::istream> _pStream;
+}; // struct GraphML::Input::Impl
+
+
+GraphML::Input::Input()
+    : Input(std::cin)
+{
+}
+
+
+GraphML::Input::Input(Input&&) noexcept = default;
+
+
+GraphML::Input::Input(Ref<std::istream> rStream)
+    : _pImpl(new Impl {&rStream})
+{
+}
+
+
+GraphML::Input::~Input() = default;
+
+
+Ref<std::istream> GraphML::Input::stream() noexcept
+{
+    return *_pImpl->_pStream;
+}
+
+
 struct GraphML::SAXHandler::Impl
 {
     std::istream* _pStream;
@@ -107,7 +138,12 @@ struct GraphML::SAXHandler::Impl
                                [[maybe_unused]] int defaultAttributeCount,
                                const xmlChar** pAttributes)
     {
-        SAXHandler::Impl& rThis = *static_cast<SAXHandler::Impl*>(pContext);
+        Ref<SAXHandler> rSAX = *static_cast<Ptr<SAXHandler>>(pContext);
+        if (rSAX._pImpl->_stateStack.empty()) {
+            CIE_THROW(
+                OutOfRangeException,
+                "state stack empty while parsing element '" << pLocalName << "'")
+        }
 
         XMLStringView tagName = makeView(pLocalName);
         std::vector<std::pair<XMLStringView,XMLStringView>> attributes(attributeCount);
@@ -115,20 +151,31 @@ struct GraphML::SAXHandler::Impl
             attributes[iAttribute].second = makeView(pAttributes[iAttribute]);
         }
 
-        std::get<0>(rThis._state)(std::get<3>(rThis._state),
-                                  std::get<4>(rThis._state),
-                                  tagName,
-                                  {attributes.data(), attributes.data() + attributeCount});
+        Ref<State> rState = rSAX._pImpl->_stateStack.top();
+        std::get<0>(rState)(std::get<3>(rState),
+                            rSAX,
+                            tagName,
+                            {attributes.data(), attributes.data() + attributeCount});
     }
 
     static void onText(void* pContext,
                        const xmlChar* pBegin,
                        int size)
     {
-        SAXHandler::Impl& rThis = *static_cast<SAXHandler::Impl*>(pContext);
-        std::get<1>(rThis._state)(std::get<3>(rThis._state),
-                                  std::get<4>(rThis._state),
-                                  {pBegin, pBegin + size});
+        Ref<SAXHandler> rSAX = *static_cast<Ptr<SAXHandler>>(pContext);
+
+        if (rSAX._pImpl->_stateStack.empty()) {
+            std::string characters('\0', size);
+            std::copy(pBegin, pBegin + size, characters.begin());
+            CIE_THROW(
+                OutOfRangeException,
+                "state stack empty while parsing text '" << characters << "'")
+        }
+
+        Ref<State> rState = rSAX._pImpl->_stateStack.top();
+        std::get<1>(rState)(std::get<3>(rState),
+                            rSAX,
+                            {pBegin, pBegin + size});
     }
 
     static void onElementEnd(void* pContext,
@@ -136,10 +183,19 @@ struct GraphML::SAXHandler::Impl
                              [[maybe_unused]] const xmlChar* pPrefix,
                              [[maybe_unused]] const xmlChar* pURI)
     {
-        SAXHandler::Impl& rThis = *static_cast<SAXHandler::Impl*>(pContext);
-        std::get<2>(rThis._state)(std::get<3>(rThis._state),
-                                  std::get<4>(rThis._state),
-                                  makeView(pLocalName));
+        Ref<SAXHandler> rSAX = *static_cast<Ptr<SAXHandler>>(pContext);
+
+        if (rSAX._pImpl->_stateStack.empty()) {
+            CIE_THROW(
+                OutOfRangeException,
+                "state stack empty while parsing the end of element '" << pLocalName << "'")
+        }
+
+        Ref<State> rState = rSAX._pImpl->_stateStack.top();
+        std::get<2>(rState)(std::get<3>(rState),
+                            rSAX,
+                            makeView(pLocalName));
+        rSAX._pImpl->_stateStack.pop();
     }
 }; // struct GraphML::SAXHandler::Impl
 
@@ -151,7 +207,7 @@ GraphML::SAXHandler::SAXHandler(std::istream& rStream)
     std::memset(&_pImpl->_wrapped, 0, sizeof(xmlSAXHandler));
 
     _pImpl->_pParserContext = xmlCreatePushParserCtxt(&_pImpl->_wrapped,
-                                                      static_cast<void*>(_pImpl.get()),
+                                                      static_cast<void*>(this),
                                                       nullptr,
                                                       0,
                                                       nullptr);
@@ -170,15 +226,39 @@ GraphML::SAXHandler::~SAXHandler()
 }
 
 
-GraphML::SAXHandler::State GraphML::SAXHandler::getState() const noexcept
+void GraphML::SAXHandler::push(State state)
 {
-    return _pImpl->_state;
+    _pImpl->_stateStack.push(std::move(state));
 }
 
 
-void GraphML::SAXHandler::setState(State state) noexcept
+void GraphML::SAXHandler::parse(std::size_t bufferSize)
 {
-    _pImpl->_state = state;
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    std::string buffer;
+    buffer.resize(bufferSize);
+
+    Ref<std::istream> rStream = *_pImpl->_pStream;
+    while (!rStream.eof()) {
+        if (rStream.bad())
+            CIE_THROW(Exception, "input stream in invalid state while SAX parsing GraphML")
+
+        const auto readSize = rStream.readsome(buffer.data(), bufferSize);
+        const auto error = xmlParseChunk(_pImpl->_pParserContext, buffer.data(), readSize, 0);
+
+        if (error)
+            CIE_THROW(Exception, "'xmlParseChunk' failed with error code " << error)
+    } // while !rStream.eof()
+
+    // Tell the XML parser that the last chunk was parsed.
+    xmlParseChunk(_pImpl->_pParserContext, buffer.data(), 0, 1);
+
+    // Fetch validation flags from the parser.
+    if (!_pImpl->_pParserContext->wellFormed)
+        CIE_THROW(Exception, "input GraphML is not a well formed XML document")
+
+    CIE_END_EXCEPTION_TRACING
 }
 
 
