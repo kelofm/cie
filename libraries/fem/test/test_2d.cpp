@@ -132,7 +132,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
             // Insert the cell into the adjacency graph (mesh) as a vertex
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
             mesh.insert(Mesh::Vertex(
-                Mesh::VertexID(iCell),
+                VertexID(iCell),
                 {}, ///< edges of the adjacency graph are added automatically during edge insertion
                 Mesh::Vertex::Data {
                     .diffusivity = 1.0,
@@ -152,7 +152,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 BoundaryID source = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
                 BoundaryID target = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
                 mesh.insert(Mesh::Edge(
-                    Mesh::EdgeID(iBoundary++),
+                    EdgeID(iBoundary++),
                     {iSourceCell, iTargetCell},
                     std::make_pair(source, target)
                 ));
@@ -164,7 +164,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 BoundaryID source = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
                 BoundaryID target = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
                 mesh.insert(Mesh::Edge(
-                    Mesh::EdgeID(iBoundary++),
+                    EdgeID(iBoundary++),
                     {iSourceCell, iTargetCell},
                     std::make_pair(source, target)
                 ));

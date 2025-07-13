@@ -11,6 +11,7 @@
 #include <filesystem> // std::filesystem::path
 #include <span> // std::span
 
+#include <iostream>
 
 
 namespace cie::fem::io {
@@ -21,6 +22,8 @@ class GraphML
 {
 public:
     using XMLStringView = std::basic_string_view<unsigned char>;
+
+    using AttributePair = std::pair<std::string_view,std::string_view>;
 
     class XMLElement final
     {
@@ -82,16 +85,16 @@ public:
     public:
         typedef void (*OnElementBeginCallback)(void*,
                                                Ref<SAXHandler>,
-                                               XMLStringView,
-                                               std::span<std::pair<XMLStringView,XMLStringView>>);
+                                               std::string_view,
+                                               std::span<AttributePair>);
 
         typedef void (*OnTextCallback)(void*,
                                        Ref<SAXHandler>,
-                                       XMLStringView);
+                                       std::string_view);
 
         typedef void (*OnElementEndCallback)(void*,
                                              Ref<SAXHandler>,
-                                             XMLStringView);
+                                             std::string_view);
 
         using State = std::tuple<
             OnElementBeginCallback,
@@ -152,6 +155,108 @@ public:
         std::unique_ptr<Impl> _pImpl;
     }; // class Output
 }; // class GraphML
+
+
+template <class TVertexData, class TEdgeData, class TGraphData>
+struct GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>
+{
+    using Value = Graph<TVertexData,TEdgeData,TGraphData>;
+
+    static void onElementBegin(void* pInstance,
+                               Ref<SAXHandler> rSAX,
+                               std::string_view name,
+                               std::span<AttributePair> attributes);
+
+    static void onText(void* pInstance,
+                       Ref<SAXHandler> rSAX,
+                       std::string_view data);
+
+    static void onElementEnd(void* pInstance,
+                             Ref<SAXHandler> rSAX,
+                             std::string_view name) noexcept;
+}; // struct Deserializer<Graph>
+
+
+template <class T>
+requires std::is_same_v<typename T::ID,VertexID>
+struct GraphML::Deserializer<T>
+{
+    using Value = T;
+
+    static void onElementBegin(void* pInstance,
+                               Ref<SAXHandler> rSAX,
+                               std::string_view name,
+                               std::span<AttributePair> attributes);
+
+    static void onText(void* pInstance,
+                       Ref<SAXHandler> rSAX,
+                       std::string_view data);
+
+    static void onElementEnd(void* pInstance,
+                             Ref<SAXHandler> rSAX,
+                             std::string_view name) noexcept;
+}; // struct Deserializer<Graph::Vertex>
+
+
+template <class T>
+requires std::is_same_v<typename T::ID,EdgeID>
+struct GraphML::Deserializer<T>
+{
+    using Value = T;
+
+    static void onElementBegin(void* pInstance,
+                               Ref<SAXHandler> rSAX,
+                               std::string_view name,
+                               std::span<AttributePair> attributes);
+
+    static void onText(void* pInstance,
+                       Ref<SAXHandler> rSAX,
+                       std::string_view data);
+
+    static void onElementEnd(void* pInstance,
+                             Ref<SAXHandler> rSAX,
+                             std::string_view name) noexcept;
+}; // struct Deserializer<Graph::Edge>
+
+
+template <>
+struct GraphML::Deserializer<void>
+{
+    using Value = void;
+
+    static void onElementBegin(void* pInstance,
+                               Ref<SAXHandler> rSAX,
+                               std::string_view name,
+                               std::span<AttributePair> attributes) noexcept;
+
+    static void onText(void* pInstance,
+                       Ref<SAXHandler> rSAX,
+                       std::string_view data);
+
+    static void onElementEnd(void* pInstance,
+                             Ref<SAXHandler> rSAX,
+                             std::string_view name) noexcept;
+}; // struct Deserializer<void>
+
+
+template <>
+struct GraphML::Deserializer<std::string>
+{
+    using Value = std::string;
+
+    static void onElementBegin(void* pInstance,
+                               Ref<SAXHandler> rSAX,
+                               std::string_view name,
+                               std::span<AttributePair> attributes) noexcept;
+
+    static void onText(void* pInstance,
+                       Ref<SAXHandler> rSAX,
+                       std::string_view data);
+
+    static void onElementEnd(void* pInstance,
+                             Ref<SAXHandler> rSAX,
+                             std::string_view name) noexcept;
+}; // struct Deserializer<void>
 
 
 } // namespace cie::fem::io

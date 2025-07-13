@@ -112,7 +112,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
 
         // Insert the cell into the adjacency graph (mesh) as a vertex
         mesh.insert(Mesh::Vertex(
-            Mesh::VertexID(iCell),
+            VertexID(iCell),
             {}, ///< edges of the adjacency graph are added automatically during edge insertion
             Mesh::Vertex::Data {
                 .diffusivity = 1.0,

@@ -121,11 +121,17 @@ struct GraphML::SAXHandler::Impl
 
     std::stack<State> _stateStack;
 
-    static XMLStringView makeView(const xmlChar* pBegin) noexcept
+    template <class TChar>
+    requires (std::is_same_v<TChar,char> || std::is_same_v<TChar,unsigned char>)
+    static std::basic_string_view<TChar> makeView(const TChar* pBegin) noexcept
     {
-        const xmlChar* pEnd = pBegin;
-        while (*pEnd != '\0') {++pEnd;}
-        return {pBegin, pEnd};
+        if (pBegin) {
+            const TChar* pEnd = pBegin;
+            while (*pEnd != '\0') {++pEnd;}
+            return {pBegin, pEnd};
+        } else {
+            return {};
+        }
     }
 
     static void onElementBegin(void* pContext,
@@ -139,23 +145,61 @@ struct GraphML::SAXHandler::Impl
                                const xmlChar** pAttributes)
     {
         Ref<SAXHandler> rSAX = *static_cast<Ptr<SAXHandler>>(pContext);
+
+        // Sanity checks.
         if (rSAX._pImpl->_stateStack.empty()) {
             CIE_THROW(
                 OutOfRangeException,
                 "state stack empty while parsing element '" << pLocalName << "'")
         }
 
-        XMLStringView tagName = makeView(pLocalName);
-        std::vector<std::pair<XMLStringView,XMLStringView>> attributes(attributeCount);
-        for (int iAttribute=0ul; iAttribute<attributeCount; ++iAttribute) {
-            attributes[iAttribute].second = makeView(pAttributes[iAttribute]);
-        }
+        // Parse tag name.
+        std::string tagName;
+        const auto tagNameView = makeView(pLocalName);
+        tagName.reserve(tagNameView.size());
+        std::copy(tagNameView.begin(),
+                  tagNameView.end(),
+                  std::back_inserter(tagName));
 
+        // Parse attributes.
+        std::vector<std::string> attributes;
+        std::vector<AttributePair> attributeViews;
+        attributes.reserve(attributeCount);
+        attributeViews.reserve(attributeCount);
+
+        for (int iAttribute=0; iAttribute<attributeCount; ++iAttribute) {
+            const auto attributeName = makeView(pAttributes[iAttribute * 5]);
+            const auto attributeValue = XMLStringView(pAttributes[iAttribute * 5 + 3], pAttributes[iAttribute * 5 + 4]);
+
+            {
+                std::string data;
+                data.resize(attributeName.size() + attributeValue.size());
+                std::copy(attributeName.begin(),
+                          attributeName.end(),
+                          data.begin());
+                std::copy(attributeValue.begin(),
+                          attributeValue.end(),
+                          data.begin() + attributeName.size());
+
+                attributes.emplace_back(std::move(data));
+            }
+
+            attributeViews.emplace_back(
+                std::string_view(attributes.back().begin(),
+                                 attributes.back().begin() + attributeName.size()),
+                std::string_view(attributes.back().begin() + attributeName.size(),
+                                 attributes.back().end())
+            );
+        } // for iAttribute in range(pairCount)
+
+        // Reroute to the active deserializer's callback.
+        CIE_BEGIN_EXCEPTION_TRACING
         Ref<State> rState = rSAX._pImpl->_stateStack.top();
         std::get<0>(rState)(std::get<3>(rState),
                             rSAX,
                             tagName,
-                            {attributes.data(), attributes.data() + attributeCount});
+                            {attributeViews.data(), attributeViews.data() + attributeViews.size()});
+        CIE_END_EXCEPTION_TRACING
     }
 
     static void onText(void* pContext,
@@ -164,6 +208,14 @@ struct GraphML::SAXHandler::Impl
     {
         Ref<SAXHandler> rSAX = *static_cast<Ptr<SAXHandler>>(pContext);
 
+        // Parse data.
+        std::string data;
+        data.reserve(size);
+        std::copy(pBegin,
+                  pBegin + size,
+                  std::back_inserter(data));
+
+        // Sanity checks.
         if (rSAX._pImpl->_stateStack.empty()) {
             std::string characters('\0', size);
             std::copy(pBegin, pBegin + size, characters.begin());
@@ -172,10 +224,13 @@ struct GraphML::SAXHandler::Impl
                 "state stack empty while parsing text '" << characters << "'")
         }
 
+        // Reroute to the active deserializer's callback.
+        CIE_BEGIN_EXCEPTION_TRACING
         Ref<State> rState = rSAX._pImpl->_stateStack.top();
         std::get<1>(rState)(std::get<3>(rState),
                             rSAX,
-                            {pBegin, pBegin + size});
+                            data);
+        CIE_END_EXCEPTION_TRACING
     }
 
     static void onElementEnd(void* pContext,
@@ -185,17 +240,44 @@ struct GraphML::SAXHandler::Impl
     {
         Ref<SAXHandler> rSAX = *static_cast<Ptr<SAXHandler>>(pContext);
 
+        // Sanity checks.
         if (rSAX._pImpl->_stateStack.empty()) {
             CIE_THROW(
                 OutOfRangeException,
                 "state stack empty while parsing the end of element '" << pLocalName << "'")
         }
 
+        // Parse tag name.
+        std::string tagName;
+        const auto tagNameView = makeView(pLocalName);
+        tagName.reserve(tagNameView.size());
+        std::copy(tagNameView.begin(),
+                  tagNameView.end(),
+                  std::back_inserter(tagName));
+
+        // Reroute to the active deserializer's callback.
+        CIE_BEGIN_EXCEPTION_TRACING
         Ref<State> rState = rSAX._pImpl->_stateStack.top();
         std::get<2>(rState)(std::get<3>(rState),
                             rSAX,
-                            makeView(pLocalName));
+                            tagName);
+        CIE_END_EXCEPTION_TRACING
+
         rSAX._pImpl->_stateStack.pop();
+    }
+
+    static void onError([[maybe_unused]] void* pContext,
+                        const char* pMessage,
+                        ...)
+    {
+        CIE_THROW(Exception, std::string(pMessage))
+    }
+
+    static void onWarning([[maybe_unused]] void* pContext,
+                          const char* pMessage,
+                          ...)
+    {
+        std::cerr << pMessage << "\n";
     }
 }; // struct GraphML::SAXHandler::Impl
 
@@ -205,6 +287,13 @@ GraphML::SAXHandler::SAXHandler(std::istream& rStream)
 {
     _pImpl->_pStream = &rStream;
     std::memset(&_pImpl->_wrapped, 0, sizeof(xmlSAXHandler));
+    _pImpl->_wrapped.initialized = XML_SAX2_MAGIC;
+
+    _pImpl->_wrapped.startElementNs = &Impl::onElementBegin;
+    _pImpl->_wrapped.characters = &Impl::onText;
+    _pImpl->_wrapped.endElementNs = &Impl::onElementEnd;
+    _pImpl->_wrapped.error = &Impl::onError;
+    _pImpl->_wrapped.warning = &Impl::onWarning;
 
     _pImpl->_pParserContext = xmlCreatePushParserCtxt(&_pImpl->_wrapped,
                                                       static_cast<void*>(this),
@@ -212,10 +301,6 @@ GraphML::SAXHandler::SAXHandler(std::istream& rStream)
                                                       0,
                                                       nullptr);
     if (!_pImpl->_pParserContext) CIE_THROW(Exception, "call to xmlCreatePushParserCtxt failed");
-
-    _pImpl->_wrapped.startElementNs = &Impl::onElementBegin;
-    _pImpl->_wrapped.characters = &Impl::onText;
-    _pImpl->_wrapped.endElementNs = &Impl::onElementEnd;
 }
 
 
@@ -240,7 +325,7 @@ void GraphML::SAXHandler::parse(std::size_t bufferSize)
     buffer.resize(bufferSize);
 
     Ref<std::istream> rStream = *_pImpl->_pStream;
-    while (!rStream.eof()) {
+    while (rStream.peek() != EOF) {
         if (rStream.bad())
             CIE_THROW(Exception, "input stream in invalid state while SAX parsing GraphML")
 

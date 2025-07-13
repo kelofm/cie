@@ -18,6 +18,17 @@
 namespace cie::fem {
 
 
+/// @brief Vertex identifier type.
+/// @class VertexID
+/// @see StrongTypeDef
+CIE_STRONG_TYPEDEF(unsigned, VertexID);
+
+/// @brief Edge identifier type.
+/// @class EdgeID
+/// @see StrongTypeDef
+CIE_STRONG_TYPEDEF(unsigned, EdgeID);
+
+
 
 /// @brief A directed graph that automatically manages the connectivities of its
 ///        @ref Graph::Vertex "vertices" and @ref Graph::Edge "edges".
@@ -62,16 +73,6 @@ private:
     }; // class ItemBase
 
 public:
-    /// @brief Vertex identifier type.
-    /// @class VertexID
-    /// @see StrongTypeDef
-    CIE_STRONG_TYPEDEF(unsigned, VertexID);
-
-    /// @brief Edge identifier type.
-    /// @class EdgeID
-    /// @see StrongTypeDef
-    CIE_STRONG_TYPEDEF(unsigned, EdgeID);
-
     /// @brief Vertex type of @ref Graph.
     /// @details This vertex implementation stores the IDs of the @ref Edge "edges" originating from-
     ///          or ending at it, as well as additional data associated with it via @p TVertexData.
@@ -86,9 +87,13 @@ public:
         /// @brief Alias for the data type stored in vertices of the graph.
         using Data = TVertexData;
 
+        /// @brief Construct a new @ref Vertex with an @ref ID.
+        /// @param id Identifier of the new vertex.
+        explicit Vertex(VertexID id) noexcept;
+
         /// @brief Construct a new @ref Vertex with an @ref ID and set of @ref Edge "edges".
-        /// @param id identifier of the new vertex.
-        /// @param rEdges set of edges originating from, or ending at the new vertex.
+        /// @param id Identifier of the new vertex.
+        /// @param rEdges Set of edges originating from, or ending at the new vertex.
         Vertex(VertexID id,
                RightRef<tsl::robin_set<EdgeID>> rEdges) noexcept;
 

@@ -53,6 +53,13 @@ std::conditional_t<
 
 
 template <class TVD, class TED, class TGD>
+Graph<TVD,TED,TGD>::Vertex::Vertex(VertexID id) noexcept
+    : ItemBase<VertexID>(id),
+      _data()
+{}
+
+
+template <class TVD, class TED, class TGD>
 Graph<TVD,TED,TGD>::Vertex::Vertex(VertexID id,
                                    RightRef<tsl::robin_set<EdgeID>> rEdges) noexcept
     : ItemBase<VertexID>(id),
@@ -89,7 +96,7 @@ requires (!std::is_same_v<std::remove_const_t<TVD>,void>)
 
 
 template <class TVD, class TED, class TGD>
-Ref<const tsl::robin_set<typename Graph<TVD,TED,TGD>::EdgeID>>
+Ref<const tsl::robin_set<EdgeID>>
 Graph<TVD,TED,TGD>::Vertex::edges() const noexcept
 {
     return std::get<0>(_data);
@@ -115,7 +122,7 @@ typename VoidSafe<TVD>::Ref Graph<TVD,TED,TGD>::Vertex::data() noexcept
 
 
 template <class TVD, class TED, class TGD>
-Ref<tsl::robin_set<typename Graph<TVD,TED,TGD>::EdgeID>> Graph<TVD,TED,TGD>::Vertex::mutableEdges() noexcept
+Ref<tsl::robin_set<EdgeID>> Graph<TVD,TED,TGD>::Vertex::mutableEdges() noexcept
 {
     return std::get<0>(_data);
 }
@@ -161,7 +168,7 @@ requires (!std::is_same_v<std::remove_const_t<TED>,void>)
 
 
 template <class TVD, class TED, class TGD>
-std::pair<typename Graph<TVD,TED,TGD>::VertexID,typename Graph<TVD,TED,TGD>::VertexID>
+std::pair<VertexID,VertexID>
 Graph<TVD,TED,TGD>::Edge::vertices() const noexcept
 {
     return std::get<0>(_data);
@@ -169,7 +176,7 @@ Graph<TVD,TED,TGD>::Edge::vertices() const noexcept
 
 
 template <class TVD, class TED, class TGD>
-typename Graph<TVD,TED,TGD>::VertexID
+VertexID
 Graph<TVD,TED,TGD>::Edge::source() const noexcept
 {
     return std::get<0>(_data).first;
@@ -177,7 +184,7 @@ Graph<TVD,TED,TGD>::Edge::source() const noexcept
 
 
 template <class TVD, class TED, class TGD>
-typename Graph<TVD,TED,TGD>::VertexID
+VertexID
 Graph<TVD,TED,TGD>::Edge::target() const noexcept
 {
     return std::get<0>(_data).second;

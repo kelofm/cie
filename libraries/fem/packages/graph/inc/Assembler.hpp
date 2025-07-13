@@ -28,7 +28,7 @@ private:
     using DefaultMesh = Graph<void,void>;
 
     using DoFMap = std::unordered_map<
-        DefaultMesh::VertexID,                      // <== ID of the cell
+        VertexID,                                   // <== ID of the cell
         DynamicArray<std::optional<std::size_t>>    // <== DoF indices of its basis functions
     >;
 
@@ -91,7 +91,7 @@ public:
         );
     }
 
-    auto operator[](DefaultMesh::VertexID vertexID) const
+    auto operator[](VertexID vertexID) const
     {
         const auto it = _dofMap.find(vertexID);
         CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end())

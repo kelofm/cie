@@ -44,8 +44,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
 
         auto rEdge3 = graph.findEdge(3);
         CIE_TEST_CHECK(rEdge3.has_value());
-        CIE_TEST_CHECK(rEdge3.value().source() == G::VertexID(1));
-        CIE_TEST_CHECK(rEdge3.value().target() == G::VertexID(2));
+        CIE_TEST_CHECK(rEdge3.value().source() == VertexID(1));
+        CIE_TEST_CHECK(rEdge3.value().target() == VertexID(2));
     }
 
     {
@@ -61,8 +61,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == G::VertexID(1));
-        CIE_TEST_CHECK(e.value().target() == G::VertexID(2));
+        CIE_TEST_CHECK(e.value().source() == VertexID(1));
+        CIE_TEST_CHECK(e.value().target() == VertexID(2));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
@@ -87,8 +87,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == G::VertexID(1));
-        CIE_TEST_CHECK(e.value().target() == G::VertexID(2));
+        CIE_TEST_CHECK(e.value().source() == VertexID(1));
+        CIE_TEST_CHECK(e.value().target() == VertexID(2));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
@@ -113,8 +113,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == G::VertexID(2));
-        CIE_TEST_CHECK(e.value().target() == G::VertexID(3));
+        CIE_TEST_CHECK(e.value().source() == VertexID(2));
+        CIE_TEST_CHECK(e.value().target() == VertexID(3));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
@@ -140,8 +140,8 @@ CIE_TEST_CASE("simple Graph", "[graph]")
         // +---+       +---+       +---+
         CIE_TEST_CHECK_NOTHROW(e = graph.findEdge(3));
         CIE_TEST_CHECK(e.has_value());
-        CIE_TEST_CHECK(e.value().source() == G::VertexID(2));
-        CIE_TEST_CHECK(e.value().target() == G::VertexID(3));
+        CIE_TEST_CHECK(e.value().source() == VertexID(2));
+        CIE_TEST_CHECK(e.value().target() == VertexID(3));
 
         CIE_TEST_CHECK_NOTHROW(v = graph.findVertex(0));
         CIE_TEST_CHECK(!v.has_value());
