@@ -28,10 +28,10 @@ public:
     LinearIsotropicStiffnessIntegrand();
 
     LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                      Ref<const std::shared_ptr<const TAnsatzDerivatives>> pAnsatzDerivatives);
+                                      Ref<const TAnsatzDerivatives> pAnsatzDerivatives);
 
     LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                      Ref<const std::shared_ptr<const TAnsatzDerivatives>> pAnsatzDerivatives,
+                                      Ref<const TAnsatzDerivatives> pAnsatzDerivatives,
                                       std::span<Value> buffer);
 
     void evaluate(ConstIterator itArgumentBegin,
@@ -47,7 +47,7 @@ public:
 private:
     Value _modulus;
 
-    std::shared_ptr<const TAnsatzDerivatives> _pAnsatzDerivatives;
+    Ptr<const TAnsatzDerivatives> _pAnsatzDerivatives;
 
     std::span<Value> _buffer;
 }; // class LinearIsotropicStiffnessIntegrand

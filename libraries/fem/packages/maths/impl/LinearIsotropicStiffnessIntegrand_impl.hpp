@@ -20,9 +20,9 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 template <Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                                                                         Ref<const std::shared_ptr<const TAnsatzDerivatives>> pAnsatzDerivatives)
+                                                                                         Ref<const TAnsatzDerivatives> rAnsatzDerivatives)
     : _modulus(modulus),
-      _pAnsatzDerivatives(pAnsatzDerivatives),
+      _pAnsatzDerivatives(&rAnsatzDerivatives),
       _buffer()
 {
 }
@@ -30,9 +30,9 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 template <Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                                                                         Ref<const std::shared_ptr<const TAnsatzDerivatives>> pAnsatzDerivatives,
+                                                                                         Ref<const TAnsatzDerivatives> rAnsatzDerivatives,
                                                                                          std::span<Value> buffer)
-    : LinearIsotropicStiffnessIntegrand(modulus, pAnsatzDerivatives)
+    : LinearIsotropicStiffnessIntegrand(modulus, rAnsatzDerivatives)
 {
     this->setBuffer(buffer);
 }

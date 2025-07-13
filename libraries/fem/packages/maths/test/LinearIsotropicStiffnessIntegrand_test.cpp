@@ -30,7 +30,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[maths]")
 
     // Construct the integrand without a buffer.
     constexpr Scalar modulus = 10.0;
-    LinearIsotropicStiffnessIntegrand<Ansatz::Derivative> integrand(modulus, pAnsatzDerivatives);
+    LinearIsotropicStiffnessIntegrand<Ansatz::Derivative> integrand(modulus, *pAnsatzDerivatives);
     CIE_TEST_CHECK(integrand.size() == 16);
     CIE_TEST_CHECK(integrand.getMinBufferSize() == 8);
 

@@ -24,9 +24,10 @@ namespace cie::fem {
 
 template <class TVertexData,
           class TEdgeData,
-          concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData>::Vertex>> TDoFCounter,
-          concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData>::Edge>,Assembler::DoFPairIterator> TDoFPairFunctor>
-void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData>> rGraph,
+          class TGraphData,
+          concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex>> TDoFCounter,
+          concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Edge>,Assembler::DoFPairIterator> TDoFPairFunctor>
+void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
                          TDoFCounter&& rDoFCounter,
                          TDoFPairFunctor&& rDoFMatcher)
 {
@@ -37,8 +38,8 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData>> rGraph,
         return;
     }
 
-    using Vertex = typename Graph<TVertexData,TEdgeData>::Vertex;
-    using Edge = typename Graph<TVertexData,TEdgeData>::Edge;
+    using Vertex = typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex;
+    using Edge = typename Graph<TVertexData,TEdgeData,TGraphData>::Edge;
 
     std::queue<Ptr<const Vertex>> visitQueue {{&rGraph.vertices().front()}};
     tsl::robin_set<typename Vertex::ID> visited;

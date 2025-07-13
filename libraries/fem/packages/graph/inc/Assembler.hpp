@@ -51,9 +51,10 @@ public:
 
     template <class TVertexData,
               class TEdgeData,
-              concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData>::Vertex>> TDoFCounter,
-              concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData>::Edge>,DoFPairIterator> TDoFPairFunctor>
-    void addGraph(Ref<const Graph<TVertexData,TEdgeData>> rGraph,
+              class TGraphData,
+              concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex>> TDoFCounter,
+              concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Edge>,DoFPairIterator> TDoFPairFunctor>
+    void addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
                   TDoFCounter&& rDoFCounter,
                   TDoFPairFunctor&& rDoFMatcher);
 

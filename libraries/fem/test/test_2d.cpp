@@ -19,6 +19,7 @@
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 #include "packages/io/inc/Graphviz.hpp"
+#include "packages/io/inc/GraphML.hpp"
 #include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/maths/inc/TransformedIntegrand.hpp"
 
@@ -29,76 +30,116 @@
 namespace cie::fem {
 
 
+/// @brief Number of spatial dimensions the problem is defined on.
+constexpr unsigned Dimension = 2u;
+
+/// @brief Floating point scalar type to use.
 using Scalar = double;
 
+/// @brief Spatial transform type mapping cells' local space to global space.
+/// @details The flexibility of this transform directly defines what kind
+///          of geometries the cells can represent in a boundary conforming manner.
+using SpatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>;
 
-template <class TAnsatzSpace>
+/// @brief Cells' basis functions' type.
+using Basis = maths::Polynomial<Scalar>;
+
+/// @brief Cells' ansatz space type.
+/// @details Spans the full outer product space of the basis functions.
+using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
+
+
+/// @brief Data structure common to the entire @ref Graph "mesh".
+struct MeshData
+{
+    /// @brief Collection of all ansatz spaces the contained cells can refer to.
+    DynamicArray<Ansatz> ansatzSpaces;
+
+    /// @brief Collection of all ansatz spaces' derivatives the constained cells can refer to.
+    DynamicArray<Ansatz::Derivative> ansatzDerivatives;
+}; // struct MeshData
+
+
+/// @brief Data structure unique to each @ref Graph::Vertex "cell".
 struct CellData
 {
-    using SpatialTransform = maths::ScaleTranslateTransform<Scalar,2u>;
+    /// @brief Index of the cell's ansatz space in @ref MeshData::ansatzSpaces.
+    unsigned short iAnsatz;
 
-    Scalar                                              diffusivity;
-    OrientedAxes<TAnsatzSpace::Dimension>               axes;
-    SpatialTransform                                    spatialTransform;
-    std::shared_ptr<TAnsatzSpace>                       pAnsatzSpace;
-    std::shared_ptr<typename TAnsatzSpace::Derivative>  pAnsatzDerivatives;
+    /// @brief Local diffusivity coefficient.
+    /// @details Assumed to be constant throughout the cell for simplicity.
+    Scalar diffusivity;
+
+    /// @brief Local axis orientation of the cell to enforce continuity.
+    /// @details Adjacent cells must produce identical state fields
+    ///          on both sides of the shared boundary. A simple way of
+    ///          ensuring this is to orient the local axes of each cell
+    ///          such that matching axes point in the same direction on
+    ///          both sides, except the shared boundary's normal axes,
+    ///          that are pointing toward each other.
+    ///          @code
+    ///          + ----------- +   + ----------- +
+    ///          |      y      |   |      y      |
+    ///          |      ^      |   |      ^      |
+    ///          |      |      |   |      |      |
+    ///          |      + -> x |   | x <- +      |
+    ///          |             |   |             |
+    ///          |             |   |             |
+    ///          + ----------- +   + ----------- +
+    ///          @endcode
+    ///          The oriented axes define an intermediate space between
+    ///          local and global space (referred to as topological space).
+    ///          DoFs that don't vanish on the shared boundaries can be
+    ///          merged on both sides.
+    OrientedAxes<Dimension> axes;
+
+    /// @brief Spatial transform from local to global space.
+    SpatialTransform spatialTransform;
 }; // struct CellData
 
 
-/** @brief 2D system test.
- *  @details Mesh:
- *           @code
- *             [u(0,1)=2]                                     [u(1,1)=3]
- *                      +---------+                 +---------+
- *                      | (m-1)n+1|                 |    mn   |
- *                      +---------+                 +---------+
- *                        .
- *                        .
- *                        .
- *                      +---------+
- *                      |   n+1   |
- *                      +---------+
- *                      +---------+---------+       +---------+
- *                      |    1    |    2    |  ...  |    n    |
- *                      +---------+---------+       +---------+
- *             [u(0,0)=0]                                     [u(1,0)=1]
- *           @endcode
- */
-CIE_TEST_CASE("2D", "[systemTests]")
+/// @brief Data structure unique to @ref Graph::Edge "boundary" between cells.
+struct BoundaryData
 {
-    CIE_TEST_CASE_INIT("2D")
-    constexpr unsigned Dimension = 2;
-    constexpr Size nodesPerDirection = 11;
+    /// @brief Boundary identifier of the @ref Graph::Edge::source "source cell".
+    BoundaryID sourceBoundary;
 
-    // Construct a 2D ansatz space.
-    using Basis = maths::Polynomial<Scalar>;
-    using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
-    auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
-        Basis({ 0.5,  0.5}),
-        Basis({ 0.5, -0.5})
-        ,Basis({ 1.0,  0.0, -1.0})
-    });
-    auto pAnsatzDerivatives = std::make_shared<Ansatz::Derivative>(pAnsatzSpace->makeDerivative());
+    /// @brief Boundary identifier of the @ref Graph::Edge::target "target cell".
+    BoundaryID targetBoundary;
+}; // struct BoundaryData
 
-    // Find ansatz functions that coincide on opposite boundaries.
-    // In adjacent elements, these ansatz functions will have to map
-    // to the same DoF in the assembled system.
-    const StaticArray<Scalar,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
-    const auto ansatzMap = makeAnsatzMap(*pAnsatzSpace,
-                                         samples,
-                                         utils::Comparison<Scalar>(1e-8, 1e-6));
 
-    // Construct mesh
-    // The mesh is modeled by an adjacency graph whose vertices are cells,
-    // and edges represent the boundaries between adjacent cells. The graph
-    // is not directed, but the BoundaryID of the graph edge is always
-    // defined on the edge's source cell.
-    using Mesh = Graph<
-        CellData<Ansatz>,
-        std::pair<BoundaryID,BoundaryID>
-    >;
-    Mesh mesh;
+/// @brief Mesh type.
+/// @details The mesh is modeled by an adjacency graph whose vertices are cells,
+///          and edges represent the boundaries between adjacent cells. The graph
+///          is not directed, but the @ref BoundaryID of the graph edge is always
+///          defined on the edge's source cell.
+using Mesh = Graph<CellData,BoundaryData,MeshData>;
 
+
+//template <>
+//struct GraphML::Deserializer<MeshData>
+//{
+//    static void onElementBegin(void* pInstance,
+//                               Ref<SAXHandler> rSAX,
+//                               std::string_view name,
+//                               std::span<AttributePair> attributes);
+//
+//    static void onText(void* pInstance,
+//                       Ref<SAXHandler> rSAX,
+//                       std::string_view data);
+//
+//    static void onElementEnd(void*,
+//                             Ref<SAXHandler>,
+//                             std::string_view) noexcept
+//    {}
+//}; // struct GraphML::Deserializer<MeshData>
+
+
+/// @brief Generate cells and boundaries for the example problem.
+void fillMesh(Ref<Mesh> rMesh,
+              Size nodesPerDirection)
+{
     // Insert cells into the adjacency graph
     const Scalar edgeLength = 1.0 / (nodesPerDirection - 1);
     Size iBoundary = 0ul;
@@ -131,15 +172,14 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
             // Insert the cell into the adjacency graph (mesh) as a vertex
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
-            mesh.insert(Mesh::Vertex(
+            rMesh.insert(Mesh::Vertex(
                 VertexID(iCell),
                 {}, ///< edges of the adjacency graph are added automatically during edge insertion
                 Mesh::Vertex::Data {
-                    .diffusivity = 1.0,
-                    .axes = axes,
-                    .spatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>(transformed.begin(), transformed.end()),
-                    .pAnsatzSpace = pAnsatzSpace,
-                    .pAnsatzDerivatives = pAnsatzDerivatives
+                    .iAnsatz            = 0u,   // <= All cells share the same ansatz space in this example.
+                    .diffusivity        = 1.0,
+                    .axes               = axes,
+                    .spatialTransform   = SpatialTransform(transformed.begin(), transformed.end())
                 }
             ));
 
@@ -149,41 +189,96 @@ CIE_TEST_CASE("2D", "[systemTests]")
             if (iCellRow) {
                 const Size iSourceCell = iCell - (nodesPerDirection - 1);
                 const Size iTargetCell = iCell;
-                BoundaryID source = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
-                BoundaryID target = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
-                mesh.insert(Mesh::Edge(
+                BoundaryID sourceBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
+                BoundaryID targetBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
+                rMesh.insert(Mesh::Edge(
                     EdgeID(iBoundary++),
                     {iSourceCell, iTargetCell},
-                    std::make_pair(source, target)
+                    {sourceBoundary, targetBoundary}
                 ));
             } // if iCellRow
 
             if (iCellColumn) {
                 const Size iSourceCell = iCell - 1ul;
                 const Size iTargetCell = iCell;
-                BoundaryID source = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
-                BoundaryID target = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
-                mesh.insert(Mesh::Edge(
+                BoundaryID sourceBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
+                BoundaryID targetBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
+                rMesh.insert(Mesh::Edge(
                     EdgeID(iBoundary++),
                     {iSourceCell, iTargetCell},
-                    std::make_pair(source, target)
+                    {sourceBoundary, targetBoundary}
                 ));
             } // if iCellColumn
         } // for iCellColumn in range(nodesPerDirection -1)
     } // for iCellRow in range(nodesPerDirection - 1)
+}
 
+
+/** @brief 2D system test.
+ *  @details Mesh:
+ *           @code
+ *             [u(0,1)=2]                                     [u(1,1)=3]
+ *                      +---------+                 +---------+
+ *                      | (m-1)n+1|                 |    mn   |
+ *                      +---------+                 +---------+
+ *                        .
+ *                        .
+ *                        .
+ *                      +---------+
+ *                      |   n+1   |
+ *                      +---------+
+ *                      +---------+---------+       +---------+
+ *                      |    1    |    2    |  ...  |    n    |
+ *                      +---------+---------+       +---------+
+ *             [u(0,0)=0]                                     [u(1,0)=1]
+ *           @endcode
+ */
+CIE_TEST_CASE("2D", "[systemTests]")
+{
+    CIE_TEST_CASE_INIT("2D")
+    constexpr Size nodesPerDirection    = 11;
+    constexpr Size integrationOrder     = 2;
+
+    Mesh mesh;
+
+    // Define an ansatz space and its derivatives.
+    // In this example, every cell will use the same ansatz space.
+    mesh.data().ansatzSpaces.emplace_back(Ansatz::AnsatzSet {
+         Basis({ 0.5,  0.5      })
+        ,Basis({ 0.5, -0.5      })
+        ,Basis({ 1.0,  0.0, -1.0})
+    });
+
+    mesh.data().ansatzDerivatives.emplace_back(
+        mesh.data().ansatzSpaces.front().makeDerivative()
+    );
+
+    // Fill the mesh with cells and boundaries.
+    fillMesh(mesh, nodesPerDirection);
+
+    // Find ansatz functions that coincide on opposite boundaries.
+    // In adjacent cells, these ansatz functions will have to map
+    // to the same DoF in the assembled system.
+    const StaticArray<Scalar,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
+    const auto ansatzMap = makeAnsatzMap(mesh.data().ansatzSpaces.front(),
+                                         samples,
+                                         utils::Comparison<Scalar>(/*absoluteTolerance =*/ 1e-8,
+                                                                   /*relativeTolerance =*/ 1e-6));
+
+    // Build a factory detects the topology of the mesh and issues indices to DoFs.
     Assembler assembler;
     assembler.addGraph(mesh,
-                       [pAnsatzSpace]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
-                            return pAnsatzSpace->size();
-                        },
+                       [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
+                            const Ansatz& rAnsatz = mesh.data().ansatzSpaces[rVertex.data().iAnsatz];
+                            return rAnsatz.size();
+                       },
                        [&ansatzMap, &mesh](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
                             const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes;
                             const auto targetAxes = mesh.find(rEdge.target()).value().data().axes;
-                            ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().first),
-                                               OrientedBoundary<Dimension>(targetAxes, rEdge.data().second),
+                            ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().sourceBoundary),
+                                               OrientedBoundary<Dimension>(targetAxes, rEdge.data().targetBoundary),
                                                it);
-                        });
+                       });
 
     // Create empty CSR matrix
     int rowCount, columnCount;
@@ -194,17 +289,19 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
     // Compute element contributions and assemble them into the matrix
     {
-        const Quadrature<Scalar,Dimension> quadrature(GaussLegendreQuadrature<Scalar>(/*integrationOrder=*/2));
-        DynamicArray<Scalar> derivativeBuffer(pAnsatzDerivatives->size());
-        DynamicArray<Scalar> integrandBuffer(pAnsatzSpace->size() * pAnsatzSpace->size());
+        const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
+        DynamicArray<Scalar> derivativeBuffer(mesh.data().ansatzDerivatives.front().size());
+        DynamicArray<Scalar> integrandBuffer(std::pow(mesh.data().ansatzSpaces.front().size(), 2ul));
         DynamicArray<Scalar> productBuffer(integrandBuffer.size());
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
+            const auto& rAnsatzSpace        = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
+            const auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
             const auto jacobian = rCell.data().spatialTransform.makeDerivative();
 
             const auto localIntegrand = maths::makeTransformedIntegrand(
                 maths::LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
-                                                                             rCell.data().pAnsatzDerivatives,
+                                                                             rAnsatzDerivatives,
                                                                              {derivativeBuffer.data(), derivativeBuffer.size()}),
                 jacobian
             );
@@ -215,7 +312,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 CIE_TEST_REQUIRE(std::find(keys.begin(), keys.end(), rCell.id()) != keys.end());
             }
             const auto& rGlobalDofIndices = assembler[rCell.id()];
-            const unsigned localSystemSize = rCell.data().pAnsatzSpace->size();
+            const unsigned localSystemSize = rAnsatzSpace.size();
 
             for (unsigned iLocalRow=0u; iLocalRow<localSystemSize; ++iLocalRow) {
                 for (unsigned iLocalColumn=0u; iLocalColumn<localSystemSize; ++iLocalColumn) {
@@ -279,13 +376,15 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
             // Found a cell that has a vertex at a corner.
             if (maybeLocalCornerIndex.has_value()) {
+                const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
+
                 StaticArray<Scalar,Dimension> localCoordinates;
                 localCoordinates[0] = (maybeLocalCornerIndex.value() & 1u) ? 1.0 : -1.0;
                 localCoordinates[1] = (maybeLocalCornerIndex.value() & 2u) ? 1.0 : -1.0;
-                DynamicArray<Scalar> ansatzValues(rCell.data().pAnsatzSpace->size());
-                rCell.data().pAnsatzSpace->evaluate(localCoordinates.data(),
-                                                    localCoordinates.data() + localCoordinates.size(),
-                                                    ansatzValues.data());
+                DynamicArray<Scalar> ansatzValues(rAnsatzSpace.size());
+                rAnsatzSpace.evaluate(localCoordinates.data(),
+                                      localCoordinates.data() + localCoordinates.size(),
+                                      ansatzValues.data());
                 for (unsigned iAnsatz=0u; iAnsatz<ansatzValues.size(); ++iAnsatz) {
                     if (comparison.equal(ansatzValues[iAnsatz], 1.0)) {
                         iConstrainedDofs[maybeGlobalCornerIndex.value()] = assembler[rCell.id()][iAnsatz];
@@ -398,7 +497,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
     solutionSamples.reserve(cellSamplesPerDirection * intPow(nodesPerDirection - 1u, Dimension));
 
     {
-        DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
+        DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.size());
         DynamicArray<StaticArray<Scalar,Dimension>> localSamplePoints;
 
         {
@@ -415,6 +514,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
         for (const auto& rCell : mesh.vertices()) {
             const auto& rGlobalIndices = assembler[rCell.id()];
+            const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
 
             for (const auto& localCoordinates : localSamplePoints) {
                 StaticArray<Scalar,Dimension> globalSamplePoint;
@@ -422,8 +522,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                                        localCoordinates.data() + localCoordinates.size(),
                                                        globalSamplePoint.data());
                 solutionSamples.emplace_back(globalSamplePoint, 0.0);
-                ansatzBuffer.resize(rCell.data().pAnsatzSpace->size());
-                rCell.data().pAnsatzSpace->evaluate(localCoordinates.data(),
+                ansatzBuffer.resize(rAnsatzSpace.size());
+                rAnsatzSpace.evaluate(localCoordinates.data(),
                                                     localCoordinates.data() + localCoordinates.size(),
                                                     ansatzBuffer.data());
 
