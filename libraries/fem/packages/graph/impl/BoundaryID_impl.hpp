@@ -35,7 +35,13 @@ inline constexpr BoundaryID::BoundaryID(const char name[3])
         case 'x': {dimension = 0u; break;}
         case 'y': {dimension = 1u; break;}
         case 'z': {dimension = 2u; break;}
-        default: throw std::runtime_error("Invalid boundary name " + std::string(name));
+        default: {
+            if ('0' <= name[1] && name[1] <= '9') {
+                dimension = static_cast<unsigned>(name[1] - '0');
+            } else {
+                throw std::runtime_error("Invalid boundary name " + std::string(name));
+            }
+        }
     } // switch name[1]
 
     *this = BoundaryID(dimension, direction);
@@ -109,6 +115,54 @@ inline constexpr bool operator!=(BoundaryID left, BoundaryID right) noexcept
 inline constexpr bool operator<(BoundaryID left, BoundaryID right) noexcept
 {
     return left._id < right._id;
+}
+
+
+inline void io::GraphML::Serializer<BoundaryID>::header(Ref<XMLElement> rElement)
+{
+    XMLElement defaultData = rElement.addChild("default");
+    std::stringstream stream;
+    stream << BoundaryID();
+    defaultData.setValue(stream.view());
+}
+
+
+inline void io::GraphML::Serializer<BoundaryID>::operator()(Ref<XMLElement> rElement,
+                                                            Ref<const BoundaryID> rInstance)
+{
+    std::stringstream stream;
+    stream << rInstance;
+    rElement.setValue(stream.view());
+}
+
+
+inline void io::GraphML::Deserializer<BoundaryID>::onElementBegin(Ptr<void> ,
+                                                                  std::string_view,
+                                                                  std::span<GraphML::AttributePair>) noexcept
+{
+}
+
+
+inline void io::GraphML::Deserializer<BoundaryID>::onText(Ptr<void> pThis,
+                                                          std::string_view data)
+{
+    if (data.size() != 2) {
+        CIE_THROW(
+            Exception,
+            "Expecting a 2-character string for a BoundaryID, but got \"" << data << "\"."
+        )
+    }
+
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.instance() = BoundaryID(data.data());
+}
+
+
+inline void io::GraphML::Deserializer<BoundaryID>::onElementEnd(Ptr<void> pThis,
+                                                                std::string_view elementName) noexcept
+{
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.template release<Deserializer>(&rThis, elementName);
 }
 
 

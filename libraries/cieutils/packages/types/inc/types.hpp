@@ -80,7 +80,7 @@ Ptr<const T> makePtrTo(Ref<const T> r_t);
 template <class T>
 Ptr<T> makePtrTo(Ref<T> r_t);
 
-template <class T>
+template <class T, class TElse = void>
 struct VoidSafe
 {
     using RightRef = T&&;
@@ -90,15 +90,15 @@ struct VoidSafe
     using Ptr = T*;
 };
 
-template <class TVoid>
+template <class TVoid, class TElse>
 requires std::is_same_v<std::remove_const_t<TVoid>,void>
-struct VoidSafe<TVoid>
+struct VoidSafe<TVoid, TElse>
 {
-    using RightRef = void;
+    using RightRef = TElse;
 
-    using Ref = void;
+    using Ref = TElse;
 
-    using Ptr = void;
+    using Ptr = TElse;
 };
 
 } // namespace cie

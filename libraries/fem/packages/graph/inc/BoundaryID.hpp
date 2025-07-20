@@ -1,6 +1,9 @@
 #ifndef CIE_FEM_GRAPH_BOUNDARY_ID_HPP
 #define CIE_FEM_GRAPH_BOUNDARY_ID_HPP
 
+// --- FEM Includes ---
+#include "packages/io/inc/GraphML.hpp" // GraphML::Deserializer
+
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
 
@@ -151,6 +154,50 @@ inline bool operator!=(std::pair<cie::fem::BoundaryID,cie::fem::BoundaryID> left
 
 
 } // namespace cie::fem
+
+
+
+// --- IO --- //
+
+
+
+namespace cie::fem::io {
+
+
+template <>
+struct io::GraphML::Serializer<BoundaryID>
+{
+    void header(Ref<XMLElement> rElement);
+
+    void operator()(Ref<XMLElement> rElement,
+                    Ref<const BoundaryID> rInstance);
+}; // struct GraphML::Serializer<BoundaryID>
+
+
+template <>
+struct io::GraphML::Deserializer<BoundaryID>
+    : public io::GraphML::DeserializerBase<BoundaryID>
+{
+    using io::GraphML::DeserializerBase<BoundaryID>::DeserializerBase;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair> attributes) noexcept;
+
+    static void onText(Ptr<void> pThis,
+                       std::string_view data);
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName) noexcept;
+}; // struct GraphML::Deserializer<BoundaryID>
+
+
+} // namespace cie::fem::io
+
+
+
+// --- Hash --- //
+
 
 
 namespace std {

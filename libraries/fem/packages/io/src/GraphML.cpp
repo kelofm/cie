@@ -195,8 +195,7 @@ struct GraphML::SAXHandler::Impl
         // Reroute to the active deserializer's callback.
         CIE_BEGIN_EXCEPTION_TRACING
         Ref<State> rState = rSAX._pImpl->_stateStack.top();
-        std::get<0>(rState)(std::get<3>(rState),
-                            rSAX,
+        std::get<1>(rState)(std::get<0>(rState),
                             tagName,
                             {attributeViews.data(), attributeViews.data() + attributeViews.size()});
         CIE_END_EXCEPTION_TRACING
@@ -227,8 +226,7 @@ struct GraphML::SAXHandler::Impl
         // Reroute to the active deserializer's callback.
         CIE_BEGIN_EXCEPTION_TRACING
         Ref<State> rState = rSAX._pImpl->_stateStack.top();
-        std::get<1>(rState)(std::get<3>(rState),
-                            rSAX,
+        std::get<2>(rState)(std::get<0>(rState),
                             data);
         CIE_END_EXCEPTION_TRACING
     }
@@ -258,8 +256,7 @@ struct GraphML::SAXHandler::Impl
         // Reroute to the active deserializer's callback.
         CIE_BEGIN_EXCEPTION_TRACING
         Ref<State> rState = rSAX._pImpl->_stateStack.top();
-        std::get<2>(rState)(std::get<3>(rState),
-                            rSAX,
+        std::get<3>(rState)(std::get<0>(rState),
                             tagName);
         CIE_END_EXCEPTION_TRACING
 

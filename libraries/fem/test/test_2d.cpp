@@ -4,7 +4,7 @@
 
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
-#include "packages/io/inc/MatrixMarket.hpp"
+//#include "packages/io/inc/MatrixMarket.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/OrientedBoundary.hpp"
@@ -18,8 +18,9 @@
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
-#include "packages/io/inc/Graphviz.hpp"
+//#include "packages/io/inc/Graphviz.hpp"
 #include "packages/io/inc/GraphML.hpp"
+#include "packages/io/inc/GraphML_specializations.hpp"
 #include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/maths/inc/TransformedIntegrand.hpp"
 
@@ -117,23 +118,252 @@ struct BoundaryData
 using Mesh = Graph<CellData,BoundaryData,MeshData>;
 
 
-//template <>
-//struct GraphML::Deserializer<MeshData>
-//{
-//    static void onElementBegin(void* pInstance,
-//                               Ref<SAXHandler> rSAX,
-//                               std::string_view name,
-//                               std::span<AttributePair> attributes);
-//
-//    static void onText(void* pInstance,
-//                       Ref<SAXHandler> rSAX,
-//                       std::string_view data);
-//
-//    static void onElementEnd(void*,
-//                             Ref<SAXHandler>,
-//                             std::string_view) noexcept
-//    {}
-//}; // struct GraphML::Deserializer<MeshData>
+/// @brief Serializer for @ref MeshData in @p GraphML format.
+template <>
+struct io::GraphML::Serializer<MeshData>
+{
+    void header(Ref<io::GraphML::XMLElement> rElement) const
+    {
+        // Add default value to the header.
+        io::GraphML::XMLElement defaultElement = rElement.addChild("default");
+        MeshData instance;
+        this->operator()(defaultElement, instance);
+
+        // Add description to the header.
+        io::GraphML::XMLElement descriptionElement = rElement.addChild("desc");
+        std::stringstream description;
+        description << "Data structure shared by all cells and boundaries of the mesh. "
+                    << "In this case, this means the ansatz spaces of the cells as "
+                    << "well as their derivatives. Each cell stores an index referring "
+                    << "to their own ansatz spaces.",
+        descriptionElement.setValue(description.view());
+    }
+
+    void operator()(Ref<io::GraphML::XMLElement> rElement,
+                    Ref<const MeshData> rInstance) const
+    {
+        io::GraphML::Serializer<DynamicArray<Ansatz>> subSerializer;
+        subSerializer(rElement, rInstance.ansatzSpaces);
+    }
+}; // struct GraphML::Serializer<MeshData>
+
+/// @brief Deserializer for @ref MeshData in @p GraphML format.
+template <>
+struct io::GraphML::Deserializer<MeshData>
+    : public io::GraphML::DeserializerBase<MeshData>
+{
+    using io::GraphML::DeserializerBase<MeshData>::DeserializerBase;
+
+    /// @brief This function is called when an element opening tag is parsed in the XML document.
+    static void onElementBegin(void* pThis,
+                               std::string_view elementName,
+                               std::span<io::GraphML::AttributePair>)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        // Defer parsing to the array of ansatz spaces.
+        using SubDeserializer = io::GraphML::Deserializer<DynamicArray<Ansatz>>;
+        rThis.sax().push({
+            SubDeserializer::make(rThis._buffer, rThis.sax(), elementName),
+            SubDeserializer::onElementBegin,
+            SubDeserializer::onText,
+            SubDeserializer::onElementEnd
+        });
+    }
+
+    /// @brief This function is called when text block is parsed in the XML document.
+    static void onText(void*,
+                       std::string_view)
+    {
+        // No text data is expected for this class.
+        CIE_THROW(Exception, "Unexpected text block while parsing mesh data.")
+    }
+
+    /// @brief This function is called when an element closing tag is parsed in the XML document.
+    static void onElementEnd(void* pThis,
+                             std::string_view elementName)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        // Move the parsed ansatz spaces from the buffer to the mesh data instance.
+        rThis.instance().ansatzSpaces = std::move(rThis._buffer);
+
+        // Build derivatives from the parsed ansatz spaces.
+        std::transform(rThis.instance().ansatzSpaces.begin(),
+                       rThis.instance().ansatzSpaces.end(),
+                       std::back_inserter(rThis.instance().ansatzDerivatives),
+                       [] (Ref<const Ansatz> rAnsatz) -> Ansatz::Derivative {
+                            return rAnsatz.makeDerivative();
+                       });
+
+        // The parser's job is done => destroy it.
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+
+private:
+    DynamicArray<Ansatz> _buffer;
+}; // struct GraphML::Deserializer<MeshData>
+
+
+template <>
+struct io::GraphML::Serializer<CellData>
+{
+    void header(Ref<io::GraphML::XMLElement> rElement) const
+    {
+        io::GraphML::XMLElement defaultElement = rElement.addChild("default");
+        CellData instance;
+        this->operator()(defaultElement, instance);
+    }
+
+    void operator()(Ref<io::GraphML::XMLElement> rElement,
+                    Ref<const CellData> rInstance) const
+    {
+        rElement.addAttribute("iAnsatz", std::to_string(rInstance.iAnsatz));
+        rElement.addAttribute("diffusivity", std::to_string(rInstance.diffusivity));
+
+        std::stringstream buffer;
+        buffer << rInstance.axes;
+        rElement.addAttribute("axes", buffer.view());
+
+        io::GraphML::Serializer<SpatialTransform>()(rElement, rInstance.spatialTransform);
+    }
+}; // struct GraphML::Serializer<CellData>
+
+
+template <>
+struct io::GraphML::Deserializer<CellData>
+    : public io::GraphML::DeserializerBase<CellData>
+{
+    using io::GraphML::DeserializerBase<CellData>::DeserializerBase;
+
+    /// @brief This function is called when an element opening tag is parsed in the XML document.
+    static void onElementBegin(void* pThis,
+                               std::string_view elementName,
+                               std::span<io::GraphML::AttributePair> attributes)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        {
+            const auto it = std::find_if(attributes.begin(),
+                                            attributes.end(),
+                                            [] (const auto pair) {
+                                            return pair.first == "iAnsatz";
+                                            });
+            char* pEnd;
+            rThis.instance().iAnsatz = std::strtoul(it->second.data(), &pEnd, 10);
+        }
+
+        {
+            const auto it = std::find_if(attributes.begin(),
+                                            attributes.end(),
+                                            [] (const auto pair) {
+                                            return pair.first == "diffusivity";
+                                            });
+            char* pEnd;
+            rThis.instance().diffusivity = std::strtod(it->second.data(), &pEnd);
+        }
+
+        {
+            const auto it = std::find_if(attributes.begin(),
+                                            attributes.end(),
+                                            [] (const auto pair) {
+                                            return pair.first == "axes";
+                                            });
+            rThis.instance().axes = OrientedAxes<Dimension>(it->second);
+        }
+
+        {
+            using SubSerializer = io::GraphML::Deserializer<SpatialTransform>;
+            rThis.sax().push({
+                SubSerializer::make(rThis.instance().spatialTransform, rThis.sax(), elementName),
+                SubSerializer::onElementBegin,
+                SubSerializer::onText,
+                SubSerializer::onElementEnd
+            });
+        }
+
+        CIE_THROW(NotImplementedException, "")
+    }
+
+    static void onText(Ptr<void>, std::string_view) noexcept {}
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+
+}; // struct GraphML::Deserializer<CellData>
+
+
+template <>
+struct io::GraphML::Serializer<BoundaryData>
+{
+    void header(Ref<io::GraphML::XMLElement> rElement) const
+    {
+        io::GraphML::XMLElement defaultElement = rElement.addChild("default");
+        BoundaryData instance;
+        this->operator()(defaultElement, instance);
+    }
+
+    void operator()(Ref<io::GraphML::XMLElement> rElement,
+                    Ref<const BoundaryData> rInstance) const
+    {
+        std::ostringstream buffer;
+
+        buffer << rInstance.sourceBoundary;
+        rElement.addAttribute("src", buffer.view());
+
+        std::ostringstream().swap(buffer);
+        buffer << rInstance.targetBoundary;
+        rElement.addAttribute("tgt", buffer.view());
+    }
+}; // struct GraphML::Serializer<BoundaryData>
+
+
+template <>
+struct io::GraphML::Deserializer<BoundaryData>
+    : public io::GraphML::DeserializerBase<BoundaryData>
+{
+    using io::GraphML::DeserializerBase<BoundaryData>::DeserializerBase;
+
+    /// @brief This function is called when an element opening tag is parsed in the XML document.
+    static void onElementBegin(void* pThis,
+                               std::string_view,
+                               std::span<io::GraphML::AttributePair> attributes)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        {
+            const auto it = std::find_if(attributes.begin(),
+                                            attributes.end(),
+                                            [] (const auto pair) {
+                                            return pair.first == "src";
+                                            });
+            rThis.instance().sourceBoundary = BoundaryID(it->second.data());
+        }
+
+        {
+            const auto it = std::find_if(attributes.begin(),
+                                            attributes.end(),
+                                            [] (const auto pair) {
+                                            return pair.first == "tgt";
+                                            });
+            rThis.instance().targetBoundary = BoundaryID(it->second.data());
+        }
+    }
+
+    static void onText(Ptr<void>, std::string_view) noexcept {}
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+
+}; // struct GraphML::Deserializer<BoundaryData>
 
 
 /// @brief Generate cells and boundaries for the example problem.
@@ -255,6 +485,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
     // Fill the mesh with cells and boundaries.
     fillMesh(mesh, nodesPerDirection);
+    io::GraphML::GraphML::Output("test_2d.graphml")(mesh);
 
     // Find ansatz functions that coincide on opposite boundaries.
     // In adjacent cells, these ansatz functions will have to map

@@ -4,6 +4,7 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/OuterProduct.hpp"
+#include "packages/io/inc/GraphML_specializations.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
@@ -101,7 +102,7 @@ AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const An
 
 template <class TScalarExpression, unsigned Dim>
 AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace() noexcept
-    : AnsatzSpace({})
+    : AnsatzSpace(AnsatzSet {})
 {
 }
 
@@ -175,7 +176,93 @@ unsigned AnsatzSpace<TScalarExpression,Dim>::size() const noexcept
 }
 
 
+template <class TScalarExpression, unsigned Dim>
+std::span<const TScalarExpression> AnsatzSpace<TScalarExpression,Dim>::ansatzSet() const noexcept
+{
+    return {_set.data(), _set.size()};
+}
+
+
 } // namespace cie::fem::maths
+
+
+namespace cie::fem::io {
+
+
+template <class TScalarExpression, unsigned Dim>
+void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim>>::header(Ref<XMLElement> rElement)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    GraphML::XMLElement defaultData = rElement.addChild("default");
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim>>::operator()(Ref<XMLElement> rElement,
+                                                                                Ref<const maths::AnsatzSpace<TScalarExpression,Dim>> rInstance)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    static_assert(concepts::Container<std::span<const TScalarExpression>>, "test");
+    using SubSerializer = GraphML::Serializer<std::span<const TScalarExpression>>;
+    SubSerializer subSerializer;
+    GraphML::XMLElement subElement = rElement.addChild("ansatz-space");
+    subSerializer(subElement, rInstance.ansatzSet());
+    //subSerializer(rElement, rInstance.ansatzSet());
+
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim>>::onElementBegin(Ptr<void> pThis,
+                                                                                      std::string_view elementName,
+                                                                                      [[maybe_unused]] std::span<GraphML::AttributePair> attributes)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    using SubDeserializer = GraphML::Deserializer<typename Value::AnsatzSet>;
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(rThis._set, rThis.sax(), elementName);
+
+    rThis.sax().push({
+        pSubDeserializer,
+        SubDeserializer::onElementBegin,
+        SubDeserializer::onText,
+        SubDeserializer::onElementEnd
+    });
+
+    //SubDeserializer::onElementBegin(pSubDeserializer, elementName, attributes);
+
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim>>::onText(Ptr<void>,
+                                                                              std::string_view)
+{
+    CIE_THROW(
+        Exception,
+        "Unexpected text block while parsing AnsatzSpace in GraphML."
+    )
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim>>::onElementEnd(Ptr<void> pThis,
+                                                                                    std::string_view elementName)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.instance() = Value(std::move(rThis._set));
+    rThis.template release<Deserializer>(&rThis, elementName);
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+} // namespace cie::fem::io
 
 
 

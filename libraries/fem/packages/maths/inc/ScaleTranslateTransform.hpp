@@ -3,7 +3,7 @@
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
-#include "packages/io/inc/GraphML.hpp" // io::GraphML::Serializer
+#include "packages/io/inc/GraphML.hpp" // io::GraphML::Serializer, io::GraphML::Deserializer
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/StaticArray.hpp"
@@ -98,7 +98,7 @@ public:
     /// @brief Identity transform by default.
     ScaleTranslateTransform() noexcept;
 
-    /** @brief Construct from the transformed base and the vertex opposite @f$ [1]^D @f$.
+    /** @brief Construct from the transformed base @f$ [-1]^D @f$ and the vertex opposite @f$ [1]^D @f$.
      *  @details The coordinates of the input transformed vertex are identical to the
      *           scaling coefficients of the transform, after undoing the translation.
      *  @note The number of input components must match the dimension.
@@ -234,6 +234,29 @@ struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>
 
     void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept;
 }; // struct io::GraphML::Serializer<ScaleTranslateTransform<TValue,Dimension>>
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+struct GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
+    : public GraphML::DeserializerBase<maths::ScaleTranslateTransform<TValue,Dimension>>
+{
+    using Value = maths::ScaleTranslateTransform<TValue,Dimension>;
+
+    using GraphML::DeserializerBase<Value>::DeserializerBase;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair> attributes);
+
+    static void onText(Ptr<void> pThis,
+                       std::string_view data);
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName);
+
+private:
+    StaticArray<TValue,Dimension * 2> _buffer;
+}; // GraphML::Deserializer<ScaleTranslateTransform>
 
 
 template <concepts::Numeric TValue, unsigned Dimension>

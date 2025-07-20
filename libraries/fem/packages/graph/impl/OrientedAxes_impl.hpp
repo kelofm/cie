@@ -256,6 +256,29 @@ requires (Dimension < 4)
 }
 
 
+namespace detail {
+template <unsigned Dimension>
+const char* checkOrientedAxesString(std::string_view definition)
+{
+    if (definition.size() != 2 * Dimension) {
+        CIE_THROW(
+            Exception,
+            "Invalid input for OrientedAxes<" << Dimension << ">. Expecting a string of size "
+            << 2 * Dimension << " but got \"" << definition << "\"."
+        )
+    }
+    return definition.data();
+}
+} // namespace Detail
+
+
+template <unsigned Dimension>
+OrientedAxes<Dimension>::OrientedAxes(std::string_view definition)
+    : OrientedAxes(detail::checkOrientedAxesString<Dimension>(definition))
+{
+}
+
+
 template <unsigned Dimension>
 bool OrientedAxes<Dimension>::operator==(OrientedAxes rhs) const noexcept
 {
@@ -352,6 +375,12 @@ OrientedAxes<Dimension>::end() noexcept
 }
 
 
+} // namespace cie::fem
+
+
+namespace cie::fem::io {
+
+
 template <unsigned Dimension>
 void io::GraphML::Serializer<OrientedAxes<Dimension>>::header(Ref<XMLElement> rElement) noexcept
 {
@@ -371,11 +400,42 @@ void io::GraphML::Serializer<OrientedAxes<Dimension>>::operator()(Ref<XMLElement
 {
     std::stringstream stream;
     stream << rObject;
+    //GraphML::XMLElement subElement = rElement.addChild("oax");
+    //subElement.setValue(stream.view());
     rElement.setValue(stream.view());
 }
 
 
-} // namespace cie::fem
+template <unsigned Dimension>
+void io::GraphML::Deserializer<OrientedAxes<Dimension>>::onElementBegin(Ptr<void>,
+                                                                        std::string_view,
+                                                                        std::span<GraphML::AttributePair>)
+{
+}
+
+
+template <unsigned Dimension>
+void io::GraphML::Deserializer<OrientedAxes<Dimension>>::onText(Ptr<void> pThis,
+                                                                std::string_view data)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.instance() = OrientedAxes<Dimension>(data.data());
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <unsigned Dimension>
+void io::GraphML::Deserializer<OrientedAxes<Dimension>>::onElementEnd(Ptr<void> pThis,
+                                                                      std::string_view elementName)
+{
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.template release<Deserializer>(&rThis, elementName);
+}
+
+
+
+} // namespace cie::fem::io
 
 
 #endif

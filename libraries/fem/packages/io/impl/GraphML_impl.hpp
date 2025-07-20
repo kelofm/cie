@@ -1,139 +1,287 @@
-#ifndef CIE_FEM_GRAPHML_IMPL_HPP
-#define CIE_FEM_GRAPHML_IMPL_HPP
+#pragma once
 
 // help the language server
 #include "packages/io/inc/GraphML.hpp"
 
 // --- Utility Includes ---
-#include "packages/compile_time/packages/parameter_pack/inc/Match.hpp" // Match::None
+#include "packages/compile_time/packages/parameter_pack/inc/Match.hpp"
 
 // --- STL Includes ---
-#include <string> // std::string
 #include <charconv> // std::from_chars
+#include <iostream>
 
 
 namespace cie::fem::io {
 
 
+template <class T>
+Ptr<GraphML::Deserializer<T>> GraphML::DeserializerBase<T>::make(typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
+                                                                 Ref<SAXHandler> rSAX,
+                                                                 [[maybe_unused]] std::string_view elementName)
+{
+    //std::cout << "make    " << "\033[0;32m" << elementName << "\033[0;37m"
+    //          << " " << typeid(T).name()
+    //          << std::endl;
+    return new GraphML::Deserializer<T>(rInstance, rSAX);
+}
+
+
+template <class T>
+template <class TDerived>
+void GraphML::DeserializerBase<T>::release(Ptr<TDerived> pThis,
+                                           [[maybe_unused]] std::string_view elementName) noexcept
+{
+    //std::cout << "release " << "\033[0;31m" << elementName << "\033[0;37m"
+    //          << " " << typeid(T).name()
+    //          << std::endl;
+    delete pThis;
+}
+
+
+template <class T>
+GraphML::DeserializerBase<T>::DeserializerBase(typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
+                                               Ref<SAXHandler> rSAX) noexcept
+    : _pInstance(&rInstance),
+      _pSAX(&rSAX)
+{
+}
+
+
+template <class T>
+typename VoidSafe<T,std::nullptr_t>::Ref GraphML::DeserializerBase<T>::instance() noexcept
+{
+    if constexpr (std::is_same_v<T,void>) {
+        return _pInstance;
+    } else {
+        return *_pInstance;
+    }
+}
+
+
+template <class T>
+Ref<GraphML::SAXHandler> GraphML::DeserializerBase<T>::sax() noexcept
+{
+    return *_pSAX;
+}
+
+
 namespace detail {
 
 
+struct GraphMLNoOpElement {};
+
+
+struct GraphMLKeyElement {};
+
+
 template <class TGraph>
-struct GraphMLDeserializer
-{
-    static void onElementBegin(void* pGraph,
-                               Ref<GraphML::SAXHandler> rSAX,
-                               std::string_view name,
-                               std::span<GraphML::AttributePair> attributes)
-    {
-        if (name == "graphml") {
-            if (!attributes.empty()) {
-                CIE_THROW(
-                    Exception,
-                    "Expecting no attributes for \"graphml\", but got " << attributes.size() << " of them."
-                )
-            }
-
-            rSAX.push({
-                GraphMLDeserializer::onElementBegin,
-                GraphMLDeserializer::onText,
-                GraphMLDeserializer::onElementEnd,
-                pGraph
-            });
-
-        } else if (name == "graph") {
-            using SubDeserializer = GraphML::Deserializer<TGraph>;
-            rSAX.push({
-                SubDeserializer::onElementBegin,
-                SubDeserializer::onText,
-                SubDeserializer::onElementEnd,
-                pGraph
-            });
-        } else {
-            CIE_THROW(
-                Exception,
-                "Expecting a \"graphml\" or \"graph\" element, but got \"" << name << "\"."
-            )
-        }
-    }
-
-    static void onText(void*,
-                       Ref<GraphML::SAXHandler>,
-                       std::string_view)
-    {
-        CIE_THROW(
-            Exception,
-            "Unexpected text data on a \"graphml\" element."
-        )
-    }
-
-    static void onElementEnd(void*,
-                             Ref<GraphML::SAXHandler>,
-                             std::string_view) noexcept
-    {}
-}; // struct GraphMLDeserializer
+struct GraphMLElement {
+    Ptr<TGraph> pGraph;
+};
 
 
-struct NoOpGraphMLDeserializer
-{
-    static void onElementBegin(void*,
-                               Ref<GraphML::SAXHandler>,
-                               std::string_view,
-                               std::span<GraphML::AttributePair>) noexcept
-    {}
-
-    static void onText(void*,
-                       Ref<GraphML::SAXHandler>,
-                       std::string_view)
-    {}
-
-    static void onElementEnd(void*,
-                             Ref<GraphML::SAXHandler>,
-                             std::string_view) noexcept
-    {}
-}; // struct NoOpGraphMLDeserializer
-
-
-struct GraphMLKeyDeserializer
-{
-    static void onElementBegin(void* pGraph,
-                               Ref<GraphML::SAXHandler> rSAX,
-                               std::string_view name,
-                               std::span<GraphML::AttributePair>) noexcept
-    {
-        if (name == "default") {
-            rSAX.push({
-                NoOpGraphMLDeserializer::onElementBegin,
-                NoOpGraphMLDeserializer::onText,
-                NoOpGraphMLDeserializer::onElementEnd,
-                pGraph
-            });
-        } else {
-            CIE_THROW(
-                Exception,
-                "Unexpected element \"" << name << "\" while parsing \"key\"."
-            )
-        }
-    }
-
-    static void onText(void*,
-                       Ref<GraphML::SAXHandler>,
-                       std::string_view)
-    {
-        CIE_THROW(
-            Exception,
-            "Unexpected text data on a \"key\" element."
-        )
-    }
-
-    static void onElementEnd(void*,
-                             Ref<GraphML::SAXHandler>,
-                             std::string_view) noexcept
-    {}
-}; // struct GraphMLKeyDeserializer
+template <class TGraph>
+struct GraphMLRoot {
+    GraphMLElement<TGraph> graphML;
+};
 
 
 } // namespace detail
+
+
+template <class TGraph>
+struct GraphML::Deserializer<detail::GraphMLElement<TGraph>>
+    : public GraphML::DeserializerBase<detail::GraphMLElement<TGraph>>
+{
+    using GraphML::DeserializerBase<detail::GraphMLElement<TGraph>>::DeserializerBase;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair>)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        if (elementName == "graph") {
+            using SubDeserializer = GraphML::Deserializer<TGraph>;
+            rThis.sax().push({
+                SubDeserializer::make(*rThis.instance().pGraph, rThis.sax(), elementName),
+                SubDeserializer::onElementBegin,
+                SubDeserializer::onText,
+                SubDeserializer::onElementEnd
+            });
+        } else {
+            CIE_THROW(
+                Exception,
+                "Expecting a <graph> element, but got <" << elementName << ">."
+            )
+        }
+    }
+
+    static void onText(Ptr<void>,
+                       std::string_view)
+    {
+        CIE_THROW(
+            Exception,
+            "Unexpected text data on a <graphml> element."
+        )
+    }
+
+    static void onElementEnd(Ptr<void> pThis,
+                             [[maybe_unused]] std::string_view elementName) noexcept
+    {
+        if (elementName != "graphml") {
+            CIE_THROW(
+                Exception,
+                "Expecting a </graphml> end but got </" << elementName << ">."
+            )
+        }
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+}; // struct GraphMLDeserializer
+
+
+template <class TGraph>
+struct GraphML::Deserializer<detail::GraphMLRoot<TGraph>>
+    : public GraphML::DeserializerBase<detail::GraphMLRoot<TGraph>>
+{
+    using GraphML::DeserializerBase<detail::GraphMLRoot<TGraph>>::DeserializerBase;
+
+    using GraphML::DeserializerBase<detail::GraphMLRoot<TGraph>>::release;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair> attributes) noexcept
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        if (elementName == "graphml") {
+            if (!attributes.empty()) {
+                CIE_THROW(
+                    Exception,
+                    "Expecting no attributes for <graphml>, but got " << attributes.size() << " of them."
+                )
+            }
+
+            using SubDeserializer = GraphML::Deserializer<detail::GraphMLElement<TGraph>>;
+            rThis.sax().push({
+                SubDeserializer::make(rThis.instance().graphML, rThis.sax(), elementName),
+                SubDeserializer::onElementBegin,
+                SubDeserializer::onText,
+                SubDeserializer::onElementEnd
+            });
+        } else {
+            CIE_THROW(
+                Exception,
+                "Expecting a <graphml> element, but got <" << elementName << ">."
+            )
+        }
+    }
+
+    static void onText(Ptr<void>,
+                       std::string_view)
+    {
+        CIE_THROW(
+            Exception,
+            "Unexpected text data outside a <graphml> element."
+        )
+    }
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName) noexcept
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+}; // struct Deserializer<detail::GraphMLRoot>
+
+
+template <>
+struct GraphML::Deserializer<detail::GraphMLNoOpElement>
+    : public GraphML::DeserializerBase<detail::GraphMLNoOpElement>
+{
+    using GraphML::DeserializerBase<detail::GraphMLNoOpElement>::DeserializerBase;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair>) noexcept
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        using SubDeserializer = Deserializer;
+        rThis.sax().push({
+            SubDeserializer::make(rThis.instance(), rThis.sax(), elementName),
+            SubDeserializer::onElementBegin,
+            SubDeserializer::onText,
+            SubDeserializer::onElementEnd
+        });
+    }
+
+    static void onText(Ptr<void>,
+                       std::string_view)
+    {}
+
+    static void onElementEnd(Ptr<void> pThis,
+                             [[maybe_unused]] std::string_view elementName) noexcept
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+}; // struct NoOpGraphMLDeserializer
+
+
+template <>
+struct GraphML::Deserializer<detail::GraphMLKeyElement>
+    : public GraphML::DeserializerBase<detail::GraphMLKeyElement>
+{
+    using GraphML::DeserializerBase<detail::GraphMLKeyElement>::DeserializerBase;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair>)
+    {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+        if (elementName == "default" || elementName == "desc") {
+            using SubDeserializer = GraphML::Deserializer<detail::GraphMLNoOpElement>;
+            detail::GraphMLNoOpElement dummy;
+            rThis.sax().push({
+                SubDeserializer::make(dummy, rThis.sax(), elementName),
+                SubDeserializer::onElementBegin,
+                SubDeserializer::onText,
+                SubDeserializer::onElementEnd
+            });
+        } else {
+            CIE_THROW(
+                Exception,
+                "Unexpected element <" << elementName << "> while parsing <key>."
+            )
+        }
+    }
+
+    static void onText(Ptr<void>,
+                       std::string_view)
+    {
+        CIE_THROW(
+            Exception,
+            "Unexpected text data on a <key> element."
+        )
+    }
+
+    static void onElementEnd(Ptr<void> pThis,
+                             [[maybe_unused]] std::string_view elementName) noexcept
+    {
+        if (elementName != "key") {
+            CIE_THROW(
+                Exception,
+                "Expecting a closing tag for <key> but got one for <" << elementName << ">."
+            )
+        }
+
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.template release<Deserializer>(&rThis, elementName);
+    }
+}; // struct GraphMLKeyDeserializer
+
 
 
 template <class TVertexData, class TEdgeData, class TGraphData>
@@ -143,86 +291,128 @@ void GraphML::Input::operator()(Ref<Graph<TVertexData,TEdgeData,TGraphData>> rGr
 
     SAXHandler sax(this->stream());
 
-    using SubDeserializer = detail::GraphMLDeserializer<Graph<TVertexData,TEdgeData,TGraphData>>;
+    using SubDeserializer = GraphML::Deserializer<detail::GraphMLRoot<Graph<TVertexData,TEdgeData,TGraphData>>>;
+    detail::GraphMLRoot<Graph<TVertexData,TEdgeData,TGraphData>> root;
+    root.graphML.pGraph = &rGraph;
+    Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(root, sax, "");
+
     sax.push({
+        pSubDeserializer,
         SubDeserializer::onElementBegin,
         SubDeserializer::onText,
-        SubDeserializer::onElementEnd,
-        &rGraph
+        SubDeserializer::onElementEnd
     });
 
     sax.parse();
+    pSubDeserializer->template release<SubDeserializer>(pSubDeserializer, "");
 
     CIE_END_EXCEPTION_TRACING
 }
-
-
-template <>
-struct GraphML::Serializer<void> {};
 
 
 template <class TVertexData, class TEdgeData, class TGraphData>
 void GraphML::Output::operator()(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph)
 {
     CIE_BEGIN_EXCEPTION_TRACING
+        XMLElement rootElement = this->root();
+        XMLElement graphElement = rootElement.addChild("graph");
 
-    XMLElement rootElement = this->root();
-    XMLElement graphElement = rootElement.addChild("graph");
+        Serializer<Graph<TVertexData,TEdgeData,TGraphData>> serializer;
+        serializer.header(graphElement);
+        serializer(graphElement, rGraph);
+    CIE_END_EXCEPTION_TRACING
 
-    // Write graph attributes.
-    graphElement.addAttribute("edgedefault", "directed");
+    CIE_BEGIN_EXCEPTION_TRACING
+        this->write();
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TVertexData, class TEdgeData, class TGraphData>
+void GraphML::Serializer<Graph<TVertexData,TEdgeData,TGraphData>>::header(Ref<GraphML::XMLElement> rElement) const
+{
+    CIE_BEGIN_EXCEPTION_TRACING
 
     int dataCount = 0;    // <== counts how many non-void properties need to be written
     std::string graphDataID, vertexDataID, edgeDataID;
 
-    // Write graph data header.
-    GraphML::Serializer<TGraphData> graphDataSerializer;
+    // Write graph attributes.
+    rElement.addAttribute("edgedefault", "directed");
 
+    // Write graph data header.
     if constexpr (ct::Match<TGraphData>::template None<void,std::monostate>) {
+        GraphML::Serializer<TGraphData> serializer;
         graphDataID = std::to_string(dataCount++);
 
-        XMLElement headerElement = graphElement.addChild("key");
+        XMLElement headerElement = rElement.addChild("key");
         headerElement.addAttribute("id", graphDataID);
         headerElement.addAttribute("for", "graph");
 
-        graphDataSerializer.header(headerElement);
+        serializer.header(headerElement);
     }
 
     // Write vertex data header.
-    GraphML::Serializer<TVertexData> vertexDataSerializer;
-
     if constexpr (ct::Match<TVertexData>::template None<void,std::monostate>) {
+        GraphML::Serializer<TVertexData> serializer;
         vertexDataID = std::to_string(dataCount++);
 
-        XMLElement headerElement = graphElement.addChild("key");
+        XMLElement headerElement = rElement.addChild("key");
         headerElement.addAttribute("id", vertexDataID);
         headerElement.addAttribute("for", "node");
 
-        vertexDataSerializer.header(headerElement);
+        serializer.header(headerElement);
     }
 
     // Write edge data header.
-    GraphML::Serializer<TEdgeData> edgeDataSerializer;
-
     if constexpr (ct::Match<TEdgeData>::template None<void,std::monostate>) {
+        GraphML::Serializer<TEdgeData> serializer;
         edgeDataID = std::to_string(dataCount++);
 
-        XMLElement headerElement = graphElement.addChild("key");
+        XMLElement headerElement = rElement.addChild("key");
         headerElement.addAttribute("id", edgeDataID);
         headerElement.addAttribute("for", "edge");
-        edgeDataSerializer.header(headerElement);
+        serializer.header(headerElement);
     }
+
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TVertexData, class TEdgeData, class TGraphData>
+void GraphML::Serializer<Graph<TVertexData,TEdgeData,TGraphData>>::operator()(Ref<GraphML::XMLElement> rElement,
+                                                                              Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph) const
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    // Find keys.
+    int dataCount = 0;    // <== counts how many non-void properties need to be written
+    std::string graphDataID, vertexDataID, edgeDataID;
+
+    if constexpr (ct::Match<TGraphData>::template None<void,std::monostate>) {
+        graphDataID = std::to_string(dataCount++);
+    }
+    if constexpr (ct::Match<TVertexData>::template None<void,std::monostate>) {
+        vertexDataID = std::to_string(dataCount++);
+    }
+    if constexpr (ct::Match<TEdgeData>::template None<void,std::monostate>) {
+        edgeDataID = std::to_string(dataCount++);
+    }
+
+    // Construct serializers.
+    GraphML::Serializer<TGraphData> graphDataSerializer;
+    GraphML::Serializer<TVertexData> vertexDataSerializer;
+    GraphML::Serializer<TEdgeData> edgeDataSerializer;
 
     // Write graph data.
     if constexpr (ct::Match<TGraphData>::template None<void,std::monostate>) {
-        XMLElement dataElement = graphElement.addChild("data");
+        XMLElement dataElement = rElement.addChild("data");
         dataElement.addAttribute("key", graphDataID);
         graphDataSerializer(dataElement, rGraph.data());
     }
 
     // Write vertices.
     for (const auto& rItem : rGraph.vertices()) {
-        XMLElement element = graphElement.addChild("node");
+        XMLElement element = rElement.addChild("node");
         element.addAttribute("id", std::to_string(rItem.id()));
 
         if constexpr (ct::Match<TVertexData>::template None<void,std::monostate>) {
@@ -234,7 +424,7 @@ void GraphML::Output::operator()(Ref<const Graph<TVertexData,TEdgeData,TGraphDat
 
     // Write edges.
     for (const auto& rItem : rGraph.edges()) {
-        XMLElement element = graphElement.addChild("edge");
+        XMLElement element = rElement.addChild("edge");
         element.addAttribute("id", std::to_string(rItem.id()));
         element.addAttribute("source", std::to_string(rItem.source()));
         element.addAttribute("target", std::to_string(rItem.target()));
@@ -246,28 +436,24 @@ void GraphML::Output::operator()(Ref<const Graph<TVertexData,TEdgeData,TGraphDat
         }
     } // for rItem in rGraph.edges()
 
-    // Dump.
-    this->write();
-
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <class TVertexData, class TEdgeData, class TGraphData>
-void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementBegin(void* pGraph,
-                                                                                    Ref<GraphML::SAXHandler> rSAX,
-                                                                                    std::string_view name,
+void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementBegin(Ptr<void> pThis,
+                                                                                    std::string_view elementName,
                                                                                     std::span<GraphML::AttributePair> attributes)
 {
-    Value& rGraph = *static_cast<Value*>(pGraph);
+    using Value = Graph<TVertexData,TEdgeData,TGraphData>;
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
-    if (name == "node") {
+    if (elementName == "node") {
         // Parse the ID.
         const auto itID = std::find_if(attributes.begin(),
                                        attributes.end(),
                                        [](auto pair) {return pair.first == "id";});
         if (itID == attributes.end()) {
-            for (auto [l, r] : attributes) std::cout << l << " : " << r << std::endl;
             CIE_THROW(Exception, "Found a node without an ID while parsing GraphML.")
         }
 
@@ -287,18 +473,18 @@ void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementBe
         }
 
         // Construct an instance that will be filled in by its deserializer later.
-        typename Value::Vertex& rItem = rGraph.insert(typename Value::Vertex(VertexID(id)));
+        Ref<typename Value::Vertex> rItem = rThis.instance().insert(typename Value::Vertex(VertexID(id)));
 
         // Push a deserializer that fills in the constructed object, and push it
         // onto the top of the parsing stack.
         using SubDeserializer = GraphML::Deserializer<typename Value::Vertex>;
-        rSAX.push({
+        rThis.sax().push({
+            SubDeserializer::make(rItem, rThis.sax(), elementName),
             SubDeserializer::onElementBegin,
             SubDeserializer::onText,
-            SubDeserializer::onElementEnd,
-            &rItem
+            SubDeserializer::onElementEnd
         });
-    } /*if name == "node"*/ else if (name == "edge") {
+    } /*if elementName == "node"*/ else if (elementName == "edge") {
         long edgeID     = 0l,
              sourceID   = 0l,
              targetID   = 0l;
@@ -394,7 +580,7 @@ void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementBe
         }
 
         // Construct an instance that will be filled in by its deserializer later.
-        typename Value::Edge& rItem = rGraph.insert(typename Value::Edge(
+        typename Value::Edge& rItem = rThis.instance().insert(typename Value::Edge(
             EdgeID(edgeID),
             {
                 VertexID(sourceID),
@@ -405,42 +591,43 @@ void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementBe
         // Push a deserializer that fills in the constructed object, and push it
         // onto the top of the parsing stack.
         using SubDeserializer = GraphML::Deserializer<typename Value::Edge>;
-        rSAX.push({
+        rThis.sax().push({
+            SubDeserializer::make(rItem, rThis.sax(), elementName),
             SubDeserializer::onElementBegin,
             SubDeserializer::onText,
-            SubDeserializer::onElementEnd,
-            &rItem
+            SubDeserializer::onElementEnd
         });
-    } /*if name == "edge"*/ else if (name == "key") {
-        rSAX.push({
-            detail::GraphMLKeyDeserializer::onElementBegin,
-            detail::GraphMLKeyDeserializer::onText,
-            detail::GraphMLKeyDeserializer::onElementEnd,
-            pGraph
+    } /*if elementName == "edge"*/ else if (elementName == "key") {
+        using SubDeserializer = GraphML::Deserializer<detail::GraphMLKeyElement>;
+        detail::GraphMLKeyElement dummy;
+        rThis.sax().push({
+            SubDeserializer::make(dummy, rThis.sax(), elementName),
+            SubDeserializer::onElementBegin,
+            SubDeserializer::onText,
+            SubDeserializer::onElementEnd
         });
-    } /*if name == "key"*/ else if (name == "data") {
+    } /*if elementName == "key"*/ else if (elementName == "data") {
         using SubDeserializer = GraphML::Deserializer<TGraphData>;
-        rSAX.push({
+        Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(rThis.instance().data(), rThis.sax(), elementName);
+        rThis.sax().push({
+            pSubDeserializer,
             SubDeserializer::onElementBegin,
             SubDeserializer::onText,
-            SubDeserializer::onElementEnd,
-            &rGraph.data()
+            SubDeserializer::onElementEnd
         });
-    } /*if name == "data"*/ else if (name == "graph") {
-
-    } /*if name == "graph"*/ else {
+        //SubDeserializer::onElementBegin(pSubDeserializer, elementName, attributes);
+    } /*if elementName == "data"*/ else {
         CIE_THROW(
             Exception,
-            "Found unknown element type \"" << name << "\" "
-            << "while parsing GraphML."
+            "Unexpected <" << elementName << "> "
+            << "while parsing <graph>."
         )
     }
 }
 
 
 template <class TVertexData, class TEdgeData, class TGraphData>
-void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onText(void*,
-                                                                            Ref<GraphML::SAXHandler>,
+void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onText(Ptr<void>,
                                                                             std::string_view)
 {
     CIE_THROW(
@@ -451,37 +638,24 @@ void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onText(void
 
 
 template <class TVertexData, class TEdgeData, class TGraphData>
-void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementEnd(void*,
-                                                                                  Ref<GraphML::SAXHandler>,
-                                                                                  std::string_view) noexcept
+void GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>::onElementEnd(Ptr<void> pThis,
+                                                                                  std::string_view elementName)
 {
-}
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
-
-template <class T>
-requires std::is_same_v<typename T::ID,VertexID>
-void GraphML::Deserializer<T>::onElementBegin(void* pInstance,
-                                              Ref<GraphML::SAXHandler> rSAX,
-                                              std::string_view name,
-                                              [[maybe_unused]] std::span<GraphML::AttributePair> attributes)
-{
-    if (name == "data") {
-        using SubDeserializer = GraphML::Deserializer<typename T::Data>;
-        auto pSubInstance = &static_cast<T*>(pInstance)->data();
-        rSAX.push({
-            SubDeserializer::onElementBegin,
-            SubDeserializer::onText,
-            SubDeserializer::onElementEnd,
-            pSubInstance
+    if (elementName == "node" || elementName == "edge" || elementName == "data") {
+        rThis.sax().push({
+            pThis,
+            Deserializer::onElementBegin,
+            Deserializer::onText,
+            Deserializer::onElementEnd
         });
-
-        CIE_BEGIN_EXCEPTION_TRACING
-        SubDeserializer::onElementBegin(pSubInstance, rSAX, name, attributes);
-        CIE_END_EXCEPTION_TRACING
+    } else if (elementName == "graph") {
+        rThis.template release<Deserializer>(&rThis, elementName);
     } else {
         CIE_THROW(
             Exception,
-            "Expecting a \"data\" graphml element on a \"node\", but got \"" << name << "\"."
+            "Expecting a closing tag for <graph> but got one for <" << elementName << ">."
         )
     }
 }
@@ -489,9 +663,44 @@ void GraphML::Deserializer<T>::onElementBegin(void* pInstance,
 
 template <class T>
 requires std::is_same_v<typename T::ID,VertexID>
-void GraphML::Deserializer<T>::onText([[maybe_unused]] void*,
-                                      [[maybe_unused]] Ref<GraphML::SAXHandler>,
-                                      [[maybe_unused]] std::string_view)
+void GraphML::Deserializer<T>::onElementBegin(Ptr<void> pThis,
+                                              std::string_view elementName,
+                                              [[maybe_unused]] std::span<GraphML::AttributePair> attributes)
+{
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+    if (elementName == "data") {
+        using SubDeserializer = GraphML::Deserializer<typename T::Data>;
+        Ptr<SubDeserializer> pSubDeserializer;
+        if constexpr (std::is_same_v<typename T::Data,void>) {
+            pSubDeserializer = SubDeserializer::make(nullptr, rThis.sax(), elementName);
+        } else {
+            pSubDeserializer = SubDeserializer::make(rThis.instance().data(), rThis.sax(), elementName);
+        }
+
+        rThis.sax().push({
+            pSubDeserializer,
+            SubDeserializer::onElementBegin,
+            SubDeserializer::onText,
+            SubDeserializer::onElementEnd
+        });
+
+        //CIE_BEGIN_EXCEPTION_TRACING
+        //SubDeserializer::onElementBegin(pSubDeserializer, elementName, attributes);
+        //CIE_END_EXCEPTION_TRACING
+    } else {
+        CIE_THROW(
+            Exception,
+            "Expecting a \"data\" graphml element on a \"node\", but got \"" << elementName << "\"."
+        )
+    }
+}
+
+
+template <class T>
+requires std::is_same_v<typename T::ID,VertexID>
+void GraphML::Deserializer<T>::onText(Ptr<void>,
+                                      std::string_view)
 {
     CIE_THROW(
         Exception,
@@ -502,36 +711,45 @@ void GraphML::Deserializer<T>::onText([[maybe_unused]] void*,
 
 template <class T>
 requires std::is_same_v<typename T::ID,VertexID>
-void GraphML::Deserializer<T>::onElementEnd([[maybe_unused]] void* pInstance,
-                                            [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                            [[maybe_unused]] std::string_view name) noexcept
-{}
+void GraphML::Deserializer<T>::onElementEnd(Ptr<void> pThis,
+                                            std::string_view elementName) noexcept
+{
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.template release<Deserializer>(&rThis, elementName);
+}
 
 
 template <class T>
 requires std::is_same_v<typename T::ID,EdgeID>
-void GraphML::Deserializer<T>::onElementBegin([[maybe_unused]] void* pInstance,
-                                              [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                              [[maybe_unused]] std::string_view name,
+void GraphML::Deserializer<T>::onElementBegin(Ptr<void> pThis,
+                                              std::string_view elementName,
                                               [[maybe_unused]] std::span<GraphML::AttributePair> attributes)
 {
-    if (name == "data") {
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+
+    if (elementName == "data") {
         using SubDeserializer = GraphML::Deserializer<typename T::Data>;
-        auto pSubInstance = &static_cast<T*>(pInstance)->data();
-        rSAX.push({
+        Ptr<SubDeserializer> pSubDeserializer;
+        if constexpr (std::is_same_v<typename T::Data,void>) {
+            pSubDeserializer = SubDeserializer::make(nullptr, rThis.sax(), elementName);
+        } else {
+            pSubDeserializer = SubDeserializer::make(rThis.instance().data(), rThis.sax(), elementName);
+        }
+
+        rThis.sax().push({
+            pSubDeserializer,
             SubDeserializer::onElementBegin,
             SubDeserializer::onText,
-            SubDeserializer::onElementEnd,
-            pSubInstance
+            SubDeserializer::onElementEnd
         });
 
-        CIE_BEGIN_EXCEPTION_TRACING
-        SubDeserializer::onElementBegin(pSubInstance, rSAX, name, attributes);
-        CIE_END_EXCEPTION_TRACING
+        //CIE_BEGIN_EXCEPTION_TRACING
+        //SubDeserializer::onElementBegin(pSubDeserializer, elementName, attributes);
+        //CIE_END_EXCEPTION_TRACING
     } else {
         CIE_THROW(
             Exception,
-            "Expecting a \"data\" graphml element on an \"edge\", but got \"" << name << "\"."
+            "Expecting a \"data\" graphml element on an \"edge\", but got \"" << elementName << "\"."
         )
     }
 }
@@ -539,75 +757,24 @@ void GraphML::Deserializer<T>::onElementBegin([[maybe_unused]] void* pInstance,
 
 template <class T>
 requires std::is_same_v<typename T::ID,EdgeID>
-void GraphML::Deserializer<T>::onText([[maybe_unused]] void*,
-                                      [[maybe_unused]] Ref<GraphML::SAXHandler>,
-                                      [[maybe_unused]] std::string_view)
+void GraphML::Deserializer<T>::onText(Ptr<void>,
+                                      std::string_view)
 {
     CIE_THROW(
         Exception,
-        "Found unexpected text data while parsing a node in GraphML."
+        "Found unexpected text data while parsing an edge in GraphML."
     )
 }
 
 
 template <class T>
 requires std::is_same_v<typename T::ID,EdgeID>
-void GraphML::Deserializer<T>::onElementEnd([[maybe_unused]] void* pInstance,
-                                            [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                            [[maybe_unused]] std::string_view name) noexcept
-{}
-
-
-inline void GraphML::Deserializer<void>::onElementBegin([[maybe_unused]] void* pInstance,
-                                                        [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                                        [[maybe_unused]] std::string_view name,
-                                                        [[maybe_unused]] std::span<GraphML::AttributePair> attributes) noexcept
+void GraphML::Deserializer<T>::onElementEnd(Ptr<void> pThis,
+                                            std::string_view elementName) noexcept
 {
-}
-
-
-inline void GraphML::Deserializer<void>::onText([[maybe_unused]] void*,
-                                                [[maybe_unused]] Ref<GraphML::SAXHandler>,
-                                                [[maybe_unused]] std::string_view)
-{
-    CIE_THROW(
-        Exception,
-        "Found unexpected text data while parsing void in GraphML."
-    )
-}
-
-
-inline void GraphML::Deserializer<void>::onElementEnd([[maybe_unused]] void* pInstance,
-                                                      [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                                      [[maybe_unused]] std::string_view name) noexcept
-{
-}
-
-
-inline void GraphML::Deserializer<std::string>::onElementBegin([[maybe_unused]] void* pInstance,
-                                                               [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                                               [[maybe_unused]] std::string_view name,
-                                                               [[maybe_unused]] std::span<GraphML::AttributePair> attributes) noexcept
-{
-}
-
-
-inline void GraphML::Deserializer<std::string>::onText([[maybe_unused]] void* pInstance,
-                                                       [[maybe_unused]] Ref<GraphML::SAXHandler>,
-                                                       [[maybe_unused]] std::string_view data)
-{
-    *static_cast<std::string*>(pInstance) = data;
-}
-
-
-inline void GraphML::Deserializer<std::string>::onElementEnd([[maybe_unused]] void* pInstance,
-                                                             [[maybe_unused]] Ref<GraphML::SAXHandler> rSAX,
-                                                             [[maybe_unused]] std::string_view name) noexcept
-{
+    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    rThis.template release<Deserializer>(&rThis, elementName);
 }
 
 
 } // namespace cie::fem::io
-
-
-#endif

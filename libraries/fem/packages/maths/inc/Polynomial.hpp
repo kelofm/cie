@@ -4,6 +4,7 @@
 // --- FEM Includes ---
 #include "packages/types/inc/types.hpp"
 #include "packages/maths/inc/Expression.hpp"
+#include "packages/io/inc/GraphML.hpp"
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
@@ -61,12 +62,52 @@ public:
     ///          irrespective of the current polynomial order.
     Polynomial makeDerivative() const;
 
+    std::span<const TValue> coefficients() const noexcept;
+
 protected:
     Coefficients _coefficients;
 }; // class Polynomial
 
 
 } // namespace cie::fem::maths
+
+
+namespace cie::fem::io {
+
+
+template <class TValue>
+struct io::GraphML::Serializer<maths::Polynomial<TValue>>
+{
+    void header(Ref<XMLElement> rElement);
+
+    void operator()(Ref<XMLElement> rElement,
+                    Ref<const maths::Polynomial<TValue>> rInstance);
+}; // struct GraphML::Serializer<Polynomial>
+
+
+template <class TValue>
+struct io::GraphML::Deserializer<maths::Polynomial<TValue>>
+    : public io::GraphML::DeserializerBase<maths::Polynomial<TValue>>
+{
+    using io::GraphML::DeserializerBase<maths::Polynomial<TValue>>::DeserializerBase;
+
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair> attributes);
+
+    static void onText(Ptr<void> pThis,
+                       std::string_view data);
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName);
+
+private:
+    typename maths::Polynomial<TValue>::Coefficients _coefficients;
+}; // struct GraphML::Deserializer<Polynomial>
+
+
+} // namespace cie::fem::io
+
 
 #include "packages/maths/impl/Polynomial_impl.hpp"
 

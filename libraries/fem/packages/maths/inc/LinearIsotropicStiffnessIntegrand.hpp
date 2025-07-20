@@ -5,7 +5,6 @@
 #include "packages/maths/inc/Expression.hpp"
 
 // --- STL Includes ---
-#include <memory> // shared_ptr
 #include <span> // span
 
 

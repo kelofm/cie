@@ -176,7 +176,7 @@ concept Container
     typename T::value_type;
     typename T::size_type;
     typename T::iterator;
-    typename T::const_iterator;
+    //typename T::const_iterator;
     {instance.size()};
     {instance.begin()};
     {instance.end()};
@@ -185,10 +185,10 @@ concept Container
 } && (std::is_same_v<TValue,void> || std::is_same_v<typename T::value_type,TValue>);
 
 
-template <class ContainerType>
+template <class TContainer>
 concept NumericContainer
-= Container<typename std::decay<ContainerType>::type>
-  && Numeric<typename std::decay<ContainerType>::type::value_type>;
+= Container<typename std::decay<TContainer>::type>
+  && Numeric<typename std::decay<TContainer>::type::value_type>;
 
 
 template <class TContainer, class TValue = void>
@@ -203,46 +203,42 @@ concept NonPointerContainer
   && !PointerContainer<TContainer>;
 
 
-template <class ContainerType>
+template <class TContainer>
 concept IteratorContainer
-= Container<typename std::remove_reference<ContainerType>::type>
-  && Iterator<typename std::remove_reference<ContainerType>::type::value_type>;
+= Container<typename std::remove_reference<TContainer>::type>
+  && Iterator<typename std::remove_reference<TContainer>::type::value_type>;
 
 
-template <class ContainerType, class InterfaceType>
+template <class TContainer, class InterfaceType>
 concept InterfaceContainer
-= Container<typename std::remove_reference<ContainerType>::type>
-  && Pointer<typename std::remove_reference<ContainerType>::type::value_type>
-  && DerivedFrom<typename std::pointer_traits<typename std::remove_reference<ContainerType>::type::value_type>::element_type,InterfaceType>;
+= Container<typename std::remove_reference<TContainer>::type>
+  && Pointer<typename std::remove_reference<TContainer>::type::value_type>
+  && DerivedFrom<typename std::pointer_traits<typename std::remove_reference<TContainer>::type::value_type>::element_type,InterfaceType>;
 
 
 // ---------------------------------------------------------
 // SPECIALIZED STL CONTAINERS
 // ---------------------------------------------------------
 
-template <class ContainerType>
+template <class TContainer>
 concept ResizableContainer
-= Container<ContainerType>
-  && requires (ContainerType instance)
-{
-    {instance.resize(1)};
-};
+= Container<TContainer> && detail::HasResize<TContainer,std::size_t>;
 
 
-template <class ContainerType>
+template <class TContainer>
 concept ReservableContainer
-= Container<ContainerType>
-  && requires (ContainerType instance)
+= Container<TContainer>
+  && requires (TContainer instance)
 {
     {instance.reserve(1)};
 };
 
 
 // TODO: improve definition
-template <class ContainerType>
+template <class TContainer>
 concept StaticContainer
-=   Container<ContainerType>
-    && !ResizableContainer<ContainerType>;
+=   Container<TContainer>
+    && !ResizableContainer<TContainer>;
 
 
 } // namespace cie::concepts

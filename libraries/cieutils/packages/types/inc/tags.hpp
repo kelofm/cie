@@ -6,6 +6,7 @@
 
 // --- STL Inlcudes ---
 #include <bitset>
+#include <cstdint>
 
 
 namespace cie::tags {
@@ -19,26 +20,31 @@ namespace detail {
 using Flags = std::bitset<CIE_MAX_NUMBER_OF_TAGS>;
 
 
-template <Size ID, class TSelf>
+template <std::uint8_t ID, class TSelf>
 class Tag
 {
 public:
     using Self = TSelf;
 
 public:
-    static constexpr Size id();
+    static constexpr std::uint8_t id() noexcept;
+
+    static constexpr Flags flags() noexcept;
 
     /// @brief Shadow this in derived classes to specify compatibility.
     /// @note Compatible with all by default.
-    static constexpr Flags getCompatibility();
+    static constexpr Flags getCompatibility() noexcept;
 
     /// @brief Check compatiblity with another Tag.
     template <class ...TTags>
-    static constexpr inline bool isCompatibleWith();
+    static constexpr inline bool isCompatibleWith() noexcept;
 };
 
 
 } // namespace detail
+
+
+using Flags = detail::Flags;
 
 
 // --- Execution policy ---
@@ -67,49 +73,49 @@ struct Null : public detail::Tag<0,Null>
 /// @brief Tag to indicate lazy execution.
 struct Lazy : public detail::Tag<1,Lazy>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 
 /// @brief Tag to indicate eager execution.
 struct Eager : public detail::Tag<2,Eager>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 
 /// @brief Tag to indicate a lack of parallelism.
 struct Serial : public detail::Tag<3,Serial>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 
 /// @brief Tag to indicate shared memory parallelism.
 struct SMP : public detail::Tag<4,SMP>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 
 ///@brief Tag to indicate process parallelism.
 struct MPI : public detail::Tag<5,MPI>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 
 /// @brief Tag to indicate binary representation.
 struct Binary : public detail::Tag<6,Binary>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 
 /// @brief Tag to indicate text representation.
 struct Text : public detail::Tag<7,Text>
 {
-    static constexpr detail::Flags getCompatibility();
+    static constexpr detail::Flags getCompatibility() noexcept;
 };
 
 

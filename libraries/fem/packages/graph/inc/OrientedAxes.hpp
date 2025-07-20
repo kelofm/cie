@@ -14,6 +14,7 @@
 #include <iterator> // std::random_access_iterator_tag
 #include <cstdint> // std::int8_t
 #include <iosfwd> // std::ostream
+#include <string_view> // std::string_view
 
 
 namespace cie::fem {
@@ -59,8 +60,10 @@ public:
     OrientedAxes(Ptr<const BoundaryID> itBegin,
                  size_type size);
 
-    OrientedAxes(const char axes[2 * Dimension + 1])
+    explicit OrientedAxes(const char axes[2 * Dimension + 1])
     requires (Dimension < 4);
+
+    explicit OrientedAxes(std::string_view definition);
 
     [[nodiscard]] bool operator==(OrientedAxes rhs) const noexcept;
 
@@ -202,6 +205,17 @@ private:
 template <unsigned D>
 std::ostream& operator<<(std::ostream& rStream, OrientedAxes<D> boundary);
 
+} // namespace cie::fem
+
+
+
+// --- IO --- //
+
+
+
+namespace cie::fem::io {
+
+
 
 template <unsigned Dimension>
 struct io::GraphML::Serializer<OrientedAxes<Dimension>>
@@ -212,8 +226,30 @@ struct io::GraphML::Serializer<OrientedAxes<Dimension>>
 }; // GraphML::Serializer<OrientedAxes<Dimension>>
 
 
+template <unsigned Dimension>
+struct GraphML::Deserializer<OrientedAxes<Dimension>>
+    : public GraphML::DeserializerBase<OrientedAxes<Dimension>>
+{
+    using GraphML::DeserializerBase<OrientedAxes<Dimension>>::DeserializerBase;
 
-} // namespace cie::fem
+    static void onElementBegin(Ptr<void> pThis,
+                               std::string_view elementName,
+                               std::span<GraphML::AttributePair> attributes);
+
+    static void onText(Ptr<void> pThis,
+                       std::string_view data);
+
+    static void onElementEnd(Ptr<void> pThis,
+                             std::string_view elementName);
+}; // struct GraphML::Deserializer<OrientedAxes>
+
+
+} // namespace cie::fem::io
+
+
+
+// --- Hash --- //
+
 
 
 namespace cie::utils {
