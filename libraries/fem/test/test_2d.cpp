@@ -4,7 +4,7 @@
 
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
-//#include "packages/io/inc/MatrixMarket.hpp"
+#include "packages/io/inc/MatrixMarket.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/OrientedBoundary.hpp"
@@ -102,11 +102,8 @@ struct CellData
 /// @brief Data structure unique to @ref Graph::Edge "boundary" between cells.
 struct BoundaryData
 {
-    /// @brief Boundary identifier of the @ref Graph::Edge::source "source cell".
-    BoundaryID sourceBoundary;
-
-    /// @brief Boundary identifier of the @ref Graph::Edge::target "target cell".
-    BoundaryID targetBoundary;
+    /// @brief Boundary identifier of the shared boundary between the adjacent cells.
+    BoundaryID boundary;
 }; // struct BoundaryData
 
 
@@ -311,13 +308,8 @@ struct io::GraphML::Serializer<BoundaryData>
                     Ref<const BoundaryData> rInstance) const
     {
         std::ostringstream buffer;
-
-        buffer << rInstance.sourceBoundary;
-        rElement.addAttribute("src", buffer.view());
-
-        std::ostringstream().swap(buffer);
-        buffer << rInstance.targetBoundary;
-        rElement.addAttribute("tgt", buffer.view());
+        buffer << rInstance.boundary;
+        rElement.addAttribute("bnd", buffer.view());
     }
 }; // struct GraphML::Serializer<BoundaryData>
 
@@ -339,22 +331,19 @@ struct io::GraphML::Deserializer<BoundaryData>
             const auto it = std::find_if(attributes.begin(),
                                             attributes.end(),
                                             [] (const auto pair) {
-                                            return pair.first == "src";
+                                            return pair.first == "bnd";
                                             });
-            rThis.instance().sourceBoundary = BoundaryID(it->second.data());
-        }
-
-        {
-            const auto it = std::find_if(attributes.begin(),
-                                            attributes.end(),
-                                            [] (const auto pair) {
-                                            return pair.first == "tgt";
-                                            });
-            rThis.instance().targetBoundary = BoundaryID(it->second.data());
+            rThis.instance().boundary = BoundaryID(it->second.data());
         }
     }
 
-    static void onText(Ptr<void>, std::string_view) noexcept {}
+    static void onText(Ptr<void>, std::string_view) noexcept
+    {
+        CIE_THROW(
+            Exception,
+            "Unexpected text block while parsing boundary data."
+        )
+    }
 
     static void onElementEnd(Ptr<void> pThis,
                              std::string_view elementName)
@@ -367,9 +356,21 @@ struct io::GraphML::Deserializer<BoundaryData>
 
 
 /// @brief Generate cells and boundaries for the example problem.
-void fillMesh(Ref<Mesh> rMesh,
+void generateMesh(Ref<Mesh> rMesh,
               Size nodesPerDirection)
 {
+    // Define an ansatz space and its derivatives.
+    // In this example, every cell will use the same ansatz space.
+    rMesh.data().ansatzSpaces.emplace_back(Ansatz::AnsatzSet {
+         Basis({ 0.5,  0.5      })
+        ,Basis({ 0.5, -0.5      })
+        ,Basis({ 1.0,  0.0, -1.0})
+    });
+
+    rMesh.data().ansatzDerivatives.emplace_back(
+        rMesh.data().ansatzSpaces.front().makeDerivative()
+    );
+
     // Insert cells into the adjacency graph
     const Scalar edgeLength = 1.0 / (nodesPerDirection - 1);
     Size iBoundary = 0ul;
@@ -419,24 +420,22 @@ void fillMesh(Ref<Mesh> rMesh,
             if (iCellRow) {
                 const Size iSourceCell = iCell - (nodesPerDirection - 1);
                 const Size iTargetCell = iCell;
-                BoundaryID sourceBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
-                BoundaryID targetBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
+                BoundaryID sharedBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
                 rMesh.insert(Mesh::Edge(
                     EdgeID(iBoundary++),
                     {iSourceCell, iTargetCell},
-                    {sourceBoundary, targetBoundary}
+                    {sharedBoundary}
                 ));
             } // if iCellRow
 
             if (iCellColumn) {
                 const Size iSourceCell = iCell - 1ul;
                 const Size iTargetCell = iCell;
-                BoundaryID sourceBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
-                BoundaryID targetBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
+                BoundaryID sharedBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
                 rMesh.insert(Mesh::Edge(
                     EdgeID(iBoundary++),
                     {iSourceCell, iTargetCell},
-                    {sourceBoundary, targetBoundary}
+                    {sharedBoundary}
                 ));
             } // if iCellColumn
         } // for iCellColumn in range(nodesPerDirection -1)
@@ -466,26 +465,21 @@ void fillMesh(Ref<Mesh> rMesh,
 CIE_TEST_CASE("2D", "[systemTests]")
 {
     CIE_TEST_CASE_INIT("2D")
-    constexpr Size nodesPerDirection    = 11;
+    constexpr Size nodesPerDirection    = 2e2;
     constexpr Size integrationOrder     = 2;
 
     Mesh mesh;
 
-    // Define an ansatz space and its derivatives.
-    // In this example, every cell will use the same ansatz space.
-    mesh.data().ansatzSpaces.emplace_back(Ansatz::AnsatzSet {
-         Basis({ 0.5,  0.5      })
-        ,Basis({ 0.5, -0.5      })
-        ,Basis({ 1.0,  0.0, -1.0})
-    });
-
-    mesh.data().ansatzDerivatives.emplace_back(
-        mesh.data().ansatzSpaces.front().makeDerivative()
-    );
-
     // Fill the mesh with cells and boundaries.
-    fillMesh(mesh, nodesPerDirection);
-    io::GraphML::GraphML::Output("test_2d.graphml")(mesh);
+    {
+        CIE_TEST_CASE_INIT("generate mesh")
+        generateMesh(mesh, nodesPerDirection);
+    }
+
+    {
+        CIE_TEST_CASE_INIT("write graphml")
+        io::GraphML::GraphML::Output("test_2d.graphml")(mesh);
+    }
 
     // Find ansatz functions that coincide on opposite boundaries.
     // In adjacent cells, these ansatz functions will have to map
@@ -498,28 +492,37 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
     // Build a factory detects the topology of the mesh and issues indices to DoFs.
     Assembler assembler;
-    assembler.addGraph(mesh,
-                       [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
-                            const Ansatz& rAnsatz = mesh.data().ansatzSpaces[rVertex.data().iAnsatz];
-                            return rAnsatz.size();
-                       },
-                       [&ansatzMap, &mesh](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
-                            const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes;
-                            const auto targetAxes = mesh.find(rEdge.target()).value().data().axes;
-                            ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().sourceBoundary),
-                                               OrientedBoundary<Dimension>(targetAxes, rEdge.data().targetBoundary),
-                                               it);
-                       });
+
+    {
+        CIE_TEST_CASE_INIT("parse mesh topology")
+        assembler.addGraph(mesh,
+                           [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
+                                const Ansatz& rAnsatz = mesh.data().ansatzSpaces[rVertex.data().iAnsatz];
+                                return rAnsatz.size();
+                           },
+                           [&ansatzMap, &mesh](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
+                                const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes;
+                                const auto targetAxes = mesh.find(rEdge.target()).value().data().axes;
+                                ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
+                                                   OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
+                                                   it);
+                           });
+    }
 
     // Create empty CSR matrix
     int rowCount, columnCount;
     DynamicArray<int> rowExtents, columnIndices;
     DynamicArray<double> nonzeros;
-    assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, nonzeros);
+    {
+        CIE_TEST_CASE_INIT("compute sparsity pattern")
+        assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, nonzeros);
+    }
     DynamicArray<Scalar> rhs(rowCount, 0.0);
 
     // Compute element contributions and assemble them into the matrix
     {
+        CIE_TEST_CASE_INIT("integrate")
+
         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
         DynamicArray<Scalar> derivativeBuffer(mesh.data().ansatzDerivatives.front().size());
         DynamicArray<Scalar> integrandBuffer(std::pow(mesh.data().ansatzSpaces.front().size(), 2ul));
@@ -528,7 +531,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             const auto& rAnsatzSpace        = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
             const auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
-            const auto jacobian = rCell.data().spatialTransform.makeDerivative();
+            const auto jacobian = rCell.data().spatialTransform.makeInverse().makeDerivative();
 
             const auto localIntegrand = maths::makeTransformedIntegrand(
                 maths::LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
@@ -552,10 +555,11 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
                     const auto iRowBegin = rowExtents[rGlobalDofIndices[iLocalRow]];
                     const auto iRowEnd = rowExtents[rGlobalDofIndices[iLocalRow] + 1];
-                    const auto itColumnIndex = std::find(columnIndices.begin() + iRowBegin,
-                                                         columnIndices.begin() + iRowEnd,
-                                                         rGlobalDofIndices[iLocalColumn]);
-                    CIE_OUT_OF_RANGE_CHECK(itColumnIndex != columnIndices.begin() + iRowEnd)
+                    const auto itColumnIndex = std::lower_bound(columnIndices.begin() + iRowBegin,
+                                                                columnIndices.begin() + iRowEnd,
+                                                                rGlobalDofIndices[iLocalColumn]);
+                    CIE_OUT_OF_RANGE_CHECK(itColumnIndex != columnIndices.begin() + iRowEnd
+                                           && *itColumnIndex == rGlobalDofIndices[iLocalColumn]);
                     const auto iEntry = std::distance(columnIndices.begin(),
                                                       itColumnIndex);
                     nonzeros[iEntry] += integrandBuffer[iLocalRow * localSystemSize + iLocalColumn];
@@ -570,6 +574,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
     // 2) u(0, 1) = 2
     // 3) u(1, 1) = 3
     {
+        CIE_TEST_CASE_INIT("apply boundary conditions")
+
         StaticArray<std::optional<std::size_t>,4> iConstrainedDofs;
         utils::Comparison<Scalar> comparison(1e-8, 1e-6);
 
@@ -654,9 +660,23 @@ CIE_TEST_CASE("2D", "[systemTests]")
         }
     }
 
+    // Matrix market output.
+    {
+        CIE_TEST_CASE_INIT("write LHS matrix")
+        std::ofstream file("lhs.mm");
+        cie::io::MatrixMarket::Output io(file);
+        io(rowCount,
+           columnCount,
+           nonzeros.size(),
+           rowExtents.data(),
+           columnIndices.data(),
+           nonzeros.data());
+    }
+
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
     {
+        CIE_TEST_CASE_INIT("solve")
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
             rowCount,
@@ -668,26 +688,21 @@ CIE_TEST_CASE("2D", "[systemTests]")
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
 
-        Eigen::ConjugateGradient<EigenSparseMatrix,Eigen::Lower|Eigen::Upper,Eigen::DiagonalPreconditioner<Scalar>> solver;
-        solver.setMaxIterations(int(1e3));
+        Eigen::ConjugateGradient<
+            EigenSparseMatrix,
+            Eigen::Lower | Eigen::Upper,
+            Eigen::DiagonalPreconditioner<Scalar>
+        > solver;
+        solver.setMaxIterations(int(5e3));
         solver.setTolerance(1e-6);
 
         solver.compute(lhsAdaptor);
-        const auto x = solver.solve(rhsAdaptor);
+        solutionAdaptor = solver.solve(rhsAdaptor);
 
-        std::copy(x.begin(), x.end(), solution.begin());
+        CIE_TEST_CHECK(solver.info() == Eigen::ComputationInfo::Success);
+        std::cout << solver.iterations() << " iterations "
+                  << solver.error()      << " residual\n";
     }
-
-//    {
-//        std::ofstream file("lhs.mm");
-//        utils::io::MatrixMarket::Output io(file);
-//        io(rowCount,
-//           columnCount,
-//           nonzeros.size(),
-//           rowExtents.data(),
-//           columnIndices.data(),
-//           nonzeros.data());
-//    }
 //
 //    {
 //        std::ofstream file("rhs.mm");
@@ -723,11 +738,12 @@ CIE_TEST_CASE("2D", "[systemTests]")
 //    }
 
     // Postprocessing
-    constexpr unsigned cellSamplesPerDirection = 2;
+    constexpr unsigned cellSamplesPerDirection = 1;
     DynamicArray<std::pair<StaticArray<Scalar,Dimension>,Scalar>> solutionSamples;
     solutionSamples.reserve(cellSamplesPerDirection * intPow(nodesPerDirection - 1u, Dimension));
 
     {
+        CIE_TEST_CASE_INIT("postprocess")
         DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.size());
         DynamicArray<StaticArray<Scalar,Dimension>> localSamplePoints;
 
@@ -737,7 +753,13 @@ CIE_TEST_CASE("2D", "[systemTests]")
             do {
                 StaticArray<Scalar,Dimension> localSamplePoint;
                 for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
-                    localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * 2.0 / (cellSamplesPerDirection - 1.0);
+                    if constexpr (1 < cellSamplesPerDirection) {
+                        localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * 2.0 / (cellSamplesPerDirection - 1.0);
+                    } else if constexpr (1 == cellSamplesPerDirection) {
+                        localSamplePoint[0] = 0.0;
+                    } else {
+                        static_assert(cellSamplesPerDirection != 0, "Invalid sample resolution");
+                    }
                 }
                 localSamplePoints.emplace_back(localSamplePoint);
             } while (maths::OuterProduct<Dimension>::next(cellSamplesPerDirection, samplePointState.data()));
@@ -763,7 +785,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 }
             }
         }
+    }
 
+    {
+        CIE_TEST_CASE_INIT("write results")
         std::ofstream file("test_2d_solution.csv");
         for (const auto& [rSamplePoint, rValue] : solutionSamples) {
             for (const auto coordinate : rSamplePoint) file << coordinate << ',';
