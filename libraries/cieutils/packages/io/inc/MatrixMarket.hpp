@@ -9,7 +9,7 @@
 #include <iosfwd> // istream, ostream
 
 
-namespace cie::utils::io {
+namespace cie::io {
 
 
 /// @brief IO class for reading and writing matrices in @a MatrixMarket format.
@@ -62,7 +62,7 @@ struct MatrixMarket
 }; // struct MatrixMarket
 
 
-} // namespace cie::utils::io
+} // namespace cie::io
 
 
 #endif

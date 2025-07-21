@@ -1,5 +1,6 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
+#include "packages/io/inc/MatrixMarket.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"
@@ -135,13 +136,13 @@ CIE_TEST_CASE("Assembler", "[graph]")
                                 columnIndices,
                                 entries);
         std::ofstream file("assembler_test_2d.mm");
-        utils::io::MatrixMarket::Output io(file);
-        CIE_TEST_CHECK_NOTHROW(io(rowCount,
-                                  columnCount,
-                                  entries.size(),
-                                  rowExtents.data(),
-                                  columnIndices.data(),
-                                  entries.data()));
+        cie::io::MatrixMarket::Output output(file);
+        CIE_TEST_CHECK_NOTHROW(output(rowCount,
+                                      columnCount,
+                                      entries.size(),
+                                      rowExtents.data(),
+                                      columnIndices.data(),
+                                      entries.data()));
     }
 } // CIE_TEST_CASE "Assembler"
 
