@@ -17,6 +17,7 @@
 #include <queue>
 #include <algorithm> // lower_bound, sort, unique
 #include <numeric> // inclusive_scan
+#include <span>
 
 
 namespace cie::fem {
@@ -45,6 +46,13 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
     tsl::robin_set<typename Vertex::ID> visited;
     DoFPairVector dofPairs;
 
+    // Questionable reserve here.
+    // On the one hand, it's extremely wasteful because it assumes that no
+    // DoFs are shared between cells. On the other hand, it doesn't ensure
+    // a final size because it assumes all vertices have an identical number
+    // of DoFs.
+    _dofMap.reserve(rGraph.vertices().size() * rDoFCounter(*visitQueue.front()));
+
     while (!visitQueue.empty()) {
         // Strip the next vertex to visit
         Ref<const Vertex> rVertex = *visitQueue.front();
@@ -52,7 +60,8 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
         visitQueue.pop();
 
         // Insert the vertex to handle disconnected cells.
-        _dofMap.emplace(rVertex.id(), DoFMap::mapped_type {}).first->second.resize(rDoFCounter(rVertex));
+        //_dofMap.emplace(rVertex.id(), DoFMap::mapped_type {}).first->second.resize(rDoFCounter(rVertex));
+        _dofMap.emplace(rVertex.id(), DoFMap::mapped_type {}).first.value().resize(rDoFCounter(rVertex));
 
         for (const auto edgeID : rVertex.edges()) {
             Ref<const Edge> rEdge = rGraph.find(edgeID).value();
@@ -76,10 +85,32 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
             Ref<const Vertex> rTarget = *pTarget;
 
             // Get DoF containers
-            Ref<DoFMap::mapped_type> rSourceDoFs = _dofMap.emplace(rEdge.source(), DoFMap::mapped_type {}).first->second;
-            Ref<DoFMap::mapped_type> rTargetDoFs = _dofMap.emplace(rEdge.target(), DoFMap::mapped_type {}).first->second;
-            rSourceDoFs.resize(rDoFCounter(rSource));
-            rTargetDoFs.resize(rDoFCounter(rTarget));
+            //Ref<DoFMap::mapped_type> rSourceDoFs = _dofMap.emplace(rEdge.source(), DoFMap::mapped_type {}).first->second;
+            //Ref<DoFMap::mapped_type> rTargetDoFs = _dofMap.emplace(rEdge.target(), DoFMap::mapped_type {}).first->second;
+
+            // Memory stability time.
+            // OK, hear me out. I need to (potentially) insert two new items into the hash table (_dofMap),
+            // which is not a iterator-stable operation. That said, the values this hash table stores are
+            // dynamic arrays (i.e.: std::vector) that do not have small-array optimizations, which means
+            // that the addresses of the objects they store remain stable unless a resizing is performed.
+            // Thankfully, moving a dynamic array does not trigger a resizing so I can count on the contents
+            // of my arrays to remain in place after inserting stuff into the hash table.
+            // The catch is that even though most stdlib implementations define std::vector::iterator as
+            // raw pointers (except for bool ...), it is not a requirement by the standard, nor is the
+            // stability of iterators after a move. So raw pointers are the only way to go.
+            std::span<DoFMap::mapped_type::value_type> sourceDoFs, targetDoFs;
+
+            {
+                Ref<DoFMap::mapped_type> rDoFs = _dofMap.emplace(rEdge.source(), DoFMap::mapped_type {}).first.value();
+                rDoFs.resize(rDoFCounter(rSource));
+                sourceDoFs = std::span<DoFMap::mapped_type::value_type>(rDoFs.data(), rDoFs.data() + rDoFs.size());
+            }
+
+            {
+                Ref<DoFMap::mapped_type> rDoFs = _dofMap.emplace(rEdge.target(), DoFMap::mapped_type {}).first.value();
+                rDoFs.resize(rDoFCounter(rTarget));
+                targetDoFs = std::span<DoFMap::mapped_type::value_type>(rDoFs.data(), rDoFs.data() + rDoFs.size());
+            }
 
             // Get DoF connectivities
             dofPairs.clear();
@@ -87,8 +118,8 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
 
             // Assign DoFs
             for (auto dofPair : dofPairs) {
-                auto& rMaybeSourceDoF = rSourceDoFs[dofPair.first];
-                auto& rMaybeTargetDoF = rTargetDoFs[dofPair.second];
+                auto& rMaybeSourceDoF = sourceDoFs[dofPair.first];
+                auto& rMaybeTargetDoF = targetDoFs[dofPair.second];
 
                 if (rMaybeSourceDoF.has_value()) {
                     if (rMaybeTargetDoF.has_value()) {
@@ -96,7 +127,7 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
                             *rMaybeSourceDoF == *rMaybeTargetDoF,
                             "DoF assignment failure at edge " << rEdge.id()
                             << " between vertex " << rEdge.source() << " (local DoF " << dofPair.first << " assigned to global DoF " << *rMaybeSourceDoF << ")"
-                            << " and vertex " << rEdge.target() << " (local DoF " << dofPair.second << " assigned to global DoF " << *rMaybeTargetDoF << ")"
+                            << " and vertex " << rEdge.target() << " (local DoF " << dofPair.second << " assigned to global DoF " << *rMaybeTargetDoF << ")."
                         );
                     } else {
                         rMaybeTargetDoF = rMaybeSourceDoF;
@@ -112,8 +143,13 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
         } // for rEdge in rVertex.edges()
     } // while visitQueue
 
-    for (auto& rPair : _dofMap)
-        for (auto& riDoF : rPair.second)
+    //for (auto& rPair : _dofMap)
+    //    for (auto& riDoF : rPair.second)
+    //        if (!riDoF.has_value())
+    //            riDoF = _dofCounter++;
+
+    for (auto it=_dofMap.begin(); it!=_dofMap.end(); ++it)
+        for (auto& riDoF : it.value())
             if (!riDoF.has_value())
                 riDoF = _dofCounter++;
 
