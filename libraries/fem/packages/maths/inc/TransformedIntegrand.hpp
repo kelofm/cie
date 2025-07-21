@@ -31,7 +31,7 @@ public:
           _pJacobian(&rJacobian)
     {}
 
-    unsigned size() const
+    unsigned size() const noexcept
     {return _integrand.size();}
 
     void evaluate(ConstIterator itArgumentBegin,
