@@ -7,6 +7,9 @@
 // --- Linalg Includes ---
 #include "packages/overloads/inc/matrix_operators.hpp"
 
+// --- STL Includes ---
+#include <numeric> // std::inner_product
+
 
 namespace cie::fem::maths {
 
@@ -17,48 +20,34 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator itBegin,
                                                           ConstIterator itEnd,
                                                           Iterator itOut) const
 {
-    // nD (but more importantly 3D) projective transform derivatives
-    // will have to wait until I figure out how to implement them.
-    static_assert(Dimension == 2, "Projective transformations are only supported in 2D for now.");
+    // Transform the input point to homogenized space.
+    StaticArray<TValue,Dimension+1> homogenizedInput;
+    std::copy(itBegin, itEnd, homogenizedInput.begin());
+    homogenizedInput.back() = static_cast<TValue>(1);
 
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itBegin, itEnd) == Dimension)
-    StaticArray<TValue,Dimension+1> homogeneousInput;
-    std::copy(itBegin, itEnd, homogeneousInput.begin());
-    homogeneousInput.back() = 1;
+    // Compute the denominator shared by all entries in the output matrix.
+    const auto lastRow = _projectionMatrix.wrapped()(Dimension, Eigen::all);
+    const TValue lastRowProduct = std::inner_product(homogenizedInput.begin(),
+                                                     homogenizedInput.end(),
+                                                     lastRow.begin(),
+                                                     static_cast<TValue>(0));
+    const TValue denominator = std::pow(lastRowProduct, static_cast<TValue>(2));
 
-    // Linear part: compute the product of the stored 3D matrix with
-    // +---+---+-----+---+
-    // | x   x   ...   x |
-    // | y   y   ...   y |
-    // | .   .   ...   . |
-    // | .   .   ...   . |
-    // | .   .   ...   . |
-    // | 1   1   ...   1 |
-    // +---+---+-----+---+
-    StaticArray<TValue, Dimension*Dimension> output;
-    {
-        auto it = output.begin();
-        typename StaticArray<TValue, Dimension>::const_iterator itInput;
-        for (unsigned iComponentBegin=0; iComponentBegin<Dimension*Dimension*(Dimension+1); iComponentBegin+=(Dimension+1)) {
-            itInput = homogeneousInput.begin();
-            *it = 0;
-            for (unsigned iDim=0; iDim<(Dimension+1); ++iDim) {
-                *it += *itInput * _enumeratorCoefficients[iComponentBegin + iDim];
-            } // for iDim in range(Dimension + 1)
-            ++it;
-        } // for iComponent in range(Dimension * Dimension * (Dimension+1), Dimension + 1)
-    }
+    CIE_DIVISION_BY_ZERO_CHECK(denominator)
+    const TValue scale = static_cast<TValue>(1) / denominator;
 
-    // Nonlinear part
-    const TValue denominator =   _denominatorCoefficients[0] * homogeneousInput[0]
-                               + _denominatorCoefficients[1] * homogeneousInput[1]
-                               + _denominatorCoefficients[2] /* * homogeneousInput[2] */;
-    const TValue scale = static_cast<TValue>(1) / (denominator * denominator);
+    for (unsigned iRow=0u; iRow<Dimension; ++iRow) {
+        const auto row = _projectionMatrix.wrapped()(iRow, Eigen::all);
+        const TValue rowProduct = std::inner_product(
+            homogenizedInput.begin(),
+            homogenizedInput.end(),
+            row.begin(),
+            static_cast<TValue>(0));
 
-    // Scale and output
-    for (unsigned i=0; i<Dimension*Dimension; ++i) {
-        *itOut++ = scale * output[i];
-    }
+        for (unsigned iColumn=0u; iColumn<Dimension; ++iColumn) {
+            *itOut++ = scale * (_projectionMatrix.wrapped()(iRow, iColumn) * lastRowProduct - rowProduct);
+        } // for iColumn in range(Dimension)
+    } // for iRow in range(Dimension)
 }
 
 
@@ -68,11 +57,7 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterat
                                                                      ConstIterator itEnd) const
 {
     StaticArray<TValue,Dimension*Dimension> derivative;
-
-    CIE_BEGIN_EXCEPTION_TRACING
     this->evaluate(itBegin, itEnd, derivative.data());
-    CIE_END_EXCEPTION_TRACING
-
     return Eigen::Map<Eigen::Matrix<TValue,Dimension,Dimension>>(derivative.data()).determinant();
 }
 

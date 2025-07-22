@@ -31,7 +31,6 @@ CIE_TEST_CASE("ProjectiveTransform", "[ProjectiveTransform][!mayfail]")
     Point inputDelta;
     Eigen::Matrix<double,Dimension,Dimension> output, outputBase, outputDelta;
 
-
     jacobian.evaluate(input.data(),
                       input.data() + 2,
                       output.data());

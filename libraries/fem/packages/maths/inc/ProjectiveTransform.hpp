@@ -57,33 +57,7 @@ template <concepts::Numeric TValue, unsigned Dimension>
 class ProjectiveTransformDerivative : public ExpressionTraits<TValue>
 {
 private:
-    /** @brief Flattened 3D matrix storing the enumerator's coefficients.
-     *  @details The enumerator of the derivative is computed by evaluating the product
-     *           of this 3D matrix with the following 2D matrix:
-     *           @code
-     *           +---+---+-----+---+
-     *           | x   x   ...   x |
-     *           | y   y   ...   y |
-     *           | .   .   ...   . |
-     *           | .   .   ...   . |
-     *           | .   .   ...   . |
-     *           | 1   1   ...   1 |
-     *           +---+---+-----+---+
-     *           @endcode
-     *  @details Finally, we can get the derivative by dividing each component of the
-     *           product computed in the previous step by the following denominator:
-     *           @code
-     *                                          +---+
-     *           [_denominatorCoefficients]  *  | x |
-     *                                          | y |
-     *                                          | . |
-     *                                          | . |
-     *                                          | . |
-     *                                          | 1 |
-     *                                          +---+
-     *           @endcode
-     */
-    using EnumeratorCoefficients = StaticArray<TValue,Dimension*Dimension*(Dimension+1)>;
+    using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
 
 public:
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransformDerivative)
@@ -113,10 +87,11 @@ private:
     /// @brief Construct from a @ref ProjectiveTransform.
     ProjectiveTransformDerivative(Ref<const ProjectiveTransform<TValue,Dimension>> rProjection);
 
-private:
-    EnumeratorCoefficients _enumeratorCoefficients;
+    /// @brief Construct directly from a transformation matrix representing a @ref ProjectiveTransform.
+    ProjectiveTransformDerivative(Ref<const TransformationMatrix> rTransformationMatrix) noexcept;
 
-    StaticArray<TValue,3> _denominatorCoefficients;
+private:
+    TransformationMatrix _projectionMatrix;
 }; // class ProjectiveTransformDerivative
 
 

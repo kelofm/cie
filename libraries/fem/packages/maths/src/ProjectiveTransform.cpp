@@ -21,85 +21,22 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative() noexcept
-    : _enumeratorCoefficients(),
-      _denominatorCoefficients({0, 0, 1})
+    : ProjectiveTransformDerivative(TransformationMatrix::makeIdentityMatrix())
 {
-    // Set w components on the main diagonal to unity, everything else to zero
-    std::fill(_enumeratorCoefficients.begin(),
-              _enumeratorCoefficients.end(),
-              0);
-
-    for (unsigned iComponent=Dimension; iComponent<_enumeratorCoefficients.size(); iComponent+=(Dimension+1)*Dimension) {
-        _enumeratorCoefficients[iComponent] = 1;
-    }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(Ref<const ProjectiveTransform<TValue,Dimension>> rProjection)
-    : _enumeratorCoefficients(),
-      _denominatorCoefficients()
+    : ProjectiveTransformDerivative(rProjection.getTransformationMatrix())
 {
-    static_assert(Dimension == 2, "Projective transformations are only supported in 2D for now.");
+}
 
-    // Compute denominator coefficients
 
-    const auto& rMatrix = rProjection.getTransformationMatrix();
-    for (unsigned iCoefficient=0; iCoefficient<=Dimension; ++iCoefficient) {
-        _denominatorCoefficients[iCoefficient] = rMatrix(Dimension, iCoefficient);
-    }
-
-    // Suppose the the projective transform matrix looks like this:
-    // (ignore the discrepancy between the row-major naming here
-    // and the general column-wise data storage in the implementation).
-    // +---+---+---+
-    // | a   b   c |
-    // | d   e   f |
-    // | g   h   i |
-    // +---+---+---+
-    // The derivative's 3D enumerator matrix then follows from subdeterminants:
-    // + ----------------------+-----------------------+
-    // | [    0, ah-bg,   i-c]   [    0, dh-eg,   i-f] |
-    // | [bg-ah,     0,   i-c]   [eg-dh,     0,   i-f] |
-    // +-----------------------+-----------------------+
-
-    // Compute temporaries
-
-    // ah-bg
-    const TValue ahbg =   rMatrix(0, 0) * rMatrix(Dimension, 1)
-                        - rMatrix(0, 1) * rMatrix(Dimension, 0);
-
-    // dh-eg
-    const TValue dheg =   rMatrix(1, 0) * rMatrix(Dimension, 1)
-                        - rMatrix(1, 1) * rMatrix(Dimension, 0);
-
-    // i-c
-    const TValue omc = rMatrix(Dimension, Dimension) - rMatrix(0, Dimension);
-
-    // i-f
-    const TValue omf = rMatrix(Dimension, Dimension) - rMatrix(1, Dimension);
-
-    // Compute enumerator coefficients
-
-    // [0, 0, :]
-    _enumeratorCoefficients[ 0] = 0;
-    _enumeratorCoefficients[ 1] = ahbg;
-    _enumeratorCoefficients[ 2] = omc;
-
-    // [1, 0, :]
-    _enumeratorCoefficients[ 3] = -ahbg;
-    _enumeratorCoefficients[ 4] = 0;
-    _enumeratorCoefficients[ 5] = omc;
-
-    // [0, 1, :]
-    _enumeratorCoefficients[ 6] = 0;
-    _enumeratorCoefficients[ 7] = dheg;
-    _enumeratorCoefficients[ 8] = omf;
-
-    // [1, 1, :]
-    _enumeratorCoefficients[ 9] = -dheg;
-    _enumeratorCoefficients[10] = 0;
-    _enumeratorCoefficients[11] = omf;
+template <concepts::Numeric TValue, unsigned Dimension>
+ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(Ref<const TransformationMatrix> rProjectionMatrix) noexcept
+    : _projectionMatrix(rProjectionMatrix)
+{
 }
 
 
