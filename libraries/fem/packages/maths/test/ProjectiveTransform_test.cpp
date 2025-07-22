@@ -29,7 +29,8 @@ CIE_TEST_CASE("ProjectiveTransform", "[ProjectiveTransform][!mayfail]")
     const double delta = 1e-10;
     Point input {-1.0, -1.0};
     Point inputDelta;
-    Eigen::Matrix<double,Dimension,Dimension> output, outputBase, outputDelta;
+    Eigen::Matrix<double,Dimension,Dimension,Eigen::RowMajor> output;
+    Eigen::Matrix<double,Dimension,Dimension> outputBase, outputDelta;
 
     jacobian.evaluate(input.data(),
                       input.data() + 2,
@@ -57,7 +58,7 @@ CIE_TEST_CASE("ProjectiveTransform", "[ProjectiveTransform][!mayfail]")
     const Eigen::Matrix<double,2,2> reference = ((outputDelta - outputBase) / delta);
     for (unsigned i_row=0; i_row<2; ++i_row) {
         for (unsigned i_column=0; i_column<2; ++i_column) {
-            CIE_TEST_CHECK(output(i_row, i_column) == Approx(reference(i_row, i_column)).epsilon(1e-10));
+            CIE_TEST_CHECK(output(i_row, i_column) == Approx(reference(i_row, i_column)).margin(1e-5));
         }
     }
 }

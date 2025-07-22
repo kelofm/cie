@@ -45,7 +45,7 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator itBegin,
             static_cast<TValue>(0));
 
         for (unsigned iColumn=0u; iColumn<Dimension; ++iColumn) {
-            *itOut++ = scale * (_projectionMatrix.wrapped()(iRow, iColumn) * lastRowProduct - rowProduct);
+            *itOut++ = scale * (_projectionMatrix.wrapped()(iRow, iColumn) * lastRowProduct - _projectionMatrix(Dimension, iColumn) * rowProduct);
         } // for iColumn in range(Dimension)
     } // for iRow in range(Dimension)
 }
