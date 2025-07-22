@@ -31,6 +31,12 @@
 namespace cie::fem {
 
 
+// Settings.
+constexpr Size nodesPerDirection            = 5e1;
+constexpr Size integrationOrder             = 3;
+constexpr unsigned postprocessResolution    = 3;
+
+
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
 
@@ -465,8 +471,6 @@ void generateMesh(Ref<Mesh> rMesh,
 CIE_TEST_CASE("2D", "[systemTests]")
 {
     CIE_TEST_CASE_INIT("2D")
-    constexpr Size nodesPerDirection    = 2e2;
-    constexpr Size integrationOrder     = 2;
 
     Mesh mesh;
 
@@ -507,7 +511,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                                    OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
                                                    it);
                            });
-    }
+    } // parse mesh topology
 
     // Create empty CSR matrix
     int rowCount, columnCount;
@@ -566,7 +570,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 } // for iLocalColumn in range(ansatzBuffer.size)
             } // for iLocalRow in range(ansatzBuffer.size)
         } // for rCell in mesh.vertices
-    }
+    } // integrate
 
     // Find DoFs to constrain:
     // 0) u(0, 0) = 0
@@ -658,7 +662,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
             } // for iRow in range(rowCount)
             rhs[iDof] = value;
         }
-    }
+    } // boundary conditions
 
     // Matrix market output.
     {
@@ -671,7 +675,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
            rowExtents.data(),
            columnIndices.data(),
            nonzeros.data());
-    }
+    } // matrix market output
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
@@ -702,20 +706,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
         CIE_TEST_CHECK(solver.info() == Eigen::ComputationInfo::Success);
         std::cout << solver.iterations() << " iterations "
                   << solver.error()      << " residual\n";
-    }
-//
-//    {
-//        std::ofstream file("rhs.mm");
-//        utils::io::MatrixMarket::Output io(file);
-//        io(rhs.data(), rhs.size());
-//    }
-//
-//    {
-//        std::ofstream file("u.mm");
-//        utils::io::MatrixMarket::Output io(file);
-//        io(solution.data(), solution.size());
-//    }
-//
+    } // solve
+
 //    {
 //        std::ofstream file("mesh.gv");
 //        io::Graphviz::Output io(file, io::Graphviz::Settings {.directed = false});
@@ -735,15 +727,18 @@ CIE_TEST_CASE("2D", "[systemTests]")
 //                return label.str();
 //            }
 //        );
-//    }
+//    } // write GraphViz
 
     // Postprocessing
-    constexpr unsigned cellSamplesPerDirection = 1;
-    DynamicArray<std::pair<StaticArray<Scalar,Dimension>,Scalar>> solutionSamples;
-    solutionSamples.reserve(cellSamplesPerDirection * intPow(nodesPerDirection - 1u, Dimension));
-
     {
-        CIE_TEST_CASE_INIT("postprocess")
+        CIE_TEST_CASE_INIT("scatter postprocess")
+
+        DynamicArray<std::pair<StaticArray<Scalar,Dimension>,Scalar>> solutionSamples;
+        solutionSamples.reserve(postprocessResolution * intPow(nodesPerDirection - 1u, Dimension));
+
+        constexpr Scalar postprocessDelta  = 2.0 / (postprocessResolution + 1.0);
+        constexpr Scalar postprocessOffset = -1.0 + 2.0 / (postprocessResolution + 1.0);
+
         DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.size());
         DynamicArray<StaticArray<Scalar,Dimension>> localSamplePoints;
 
@@ -753,16 +748,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
             do {
                 StaticArray<Scalar,Dimension> localSamplePoint;
                 for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
-                    if constexpr (1 < cellSamplesPerDirection) {
-                        localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * 2.0 / (cellSamplesPerDirection - 1.0);
-                    } else if constexpr (1 == cellSamplesPerDirection) {
-                        localSamplePoint[0] = 0.0;
-                    } else {
-                        static_assert(cellSamplesPerDirection != 0, "Invalid sample resolution");
-                    }
+                    localSamplePoint[iDimension] = postprocessOffset + samplePointState[iDimension] * postprocessDelta;
                 }
                 localSamplePoints.emplace_back(localSamplePoint);
-            } while (maths::OuterProduct<Dimension>::next(cellSamplesPerDirection, samplePointState.data()));
+            } while (maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
         }
 
         for (const auto& rCell : mesh.vertices()) {
@@ -783,18 +772,159 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
                     solutionSamples.back().second += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
                 }
-            }
-        }
-    }
+            } // for localCoordinates in localSamplePoints
+        } // for rCell in mesh.vertices
 
-    {
-        CIE_TEST_CASE_INIT("write results")
-        std::ofstream file("test_2d_solution.csv");
+        const std::string fileName = "test_2d_solution.csv";
+        std::cout << "write scatter samples to " << fileName << std::endl;
+        std::ofstream file(fileName);
+        file << "cells-per-direction,"       << "postprocess-resolution\n"
+             << nodesPerDirection - 1 << "," << postprocessResolution << "\n"
+             << "x,y,state\n";
         for (const auto& [rSamplePoint, rValue] : solutionSamples) {
             for (const auto coordinate : rSamplePoint) file << coordinate << ',';
             file << rValue << '\n';
+        } // for samplePoint, rValue in solutionSamples
+    } // scatter postprocess
+
+    // STL surface.
+    if (Dimension == 2 && 2 <= postprocessResolution) {
+        CIE_TEST_CASE_INIT("STL postprocess")
+
+        // Compute the total number of triangles.
+        const std::uint32_t triangleCount = std::pow(nodesPerDirection - 1, 2ul) * std::pow(2 * (postprocessResolution - 1), 2ul);
+        constexpr Scalar postprocessDelta  = 2.0 / (postprocessResolution - 1.0);
+
+        std::ofstream file("test_2d_solution.stl", std::ios::binary);
+
+        // Write STL header.
+        {
+            std::array<std::uint8_t,80> buffer;
+            file.write(reinterpret_cast<const char*>(buffer.data()), 80);
+            file.write(reinterpret_cast<const char*>(&triangleCount), sizeof(triangleCount));
         }
-    }
+
+        DynamicArray<StaticArray<Scalar,Dimension+1>> solutionSamples;
+        DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.size());
+        DynamicArray<StaticArray<Scalar,Dimension>> localSamples;
+
+        {
+            StaticArray<unsigned,Dimension> samplePointState;
+            std::fill(samplePointState.begin(), samplePointState.end(), 0u);
+            do {
+                StaticArray<Scalar,Dimension> localSamplePoint;
+                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
+                    localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * postprocessDelta;
+                }
+                localSamples.emplace_back(localSamplePoint);
+            } while (maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
+        }
+
+        for (const auto& rCell : mesh.vertices()) {
+            solutionSamples.clear();
+            const auto& rGlobalIndices = assembler[rCell.id()];
+            const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
+
+            for (const auto& localCoordinates : localSamples) {
+                solutionSamples.emplace_back();
+
+                // Compute coordinates in global space.
+                rCell.data().spatialTransform.evaluate(localCoordinates.data(),
+                                                       localCoordinates.data() + localCoordinates.size(),
+                                                       solutionSamples.back().data());
+                solutionSamples.back().back() = static_cast<Scalar>(0);
+
+                // Compute ansatz function values at the sample points.
+                ansatzBuffer.resize(rAnsatzSpace.size());
+                rAnsatzSpace.evaluate(localCoordinates.data(),
+                                      localCoordinates.data() + localCoordinates.size(),
+                                      ansatzBuffer.data());
+
+                // Compute state as an indirect inner product of the solution vector
+                // and the ansatz function values at the local sample point coordinates.
+                for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
+                    solutionSamples.back().back() += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                }
+            } // for localCoordinates in localSamples
+
+            for (unsigned iSampleX=1u; iSampleX<postprocessResolution; ++iSampleX) {
+                for (unsigned iSampleY=1u; iSampleY<postprocessResolution; ++iSampleY) {
+                    // Each triangle is represented by its normal, and 3 vertices.
+                    StaticArray<float,12> stlTriangle;
+
+                    // Collect and write the first triangle.
+                    {
+                        StaticArray<std::size_t,3> sampleIndices {
+                            iSampleY * postprocessResolution + iSampleX,
+                            iSampleY * postprocessResolution + iSampleX - 1,
+                            (iSampleY - 1) * postprocessResolution + iSampleX - 1
+                        };
+
+                        for (unsigned iVertex=0u; iVertex<sampleIndices.size(); ++iVertex) {
+                            const auto& rSource = solutionSamples[sampleIndices[iVertex]];
+                            std::span<float> target(stlTriangle.data() + (iVertex + 1) * 3, 3);
+                            std::copy(rSource.begin(), rSource.end(), target.begin());
+                        }
+
+                        StaticArray<StaticArray<Scalar,3>,2> edges {
+                            StaticArray<Scalar,3> {stlTriangle[ 6] - stlTriangle[3],
+                                                   stlTriangle[ 7] - stlTriangle[4],
+                                                   stlTriangle[ 8] - stlTriangle[5]},
+                            StaticArray<Scalar,3> {stlTriangle[ 9] - stlTriangle[3],
+                                                   stlTriangle[10] - stlTriangle[4],
+                                                   stlTriangle[11] - stlTriangle[5]},
+                        };
+
+                        stlTriangle[0] = edges[0][1] * edges[1][2] - edges[0][2] * edges[1][1];
+                        stlTriangle[1] = edges[0][2] * edges[1][0] - edges[0][0] * edges[1][2];
+                        stlTriangle[2] = edges[0][0] * edges[1][1] - edges[0][1] * edges[1][0];
+
+                        file.write(reinterpret_cast<char*>(stlTriangle.data()),
+                                   sizeof(float) * stlTriangle.size());
+
+                        std::uint16_t attribute = 0;
+                        file.write(reinterpret_cast<char*>(&attribute), sizeof(attribute));
+                    }
+
+                    // Collect and write the second triangle.
+                    {
+                        StaticArray<std::size_t,3> sampleIndices {
+                            iSampleY * postprocessResolution + iSampleX,
+                            (iSampleY - 1) * postprocessResolution + iSampleX - 1,
+                            (iSampleY - 1) * postprocessResolution + iSampleX,
+                        };
+
+                        for (unsigned iVertex=0u; iVertex<sampleIndices.size(); ++iVertex) {
+                            const auto& rSource = solutionSamples[sampleIndices[iVertex]];
+                            std::span<float> target(stlTriangle.data() + (iVertex + 1) * 3, 3);
+                            std::copy(rSource.begin(), rSource.end(), target.begin());
+                        }
+
+                        StaticArray<StaticArray<Scalar,3>,2> edges {
+                            StaticArray<Scalar,3> {stlTriangle[ 6] - stlTriangle[3],
+                                                   stlTriangle[ 7] - stlTriangle[4],
+                                                   stlTriangle[ 8] - stlTriangle[5]},
+                            StaticArray<Scalar,3> {stlTriangle[ 9] - stlTriangle[3],
+                                                   stlTriangle[10] - stlTriangle[4],
+                                                   stlTriangle[11] - stlTriangle[5]},
+                        };
+
+                        stlTriangle[0] = edges[0][1] * edges[1][2] - edges[0][2] * edges[1][1];
+                        stlTriangle[1] = edges[0][2] * edges[1][0] - edges[0][0] * edges[1][2];
+                        stlTriangle[2] = edges[0][0] * edges[1][1] - edges[0][1] * edges[1][0];
+
+                        file.write(reinterpret_cast<char*>(stlTriangle.data()),
+                                   sizeof(float) * stlTriangle.size());
+
+                        std::uint16_t attribute = 0;
+                        file.write(reinterpret_cast<char*>(&attribute), sizeof(attribute));
+                    }
+
+                    // Collect the second triangle.
+                } // for iSampleY in range(1, postprocessResolution)
+            } // for iSampleX in range(1, postprocessResolution)
+        } // for rCell in mesh.vertices
+    } // STL postprocess
 }
 
 
