@@ -22,36 +22,18 @@ class ProjectiveTransform;
 
 
 /** @brief Expression representing the derivative of @ref ProjectiveTransform.
- *  @todo Implement in 3D (or any dimension).
- *  @details The derivative is a @f$ D x D @f$ matrix that can be separated into
- *           an enumerator matrix, which is a matrix product of a 3D coefficient
- *           matrix and a 2D square matrix consisting of repeated copies of the
- *           homogeneous coordinates, and a scalar denominator, which is equal
- *           to the square of the inner product of the projective transform's
- *           last row and the homogeneous coordinates.
+ *  @details Given the transformation matrix of a @ref ProjectiveTransform "projective transform" @f$t_{ij}@f$,
+ *           in @f$d@f$ dimensions and the input vector @f$x@f$ in homogenized space
+ *           @f$\xi = \begin{bmatrix} x^T & 1 \end{bmatrix}^T,
+ *           @f$ this class is responsible for computing
  *           @f[
- *           \frac{\mathbf C \begin{bmatrix} \mathbf {\hat{x}} & \mathbf {\hat{x}} & \ldots & \mathbf {\hat{x}} \end{bmatrix}}
- *                {\begin{bmatrix} last\_row\_of\_ \mathbf T \end{bmatrix}
- *                 \begin{bmatrix}
- *                      x \\
- *                      y \\
- *                 \vdots \\
- *                      1
- *                 \end{bmatrix}}
+ *              \frac{
+ *                  t_{ij} (t_{dk} \xi_k) - t_{dj} (t_{ik} \xi_k)
+ *              }{
+ *                  (t_{dk} \xi_k)^2
+ *              }
  *           @f]
- *  @details The 3D coefficient matrix is stored as a flattened matrix in the
- *           following index order
- *           1) homogeneous component index (x, y, z, ..., w)
- *           2) row index (Eigen stores column-major matrices by default)
- *           3) column index
- *  @details The 2D matrix of homogeneous coordinates takes the following form
- *           @f[ \begin{bmatrix} \mathbf {\hat{x}} & \mathbf {\hat{x}} & \ldots & \mathbf {\hat{x}} \end{bmatrix} = \begin{bmatrix}
- *                x &      x & \ldots &      x \\
- *                y &      y & \ldots &      y \\
- *           \vdots & \vdots & \ddots & \vdots \\
- *                1 &      1 & \ldots &      1
- *           \end{bmatrix} @f]
- *
+ *           where @f$ i, j \in \{0 \ldots d-1\} @f$ and @f$ k \in \{0 \ldots d\} @f$.
  */
 template <concepts::Numeric TValue, unsigned Dimension>
 class ProjectiveTransformDerivative : public ExpressionTraits<TValue>

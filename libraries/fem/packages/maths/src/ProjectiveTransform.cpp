@@ -131,29 +131,43 @@ std::optional<ProjectiveCoefficients<TValue,Dimension>>
 ProjectiveCoefficientsSingleton<TValue,Dimension>::_object;
 
 
+//template <class TValue, unsigned Dimension>
+//struct ComputeProjectiveMatrix
+//{
+//    static void compute(Ptr<TValue>, Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>)
+//    {
+//        throw NotImplementedException("","");
+//    }
+//};
+
+
+//template <class TValue>
+//struct ComputeProjectiveMatrix<TValue,2>
 template <class TValue, unsigned Dimension>
 struct ComputeProjectiveMatrix
 {
-    static void compute(Ptr<TValue>, Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>)
-    {
-        throw NotImplementedException("","");
-    }
-};
-
-
-template <class TValue>
-struct ComputeProjectiveMatrix<TValue,2>
-{
     static void compute(Ptr<TValue> pTransformedBegin,
-                        Ref<typename ProjectiveTransform<TValue,2>::TransformationMatrix> rMatrix)
+                        Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix> rMatrix)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        constexpr unsigned Dimension = 2;
+        //constexpr unsigned Dimension = 2;
         Eigen::Map<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
         Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,1>> rhs(pTransformedBegin + (Dimension + 1) * (Dimension + 1));
 
-        const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>>(homogeneousPoints).solve(rhs);
+        Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> solver;
+        solver.compute(homogeneousPoints);
+
+        if (!solver.isInvertible()) {
+            CIE_THROW(
+                Exception,
+                "Singular input for projective transform.\n"
+                << "LHS:\n" << homogeneousPoints << "\n"
+                << "RHS:\n" << rhs)
+        }
+
+        const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = solver.solve(rhs);
+
         for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++) {
             const TValue scale = homogeneousSolution[iPoint];
             for (unsigned iComponent=0; iComponent<Dimension+1; iComponent++) {
@@ -238,16 +252,10 @@ ProjectiveTransform<TValue,Dimension>::getTransformationMatrix() noexcept
 }
 
 
-template class ProjectiveTransformDerivative<float,2>;
+CIE_FEM_INSTANTIATE_TEMPLATE(ProjectiveTransformDerivative);
 
 
-template class ProjectiveTransformDerivative<double,2>;
-
-
-template class ProjectiveTransform<float,2>;
-
-
-template class ProjectiveTransform<double,2>;
+CIE_FEM_INSTANTIATE_TEMPLATE(ProjectiveTransform);
 
 
 } // namespace cie::fem::maths
