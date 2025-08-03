@@ -362,8 +362,25 @@ struct io::GraphML::Deserializer<BoundaryData>
 
 
 /// @brief Generate cells and boundaries for the example problem.
+/// @details Mesh:
+///          @code
+///            [u(0,1)=2]                                     [u(1,1)=3]
+///                     +---------+                 +---------+
+///                     | (m-1)n+1|                 |    mn   |
+///                     +---------+                 +---------+
+///                       .
+///                       .
+///                       .
+///                     +---------+
+///                     |   n+1   |
+///                     +---------+
+///                     +---------+---------+       +---------+
+///                     |    1    |    2    |  ...  |    n    |
+///                     +---------+---------+       +---------+
+///            [u(0,0)=0]                                     [u(1,0)=1]
+///          @endcode
 void generateMesh(Ref<Mesh> rMesh,
-              Size nodesPerDirection)
+                  Size nodesPerDirection)
 {
     // Define an ansatz space and its derivatives.
     // In this example, every cell will use the same ansatz space.
@@ -449,25 +466,107 @@ void generateMesh(Ref<Mesh> rMesh,
 }
 
 
-/** @brief 2D system test.
- *  @details Mesh:
- *           @code
- *             [u(0,1)=2]                                     [u(1,1)=3]
- *                      +---------+                 +---------+
- *                      | (m-1)n+1|                 |    mn   |
- *                      +---------+                 +---------+
- *                        .
- *                        .
- *                        .
- *                      +---------+
- *                      |   n+1   |
- *                      +---------+
- *                      +---------+---------+       +---------+
- *                      |    1    |    2    |  ...  |    n    |
- *                      +---------+---------+       +---------+
- *             [u(0,0)=0]                                     [u(1,0)=1]
- *           @endcode
- */
+void imposeBoundaryConditions(Ref<const Mesh> rMesh,
+                              Ref<const Assembler> rAssembler,
+                              std::span<const int> rowExtents,
+                              std::span<const int> columnIndices,
+                              [[maybe_unused]] std::span<Scalar> entries,
+                              std::span<Scalar> rhs)
+{
+    // Find DoFs to constrain:
+    // 0) u(0, 0) = 0
+    // 1) u(1, 0) = 1
+    // 2) u(0, 1) = 2
+    // 3) u(1, 1) = 3
+    CIE_TEST_CASE_INIT("apply boundary conditions")
+
+    StaticArray<std::optional<std::size_t>,4> iConstrainedDofs;
+    utils::Comparison<Scalar> comparison(1e-8, 1e-6);
+    const int rowCount = rowExtents.size() - 1;
+
+    for (const auto& rCell : rMesh.vertices()) {
+        // The DoFs we're looking for are nodal DoFs, meaning we need to find
+        // a cell that has a vertex at a corner, and find the DoF within whose
+        // basis function evaluates to 1 at that location.
+        std::optional<std::size_t> maybeLocalCornerIndex;
+        std::optional<std::size_t> maybeGlobalCornerIndex;
+
+        for (const unsigned iLocalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
+            StaticArray<Scalar,Dimension> localCoordinates, globalCoordinates;
+            localCoordinates[0] = (iLocalCorner & 1u) ? 1.0 : -1.0;
+            localCoordinates[1] = (iLocalCorner & 2u) ? 1.0 : -1.0;
+            rCell.data().spatialTransform.evaluate(localCoordinates.data(),
+                                                   localCoordinates.data() + localCoordinates.size(),
+                                                   globalCoordinates.data());
+
+            // Loop over global corners and see whether any coincide with the transformed point.
+            for (const unsigned iGlobalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
+                StaticArray<Scalar,Dimension> referenceCoordinates;
+                referenceCoordinates[0] = Scalar(iGlobalCorner & 1u);
+                referenceCoordinates[1] = Scalar((iGlobalCorner & 2u) >> 1);
+                if (comparison.equal(globalCoordinates[0], referenceCoordinates[0]) && comparison.equal(globalCoordinates[1], referenceCoordinates[1])) {
+                    maybeLocalCornerIndex = iLocalCorner;
+                    maybeGlobalCornerIndex = iGlobalCorner;
+                    break;
+                }
+            } //for iGlobalCorner in range(4)
+
+            if (maybeLocalCornerIndex.has_value()) {
+                break;
+            }
+        } // for iLocalCorner in range(4)
+
+        // Found a cell that has a vertex at a corner.
+        if (maybeLocalCornerIndex.has_value()) {
+            const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.data().iAnsatz];
+
+            StaticArray<Scalar,Dimension> localCoordinates;
+            localCoordinates[0] = (maybeLocalCornerIndex.value() & 1u) ? 1.0 : -1.0;
+            localCoordinates[1] = (maybeLocalCornerIndex.value() & 2u) ? 1.0 : -1.0;
+            DynamicArray<Scalar> ansatzValues(rAnsatzSpace.size());
+            rAnsatzSpace.evaluate(localCoordinates.data(),
+                                  localCoordinates.data() + localCoordinates.size(),
+                                  ansatzValues.data());
+            for (unsigned iAnsatz=0u; iAnsatz<ansatzValues.size(); ++iAnsatz) {
+                if (comparison.equal(ansatzValues[iAnsatz], 1.0)) {
+                    iConstrainedDofs[maybeGlobalCornerIndex.value()] = rAssembler[rCell.id()][iAnsatz];
+                    break;
+                }
+            }
+        }
+    } // for rCell in rMesh.vertices
+
+    // Barbaric imposition of dirichlet conditions.
+    for (const auto maybeDofIndex : iConstrainedDofs) {
+        CIE_TEST_REQUIRE(maybeDofIndex.has_value());
+    }
+
+    DynamicArray<std::pair<std::size_t,Scalar>> dirichletConditions;
+    for (unsigned iDof=0u; iDof<iConstrainedDofs.size(); ++iDof) {
+        dirichletConditions.emplace_back(iConstrainedDofs[iDof].value(), Scalar(iDof));
+    }
+
+    for (const auto& [iDof, value] : dirichletConditions) {
+        for (std::size_t iRow=0ul; iRow<static_cast<std::size_t>(rowCount); ++iRow) {
+            const std::size_t iEntryBegin = rowExtents[iRow];
+            const std::size_t iEntryEnd   = rowExtents[iRow + 1];
+            for (std::size_t iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
+                const std::size_t iColumn = columnIndices[iEntry];
+                if (iRow == iDof) {
+                    if (iRow == iColumn) entries[iEntry] = 1.0;
+                    else entries[iEntry] = 0.0;
+                } else if (iColumn == iDof) {
+                    rhs[iRow] -= value * entries[iEntry];
+                    entries[iEntry] = 0.0;
+                }
+            } // for iEntry in range(iEntryBegin, iEntryEnd)
+        } // for iRow in range(rowCount)
+        rhs[iDof] = value;
+    }
+}
+
+
+/// @brief 2D system test.
 CIE_TEST_CASE("2D", "[systemTests]")
 {
     CIE_TEST_CASE_INIT("2D")
@@ -516,10 +615,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
     // Create empty CSR matrix
     int rowCount, columnCount;
     DynamicArray<int> rowExtents, columnIndices;
-    DynamicArray<double> nonzeros;
+    DynamicArray<double> entries;
     {
         CIE_TEST_CASE_INIT("compute sparsity pattern")
-        assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, nonzeros);
+        assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, entries);
     }
     DynamicArray<Scalar> rhs(rowCount, 0.0);
 
@@ -566,103 +665,18 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                            && *itColumnIndex == rGlobalDofIndices[iLocalColumn]);
                     const auto iEntry = std::distance(columnIndices.begin(),
                                                       itColumnIndex);
-                    nonzeros[iEntry] += integrandBuffer[iLocalRow * localSystemSize + iLocalColumn];
+                    entries[iEntry] += integrandBuffer[iLocalRow * localSystemSize + iLocalColumn];
                 } // for iLocalColumn in range(ansatzBuffer.size)
             } // for iLocalRow in range(ansatzBuffer.size)
         } // for rCell in mesh.vertices
     } // integrate
 
-    // Find DoFs to constrain:
-    // 0) u(0, 0) = 0
-    // 1) u(1, 0) = 1
-    // 2) u(0, 1) = 2
-    // 3) u(1, 1) = 3
-    {
-        CIE_TEST_CASE_INIT("apply boundary conditions")
-
-        StaticArray<std::optional<std::size_t>,4> iConstrainedDofs;
-        utils::Comparison<Scalar> comparison(1e-8, 1e-6);
-
-        for (const auto& rCell : mesh.vertices()) {
-            // The DoFs we're looking for are nodal DoFs, meaning we need to find
-            // a cell that has a vertex at a corner, and find the DoF within whose
-            // basis function evaluates to 1 at that location.
-            std::optional<std::size_t> maybeLocalCornerIndex;
-            std::optional<std::size_t> maybeGlobalCornerIndex;
-
-            for (const unsigned iLocalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
-                StaticArray<Scalar,Dimension> localCoordinates, globalCoordinates;
-                localCoordinates[0] = (iLocalCorner & 1u) ? 1.0 : -1.0;
-                localCoordinates[1] = (iLocalCorner & 2u) ? 1.0 : -1.0;
-                rCell.data().spatialTransform.evaluate(localCoordinates.data(),
-                                                       localCoordinates.data() + localCoordinates.size(),
-                                                       globalCoordinates.data());
-
-                // Loop over global corners and see whether any coincide with the transformed point.
-                for (const unsigned iGlobalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
-                    StaticArray<Scalar,Dimension> referenceCoordinates;
-                    referenceCoordinates[0] = Scalar(iGlobalCorner & 1u);
-                    referenceCoordinates[1] = Scalar((iGlobalCorner & 2u) >> 1);
-                    if (comparison.equal(globalCoordinates[0], referenceCoordinates[0]) && comparison.equal(globalCoordinates[1], referenceCoordinates[1])) {
-                        maybeLocalCornerIndex = iLocalCorner;
-                        maybeGlobalCornerIndex = iGlobalCorner;
-                        break;
-                    }
-                } //for iGlobalCorner in range(4)
-
-                if (maybeLocalCornerIndex.has_value()) {
-                    break;
-                }
-            } // for iLocalCorner in range(4)
-
-            // Found a cell that has a vertex at a corner.
-            if (maybeLocalCornerIndex.has_value()) {
-                const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
-
-                StaticArray<Scalar,Dimension> localCoordinates;
-                localCoordinates[0] = (maybeLocalCornerIndex.value() & 1u) ? 1.0 : -1.0;
-                localCoordinates[1] = (maybeLocalCornerIndex.value() & 2u) ? 1.0 : -1.0;
-                DynamicArray<Scalar> ansatzValues(rAnsatzSpace.size());
-                rAnsatzSpace.evaluate(localCoordinates.data(),
-                                      localCoordinates.data() + localCoordinates.size(),
-                                      ansatzValues.data());
-                for (unsigned iAnsatz=0u; iAnsatz<ansatzValues.size(); ++iAnsatz) {
-                    if (comparison.equal(ansatzValues[iAnsatz], 1.0)) {
-                        iConstrainedDofs[maybeGlobalCornerIndex.value()] = assembler[rCell.id()][iAnsatz];
-                        break;
-                    }
-                }
-            }
-        } // for rCell in mesh.vertices
-
-        // Barbaric imposition of dirichlet conditions.
-        for (const auto maybeDofIndex : iConstrainedDofs) {
-            CIE_TEST_REQUIRE(maybeDofIndex.has_value());
-        }
-
-        DynamicArray<std::pair<std::size_t,Scalar>> dirichletConditions;
-        for (unsigned iDof=0u; iDof<iConstrainedDofs.size(); ++iDof) {
-            dirichletConditions.emplace_back(iConstrainedDofs[iDof].value(), Scalar(iDof));
-        }
-
-        for (const auto& [iDof, value] : dirichletConditions) {
-            for (std::size_t iRow=0ul; iRow<static_cast<std::size_t>(rowCount); ++iRow) {
-                const std::size_t iEntryBegin = rowExtents[iRow];
-                const std::size_t iEntryEnd   = rowExtents[iRow + 1];
-                for (std::size_t iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                    const std::size_t iColumn = columnIndices[iEntry];
-                    if (iRow == iDof) {
-                        if (iRow == iColumn) nonzeros[iEntry] = 1.0;
-                        else nonzeros[iEntry] = 0.0;
-                    } else if (iColumn == iDof) {
-                        rhs[iRow] -= value * nonzeros[iEntry];
-                        nonzeros[iEntry] = 0.0;
-                    }
-                } // for iEntry in range(iEntryBegin, iEntryEnd)
-            } // for iRow in range(rowCount)
-            rhs[iDof] = value;
-        }
-    } // boundary conditions
+    imposeBoundaryConditions(mesh,
+                             assembler,
+                             rowExtents,
+                             columnIndices,
+                             entries,
+                             rhs);
 
     // Matrix market output.
     {
@@ -671,10 +685,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
         cie::io::MatrixMarket::Output io(file);
         io(rowCount,
            columnCount,
-           nonzeros.size(),
+           entries.size(),
            rowExtents.data(),
            columnIndices.data(),
-           nonzeros.data());
+           entries.data());
     } // matrix market output
 
     // Solve the linear system.
@@ -685,10 +699,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
             rowCount,
             columnCount,
-            nonzeros.size(),
+            entries.size(),
             rowExtents.data(),
             columnIndices.data(),
-            nonzeros.data());
+            entries.data());
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
 
