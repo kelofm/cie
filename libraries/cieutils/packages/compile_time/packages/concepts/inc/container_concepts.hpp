@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_CONTAINER_CONCEPTS_HPP
-#define CIE_CIEUTILS_CONTAINER_CONCEPTS_HPP
+#pragma once
 
 // --- Internal Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
@@ -12,40 +11,40 @@ namespace detail {
 
 // Member requirements
 template < class T,
-           class ArgumentType = typename T::size_type,
-           class ReturnType = typename T::reference >
+           class TArgument = typename T::size_type,
+           class TReturn = typename T::reference >
 concept HasAt
-= requires (T instance, ArgumentType argument)
+= requires (T instance, TArgument argument)
 {
-    {instance.at(argument)} -> std::same_as<ReturnType>;
+    {instance.at(argument)} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ArgumentType = typename T::size_type,
-           class ReturnType = typename T::reference >
+           class TArgument = typename T::size_type,
+           class TReturn = typename T::reference >
 concept HasAccessOperator
-= requires (T instance, ArgumentType argument)
+= requires (T instance, TArgument argument)
 {
-    {instance[argument]} -> std::same_as<ReturnType>;
+    {instance[argument]} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ReturnType = typename T::reference >
+           class TReturn = typename T::reference >
 concept HasFront
 = requires (T instance)
 {
-    {instance.front()} -> std::same_as<ReturnType>;
+    {instance.front()} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ReturnType = typename T::reference >
+           class TReturn = typename T::reference >
 concept HasBack
 = requires (T instance)
 {
-    {instance.back()} -> std::same_as<ReturnType>;
+    {instance.back()} -> std::same_as<TReturn>;
 };
 
 
@@ -59,12 +58,12 @@ concept HasResize
 
 
 template < class T,
-           class ArgumentType = typename T::size_type,
-           class ReturnType = void >
+           class TArgument = typename T::size_type,
+           class TReturn = void >
 concept HasReserve
-= requires (T instance, ArgumentType argument)
+= requires (T instance, TArgument argument)
 {
-    {instance.reserve(argument)} -> std::same_as<ReturnType>;
+    {instance.reserve(argument)} -> std::same_as<TReturn>;
 };
 
 
@@ -77,31 +76,31 @@ concept HasClear
 
 
 template < class T,
-           class ReturnType = typename T::iterator >
+           class TReturn = typename T::iterator >
 concept HasErase
 = requires (T instance)
 {
-    {instance.erase(instance.begin(), instance.end())} -> std::same_as<ReturnType>;
+    {instance.erase(instance.begin(), instance.end())} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ArgumentType = const typename T::value_type&,
-           class ReturnType = void >
+           class TArgument = const typename T::value_type&,
+           class TReturn = void >
 concept HasPushFront
-= requires (T instance, ArgumentType argument)
+= requires (T instance, TArgument argument)
 {
-    {instance.push_front(argument)} -> std::same_as<ReturnType>;
+    {instance.push_front(argument)} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ArgumentType = const typename T::value_type&,
-           class ReturnType = void >
+           class TArgument = const typename T::value_type&,
+           class TReturn = void >
 concept HasPushBack
-= requires (T instance, ArgumentType argument)
+= requires (T instance, TArgument argument)
 {
-    {instance.push_back(argument)} -> std::same_as<ReturnType>;
+    {instance.push_back(argument)} -> std::same_as<TReturn>;
 };
 
 
@@ -131,29 +130,29 @@ concept HasInsert
 
 
 template < class T,
-           class ReturnType = void >
+           class TReturn = void >
 concept HasPopFront
 = requires (T instance)
 {
-    {instance.pop_back()} -> std::same_as<ReturnType>;
+    {instance.pop_back()} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ReturnType = void >
+           class TReturn = void >
 concept HasPopBack
 = requires (T instance)
 {
-    {instance.pop_back()} -> std::same_as<ReturnType>;
+    {instance.pop_back()} -> std::same_as<TReturn>;
 };
 
 
 template < class T,
-           class ReturnType = void >
+           class TReturn = void >
 concept HasSwap
 = requires (T instance, T swap)
 {
-    {instance.swap(swap)} -> std::same_as<ReturnType>;
+    {instance.swap(swap)} -> std::same_as<TReturn>;
 };
 
 
@@ -242,5 +241,3 @@ concept StaticContainer
 
 
 } // namespace cie::concepts
-
-#endif
