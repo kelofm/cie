@@ -104,11 +104,7 @@ public:
         /// @note This constructor is disabled if @p TVertexData is @p void.
         Vertex(VertexID id,
                RightRef<tsl::robin_set<EdgeID>> rEdges,
-               std::conditional_t<
-                    std::is_same_v<std::remove_const_t<TVertexData>,void>,
-                    char, // dummy type, cannot be void
-                    typename VoidSafe<TVertexData>::RightRef
-               > rData) noexcept
+               typename VoidSafe<TVertexData,char>::RightRef rData) noexcept
         requires (!std::is_same_v<std::remove_const_t<TVertexData>,void>);
 
         /// @brief Construct a new @ref Vertex with an @ref VertexID, a set of @ref Edge "edges", and associated data.
@@ -118,11 +114,7 @@ public:
         /// @note This constructor is disabled if @p TVertexData is @p void.
         Vertex(VertexID id,
                RightRef<tsl::robin_set<EdgeID>> rEdges,
-               std::conditional_t<
-                    std::is_same_v<std::remove_const_t<TVertexData>,void>,
-                    int, // dummy type, cannot be void
-                    typename VoidSafe<const TVertexData>::Ref
-               > rData)
+               typename VoidSafe<const TVertexData,int>::Ref rData)
         requires (!std::is_same_v<std::remove_const_t<TVertexData>,void>);
 
         /// @brief Immutable access to the set of @ref Edge "edge" IDs originating from or ending at this @ref Vertex.

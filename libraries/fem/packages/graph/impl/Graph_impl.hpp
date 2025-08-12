@@ -70,11 +70,7 @@ Graph<TVD,TED,TGD>::Vertex::Vertex(VertexID id,
 template <class TVD, class TED, class TGD>
 Graph<TVD,TED,TGD>::Vertex::Vertex(VertexID id,
                                    RightRef<tsl::robin_set<EdgeID>> rEdges,
-                                   std::conditional_t<
-                                        std::is_same_v<std::remove_const_t<TVD>,void>,
-                                        char, // dummy type, cannot be void
-                                        typename VoidSafe<TVD>::RightRef
-                                   > rData) noexcept
+                                   typename VoidSafe<TVD,char>::RightRef rData) noexcept
 requires (!std::is_same_v<std::remove_const_t<TVD>,void>)
     : ItemBase<VertexID>(id),
       _data(std::move(rEdges), std::move(rData))
@@ -84,11 +80,7 @@ requires (!std::is_same_v<std::remove_const_t<TVD>,void>)
 template <class TVD, class TED, class TGD>
 Graph<TVD,TED,TGD>::Vertex::Vertex(VertexID id,
                                    RightRef<tsl::robin_set<EdgeID>> rEdges,
-                                   std::conditional_t<
-                                        std::is_same_v<std::remove_const_t<TVD>,void>,
-                                        int, // dummy type, cannot be void
-                                        typename VoidSafe<const TVD>::Ref
-                                   > rData)
+                                   typename VoidSafe<const TVD,int>::Ref rData)
 requires (!std::is_same_v<std::remove_const_t<TVD>,void>)
     : ItemBase<VertexID>(id),
       _data(std::move(rEdges), rData)
