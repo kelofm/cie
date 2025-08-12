@@ -10,14 +10,14 @@ namespace cie::utils {
 
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
-AbsTree<TSelf,TContainer,TStored,TArgs...>::AbsTree(Size level)
+AbsTree<TSelf,TContainer,TStored,TArgs...>::AbsTree(Size level) noexcept
     : _level(level)
 {
 }
 
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
-AbsTree<TSelf,TContainer,TStored,TArgs...>::AbsTree()
+AbsTree<TSelf,TContainer,TStored,TArgs...>::AbsTree() noexcept
     : _level(SIZE_MAX)
 {
 }
@@ -165,28 +165,22 @@ AbsTree<TSelf,TContainer,TStored,TArgs...>::emplaceChild(Ts&&... r_arguments)
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 inline bool
-AbsTree<TSelf,TContainer,TStored,TArgs...>::isLeaf() const
-requires concepts::Pointer<TStored>
+AbsTree<TSelf,TContainer,TStored,TArgs...>::isLeaf() const noexcept
 {
-    // Has no children, or all children are nullptrs
+    if constexpr (concepts::Pointer<TStored>) {
+        // Has no children, or all children are nullptrs
 
-    if (this->_children.empty())
+        if (this->_children.empty())
+            return true;
+
+        for (const auto& r_child : this->_children)
+            if (r_child)
+                return false;
+
         return true;
-
-    for (const auto& r_child : this->_children)
-        if (r_child)
-            return false;
-
-    return true;
-}
-
-
-template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
-inline bool
-AbsTree<TSelf,TContainer,TStored,TArgs...>::isLeaf() const
-requires concepts::NonPointer<TStored>
-{
-    return _children.empty();
+    } else {
+        return _children.empty();
+    }
 }
 
 

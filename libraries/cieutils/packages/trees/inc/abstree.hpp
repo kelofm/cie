@@ -30,16 +30,15 @@ public:
     //CIE_DEFINE_CLASS_POINTERS(TSelf)
 
 public:
+    AbsTree() noexcept;
 
-    AbsTree();
+    AbsTree(Size level) noexcept;
 
-    AbsTree(Size level);
-
-    AbsTree(AbsTree&& r_rhs) = default;
+    AbsTree(AbsTree&& r_rhs) noexcept = default;
 
     AbsTree(const AbsTree& r_rhs) = default;
 
-    AbsTree& operator=(AbsTree&& r_rhs) = default;
+    AbsTree& operator=(AbsTree&& r_rhs) noexcept = default;
 
     AbsTree& operator=(const AbsTree& r_rhs) = default;
 
@@ -74,13 +73,8 @@ public:
     /// Clear children (non-recursive)
     virtual void clear();
 
-    /// Check whether this node is a leaf node
-    bool isLeaf() const
-    requires concepts::Pointer<TStored>;
-
-    /// Check whether this node is a leaf node
-    bool isLeaf() const
-    requires concepts::NonPointer<TStored>;
+    /// Check whether this node is a leaf node.
+    bool isLeaf() const noexcept;
 
     template <class ...Ts>
     requires concepts::Pointer<TStored>
