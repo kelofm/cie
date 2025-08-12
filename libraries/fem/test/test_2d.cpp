@@ -16,6 +16,7 @@
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
+#include "packages/maths/inc/AffineTransform.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 //#include "packages/io/inc/Graphviz.hpp"
@@ -23,6 +24,9 @@
 #include "packages/io/inc/GraphML_specializations.hpp"
 #include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/maths/inc/TransformedIntegrand.hpp"
+
+// --- GEO Includes ---
+#include "packages/partitioning/inc/AABBoxNode.hpp"
 
 // --- STL Includes ---
 #include <ranges> // ranges::iota
@@ -62,14 +66,16 @@ struct MeshData
     /// @brief Collection of all ansatz spaces the contained cells can refer to.
     DynamicArray<Ansatz> ansatzSpaces;
 
-    /// @brief Collection of all ansatz spaces' derivatives the constained cells can refer to.
+    /// @brief Collection of all ansatz spaces' derivatives the contained cells can refer to.
     DynamicArray<Ansatz::Derivative> ansatzDerivatives;
 }; // struct MeshData
 
 
 /// @brief Data structure unique to each @ref Graph::Vertex "cell".
-struct CellData
+struct CellData : public geo::BoxBoundable<Dimension,Scalar>
 {
+    using geo::BoxBoundable<Dimension,Scalar>::BoundingBox;
+
     /// @brief Index of the cell's ansatz space in @ref MeshData::ansatzSpaces.
     unsigned short iAnsatz;
 
@@ -102,10 +108,60 @@ struct CellData
 
     /// @brief Spatial transform from local to global space.
     SpatialTransform spatialTransform;
+
+    CellData() noexcept = default;
+
+    CellData(unsigned short iAnsatz_,
+             Scalar diffusivity_,
+             OrientedAxes<Dimension> axes_,
+             RightRef<SpatialTransform> rSpatialTransform) noexcept
+        : iAnsatz(iAnsatz_),
+          diffusivity(diffusivity_),
+          axes(axes_),
+          spatialTransform(std::move(rSpatialTransform))
+    {}
+
+protected:
+    void computeBoundingBoxImpl(BoundingBox& rBox) noexcept override
+    {
+        BoundingBox::Point opposite, localCorner, globalCorner;
+
+        std::fill(rBox.base().begin(), rBox.base().end(), std::numeric_limits<Scalar>::max());
+        std::fill(opposite.begin(), opposite.end(), std::numeric_limits<Scalar>::lowest());
+
+        StaticArray<std::uint8_t,2> state {0u, 0u};
+        StaticArray<Scalar,2> ordinates {-1.0, 1.0};
+        do {
+            // Compute the corner in local space.
+            std::transform(state.begin(),
+                           state.end(),
+                           localCorner.begin(),
+                           [&ordinates](std::uint8_t iOrdinate) {
+                                return ordinates[iOrdinate];
+                           });
+
+            // Transform the corner to global space.
+            this->spatialTransform.evaluate(localCorner.data(),
+                                            localCorner.data() + localCorner.size(),
+                                            globalCorner.data());
+
+            // Extend box definition.
+            for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
+                rBox.base()[iDimension] = std::min(rBox.base()[iDimension], globalCorner[iDimension]);
+                opposite[iDimension] = std::max(opposite[iDimension], globalCorner[iDimension]);
+            } // for iDimension in range(Dimension)
+        } while (maths::OuterProduct<Dimension>::next(2u, state.data()));
+
+        std::transform(opposite.begin(),
+                       opposite.end(),
+                       rBox.base().begin(),
+                       rBox.lengths().begin(),
+                       std::minus<Scalar>());
+    }
 }; // struct CellData
 
 
-/// @brief Data structure unique to @ref Graph::Edge "boundary" between cells.
+/// @brief Data structure unique to @ref Graph::Edge "boundaries" between cells.
 struct BoundaryData
 {
     /// @brief Boundary identifier of the shared boundary between the adjacent cells.
@@ -119,6 +175,11 @@ struct BoundaryData
 ///          is not directed, but the @ref BoundaryID of the graph edge is always
 ///          defined on the edge's source cell.
 using Mesh = Graph<CellData,BoundaryData,MeshData>;
+
+
+using BoundaryMesh = Graph<
+
+>;
 
 
 /// @brief Serializer for @ref MeshData in @p GraphML format.
@@ -248,30 +309,30 @@ struct io::GraphML::Deserializer<CellData>
 
         {
             const auto it = std::find_if(attributes.begin(),
-                                            attributes.end(),
-                                            [] (const auto pair) {
-                                            return pair.first == "iAnsatz";
-                                            });
+                                         attributes.end(),
+                                         [] (const auto pair) {
+                                         return pair.first == "iAnsatz";
+                                         });
             char* pEnd;
             rThis.instance().iAnsatz = std::strtoul(it->second.data(), &pEnd, 10);
         }
 
         {
             const auto it = std::find_if(attributes.begin(),
-                                            attributes.end(),
-                                            [] (const auto pair) {
-                                            return pair.first == "diffusivity";
-                                            });
+                                         attributes.end(),
+                                         [] (const auto pair) {
+                                         return pair.first == "diffusivity";
+                                         });
             char* pEnd;
             rThis.instance().diffusivity = std::strtod(it->second.data(), &pEnd);
         }
 
         {
             const auto it = std::find_if(attributes.begin(),
-                                            attributes.end(),
-                                            [] (const auto pair) {
-                                            return pair.first == "axes";
-                                            });
+                                         attributes.end(),
+                                         [] (const auto pair) {
+                                         return pair.first == "axes";
+                                         });
             rThis.instance().axes = OrientedAxes<Dimension>(it->second);
         }
 
@@ -335,10 +396,10 @@ struct io::GraphML::Deserializer<BoundaryData>
 
         {
             const auto it = std::find_if(attributes.begin(),
-                                            attributes.end(),
-                                            [] (const auto pair) {
+                                         attributes.end(),
+                                         [] (const auto pair) {
                                             return pair.first == "bnd";
-                                            });
+                                         });
             rThis.instance().boundary = BoundaryID(it->second.data());
         }
     }
@@ -426,15 +487,16 @@ void generateMesh(Ref<Mesh> rMesh,
 
             // Insert the cell into the adjacency graph (mesh) as a vertex
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
+            Mesh::Vertex::Data data (
+                    0u,   // <= All cells share the same ansatz space in this example.
+                    1.0,
+                    axes,
+                    SpatialTransform(transformed.begin(), transformed.end())
+                );
             rMesh.insert(Mesh::Vertex(
                 VertexID(iCell),
                 {}, ///< edges of the adjacency graph are added automatically during edge insertion
-                Mesh::Vertex::Data {
-                    .iAnsatz            = 0u,   // <= All cells share the same ansatz space in this example.
-                    .diffusivity        = 1.0,
-                    .axes               = axes,
-                    .spatialTransform   = SpatialTransform(transformed.begin(), transformed.end())
-                }
+                std::move(data)
             ));
 
             // Insert the current cell's connections to other cells already in the mesh.
@@ -463,6 +525,29 @@ void generateMesh(Ref<Mesh> rMesh,
             } // if iCellColumn
         } // for iCellColumn in range(nodesPerDirection -1)
     } // for iCellRow in range(nodesPerDirection - 1)
+}
+
+
+geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
+{
+    geo::AABBoxNode<CellData> root;
+
+    geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
+    std::fill(rootBase.begin(), rootBase.end(), 0.0);
+    std::fill(rootLengths.begin(), rootLengths.end(), 1.0);
+    root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
+
+    CIE_TEST_CASE_INIT("make bounding volume hierarchy")
+    constexpr int targetLeafWidth = 10;
+    constexpr int maxTreeDepth = 2;
+
+    for (auto& rCell : rMesh.vertices()) {
+        root.insert(&rCell.data());
+    }
+
+    root.partition(targetLeafWidth, maxTreeDepth);
+
+    return root;
 }
 
 
@@ -583,6 +668,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
         CIE_TEST_CASE_INIT("write graphml")
         io::GraphML::GraphML::Output("test_2d.graphml")(mesh);
     }
+
+    // Create a spatial search.
+    auto bvh = makeBoundingVolumeHierarchy(mesh);
+    CIE_TEST_CHECK(bvh.containedObjects().size() == mesh.vertices().size());
 
     // Find ansatz functions that coincide on opposite boundaries.
     // In adjacent cells, these ansatz functions will have to map
