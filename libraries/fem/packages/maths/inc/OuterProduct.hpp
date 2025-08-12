@@ -1,13 +1,9 @@
-#ifndef CIE_FEM_MATHS_CARTESIAN_PRODUCT_HPP
-#define CIE_FEM_MATHS_CARTESIAN_PRODUCT_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp" // Ref, Ptr
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
-
-// --- FEM Includes ---
-#include "packages/maths/inc/Expression.hpp"
 
 // --- STL Includes ---
 #include <concepts> // std::incrementable
@@ -49,5 +45,3 @@ public:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/OuterProduct_impl.hpp"
-
-#endif
