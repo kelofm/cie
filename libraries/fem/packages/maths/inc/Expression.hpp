@@ -91,7 +91,7 @@ concept Expression
 
 
 /// @brief Static interface for the derivatives of spatial transformations between different spaces of identical dimensions.
-/// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression", @p SpatialTransformDerivative
+/// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression", @p JacobianExpression
 ///          adds 1 extra requirement. Namely, the class must be able to compute the determinant of the transformation's
 ///          derivative with the following signature:
 ///          @code{.cpp}
@@ -100,14 +100,14 @@ concept Expression
 /// @see cie::fem::maths::SpatialTransform
 /// @ingroup fem
 template <class T>
-concept SpatialTransformDerivative
+concept JacobianExpression
 = Expression<T> && requires (const T constInstance)
 {
     {
         constInstance.evaluateDeterminant(typename T::ConstIterator(),
                                           typename T::ConstIterator())
     } -> std::same_as<typename T::Value>;
-}; // concept SpatialTransformDerivative
+}; // concept JacobianExpression
 
 
 
@@ -118,7 +118,7 @@ concept SpatialTransformDerivative
 ///
 ///          - the class must have a derivative factory computing the Jacobian of the transform.
 ///            The class must have an alias <tt>typename T::Derivative</tt> for the type of its derivative, which must
-///            satisfy @ref cie::fem::maths::SpatialTransformDerivative "SpatialTransformDerivative". The member function
+///            satisfy @ref cie::fem::maths::JacobianExpression "JacobianExpression". The member function
 ///            constructing the derivative expression must have the following signature:
 ///            @code{.cpp}
 ///            typename T::Derivative T::makeDerivative() const
@@ -145,9 +145,9 @@ concept SpatialTransform
 = Expression<T> && requires (const T constInstance)
 {
     /// @details Require a derivative factory. The derivative type need not be a @p SpatialTransform,
-    ///          but it must satisfy @ref SpatialTransformDerivative that is used for computing
+    ///          but it must satisfy @ref JacobianExpression that is used for computing
     ///          @ref IntegrandTransform "transformed integrals" (they require the Jacobian's determinant).
-    {constInstance.makeDerivative()} -> SpatialTransformDerivative;
+    {constInstance.makeDerivative()} -> JacobianExpression;
 
     /// @details Require an inverse factory. The inverse must also be a @p SpatialTransform, but this
     ///          requirement sadly cannot be encoded recursively in C++.

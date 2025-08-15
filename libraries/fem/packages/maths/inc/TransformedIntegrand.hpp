@@ -8,7 +8,7 @@
 namespace cie::fem::maths {
 
 
-template <Expression TIntegrand, SpatialTransformDerivative TJacobian>
+template <Expression TIntegrand, JacobianExpression TJacobian>
 class TransformedIntegrand : public ExpressionTraits<typename TIntegrand::Value>
 {
 public:
@@ -55,7 +55,7 @@ private:
 }; // class TransformedIntegrand
 
 
-template <Expression TIntegrand, SpatialTransformDerivative TJacobian>
+template <Expression TIntegrand, JacobianExpression TJacobian>
 TransformedIntegrand<TIntegrand,TJacobian>
 makeTransformedIntegrand(RightRef<TIntegrand> rIntegrand,
                          Ref<const TJacobian> rJacobian)
