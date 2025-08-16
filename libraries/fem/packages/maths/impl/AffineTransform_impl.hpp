@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_MATHS_ABS_AFFINE_TRANSFORM_IMPL_HPP
-#define CIE_FEM_MATHS_ABS_AFFINE_TRANSFORM_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/AffineTransform.hpp"
@@ -18,20 +17,17 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-AffineTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
-                                                      ConstIterator,
-                                                      Iterator itOut) const
+AffineTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, Span output) const
 {
     std::copy(this->_matrix.wrapped().data(),
               this->_matrix.wrapped().data() + Dimension * Dimension,
-              itOut);
+              output.data());
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline TValue
-AffineTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator,
-                                                                 ConstIterator) const
+AffineTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan) const
 {
     return this->_matrix.wrapped().determinant();
 }
@@ -72,22 +68,16 @@ AffineTransform<TValue,Dimension>::AffineTransform(PointIterator itTransformedBe
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-AffineTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
-                                            [[maybe_unused]] ConstIterator itArgumentEnd,
-                                            Iterator itOut) const
+AffineTransform<TValue,Dimension>::evaluate(ConstSpan input, Span output) const
 {
-    CIE_OUT_OF_RANGE_CHECK(Dimension == std::distance(itArgumentBegin, itArgumentEnd))
+    CIE_OUT_OF_RANGE_CHECK(Dimension == input.size())
+    CIE_OUT_OF_RANGE_CHECK(Dimension == output.size())
 
     // Copy augmented point
     typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
-    for (Size iDim=0; iDim<Dimension; ++iDim) {
-        augmentedPoint[iDim] = itArgumentBegin[iDim];
-    }
-
-    // <== GCC thinks this doesn't initialize augmentedPoint ...
-    //std::copy(itArgumentBegin,
-    //          itArgumentEnd,
-    //          augmentedPoint.begin());
+    std::copy(input.data(),
+              input.data() + Dimension,
+              augmentedPoint.data());
 
     augmentedPoint[Dimension] = static_cast<TValue>(1);
 
@@ -97,11 +87,8 @@ AffineTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
     // Output result components
     std::copy(transformed.begin(),
               transformed.begin() + Dimension,
-              itOut);
+              output.data());
 }
 
 
 } // namespace cie::fem::maths
-
-
-#endif

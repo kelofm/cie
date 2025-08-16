@@ -27,16 +27,14 @@ public:
 
     using typename ExpressionTraits<typename TScalarExpression::Value>::Value;
 
-    using typename ExpressionTraits<Value>::ConstIterator;
+    using typename ExpressionTraits<Value>::ConstSpan;
 
-    using typename ExpressionTraits<Value>::Iterator;
+    using typename ExpressionTraits<Value>::Span;
 
 public:
     AnsatzSpaceDerivative() noexcept = default;
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     unsigned size() const noexcept;
 
@@ -77,9 +75,9 @@ public:
 
     using typename Base::Value;
 
-    using typename Base::Iterator;
+    using typename Base::Span;
 
-    using typename Base::ConstIterator;
+    using typename Base::ConstSpan;
 
     using AnsatzSet = DynamicArray<TScalarExpression>;
 
@@ -92,9 +90,7 @@ public:
 
     AnsatzSpace(const AnsatzSet& rSet);
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     Derivative makeDerivative() const;
 

@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_ANSATZ_SPACE_IMPL_HPP
-#define CIE_FEM_ANSATZ_SPACE_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/AnsatzSpace.hpp"
@@ -18,13 +17,12 @@ namespace cie::fem::maths {
 
 
 template <class TScalarExpression, unsigned Dim>
-inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator itArgumentBegin,
-                                                                   ConstIterator itArgumentEnd,
-                                                                   Iterator itOut) const
+void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
 {
     const unsigned setSize = _ansatzSet.size();
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
     CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dim)
+    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
 
     Ref<IndexBuffer> rIndexBuffer      = _buffer.template get<0>();
     Ref<ValueBuffer> rValueBuffer      = _buffer.template get<1>();
@@ -35,18 +33,21 @@ inline void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstIterator
         Ptr<Value> pValue      = rValueBuffer.data();
         Ptr<Value> pDerivative = rDerivativeBuffer.data();
 
-        for (auto it=itArgumentBegin; it!=itArgumentEnd; ++it) {
-            const auto itEnd = it + 1;
-            for (const auto& rScalarExpression : _ansatzSet) {
-                rScalarExpression.evaluate(it, itEnd, pValue++);
+        for (auto c : in) {
+            ConstSpan scalarIn {&c, 1};
+            for (auto& rScalarExpression : _ansatzSet) {
+                rScalarExpression.evaluate(scalarIn, {pValue, pValue + 1});
+                ++pValue;
             } // for scalarExpression in ansatzSet
-            for (const auto& rScalarExpression : _derivativeSet) {
-                rScalarExpression.evaluate(it, itEnd, pDerivative++);
+            for (auto& rScalarExpression : _derivativeSet) {
+                rScalarExpression.evaluate(scalarIn, {pDerivative, pDerivative + 1});
+                ++pDerivative;
             } // for scalarExpression in derivativeSet
         } // for component in arguments
     } // fill the value and derivative buffers
 
     // Compute the modified outer product
+    auto itOut = out.data();
     for (unsigned iDerivative=0; iDerivative<Dim; ++iDerivative) {
         do {
             *itOut = static_cast<Value>(1);
@@ -127,11 +128,12 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& rSet)
 
 
 template <class TScalarExpression, unsigned Dim>
-inline void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstIterator itArgumentBegin,
-                                                         ConstIterator itArgumentEnd,
-                                                         Iterator itOut) const
+void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dim)
+    // Sanity checks
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
+    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
+
     Ref<IndexBuffer> rIndexBuffer = _buffer.template get<0>();
     Ref<ValueBuffer> rValueBuffer = _buffer.template get<1>();
 
@@ -140,16 +142,15 @@ inline void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstIterator itArgumen
     //std::fill(rIndexBuffer->begin(), rIndexBuffer->end(), 0);
 
     // Fill the value buffer
-    Ptr<Value> pValue = rValueBuffer.data();
-    for (; itArgumentBegin!=itArgumentEnd; itArgumentBegin++) {
-        for (const auto& rScalarExpression : _set) {
-            rScalarExpression.evaluate(itArgumentBegin,
-                                        itArgumentBegin + 1,
-                                        pValue++);
-        } // for expression in expressions
-    } // for argument in arguments
+    auto pValue = rValueBuffer.data();
+    for (unsigned iDim=0u; iDim<Dim; ++iDim) {
+        for (auto& rScalarExpression : _set) {
+            rScalarExpression.evaluate({in.data() + iDim, 1}, {pValue++, 1});
+        } // for rScalarExpression in _set
+    } // for iDim in range(Dim)
 
     const unsigned setSize = _set.size();
+    auto itOut = out.data();
     do {
         // Compute product of bases
         *itOut = static_cast<Value>(1);
@@ -263,7 +264,3 @@ void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim>>::onElement
 
 
 } // namespace cie::fem::io
-
-
-
-#endif

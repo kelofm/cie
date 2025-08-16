@@ -20,9 +20,9 @@ namespace cie::fem::maths {
         //               |    |    |                                                                                        \
         //     (-1,-1)   0----|----1   ( 1,-1)                                                                              \
         //                                                                                                                  \
-        //               |||                                                                                                \
-        //               \ /                                                                                                \
-        //                v                                                                                                 \
+        //                   |||                                                                                            \
+        //                   \ /                                                                                            \
+        //                    v                                                                                             \
         //                                                                                                                  \
         //   | ( 2, 3)   2---------3   ( 4, 3)                                                                              \
         //   |           |         |                                                                                        \
@@ -62,15 +62,13 @@ namespace cie::fem::maths {
                                                                                                                             \
         {                                                                                                                   \
             CIE_TEST_CASE_INIT("transformation")                                                                            \
-            for (unsigned i_point=0; i_point<locals.size(); ++i_point) {                                                    \
+            for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
                 Point point;                                                                                                \
-                transform.evaluate(locals[i_point].data(),                                                                  \
-                                   locals[i_point].data() + locals[i_point].size(),                                         \
-                                   point.data());                                                                           \
-                const auto& r_reference = transformed[i_point];                                                             \
+                transform.evaluate(locals[iPoint], point);                                                                  \
+                const auto& r_reference = transformed[iPoint];                                                              \
                 CIE_TEST_REQUIRE(point.size() == r_reference.size());                                                       \
-                for (unsigned i_component=0; i_component<point.size(); ++i_component) {                                     \
-                    CIE_TEST_CHECK(point[i_component] == Approx(r_reference[i_component]));                                 \
+                for (unsigned iComponent=0; iComponent<point.size(); ++iComponent) {                                        \
+                    CIE_TEST_CHECK(point[iComponent] == Approx(r_reference[iComponent]));                                   \
                 }                                                                                                           \
             }                                                                                                               \
         } /*"transformation"*/                                                                                              \
@@ -80,12 +78,10 @@ namespace cie::fem::maths {
             decltype(std::declval<Transform>().makeDerivative()) transformDerivative;                                       \
             CIE_TEST_CHECK_NOTHROW(transformDerivative = transform.makeDerivative());                                       \
                                                                                                                             \
-            for (unsigned i_point=0; i_point<locals.size(); ++i_point) {                                                    \
+            for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
                 StaticArray<double,4> jacobian {0.0, 0.0, 0.0, 0.0};                                                        \
                 CIE_TEST_REQUIRE(transformDerivative.size() == jacobian.size());                                            \
-                transformDerivative.evaluate(locals[i_point].data(),                                                        \
-                                             locals[i_point].data() + locals[i_point].size(),                               \
-                                             jacobian.data());                                                              \
+                transformDerivative.evaluate(locals[iPoint], {jacobian.data(), jacobian.data() + jacobian.size()});         \
                 CIE_TEST_CHECK(jacobian[0] == Approx(-1.0));                                                                \
                 CIE_TEST_CHECK(jacobian[1] == Approx(0.0).margin(1e-14));                                                   \
                 CIE_TEST_CHECK(jacobian[2] == Approx(0.0).margin(1e-14));                                                   \
@@ -97,15 +93,13 @@ namespace cie::fem::maths {
             CIE_TEST_CASE_INIT("inverse")                                                                                   \
             const auto inverseTransform = transform.makeInverse();                                                          \
                                                                                                                             \
-            for (unsigned i_point=0; i_point<transformed.size(); ++i_point) {                                               \
+            for (unsigned iPoint=0; iPoint<transformed.size(); ++iPoint) {                                                  \
                 Point inverse;                                                                                              \
-                CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[i_point].data(),                               \
-                                                                 transformed[i_point].data() + transformed[i_point].size(), \
-                                                                 inverse.data()));                                          \
-                const auto& r_reference = locals[i_point];                                                                  \
+                CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[iPoint], inverse));                            \
+                const auto& r_reference = locals[iPoint];                                                                   \
                 CIE_TEST_REQUIRE(inverse.size() == r_reference.size());                                                     \
-                for (unsigned i_component=0; i_component<inverse.size(); ++i_component) {                                   \
-                    CIE_TEST_CHECK(inverse[i_component] == Approx(r_reference[i_component]));                               \
+                for (unsigned iComponent=0; iComponent<inverse.size(); ++iComponent) {                                      \
+                    CIE_TEST_CHECK(inverse[iComponent] == Approx(r_reference[iComponent]));                                 \
                 }                                                                                                           \
             }                                                                                                               \
         } /*"inverse"*/                                                                                                     \

@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_SCALE_TRANSLATE_TRANSFORM_IMPL_HPP
-#define CIE_FEM_SCALE_TRANSLATE_TRANSFORM_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
@@ -19,14 +18,13 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
-                                                              ConstIterator,
-                                                              Iterator itOut) const noexcept
+void ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, Span out) const noexcept
 {
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
     static_assert(0 < Dimension);
     auto itScale = this->_scales.cbegin();
+    auto itOut = out.data();
+
     *itOut++ = *itScale++;
     for (unsigned iColumn=0; iColumn<Dimension-1; ++iColumn) {
         for (unsigned iNullComponent=0; iNullComponent<Dimension; ++iNullComponent) {
@@ -38,7 +36,7 @@ ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator, ConstIterator) const noexcept
+TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan) const noexcept
 {
     return std::accumulate(this->_scales.begin(),
                            this->_scales.end(),
@@ -66,8 +64,8 @@ Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt itTransformedBegin,
-                                                                          [[maybe_unused]] TPointIt itTransformedEnd)
+ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt itTransformedBegin,
+                                                                   [[maybe_unused]] TPointIt itTransformedEnd)
 {
     CIE_OUT_OF_RANGE_CHECK(
         std::distance(itTransformedBegin, itTransformedEnd) == 2,
@@ -86,14 +84,11 @@ inline ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPoint
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-ScaleTranslateTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
-                                                    [[maybe_unused]] ConstIterator itArgumentEnd,
-                                                    Iterator itOut) const
+void ScaleTranslateTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dimension)
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
     for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        *itOut++ = itArgumentBegin[iDim] * this->_scales[iDim] + this->_offset[iDim];
+        out[iDim] = in[iDim] * this->_scales[iDim] + this->_offset[iDim];
     }
 }
 
@@ -103,14 +98,14 @@ ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform() noexcept
 {
     std::fill(this->_scales.begin(),
               this->_scales.end(),
-              1);
+              static_cast<TValue>(1));
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-inline TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPointIt itTransformedBegin,
-                                                                          [[maybe_unused]] TPointIt itTransformedEnd)
+TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPointIt itTransformedBegin,
+                                                                   [[maybe_unused]] TPointIt itTransformedEnd)
 {
     CIE_OUT_OF_RANGE_CHECK(
         std::distance(itTransformedBegin, itTransformedEnd) == 2,
@@ -129,14 +124,11 @@ inline TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPoint
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-TranslateScaleTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
-                                                    [[maybe_unused]] ConstIterator itArgumentEnd,
-                                                    Iterator itOut) const
+void TranslateScaleTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dimension)
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
     for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        *itOut++ = (itArgumentBegin[iDim] + this->_offset[iDim]) * this->_scales[iDim];
+        out[iDim] = (in[iDim] + this->_offset[iDim]) * this->_scales[iDim];
     }
 }
 
@@ -155,11 +147,11 @@ Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
     StaticArray<TValue,Dimension> input, output;
 
     std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
-    rObject.evaluate(input.data(), input.data() + Dimension, output.data());
+    rObject.evaluate(input, output);
     for (const auto c : output) rStream << c << ' ';
 
     std::fill(input.begin(), input.end(), static_cast<TValue>(1));
-    rObject.evaluate(input.data(), input.data() + Dimension, output.data());
+    rObject.evaluate(input, output);
     for (const auto c : output) rStream << c << ' ';
 
     return rStream;
@@ -224,14 +216,10 @@ void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::oper
     StaticArray<TValue,2*Dimension> output;
 
     std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
-    rObject.evaluate(input.data(),
-                     input.data() + Dimension,
-                     output.data());
+    rObject.evaluate(input, {output.data(), output.data() + Dimension});
 
     std::fill(input.begin(), input.end(), static_cast<TValue>(1));
-    rObject.evaluate(input.data(),
-                     input.data() + Dimension,
-                     output.data() + Dimension);
+    rObject.evaluate(input, {output.data() + Dimension, output.data() + 2 * Dimension});
 
     GraphML::XMLElement child = rElement.addChild("st-tr");
     using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
@@ -325,6 +313,3 @@ void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::oper
 
 
 } // namespace cie::fem::io
-
-
-#endif

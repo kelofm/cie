@@ -1,23 +1,10 @@
 // --- FEM Includes ---
 #include "packages/graph/inc/Partition.hpp"
 #include "packages/graph/inc/PartitionVisitor.hpp"
-#include "packages/maths/inc/Expression.hpp"
-#include "packages/maths/inc/LambdaExpression.hpp"
-#include "packages/maths/inc/ScaleTranslateTransform.hpp"
-#include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
-#include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 
 // --- Utility Includes ---
-#include "packages/numeric/inc/Quadrature.hpp"
 #include "packages/testing/inc/essentials.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
-#include "packages/matrix/inc/DynamicEigenMatrix.hpp"
-#include "packages/ranges/inc/TransformIterator.hpp"
-
-// --- STL Includes ---
-#include <ranges>
-#include <iostream>
 
 
 namespace cie::fem {

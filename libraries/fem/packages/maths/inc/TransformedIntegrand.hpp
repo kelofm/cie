@@ -14,9 +14,9 @@ class TransformedIntegrand : public ExpressionTraits<typename TIntegrand::Value>
 public:
     using typename ExpressionTraits<typename TIntegrand::Value>::Value;
 
-    using typename ExpressionTraits<typename TIntegrand::Value>::ConstIterator;
+    using typename ExpressionTraits<typename TIntegrand::Value>::ConstSpan;
 
-    using typename ExpressionTraits<typename TIntegrand::Value>::Iterator;
+    using typename ExpressionTraits<typename TIntegrand::Value>::Span;
 
     using Integrand = TIntegrand;
 
@@ -34,16 +34,12 @@ public:
     unsigned size() const noexcept
     {return _integrand.size();}
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const
+    void evaluate(ConstSpan in, Span out) const
     {
-        const Value scale = std::abs(_pJacobian->evaluateDeterminant(itArgumentBegin, itArgumentEnd));
-        _integrand.evaluate(itArgumentBegin,
-                            itArgumentEnd,
-                            itOut);
+        const Value scale = std::abs(_pJacobian->evaluateDeterminant(in));
+        _integrand.evaluate(in, out);
 
-        for (Value& rComponent : std::span<Value>(itOut, _integrand.size())) {
+        for (Value& rComponent : out) {
             rComponent *= scale;
         }
     }

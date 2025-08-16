@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_MATHS_POLYNOMIAL_HPP
-#define CIE_FEM_MATHS_POLYNOMIAL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/types/inc/types.hpp"
@@ -19,9 +18,9 @@ template <class TValue>
 class Polynomial : public ExpressionTraits<TValue>
 {
 public:
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = Polynomial;
 
@@ -50,9 +49,7 @@ public:
 
     Ref<Polynomial> operator=(Ref<const Polynomial> rRhs) = default;
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itResultBegin) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
@@ -110,5 +107,3 @@ private:
 
 
 #include "packages/maths/impl/Polynomial_impl.hpp"
-
-#endif

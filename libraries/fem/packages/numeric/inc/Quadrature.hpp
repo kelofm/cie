@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_NUMERIC_QUADRATURE_HPP
-#define CIE_FEM_NUMERIC_QUADRATURE_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
@@ -26,12 +25,12 @@ public:
 
     template <maths::Expression TExpression>
     void evaluate(Ref<const TExpression> rExpression,
-                  typename TExpression::Iterator itBufferBegin,
-                  typename TExpression::Iterator itOut) const;
+                  typename TExpression::Span buffer,
+                  typename TExpression::Span out) const;
 
     template <maths::Expression TExpression>
     void evaluate(Ref<const TExpression> rExpression,
-                  typename TExpression::Iterator itOutBegin) const;
+                  typename TExpression::Span out) const;
 
     template <class TOutputIt>
     void getIntegrationPoints(TOutputIt itOutput) const;
@@ -47,5 +46,3 @@ private:
 } // namespace cie::fem
 
 #include "packages/numeric/impl/Quadrature_impl.hpp"
-
-#endif

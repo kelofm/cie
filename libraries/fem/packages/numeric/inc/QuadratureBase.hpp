@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_NUMERIC_QUADRATURE_BASE_HPP
-#define CIE_FEM_NUMERIC_QUADRATURE_BASE_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
@@ -52,5 +51,3 @@ private:
 ///@}
 
 } // namespace cie::fem
-
-#endif

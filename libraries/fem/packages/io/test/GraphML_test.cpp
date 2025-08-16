@@ -380,18 +380,16 @@ CIE_TEST_CASE("GraphML heterogeneous", "[graphml]")
         std::array<double,3> output;
 
         CIE_TEST_CHECK_NOTHROW(e.value().data().evaluate(
-            base.data(),
-            base.data() + base.size(),
-            output.data()
+            base,
+            output
         ));
         CIE_TEST_CHECK(output[0] == Catch::Approx(1.0));
         CIE_TEST_CHECK(output[1] == Catch::Approx(2.0));
         CIE_TEST_CHECK(output[2] == Catch::Approx(3.0));
 
         CIE_TEST_CHECK_NOTHROW(e.value().data().evaluate(
-            opposite.data(),
-            opposite.data() + opposite.size(),
-            output.data()
+            opposite,
+            output
         ));
         CIE_TEST_CHECK(output[0] == Catch::Approx(4.0));
         CIE_TEST_CHECK(output[1] == Catch::Approx(5.0));

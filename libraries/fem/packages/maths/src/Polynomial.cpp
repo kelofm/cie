@@ -20,8 +20,6 @@ Polynomial<TValue>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
 template <class TValue>
 Polynomial<TValue> Polynomial<TValue>::makeDerivative() const
 {
-    CIE_BEGIN_EXCEPTION_TRACING
-
     const auto polynomialOrder = _coefficients.size();
     Coefficients derivativeCoefficients;
 
@@ -38,8 +36,6 @@ Polynomial<TValue> Polynomial<TValue>::makeDerivative() const
     } // if 1 < polynomialOrder
 
     return Polynomial(std::move(derivativeCoefficients));
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 

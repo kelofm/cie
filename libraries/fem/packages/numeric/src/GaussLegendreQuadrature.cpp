@@ -44,20 +44,20 @@ static_assert(false, "terribleLegendre is supposed to replace std::legendre excl
  */
 long double terribleLegendre(std::size_t order,
                              long double x,
-                             tsl::robin_map<std::size_t,long double>& r_cache)
+                             tsl::robin_map<std::size_t,long double>& rCache)
 {
     if (order == 0) {
         return 1.0;
     } else if (order == 1) {
         return x;
     } else {
-        const auto it = r_cache.find(order);
-        if (it == r_cache.end()) {
-            const long double prev = terribleLegendre(order - 1, x, r_cache);
-            const long double prevPrev = terribleLegendre(order - 2, x, r_cache);
+        const auto it = rCache.find(order);
+        if (it == rCache.end()) {
+            const long double prev = terribleLegendre(order - 1, x, rCache);
+            const long double prevPrev = terribleLegendre(order - 2, x, rCache);
             const long double current = (2 * (order - 1) + 1) / (long double)order * x * prev
                                       - (order - 1) / (long double)order * prevPrev;
-            r_cache.emplace(order, current);
+            rCache.emplace(order, current);
             return current;
         } else {
             return it->second;

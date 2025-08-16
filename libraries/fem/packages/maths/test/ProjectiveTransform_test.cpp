@@ -28,8 +28,11 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths]")
                                                 {3.0, 3.0},
                                                 {0.0, 1.0},
                                                 {3.0, 4.0}};
-        const auto transform = Transform(transformedPoints.begin(),
-                                         transformedPoints.end());
+
+        CIE_TEST_REQUIRE_NOTHROW(Transform());
+        CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints.begin(), transformedPoints.end()));
+        Transform transform;
+        CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints.begin(), transformedPoints.end()));
         const auto jacobian = transform.makeDerivative();
 
 
@@ -51,27 +54,17 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths]")
             Eigen::Matrix<double,Dimension,Dimension,Eigen::RowMajor> output;
             Eigen::Matrix<double,Dimension,Dimension> outputBase, outputDelta;
 
-            jacobian.evaluate(input.data(),
-                            input.data() + 2,
-                            output.data());
+            jacobian.evaluate(input, {output.data(), output.data() + output.size()});
 
             inputDelta = input;
             inputDelta[0] += delta;
-            transform.evaluate(input.data(),
-                               input.data() + 2,
-                               outputBase.data());
-            transform.evaluate(inputDelta.begin(),
-                               inputDelta.end(),
-                               outputDelta.data());
+            transform.evaluate(input, {outputBase.data(), outputBase.data() + 2});
+            transform.evaluate(inputDelta, {outputDelta.data(), outputDelta.data() + 2});
 
             inputDelta = input;
             inputDelta[1] += delta;
-            transform.evaluate(input.data(),
-                               input.data() + 2,
-                               outputBase.data() + 2);
-            transform.evaluate(inputDelta.begin(),
-                               inputDelta.end(),
-                               outputDelta.data() + 2);
+            transform.evaluate(input, {outputBase.data() + 2, outputBase.data() + 4});
+            transform.evaluate(inputDelta, {outputDelta.data() + 2, outputDelta.data() + 4});
 
             // @todo incorrect derivative (impl does what it should, the derivation is wrong)
             const Eigen::Matrix<double,2,2> reference = ((outputDelta - outputBase) / delta);
@@ -99,10 +92,12 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths]")
                                                 { 1.0, -1.0,  1.0},
                                                 {-1.0,  1.0,  1.0},
                                                 { 1.0,  1.0,  1.0}};
-        const auto transform = Transform(transformedPoints.begin(),
-                                         transformedPoints.end());
-        [[maybe_unused]] const auto jacobian = transform.makeDerivative();
 
+        CIE_TEST_REQUIRE_NOTHROW(Transform());
+        CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints.begin(), transformedPoints.end()));
+        Transform transform;
+        CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints.begin(), transformedPoints.end()));
+        const auto jacobian = transform.makeDerivative();
 
         const double delta = 1e-8;
 
@@ -118,28 +113,23 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths]")
             Eigen::Matrix<double,Dimension,Dimension,Eigen::RowMajor> output;
             Eigen::Matrix<double,Dimension,Dimension> outputBase, outputDelta;
 
-            jacobian.evaluate(input.data(),
-                              input.data() + input.size(),
-                              output.data());
+            jacobian.evaluate(input, {output.data(), output.data() + output.size()});
 
             for (unsigned iDimension=0; iDimension<Dimension; ++iDimension) {
                 CIE_TEST_CHECK_NOTHROW(transform.evaluate(
-                    input.data(),
-                    input.data(),
-                    outputBase.data() + iDimension * Dimension
+                    input,
+                    {outputBase.data() + iDimension * Dimension, outputBase.data() + iDimension * Dimension + Dimension}
                 ));
 
                 inputDelta = input;
                 inputDelta[iDimension] += delta;
 
                 CIE_TEST_CHECK_NOTHROW(transform.evaluate(
-                    inputDelta.data(),
-                    inputDelta.data(),
-                    outputDelta.data() + iDimension * Dimension
+                    inputDelta,
+                    {outputDelta.data() + iDimension * Dimension, outputDelta.data() + iDimension * Dimension + Dimension}
                 ));
             } // for iDimension in range(Dimension)
 
-            // @todo incorrect derivative (impl does what it should, the derivation is wrong)
             const Eigen::Matrix<double,Dimension,Dimension> reference = ((outputDelta - outputBase) / delta);
             for (unsigned i_row=0; i_row<Dimension; ++i_row) {
                 for (unsigned i_column=0; i_column<Dimension; ++i_column) {

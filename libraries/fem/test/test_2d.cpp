@@ -141,9 +141,7 @@ protected:
                            });
 
             // Transform the corner to global space.
-            this->spatialTransform.evaluate(localCorner.data(),
-                                            localCorner.data() + localCorner.size(),
-                                            globalCorner.data());
+            this->spatialTransform.evaluate(localCorner, globalCorner);
 
             // Extend box definition.
             for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
@@ -177,9 +175,9 @@ struct BoundaryData
 using Mesh = Graph<CellData,BoundaryData,MeshData>;
 
 
-using BoundaryMesh = Graph<
-
->;
+//using BoundaryMesh = Graph<
+//
+//>;
 
 
 /// @brief Serializer for @ref MeshData in @p GraphML format.
@@ -580,9 +578,7 @@ void imposeBoundaryConditions(Ref<const Mesh> rMesh,
             StaticArray<Scalar,Dimension> localCoordinates, globalCoordinates;
             localCoordinates[0] = (iLocalCorner & 1u) ? 1.0 : -1.0;
             localCoordinates[1] = (iLocalCorner & 2u) ? 1.0 : -1.0;
-            rCell.data().spatialTransform.evaluate(localCoordinates.data(),
-                                                   localCoordinates.data() + localCoordinates.size(),
-                                                   globalCoordinates.data());
+            rCell.data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
 
             // Loop over global corners and see whether any coincide with the transformed point.
             for (const unsigned iGlobalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
@@ -609,9 +605,7 @@ void imposeBoundaryConditions(Ref<const Mesh> rMesh,
             localCoordinates[0] = (maybeLocalCornerIndex.value() & 1u) ? 1.0 : -1.0;
             localCoordinates[1] = (maybeLocalCornerIndex.value() & 2u) ? 1.0 : -1.0;
             DynamicArray<Scalar> ansatzValues(rAnsatzSpace.size());
-            rAnsatzSpace.evaluate(localCoordinates.data(),
-                                  localCoordinates.data() + localCoordinates.size(),
-                                  ansatzValues.data());
+            rAnsatzSpace.evaluate(localCoordinates, ansatzValues);
             for (unsigned iAnsatz=0u; iAnsatz<ansatzValues.size(); ++iAnsatz) {
                 if (comparison.equal(ansatzValues[iAnsatz], 1.0)) {
                     iConstrainedDofs[maybeGlobalCornerIndex.value()] = rAssembler[rCell.id()][iAnsatz];
@@ -722,7 +716,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             const auto& rAnsatzSpace        = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
-            const auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
+            auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
             const auto jacobian = rCell.data().spatialTransform.makeInverse().makeDerivative();
 
             const auto localIntegrand = maths::makeTransformedIntegrand(
@@ -731,7 +725,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                                                              {derivativeBuffer.data(), derivativeBuffer.size()}),
                 jacobian
             );
-            quadrature.evaluate(localIntegrand, integrandBuffer.data());
+            quadrature.evaluate(localIntegrand, integrandBuffer);
 
             {
                 const auto keys = assembler.keys();
@@ -863,14 +857,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
             for (const auto& localCoordinates : localSamplePoints) {
                 StaticArray<Scalar,Dimension> globalSamplePoint;
-                rCell.data().spatialTransform.evaluate(localCoordinates.data(),
-                                                       localCoordinates.data() + localCoordinates.size(),
-                                                       globalSamplePoint.data());
+                rCell.data().spatialTransform.evaluate(localCoordinates, globalSamplePoint);
                 solutionSamples.emplace_back(globalSamplePoint, 0.0);
                 ansatzBuffer.resize(rAnsatzSpace.size());
-                rAnsatzSpace.evaluate(localCoordinates.data(),
-                                                    localCoordinates.data() + localCoordinates.size(),
-                                                    ansatzBuffer.data());
+                rAnsatzSpace.evaluate(localCoordinates, ansatzBuffer);
 
                 for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
                     solutionSamples.back().second += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
@@ -932,16 +922,12 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 solutionSamples.emplace_back();
 
                 // Compute coordinates in global space.
-                rCell.data().spatialTransform.evaluate(localCoordinates.data(),
-                                                       localCoordinates.data() + localCoordinates.size(),
-                                                       solutionSamples.back().data());
+                rCell.data().spatialTransform.evaluate(localCoordinates, solutionSamples.back());
                 solutionSamples.back().back() = static_cast<Scalar>(0);
 
                 // Compute ansatz function values at the sample points.
                 ansatzBuffer.resize(rAnsatzSpace.size());
-                rAnsatzSpace.evaluate(localCoordinates.data(),
-                                      localCoordinates.data() + localCoordinates.size(),
-                                      ansatzBuffer.data());
+                rAnsatzSpace.evaluate(localCoordinates, ansatzBuffer);
 
                 // Compute state as an indirect inner product of the solution vector
                 // and the ansatz function values at the local sample point coordinates.

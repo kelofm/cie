@@ -1,13 +1,8 @@
-#ifndef CIE_FEM_NUMERIC_QUADRATURE_IMPL_HPP
-#define CIE_FEM_NUMERIC_QUADRATURE_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
-
-// --- Utility Includes ---
-#include "packages/maths/inc/power.hpp"
-#include "packages/macros/inc/checks.hpp"
 
 // --- STL Includes ---
 #include <algorithm>
@@ -18,40 +13,34 @@ namespace cie::fem {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <maths::Expression TExpression>
-inline void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> rExpression,
-                                                   typename TExpression::Iterator itOutBegin) const
+void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> rExpression,
+                                            typename TExpression::Span out) const
 {
     DynamicArray<TValue> buffer(rExpression.size());
-    this->evaluate(rExpression,
-                   buffer.data(),
-                   itOutBegin);
+    this->evaluate(rExpression, buffer, out);
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <maths::Expression TExpression>
-inline void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> rExpression,
-                                                   typename TExpression::Iterator itBufferBegin,
-                                                   typename TExpression::Iterator itOut) const
+void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> rExpression,
+                                            typename TExpression::Span buffer,
+                                            typename TExpression::Span out) const
 {
     const unsigned size = rExpression.size();
 
     // Clear output
-    std::fill(itOut,
-              itOut + size,
-              0);
+    std::fill(out.begin(), out.end(), static_cast<TValue>(0));
 
     // Evaluate expression at quadrature points
     for (const auto& rItem : this->_nodesAndWeights) {
         // Evaluate expression into a buffer
-        rExpression.evaluate(rItem.data(),
-                              rItem.data() + Dimension,
-                              itBufferBegin);
+        rExpression.evaluate({rItem.data(), static_cast<std::size_t>(Dimension)}, buffer);
 
         // Increment output with scaled buffer items
         const auto weight = rItem.back();
         for (unsigned iOut=0; iOut<size; ++iOut) {
-            itOut[iOut] += weight * itBufferBegin[iOut];
+            out[iOut] += weight * buffer[iOut];
         }
     } // for item in nodesAndWeights
 }
@@ -63,7 +52,7 @@ void Quadrature<TValue,Dimension>::getIntegrationPoints(TOutputIt itOutput) cons
 {
     for (const auto& rItem : _nodesAndWeights) {
         typename Quadrature::Point point;
-        memcpy(point.data(), rItem.data(), Dimension);
+        std::memcpy(point.data(), rItem.data(), Dimension);
         *itOutput++ = std::move(point);
     }
 }
@@ -80,6 +69,3 @@ void Quadrature<TValue,Dimension>::getIntegrationWeights(TOutputIt itOutput) con
 
 
 } // namespace cie::fem
-
-
-#endif

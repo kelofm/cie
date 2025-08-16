@@ -30,11 +30,9 @@ unsigned WrappedExpression<TExpression>::size() const
 
 
 template <Expression TExpression>
-void WrappedExpression<TExpression>::evaluate(ConstIterator itArgumentBegin,
-                                              ConstIterator itArgumentEnd,
-                                              Iterator itOut) const
+void WrappedExpression<TExpression>::evaluate(ConstSpan input, Span output)
 {
-    _wrapped.evaluate(itArgumentBegin, itArgumentEnd, itOut);
+    _wrapped.evaluate(input, output);
 }
 
 

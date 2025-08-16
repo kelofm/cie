@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_LINEAR_ISOTROPIC_STIFFNESS_INTEGRAND_IMPL_HPP
-#define CIE_FEM_LINEAR_ISOTROPIC_STIFFNESS_INTEGRAND_IMPL_HPP
+#pragma once
 
 // --- External Includes ---
 #include <Eigen/Dense> // Eigen::Map
@@ -20,7 +19,7 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 template <Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                                                                         Ref<const TAnsatzDerivatives> rAnsatzDerivatives)
+                                                                                         Ref<TAnsatzDerivatives> rAnsatzDerivatives)
     : _modulus(modulus),
       _pAnsatzDerivatives(&rAnsatzDerivatives),
       _buffer()
@@ -30,7 +29,7 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 template <Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                                                                         Ref<const TAnsatzDerivatives> rAnsatzDerivatives,
+                                                                                         Ref<TAnsatzDerivatives> rAnsatzDerivatives,
                                                                                          std::span<Value> buffer)
     : LinearIsotropicStiffnessIntegrand(modulus, rAnsatzDerivatives)
 {
@@ -39,23 +38,21 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 
 template <Expression TAnsatzDerivatives>
-void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstIterator itArgumentBegin,
-                                                                     ConstIterator itArgumentEnd,
-                                                                     Iterator itOut) const
+void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstSpan in, Span out) const
 {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
     CIE_CHECK_POINTER(_pAnsatzDerivatives)
 
-    Ref<const TAnsatzDerivatives> rAnsatzDerivatives = *_pAnsatzDerivatives;
+    Ref<TAnsatzDerivatives> rAnsatzDerivatives = *_pAnsatzDerivatives;
     const unsigned derivativeComponentCount = rAnsatzDerivatives.size();
     const unsigned ansatzCount = derivativeComponentCount / Dimension;
-    rAnsatzDerivatives.evaluate(itArgumentBegin, itArgumentEnd, _buffer.data());
+    rAnsatzDerivatives.evaluate(in, {_buffer.data(), _buffer.data() + _pAnsatzDerivatives->size()});
 
     using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
     using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
 
     EigenAdaptor derivativeAdaptor(_buffer.data(), Dimension, ansatzCount);
-    EigenAdaptor outputAdaptor(itOut, ansatzCount, ansatzCount);
+    EigenAdaptor outputAdaptor(out.data(), ansatzCount, ansatzCount);
 
     outputAdaptor = derivativeAdaptor.transpose() * _modulus * derivativeAdaptor;
 }
@@ -86,6 +83,3 @@ unsigned LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::getMinBufferSize
 
 
 } // namespace cie::fem::maths
-
-
-#endif

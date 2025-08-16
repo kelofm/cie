@@ -173,11 +173,9 @@ CIE_TEST_CASE("1D", "[systemTests]")
 
             const auto localIntegrand = maths::makeLambdaExpression<Scalar>(
                 [&jacobian, &derivativeBuffer, &rCell, &productBuffer]
-                        (Ptr<const Scalar> itBegin,
-                         Ptr<const Scalar> itEnd,
-                         Ptr<Scalar> itOut) -> void {
-                    const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(itBegin, itEnd);
-                    rCell.data().pAnsatzDerivatives->evaluate(itBegin, itEnd, derivativeBuffer.data());
+                        (std::span<const Scalar> in, std::span<Scalar> out) -> void {
+                    const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(in);
+                    rCell.data().pAnsatzDerivatives->evaluate(in, derivativeBuffer);
 
                     using MatrixAdaptor = Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>>;
                     MatrixAdaptor derivativeAdaptor(derivativeBuffer.data(),
@@ -188,6 +186,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
                                                  rCell.data().pAnsatzSpace->size());
                     productAdaptor = derivativeAdaptor.transpose() * derivativeAdaptor;
 
+                    auto itOut = out.data();
                     for (unsigned iLocalRow=0u; iLocalRow<productAdaptor.rows(); ++iLocalRow) {
                         for (unsigned iLocalColumn=0u; iLocalColumn<productAdaptor.cols(); ++iLocalColumn) {
                             *itOut++ += rCell.data().diffusivity * productAdaptor(iLocalRow, iLocalColumn) * std::abs(jacobianDeterminant);
@@ -196,7 +195,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
                 },
                 integrandBuffer.size());
 
-            quadrature.evaluate(localIntegrand, integrandBuffer.data());
+            quadrature.evaluate(localIntegrand, integrandBuffer);
 
             {
                 const auto keys = assembler.keys();
@@ -235,20 +234,14 @@ CIE_TEST_CASE("1D", "[systemTests]")
         StaticArray<Scalar,1> localCoordinates, globalCoordinates;
 
         localCoordinates.front() = -1.0;
-        rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
-                                                               localCoordinates.data() + Dimension,
-                                                               globalCoordinates.data());
+        rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
         if (!comparison.equal(globalCoordinates.front(), 0.0)) {
             localCoordinates.front() = 1.0;
-            rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
-                                                                   localCoordinates.data() + Dimension,
-                                                                   globalCoordinates.data());
+            rLeftmostCell.value().data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
             CIE_TEST_REQUIRE(comparison.equal(globalCoordinates.front(), 0.0));
         }
 
-        rLeftmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates.data(),
-                                                            localCoordinates.data() + Dimension,
-                                                            ansatzBuffer.data());
+        rLeftmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates, ansatzBuffer);
         for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
             if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
                 iLeftmostDof = assembler[0][iAnsatz];
@@ -266,20 +259,14 @@ CIE_TEST_CASE("1D", "[systemTests]")
         StaticArray<Scalar,1> localCoordinates, globalCoordinates;
 
         localCoordinates.front() = -1.0;
-        rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
-                                                                localCoordinates.data() + Dimension,
-                                                                globalCoordinates.data());
+        rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
         if (!comparison.equal(globalCoordinates.front(), 1.0)) {
             localCoordinates.front() = 1.0;
-            rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates.data(),
-                                                                    localCoordinates.data() + Dimension,
-                                                                    globalCoordinates.data());
+            rRightmostCell.value().data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
             CIE_TEST_REQUIRE(comparison.equal(globalCoordinates.front(), 1.0));
         }
 
-        rRightmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates.data(),
-                                                             localCoordinates.data() + Dimension,
-                                                             ansatzBuffer.data());
+        rRightmostCell.value().data().pAnsatzSpace->evaluate(localCoordinates, ansatzBuffer);
         for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
             if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
                 iRightmostDof = assembler[nodeCount - 2][iAnsatz];
@@ -380,14 +367,10 @@ CIE_TEST_CASE("1D", "[systemTests]")
 
             for (const auto& localCoordinates : sampleCoordinates) {
                 StaticArray<Scalar,1> globalCoordinates;
-                rCell.data().spatialTransform.evaluate(localCoordinates.data(),
-                                                       localCoordinates.data() + localCoordinates.size(),
-                                                       globalCoordinates.data());
+                rCell.data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
                 solutionSamples.emplace_back(globalCoordinates, 0.0);
                 ansatzBuffer.resize(rCell.data().pAnsatzSpace->size());
-                rCell.data().pAnsatzSpace->evaluate(localCoordinates.data(),
-                                                    localCoordinates.data() + localCoordinates.size(),
-                                                    ansatzBuffer.data());
+                rCell.data().pAnsatzSpace->evaluate(localCoordinates, ansatzBuffer);
 
                 for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
                     solutionSamples.back().second += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];

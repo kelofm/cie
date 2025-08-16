@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_PROJECTIVE_TRANSFORM_HPP
-#define CIE_FEM_PROJECTIVE_TRANSFORM_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
@@ -44,24 +43,22 @@ private:
 public:
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransformDerivative)
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
 public:
     /// @brief Identity by default.
     ProjectiveTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstIterator itBegin,
-                  ConstIterator itEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
 
     /// @brief Compute the determinant of the projective transform's jacobian.
-    TValue evaluateDeterminant(ConstIterator itBegin, ConstIterator itEnd) const;
+    TValue evaluateDeterminant(ConstSpan) const;
 
 private:
     friend class ProjectiveTransform<TValue,Dimension>;
@@ -94,9 +91,9 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = ProjectiveTransformDerivative<TValue,Dimension>;
 
@@ -128,9 +125,7 @@ public:
                         PointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
@@ -169,5 +164,3 @@ private:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/ProjectiveTransform_impl.hpp"
-
-#endif

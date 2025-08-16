@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_SCALE_TRANSLATE_TRANSFORM_HPP
-#define CIE_FEM_SCALE_TRANSLATE_TRANSFORM_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
@@ -37,22 +36,19 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
 public:
     /// @brief Identity by default.
     ScaleTranslateTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const noexcept;
+    void evaluate(ConstSpan in, Span out) const noexcept;
 
     /// @brief Evaluate the determinant of the original transform's jacobian at the provided location.
-    TValue evaluateDeterminant(ConstIterator itArgumentBegin,
-                               ConstIterator itArgumentEnd) const noexcept;
+    TValue evaluateDeterminant(ConstSpan in) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -86,9 +82,9 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
@@ -108,9 +104,7 @@ public:
                             TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -151,9 +145,9 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
@@ -173,9 +167,7 @@ public:
                             TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -271,5 +263,3 @@ struct GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>
 } // namespace cie::fem::io
 
 #include "packages/maths/impl/ScaleTranslateTransform_impl.hpp"
-
-#endif

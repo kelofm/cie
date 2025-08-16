@@ -15,23 +15,23 @@ namespace cie::fem {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-Quadrature<TValue,Dimension>::Quadrature(Ref<const QuadratureBase<TValue>> r_base)
-    : Quadrature(r_base.nodes(), r_base.weights())
+Quadrature<TValue,Dimension>::Quadrature(Ref<const QuadratureBase<TValue>> rBase)
+    : Quadrature(rBase.nodes(), rBase.weights())
 {
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-Quadrature<TValue,Dimension>::Quadrature(Ref<const typename QuadratureBase<TValue>::NodeContainer> r_nodes,
-                                         Ref<const typename QuadratureBase<TValue>::WeightContainer> r_weights)
+Quadrature<TValue,Dimension>::Quadrature(Ref<const typename QuadratureBase<TValue>::NodeContainer> rNodes,
+                                         Ref<const typename QuadratureBase<TValue>::WeightContainer> rWeights)
     : _nodesAndWeights()
 {
-    const unsigned numberOfNodes = r_nodes.size();
-    CIE_OUT_OF_RANGE_CHECK(numberOfNodes == r_weights.size())
+    const unsigned numberOfNodes = rNodes.size();
+    CIE_OUT_OF_RANGE_CHECK(numberOfNodes == rWeights.size())
 
-    if (!r_nodes.empty()) {
+    if (!rNodes.empty()) {
         // Resize nodes and weights
-        this->_nodesAndWeights.resize(intPow(r_nodes.size(), Dimension));
+        this->_nodesAndWeights.resize(intPow(rNodes.size(), Dimension));
 
         // Create an index buffer for constructing the outer product
         StaticArray<unsigned,Dimension> indexBuffer;
@@ -49,12 +49,12 @@ Quadrature<TValue,Dimension>::Quadrature(Ref<const typename QuadratureBase<TValu
             Ref<TValue> r_weight = it_item->back();
             for (unsigned i_index=0; i_index<indexBuffer.size(); ++i_index) {
                 const auto i = indexBuffer[i_index];
-                it_item->at(i_index) = r_nodes[i];
-                r_weight *= r_weights[i];
+                it_item->at(i_index) = rNodes[i];
+                r_weight *= rWeights[i];
             } // for index in indexBuffer
             ++it_item;
         } while (maths::OuterProduct<Dimension>::next(numberOfNodes, indexBuffer.data()));
-    } // if r_nodes
+    } // if rNodes
 }
 
 

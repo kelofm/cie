@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_LINEAR_ISOTROPIC_STIFFNESS_INTEGRAND_HPP
-#define CIE_FEM_LINEAR_ISOTROPIC_STIFFNESS_INTEGRAND_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
@@ -12,30 +11,29 @@ namespace cie::fem::maths {
 
 
 template <Expression TAnsatzDerivatives>
-class LinearIsotropicStiffnessIntegrand : public ExpressionTraits<typename TAnsatzDerivatives::Value>
+class LinearIsotropicStiffnessIntegrand
+    : public ExpressionTraits<typename TAnsatzDerivatives::Value>
 {
 public:
     static constexpr unsigned Dimension = TAnsatzDerivatives::Dimension;
 
     using typename ExpressionTraits<typename TAnsatzDerivatives::Value>::Value;
 
-    using typename ExpressionTraits<Value>::ConstIterator;
+    using typename ExpressionTraits<Value>::ConstSpan;
 
-    using typename ExpressionTraits<Value>::Iterator;
+    using typename ExpressionTraits<Value>::Span;
 
 public:
     LinearIsotropicStiffnessIntegrand();
 
     LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                      Ref<const TAnsatzDerivatives> pAnsatzDerivatives);
+                                      Ref<TAnsatzDerivatives> pAnsatzDerivatives);
 
     LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                      Ref<const TAnsatzDerivatives> pAnsatzDerivatives,
+                                      Ref<TAnsatzDerivatives> pAnsatzDerivatives,
                                       std::span<Value> buffer);
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     unsigned size() const;
 
@@ -46,7 +44,7 @@ public:
 private:
     Value _modulus;
 
-    Ptr<const TAnsatzDerivatives> _pAnsatzDerivatives;
+    Ptr<TAnsatzDerivatives> _pAnsatzDerivatives;
 
     std::span<Value> _buffer;
 }; // class LinearIsotropicStiffnessIntegrand
@@ -55,5 +53,3 @@ private:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/LinearIsotropicStiffnessIntegrand_impl.hpp"
-
-#endif

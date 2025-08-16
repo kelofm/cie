@@ -42,9 +42,7 @@ void addVectorExpressionInterface(TPyBindClass rClass)
         StaticArray<Size,1> array;
         array.front() = OutDimension;
         auto adaptor = makeNumpyArray<TValue,1>(array.data());
-        rThis.evaluate(rArguments.begin(),
-                       rArguments.end(),
-                       adaptor.mutable_data());
+        rThis.evaluate(rArguments, {adaptor.mutable_data(), static_cast<std::size_t>(adaptor.size())});
         return adaptor;
     });
 }
@@ -72,9 +70,7 @@ void addMatrixExpressionInterface(TPyBindClass rClass)
     .def("evaluate", [] (Ref<const TExpression> rThis,
                          Ref<const StaticArray<TValue,InDimension>> rArguments) {
         auto array = makeNumpyArray<TValue,2>(StaticArray<Size,2> {OutRows, OutColumns} .data());
-        rThis.evaluate(rArguments.begin(),
-                        rArguments.end(),
-                        array.mutable_data());
+        rThis.evaluate(rArguments, {array.mutable_data(), static_cast<std::size_t>(array.size())});
         return array;
     });
 }
@@ -90,7 +86,7 @@ void makeFEMMathsBindings(Ref<pybind11::module_> rModule)
             "OrthogonalScaleTransformDerivative2D"
         )   .def(pybind11::init<>())
             .def("evaluateDeterminant", [] (Ref<OrthogonalScaleTransformDerivative<double,2>> rThis, Ref<const StaticArray<double,2>> rArgument) {
-                return rThis.evaluateDeterminant(rArgument.begin(), rArgument.end());
+                return rThis.evaluateDeterminant(rArgument);
             })
             ;
         addMatrixExpressionInterface<OrthogonalScaleTransformDerivative<double,2>,
@@ -121,7 +117,7 @@ void makeFEMMathsBindings(Ref<pybind11::module_> rModule)
             "ScaleTranslateTransformDerivative2D"
         )   .def(pybind11::init<>())
             .def("evaluateDeterminant", [] (Ref<ScaleTranslateTransformDerivative<double,2>> rThis, Ref<const StaticArray<double,2>> rArgument) {
-                return rThis.evaluateDeterminant(rArgument.begin(), rArgument.end());
+                return rThis.evaluateDeterminant(rArgument);
             })
             ;
         addMatrixExpressionInterface<ScaleTranslateTransformDerivative<double,2>,
@@ -166,7 +162,7 @@ void makeFEMMathsBindings(Ref<pybind11::module_> rModule)
         auto affineTransformDerivative2D = pybind11::class_<AffineTransformDerivative<double,2>>(submodule, "AffineTransformDerivative2D")
             .def(pybind11::init<>())
             .def("evaluateDeterminant", [] (Ref<AffineTransformDerivative<double,2>> rThis, Ref<const StaticArray<double,2>> rArgument) {
-                return rThis.evaluateDeterminant(rArgument.begin(), rArgument.end());
+                return rThis.evaluateDeterminant(rArgument);
             })
             ;
         addMatrixExpressionInterface<AffineTransformDerivative<double,2>,
@@ -193,7 +189,7 @@ void makeFEMMathsBindings(Ref<pybind11::module_> rModule)
         auto projectiveTransformDerivative2D = pybind11::class_<ProjectiveTransformDerivative<double,2>>(submodule, "ProjectiveTransformDerivative2D")
             .def(pybind11::init<>())
             .def("evaluateDeterminant", [] (Ref<ProjectiveTransformDerivative<double,2>> rThis, Ref<const StaticArray<double,2>> rArgument) {
-                return rThis.evaluateDeterminant(rArgument.begin(), rArgument.end());
+                return rThis.evaluateDeterminant(rArgument);
             })
             ;
         addMatrixExpressionInterface<ProjectiveTransformDerivative<double,2>,

@@ -12,28 +12,28 @@ namespace cie::fem {
 
 
 template <concepts::Numeric NT>
-QuadratureBase<NT>::QuadratureBase(typename QuadratureBase<NT>::NodeContainer&& r_nodes,
-                                   typename QuadratureBase<NT>::WeightContainer&& r_weights)
-    : _nodes( std::move(r_nodes) ),
-      _weights( std::move(r_weights) )
+QuadratureBase<NT>::QuadratureBase(typename QuadratureBase<NT>::NodeContainer&& rNodes,
+                                   typename QuadratureBase<NT>::WeightContainer&& rWeights)
+    : _nodes( std::move(rNodes) ),
+      _weights( std::move(rWeights) )
 {
 }
 
 
 template <concepts::Numeric NT>
 QuadratureBase<NT>::QuadratureBase(std::pair<typename QuadratureBase<NT>::NodeContainer,
-                                             typename QuadratureBase<NT>::WeightContainer>&& r_nodesAndWeights )
-    : _nodes( std::move(r_nodesAndWeights.first) ),
-      _weights( std::move(r_nodesAndWeights.second) )
+                                             typename QuadratureBase<NT>::WeightContainer>&& rNodesAndWeights )
+    : _nodes( std::move(rNodesAndWeights.first) ),
+      _weights( std::move(rNodesAndWeights.second) )
 {
 }
 
 
 template <concepts::Numeric NT>
-QuadratureBase<NT>::QuadratureBase(Ref<const typename QuadratureBase<NT>::NodeContainer> r_nodes,
-                                   Ref<const typename QuadratureBase<NT>::WeightContainer> r_weights)
-    : _nodes( r_nodes ),
-      _weights( r_weights )
+QuadratureBase<NT>::QuadratureBase(Ref<const typename QuadratureBase<NT>::NodeContainer> rNodes,
+                                   Ref<const typename QuadratureBase<NT>::WeightContainer> rWeights)
+    : _nodes( rNodes ),
+      _weights( rWeights )
 {
 }
 

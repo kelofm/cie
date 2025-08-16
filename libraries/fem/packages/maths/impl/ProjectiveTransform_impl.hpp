@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_PROJECTIVE_TRANSFORM_IMPL_HPP
-#define CIE_FEM_PROJECTIVE_TRANSFORM_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/ProjectiveTransform.hpp"
@@ -16,13 +15,11 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator itBegin,
-                                                          ConstIterator itEnd,
-                                                          Iterator itOut) const
+ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
     // Transform the input point to homogenized space.
     StaticArray<TValue,Dimension+1> homogenizedInput;
-    std::copy(itBegin, itEnd, homogenizedInput.begin());
+    std::copy(in.begin(), in.end(), homogenizedInput.begin());
     homogenizedInput.back() = static_cast<TValue>(1);
 
     // Compute the denominator shared by all entries in the output matrix.
@@ -36,6 +33,7 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator itBegin,
     CIE_DIVISION_BY_ZERO_CHECK(denominator)
     const TValue scale = static_cast<TValue>(1) / denominator;
 
+    auto itOut = out.data();
     for (unsigned iRow=0u; iRow<Dimension; ++iRow) {
         const auto row = _projectionMatrix.wrapped()(iRow, Eigen::all);
         const TValue rowProduct = std::inner_product(
@@ -53,11 +51,10 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstIterator itBegin,
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline TValue
-ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator itBegin,
-                                                                     ConstIterator itEnd) const
+ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan in) const
 {
     StaticArray<TValue,Dimension*Dimension> derivative;
-    this->evaluate(itBegin, itEnd, derivative.data());
+    this->evaluate(in, derivative);
     return Eigen::Map<Eigen::Matrix<TValue,Dimension,Dimension>>(derivative.data()).determinant();
 }
 
@@ -98,16 +95,15 @@ ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(TPointIt itTransforme
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline void
-ProjectiveTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
-                                                [[maybe_unused]] ConstIterator itArgumentEnd,
-                                                Iterator itOut) const
+ProjectiveTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(Dimension == std::distance(itArgumentBegin, itArgumentEnd))
+    CIE_OUT_OF_RANGE_CHECK(Dimension == in.size())
+    CIE_OUT_OF_RANGE_CHECK(Dimension == out.size())
 
     // Copy augmented point
     typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
     for (Size iDim=0; iDim<Dimension; ++iDim) {
-        augmentedPoint[iDim] = itArgumentBegin[iDim];
+        augmentedPoint[iDim] = in[iDim];
     }
 
     // <== GCC thinks this doesn't initialize augmentedPoint ...
@@ -128,13 +124,10 @@ ProjectiveTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
     std::transform(
         transformed.begin(),
         transformed.begin() + Dimension,
-        itOut,
+        out.data(),
         [scale](TValue component) {return component * scale;}
     );
 }
 
 
 } // namespace cie::fem::maths
-
-
-#endif

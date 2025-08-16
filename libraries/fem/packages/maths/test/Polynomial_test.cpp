@@ -27,9 +27,9 @@ CIE_TEST_CASE("Polynomial", "[maths]")
             {-2.0, 3.0}
         };
         for (const auto& [argument, reference] : argumentValuePairs) {
-            CIE_TEST_CHECK_NOTHROW(polynomial.evaluate(makePtrTo(argument),
-                                   makePtrTo(argument)+1,
-                                   makePtrTo(result)));
+            CIE_TEST_CHECK_NOTHROW(polynomial.evaluate(
+                {&argument, (&argument) + 1},
+                {&result, &result + 1}));
             CIE_TEST_CHECK(result == Approx(reference));
         }
 
@@ -43,9 +43,9 @@ CIE_TEST_CASE("Polynomial", "[maths]")
             {-2.0, -4.0}
         };
         for (const auto& [argument, reference] : derivativeArgumentValuePairs) {
-            CIE_TEST_CHECK_NOTHROW(derivative.evaluate(makePtrTo(argument),
-                                                       makePtrTo(argument) + 1,
-                                                       makePtrTo(result)));
+            CIE_TEST_CHECK_NOTHROW(derivative.evaluate(
+                {&argument, (&argument) + 1},
+                {&result, &result + 1}));
             CIE_TEST_CHECK(result == Approx(reference));
         }
     }
@@ -56,18 +56,18 @@ CIE_TEST_CASE("Polynomial", "[maths]")
         Test polynomial(Test::Coefficients {});
         const DynamicArray<std::pair<double,double>> argumentValuePairs {{-1.0, 0.0}, {0.0, 0.0}, {1.0, 0.0}};
         for (const auto& [argument, reference] : argumentValuePairs) {
-            CIE_TEST_CHECK_NOTHROW(polynomial.evaluate(makePtrTo(argument),
-                                                       makePtrTo(argument) + 1,
-                                                       makePtrTo(result)));
+            CIE_TEST_CHECK_NOTHROW(polynomial.evaluate(
+                {&argument, (&argument) + 1},
+                {&result, &result + 1}));
             CIE_TEST_CHECK(result == Approx(reference));
         }
 
         CIE_TEST_REQUIRE_NOTHROW(polynomial.makeDerivative());
         const auto derivative = polynomial.makeDerivative();
         for (const auto& [argument, reference] : argumentValuePairs) {
-            CIE_TEST_CHECK_NOTHROW(derivative.evaluate(makePtrTo(argument),
-                                                       makePtrTo(argument) + 1,
-                                                       makePtrTo(result)));
+            CIE_TEST_CHECK_NOTHROW(derivative.evaluate(
+                {&argument, (&argument) + 1},
+                {&result, &result + 1}));
             CIE_TEST_CHECK(result == Approx(reference));
         }
     }

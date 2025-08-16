@@ -30,8 +30,7 @@ OrthogonalScaleTransformDerivative<TValue,Dimension>::OrthogonalScaleTransformDe
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstIterator,
-                                                                                 ConstIterator) const noexcept
+TValue OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan) const noexcept
 {
     return std::accumulate(
         this->_scales.begin(),
@@ -54,7 +53,7 @@ OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform() noexcept
 {
     std::fill(this->_scales.begin(),
               this->_scales.end(),
-              1);
+              static_cast<TValue>(1));
 }
 
 
@@ -79,7 +78,7 @@ OrthogonalScaleTransform<TValue,Dimension>::makeInverse() const
 {
     CIE_DIVISION_BY_ZERO_CHECK(!std::any(this->_scales.begin(),
                                          this->_scales.end(),
-                                         [] (TValue scale) {return scale == 0;}))
+                                         [] (TValue scale) {return scale == static_cast<TValue>(0);}))
     StaticArray<TValue,Dimension> inverseScales;
     std::transform(this->_scales.begin(),
                    this->_scales.end(),

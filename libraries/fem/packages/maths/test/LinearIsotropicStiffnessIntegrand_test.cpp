@@ -43,9 +43,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[maths]")
         std::fill(dummy.begin(), dummy.end(), 0);
 
         // Attempt to evaluate without setting a buffer.
-        CIE_TEST_CHECK_THROWS(integrand.evaluate(dummy.data(),
-                                                 dummy.data() + dummy.size(),
-                                                 stiffness.data()));
+        CIE_TEST_CHECK_THROWS(integrand.evaluate(dummy, {stiffness.data(), stiffness.data() + stiffness.size()}));
 
         // Attempt to set insufficiently sized buffers.
         CIE_TEST_CHECK_THROWS(integrand.setBuffer({}));
@@ -117,9 +115,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[maths]")
 
     for (const auto& [rSamplePoint, rReference] : references) {
         StaticArray<Scalar,16> result;
-        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint.data(),
-                                                  rSamplePoint.data() + rSamplePoint.size(),
-                                                  result.data()));
+        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result));
         for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
             CIE_TEST_CHECK(result[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-14));
         } // for iComponent in range(rReference.size())
