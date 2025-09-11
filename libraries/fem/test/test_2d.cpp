@@ -5,6 +5,7 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
 #include "packages/io/inc/MatrixMarket.hpp"
+#include "packages/maths/inc/Comparison.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/OrientedBoundary.hpp"
@@ -27,6 +28,7 @@
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
+#include "packages/trees/inc//ContiguousSpaceTree.hpp"
 
 // --- STL Includes ---
 #include <ranges> // ranges::iota
@@ -109,6 +111,8 @@ struct CellData : public geo::BoxBoundable<Dimension,Scalar>
     /// @brief Spatial transform from local to global space.
     SpatialTransform spatialTransform;
 
+    SpatialTransform::Inverse inverseSpatialTransform;
+
     CellData() noexcept = default;
 
     CellData(unsigned short iAnsatz_,
@@ -119,7 +123,9 @@ struct CellData : public geo::BoxBoundable<Dimension,Scalar>
           diffusivity(diffusivity_),
           axes(axes_),
           spatialTransform(std::move(rSpatialTransform))
-    {}
+    {
+        this->inverseSpatialTransform = spatialTransform.makeInverse();
+    }
 
 protected:
     void computeBoundingBoxImpl(BoundingBox& rBox) noexcept override
@@ -131,6 +137,7 @@ protected:
 
         StaticArray<std::uint8_t,2> state {0u, 0u};
         StaticArray<Scalar,2> ordinates {-1.0, 1.0};
+
         do {
             // Compute the corner in local space.
             std::transform(state.begin(),
@@ -148,7 +155,7 @@ protected:
                 rBox.base()[iDimension] = std::min(rBox.base()[iDimension], globalCorner[iDimension]);
                 opposite[iDimension] = std::max(opposite[iDimension], globalCorner[iDimension]);
             } // for iDimension in range(Dimension)
-        } while (maths::OuterProduct<Dimension>::next(2u, state.data()));
+        } while (cie::maths::OuterProduct<Dimension>::next(2u, state.data()));
 
         std::transform(opposite.begin(),
                        opposite.end(),
@@ -175,9 +182,20 @@ struct BoundaryData
 using Mesh = Graph<CellData,BoundaryData,MeshData>;
 
 
-//using BoundaryMesh = Graph<
-//
-//>;
+/// @brief Data structure unique to the triangulated, immersed boundary cells.
+using BoundaryCellData = maths::AffineTransform<Scalar,Dimension>;
+
+
+/// @brief Data structure unqiue to the triangulated, immersed boundary cell corners.
+using BoundaryCornerData = Scalar;
+
+
+/// @brief Mesh type of the immersed, triangulated boundary.
+/// @details Cell data consists of
+using BoundaryMesh = Graph<
+    BoundaryCellData,
+    BoundaryCornerData
+>;
 
 
 /// @brief Serializer for @ref MeshData in @p GraphML format.
@@ -353,6 +371,7 @@ struct io::GraphML::Deserializer<CellData>
                              std::string_view elementName)
     {
         Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.instance().inverseSpatialTransform = rThis.instance().spatialTransform.makeInverse();
         rThis.template release<Deserializer>(&rThis, elementName);
     }
 
@@ -486,11 +505,11 @@ void generateMesh(Ref<Mesh> rMesh,
             // Insert the cell into the adjacency graph (mesh) as a vertex
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
             Mesh::Vertex::Data data (
-                    0u,   // <= All cells share the same ansatz space in this example.
-                    1.0,
-                    axes,
-                    SpatialTransform(transformed.begin(), transformed.end())
-                );
+                0u,   // <= All cells share the same ansatz space in this example.
+                1.0,
+                axes,
+                SpatialTransform(transformed.begin(), transformed.end())
+            );
             rMesh.insert(Mesh::Vertex(
                 VertexID(iCell),
                 {}, ///< edges of the adjacency graph are added automatically during edge insertion
@@ -528,120 +547,183 @@ void generateMesh(Ref<Mesh> rMesh,
 
 geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 {
+    constexpr int targetLeafWidth = 5;
+    constexpr int maxTreeDepth = 5;
+    constexpr Scalar epsilon = 1e-3;
+
     geo::AABBoxNode<CellData> root;
 
     geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
-    std::fill(rootBase.begin(), rootBase.end(), 0.0);
-    std::fill(rootLengths.begin(), rootLengths.end(), 1.0);
+    std::fill(rootBase.begin(), rootBase.end(), -epsilon);
+    std::fill(rootLengths.begin(), rootLengths.end(), 1.0 + 3.0 * epsilon);
     root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
 
     CIE_TEST_CASE_INIT("make bounding volume hierarchy")
-    constexpr int targetLeafWidth = 10;
-    constexpr int maxTreeDepth = 2;
 
     for (auto& rCell : rMesh.vertices()) {
         root.insert(&rCell.data());
     }
 
     root.partition(targetLeafWidth, maxTreeDepth);
+    CIE_TEST_CHECK(!root.isLeaf());
 
     return root;
 }
 
 
-void imposeBoundaryConditions(Ref<const Mesh> rMesh,
-                              Ref<const Assembler> rAssembler,
-                              std::span<const int> rowExtents,
-                              std::span<const int> columnIndices,
-                              [[maybe_unused]] std::span<Scalar> entries,
-                              std::span<Scalar> rhs)
+BoundaryMesh generateBoundaryMesh()
 {
-    // Find DoFs to constrain:
-    // 0) u(0, 0) = 0
-    // 1) u(1, 0) = 1
-    // 2) u(0, 1) = 2
-    // 3) u(1, 1) = 3
-    CIE_TEST_CASE_INIT("apply boundary conditions")
+    constexpr Scalar epsilon = 1e-12;
+    BoundaryMesh boundary;
 
-    StaticArray<std::optional<std::size_t>,4> iConstrainedDofs;
-    utils::Comparison<Scalar> comparison(1e-8, 1e-6);
-    const int rowCount = rowExtents.size() - 1;
+    const auto corners = StaticArray<StaticArray<Scalar,Dimension>,4> {
+        StaticArray<Scalar,Dimension> {0.5,             epsilon         },
+        StaticArray<Scalar,Dimension> {1.0 - epsilon,   0.5             },
+        StaticArray<Scalar,Dimension> {0.5,             1.0 - epsilon   },
+        StaticArray<Scalar,Dimension> {epsilon,         0.5             }
+    };
 
-    for (const auto& rCell : rMesh.vertices()) {
-        // The DoFs we're looking for are nodal DoFs, meaning we need to find
-        // a cell that has a vertex at a corner, and find the DoF within whose
-        // basis function evaluates to 1 at that location.
-        std::optional<std::size_t> maybeLocalCornerIndex;
-        std::optional<std::size_t> maybeGlobalCornerIndex;
+    for (unsigned iCorner=0u; iCorner<corners.size(); ++iCorner) {
+        const StaticArray<Scalar,Dimension> normal {
+            corners[(iCorner + 1) % corners.size()][1] - corners[iCorner][1],
+            corners[iCorner][0] - corners[(iCorner + 1) % corners.size()][0]
+        };
 
-        for (const unsigned iLocalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
-            StaticArray<Scalar,Dimension> localCoordinates, globalCoordinates;
-            localCoordinates[0] = (iLocalCorner & 1u) ? 1.0 : -1.0;
-            localCoordinates[1] = (iLocalCorner & 2u) ? 1.0 : -1.0;
-            rCell.data().spatialTransform.evaluate(localCoordinates, globalCoordinates);
-
-            // Loop over global corners and see whether any coincide with the transformed point.
-            for (const unsigned iGlobalCorner : std::ranges::views::iota(0u, intPow(2u, Dimension))) {
-                StaticArray<Scalar,Dimension> referenceCoordinates;
-                referenceCoordinates[0] = Scalar(iGlobalCorner & 1u);
-                referenceCoordinates[1] = Scalar((iGlobalCorner & 2u) >> 1);
-                if (comparison.equal(globalCoordinates[0], referenceCoordinates[0]) && comparison.equal(globalCoordinates[1], referenceCoordinates[1])) {
-                    maybeLocalCornerIndex = iLocalCorner;
-                    maybeGlobalCornerIndex = iGlobalCorner;
-                    break;
-                }
-            } //for iGlobalCorner in range(4)
-
-            if (maybeLocalCornerIndex.has_value()) {
-                break;
+        const StaticArray<StaticArray<Scalar,Dimension>,3> transformed {
+            corners[iCorner],
+            corners[(iCorner + 1) % corners.size()],
+            StaticArray<Scalar,Dimension> {
+                corners[iCorner][0] + normal[0],
+                corners[iCorner][1] + normal[1]
             }
-        } // for iLocalCorner in range(4)
+        };
 
-        // Found a cell that has a vertex at a corner.
-        if (maybeLocalCornerIndex.has_value()) {
-            const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.data().iAnsatz];
+        boundary.insert(BoundaryMesh::Vertex(
+            boundary.vertices().size(),
+            {},
+            maths::AffineTransform<Scalar,Dimension>(transformed.begin(), transformed.end())
+        ));
+    } // for iCorner in range(1, corners.size())
 
-            StaticArray<Scalar,Dimension> localCoordinates;
-            localCoordinates[0] = (maybeLocalCornerIndex.value() & 1u) ? 1.0 : -1.0;
-            localCoordinates[1] = (maybeLocalCornerIndex.value() & 2u) ? 1.0 : -1.0;
-            DynamicArray<Scalar> ansatzValues(rAnsatzSpace.size());
-            rAnsatzSpace.evaluate(localCoordinates, ansatzValues);
-            for (unsigned iAnsatz=0u; iAnsatz<ansatzValues.size(); ++iAnsatz) {
-                if (comparison.equal(ansatzValues[iAnsatz], 1.0)) {
-                    iConstrainedDofs[maybeGlobalCornerIndex.value()] = rAssembler[rCell.id()][iAnsatz];
-                    break;
-                }
-            }
+    for (unsigned iCorner=0; iCorner<corners.size(); ++iCorner) {
+        boundary.insert(BoundaryMesh::Edge(
+            iCorner,
+            {iCorner, (iCorner + 1) % boundary.vertices().size()},
+            static_cast<Scalar>(iCorner)
+        ));
+    } // for iCorner in range(corners.size())
+
+    return boundary;
+}
+
+
+bool isInCell(Ref<const CellData> rCellData,
+              std::span<const Scalar> point) noexcept
+{
+    const utils::Comparison<Scalar> comparison(1e-18, 1e-20);
+
+    StaticArray<Scalar,Dimension> localPoint;
+    rCellData.inverseSpatialTransform.evaluate(point, localPoint);
+
+    return std::all_of(
+        localPoint.begin(),
+        localPoint.end(),
+        [&comparison](Scalar coordinate) {
+            return comparison.less(std::abs(coordinate), static_cast<Scalar>(1))
+                || comparison.equal(std::abs(coordinate), static_cast<Scalar>(1));}
+    );
+}
+
+
+Ptr<const CellData> findContainingCell(Ref<geo::AABBoxNode<CellData>> rBVH,
+                                       Ref<const geo::AABBoxNode<CellData>::Point> rPoint)
+{
+    const auto pBVHNode = rBVH.find(rPoint);
+    if (!pBVHNode) return nullptr;
+
+    CIE_TEST_CHECK(pBVHNode->contains(geo::boundingBox(rPoint)));
+
+    for (const auto pCellData : pBVHNode->containedObjects()) {
+        if (isInCell(*pCellData, rPoint)) {
+            return pCellData;
         }
-    } // for rCell in rMesh.vertices
-
-    // Barbaric imposition of dirichlet conditions.
-    for (const auto maybeDofIndex : iConstrainedDofs) {
-        CIE_TEST_REQUIRE(maybeDofIndex.has_value());
     }
 
-    DynamicArray<std::pair<std::size_t,Scalar>> dirichletConditions;
-    for (unsigned iDof=0u; iDof<iConstrainedDofs.size(); ++iDof) {
-        dirichletConditions.emplace_back(iConstrainedDofs[iDof].value(), Scalar(iDof));
+    for (const auto pCellData : pBVHNode->intersectedObjects()) {
+        if (isInCell(*pCellData, rPoint)) {
+            return pCellData;
+        }
     }
 
-    for (const auto& [iDof, value] : dirichletConditions) {
-        for (std::size_t iRow=0ul; iRow<static_cast<std::size_t>(rowCount); ++iRow) {
-            const std::size_t iEntryBegin = rowExtents[iRow];
-            const std::size_t iEntryEnd   = rowExtents[iRow + 1];
-            for (std::size_t iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                const std::size_t iColumn = columnIndices[iEntry];
-                if (iRow == iDof) {
-                    if (iRow == iColumn) entries[iEntry] = 1.0;
-                    else entries[iEntry] = 0.0;
-                } else if (iColumn == iDof) {
-                    rhs[iRow] -= value * entries[iEntry];
-                    entries[iEntry] = 0.0;
-                }
-            } // for iEntry in range(iEntryBegin, iEntryEnd)
-        } // for iRow in range(rowCount)
-        rhs[iDof] = value;
-    }
+    return nullptr;
+}
+
+
+void imposeBoundaryConditions(Ref<Mesh> rMesh,
+                              [[maybe_unused]] Ref<const Assembler> rAssembler,
+                              [[maybe_unused]] std::span<const int> rowExtents,
+                              [[maybe_unused]] std::span<const int> columnIndices,
+                              [[maybe_unused]] std::span<Scalar> entries,
+                              [[maybe_unused]] std::span<Scalar> rhs)
+{
+    constexpr unsigned maxTreeDepth       = 12 ;
+    //constexpr Scalar weakDirichletPenalty = 1e4;
+
+    // Load the boundary mesh.
+    const auto boundary = generateBoundaryMesh();
+
+    // Create a spatial search over the background mesh.
+    auto bvh = makeBoundingVolumeHierarchy(rMesh);
+    CIE_TEST_CHECK(bvh.containedObjects().size() == rMesh.vertices().size());
+
+    using TreePrimitive = geo::Cube<1,Scalar>;
+    using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>; r
+
+    for (const auto& rBoundaryCell : boundary.vertices()) {
+        Tree tree(Tree::Point {-1.0}, 2.0);
+
+        // Define a functor detecting cell boundaries.
+        const auto isBoundaryCell = [&bvh, &tree, &rBoundaryCell] (
+            Ref<const Tree::Node> rNode,
+            unsigned level) -> bool {
+
+            if (maxTreeDepth < level) return false;
+
+            Scalar base, edgeLength;
+            tree.getNodeGeometry(rNode, &base, &edgeLength);
+
+            // Define sample points in the boundary cell's local space.
+            const StaticArray<Scalar,Dimension>
+                localBase {
+                    base,
+                    -1.0
+                },
+                localOpposite {
+                    base + edgeLength,
+                    -1.0
+                };
+
+            // Transform sample points to the global coordinate space.
+            decltype(bvh)::Point globalBase, globalOpposite;
+            rBoundaryCell.data().evaluate(localBase, globalBase);
+            rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
+
+            // Check whether the two endpoints are in different cells.
+            Ptr<const CellData> pBaseCell     = findContainingCell(bvh, globalBase),
+                                pOppositeCell = findContainingCell(bvh, globalOpposite);
+
+            // Integrate if both endpoints lie in the same cell.
+            if (pBaseCell && pOppositeCell && pBaseCell == pOppositeCell) {
+
+            } // if both endpoints lie in the same cell
+
+            return pBaseCell != pOppositeCell && (pBaseCell || pOppositeCell);
+        }; // isBoundaryCell
+
+        // Construct a binary tree that detects intersections between
+        // Cell boundaries and the current boundary cell.
+        CIE_TEST_CHECK_NOTHROW(tree.scan(isBoundaryCell));
+    } // for rBoundaryCell in boundary.vertices()
 }
 
 
@@ -662,10 +744,6 @@ CIE_TEST_CASE("2D", "[systemTests]")
         CIE_TEST_CASE_INIT("write graphml")
         io::GraphML::GraphML::Output("test_2d.graphml")(mesh);
     }
-
-    // Create a spatial search.
-    auto bvh = makeBoundingVolumeHierarchy(mesh);
-    CIE_TEST_CHECK(bvh.containedObjects().size() == mesh.vertices().size());
 
     // Find ansatz functions that coincide on opposite boundaries.
     // In adjacent cells, these ansatz functions will have to map
@@ -848,7 +926,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                     localSamplePoint[iDimension] = postprocessOffset + samplePointState[iDimension] * postprocessDelta;
                 }
                 localSamplePoints.emplace_back(localSamplePoint);
-            } while (maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
+            } while (cie::maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
         }
 
         for (const auto& rCell : mesh.vertices()) {
@@ -910,7 +988,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                     localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * postprocessDelta;
                 }
                 localSamples.emplace_back(localSamplePoint);
-            } while (maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
+            } while (cie::maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
         }
 
         for (const auto& rCell : mesh.vertices()) {

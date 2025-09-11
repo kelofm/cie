@@ -9,7 +9,7 @@
 #include <concepts> // std::incrementable
 
 
-namespace cie::fem::maths {
+namespace cie::maths {
 
 
 template <unsigned Dimension>
@@ -42,6 +42,6 @@ public:
 }; // class OuterProduct
 
 
-} // namespace cie::fem::maths
+} // namespace cie::maths
 
 #include "packages/maths/impl/OuterProduct_impl.hpp"

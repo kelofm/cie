@@ -104,7 +104,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
                     activeBoundaries.emplace(boundaryID, iAnsatz);
                 }
             }
-        } while (maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
+        } while (cie::maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
 
         for (auto pair : activeBoundaries) {
             rFunctor(pair.first, pair.second);
@@ -214,7 +214,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                             samplePoints.back()[iDimension] = samples[argumentState[iState++]];
                         }
                     }
-                } while (maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
+                } while (cie::maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
 
                 // Indices of ansatz functions that don't vanish on the current boundary.
                 // Begin by assuming that all functions vanish.
@@ -317,9 +317,9 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                     } // if !positiveSideVanish[iAnsatz]
                 } // for iAnsatz in range(ansatzSize)
             } // for iBoundaryAxis in range(dimension)
-        } while (maths::OuterProduct<Dimension>::next(axisOptionBegins.data(),
-                                                      axisOptionEnds.data(),
-                                                      axisState.data()));
+        } while (cie::maths::OuterProduct<Dimension>::next(axisOptionBegins.data(),
+                                                           axisOptionEnds.data(),
+                                                           axisState.data()));
     } // if sampleSize && ansatzSize
     CIE_END_EXCEPTION_TRACING
 }

@@ -47,16 +47,6 @@ if sys.argv[1].endswith("csv"):
             numpy.pow(postprocessResolution, dimension),
             dimension + 1,
         ), order = "C")
-        #.transpose((
-        #    2,
-        #    1,
-        #    0,
-        #))
-        #.reshape((
-        #    numpy.pow(cellsPerDirection, dimension) * numpy.pow(postprocessResolution, dimension),
-        #    dimension + 1
-        #), order = "C")
-        #exit(0)
     else:
         raise RuntimeError(f"invalid dimension {dimension}")
 

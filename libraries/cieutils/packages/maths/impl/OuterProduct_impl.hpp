@@ -11,7 +11,7 @@
 #include <algorithm>
 
 
-namespace cie::fem::maths {
+namespace cie::maths {
 
 
 template <unsigned Dimension>
@@ -112,7 +112,7 @@ bool OuterProduct<Dimension>::next(Ptr<const Ptr<const TValue>> itOptionBeginsAr
 }
 
 
-} // namespace cie::fem::maths
+} // namespace cie::maths
 
 
 #endif

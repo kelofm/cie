@@ -69,7 +69,7 @@ void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span o
             }
 
             ++itOut;
-        } while (OuterProduct<Dim>::next(setSize, rIndexBuffer.begin()));
+        } while (cie::maths::OuterProduct<Dim>::next(setSize, rIndexBuffer.begin()));
     } // for iDerivative in range(Dim)
 }
 
@@ -158,7 +158,7 @@ void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
             *itOut *= rValueBuffer.at(rIndexBuffer.at(iIndex) + iIndex * setSize);
         }
         ++itOut;
-    } while (OuterProduct<Dim>::next(setSize, rIndexBuffer.data()));
+    } while (cie::maths::OuterProduct<Dim>::next(setSize, rIndexBuffer.data()));
 }
 
 

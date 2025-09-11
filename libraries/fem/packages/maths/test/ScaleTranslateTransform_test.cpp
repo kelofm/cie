@@ -24,11 +24,11 @@ namespace cie::fem::maths {
         //                   \ /                                                                                            \
         //                    v                                                                                             \
         //                                                                                                                  \
-        //   | ( 2, 3)   2---------3   ( 4, 3)                                                                              \
-        //   |           |         |                                                                                        \
-        //   |           |         |                                                                                        \
-        //   |           |         |                                                                                        \
-        //   | ( 2, 1)   1---------0   ( 4, 1)                                                                              \
+        //   | ( 2, 3)   2---------------3   ( 6, 3)                                                                        \
+        //   |           |               |                                                                                  \
+        //   |           |               |                                                                                  \
+        //   |           |               |                                                                                  \
+        //   | ( 2, 1)   1---------------0   ( 6, 1)                                                                        \
         //   |                                                                                                              \
         // --o------------------------                                                                                      \
         //   |                                                                                                              \
@@ -43,15 +43,17 @@ namespace cie::fem::maths {
             { 1.0,  1.0},                                                                                                   \
                                                                                                                             \
             { 1.0, -1.0},                                                                                                   \
-            {-1.0,  1.0}                                                                                                    \
+            {-1.0,  1.0},                                                                                                   \
+            { 0.0,  0.0}                                                                                                    \
         };                                                                                                                  \
                                                                                                                             \
         const std::vector<Point> transformed {                                                                              \
-            { 4.0,  1.0},                                                                                                   \
+            { 6.0,  1.0},                                                                                                   \
             { 2.0,  3.0},                                                                                                   \
                                                                                                                             \
             { 2.0,  1.0},                                                                                                   \
-            { 4.0,  3.0}                                                                                                    \
+            { 6.0,  3.0},                                                                                                   \
+            { 4.0,  2.0}                                                                                                    \
         };                                                                                                                  \
                                                                                                                             \
         Transform transform;                                                                                                \
@@ -65,10 +67,10 @@ namespace cie::fem::maths {
             for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
                 Point point;                                                                                                \
                 transform.evaluate(locals[iPoint], point);                                                                  \
-                const auto& r_reference = transformed[iPoint];                                                              \
-                CIE_TEST_REQUIRE(point.size() == r_reference.size());                                                       \
+                const auto& rReference = transformed[iPoint];                                                               \
+                CIE_TEST_REQUIRE(point.size() == rReference.size());                                                        \
                 for (unsigned iComponent=0; iComponent<point.size(); ++iComponent) {                                        \
-                    CIE_TEST_CHECK(point[iComponent] == Approx(r_reference[iComponent]));                                   \
+                    CIE_TEST_CHECK(point[iComponent] == Approx(rReference[iComponent]));                                    \
                 }                                                                                                           \
             }                                                                                                               \
         } /*"transformation"*/                                                                                              \
@@ -82,7 +84,7 @@ namespace cie::fem::maths {
                 StaticArray<double,4> jacobian {0.0, 0.0, 0.0, 0.0};                                                        \
                 CIE_TEST_REQUIRE(transformDerivative.size() == jacobian.size());                                            \
                 transformDerivative.evaluate(locals[iPoint], {jacobian.data(), jacobian.data() + jacobian.size()});         \
-                CIE_TEST_CHECK(jacobian[0] == Approx(-1.0));                                                                \
+                CIE_TEST_CHECK(jacobian[0] == Approx(-2.0));                                                                \
                 CIE_TEST_CHECK(jacobian[1] == Approx(0.0).margin(1e-14));                                                   \
                 CIE_TEST_CHECK(jacobian[2] == Approx(0.0).margin(1e-14));                                                   \
                 CIE_TEST_CHECK(jacobian[3] == Approx(1.0));                                                                 \
@@ -96,10 +98,10 @@ namespace cie::fem::maths {
             for (unsigned iPoint=0; iPoint<transformed.size(); ++iPoint) {                                                  \
                 Point inverse;                                                                                              \
                 CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[iPoint], inverse));                            \
-                const auto& r_reference = locals[iPoint];                                                                   \
-                CIE_TEST_REQUIRE(inverse.size() == r_reference.size());                                                     \
+                const auto& rReference = locals[iPoint];                                                                    \
+                CIE_TEST_REQUIRE(inverse.size() == rReference.size());                                                      \
                 for (unsigned iComponent=0; iComponent<inverse.size(); ++iComponent) {                                      \
-                    CIE_TEST_CHECK(inverse[iComponent] == Approx(r_reference[iComponent]));                                 \
+                    CIE_TEST_CHECK(inverse[iComponent] == Approx(rReference[iComponent]));                                  \
                 }                                                                                                           \
             }                                                                                                               \
         } /*"inverse"*/                                                                                                     \

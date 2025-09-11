@@ -53,7 +53,7 @@ Quadrature<TValue,Dimension>::Quadrature(Ref<const typename QuadratureBase<TValu
                 r_weight *= rWeights[i];
             } // for index in indexBuffer
             ++it_item;
-        } while (maths::OuterProduct<Dimension>::next(numberOfNodes, indexBuffer.data()));
+        } while (cie::maths::OuterProduct<Dimension>::next(numberOfNodes, indexBuffer.data()));
     } // if rNodes
 }
 
