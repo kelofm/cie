@@ -210,7 +210,7 @@ struct DynamicExpression : ExpressionTraits<TValue>
 }; // class DynamicExpression
 
 
-/// @brief Wrapper class embedding the functionality of an @ref Expression with static polynmorphism into @ref DynamicExpression.
+/// @brief Wrapper class embedding the functionality of an @ref Expression with static polymorphism into @ref DynamicExpression.
 /// @ingroup fem
 template <Expression TExpression>
 class WrappedExpression : public DynamicExpression<typename TExpression::Value>
