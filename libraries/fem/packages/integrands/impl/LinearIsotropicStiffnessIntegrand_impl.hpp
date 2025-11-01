@@ -4,20 +4,20 @@
 #include <Eigen/Dense> // Eigen::Map
 
 // help the language server
-#include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
+#include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 
 
-namespace cie::fem::maths {
+namespace cie::fem {
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand()
     : LinearIsotropicStiffnessIntegrand(0, nullptr)
 {
 }
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
                                                                                          Ref<TAnsatzDerivatives> rAnsatzDerivatives)
     : _modulus(modulus),
@@ -27,7 +27,7 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 }
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
                                                                                          Ref<TAnsatzDerivatives> rAnsatzDerivatives,
                                                                                          std::span<Value> buffer)
@@ -37,7 +37,7 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 }
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstSpan in, Span out) const
 {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
@@ -58,7 +58,7 @@ void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstSpan i
 }
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 unsigned LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::size() const
 {
     const auto derivativeComponentCount = _pAnsatzDerivatives->size();
@@ -67,7 +67,7 @@ unsigned LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::size() const
 }
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::setBuffer(std::span<Value> buffer)
 {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= buffer.size())
@@ -75,11 +75,11 @@ void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::setBuffer(std::span<
 }
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 unsigned LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::getMinBufferSize() const noexcept
 {
     return _pAnsatzDerivatives->size();
 }
 
 
-} // namespace cie::fem::maths
+} // namespace cie::fem

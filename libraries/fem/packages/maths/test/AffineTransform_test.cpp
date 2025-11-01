@@ -56,7 +56,7 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
         Transform transform;
         {
             CIE_TEST_CASE_INIT("construction")
-            CIE_TEST_CHECK_NOTHROW(transform = Transform(transformed.data(), transformed.data() + 3));
+            CIE_TEST_CHECK_NOTHROW(transform = Transform({transformed.begin(), 3}));
         }
 
         {
@@ -140,7 +140,7 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
         Transform transform;
         {
             CIE_TEST_CASE_INIT("construction")
-            CIE_TEST_CHECK_NOTHROW(transform = Transform(transformed.begin(), transformed.begin() + 4));
+            CIE_TEST_CHECK_NOTHROW(transform = Transform({transformed.begin(), 4}));
         }
 
         {

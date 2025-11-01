@@ -4,20 +4,20 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
-#include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
+#include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 
 
-namespace cie::fem::maths {
+namespace cie::fem {
 
 
-CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[maths]")
+CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
 {
     CIE_TEST_CASE_INIT("LinearIsotropicStiffnessIntegrand")
     using Scalar = double;
     constexpr unsigned Dimension = 2u;
 
-    using Basis = Polynomial<Scalar>;
-    using Ansatz = AnsatzSpace<Basis,Dimension>;
+    using Basis = maths::Polynomial<Scalar>;
+    using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
 
     // Define a bilinear ansatz space.
     const auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
@@ -123,4 +123,4 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[maths]")
 }
 
 
-} // namespace cie::fem::maths
+} // namespace cie::fem

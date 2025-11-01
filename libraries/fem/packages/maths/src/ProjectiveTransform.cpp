@@ -20,6 +20,40 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(std::span<const Point> transformed)
+    : ProjectiveTransform()
+{
+    CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension * Dimension)
+
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    // Assemble RHS
+    auto itTransformedBegin = transformed.begin();
+    const auto itTransformedEnd = transformed.end();
+    StaticArray<TValue,Dimension*Dimension*(Dimension+1)> homogeneousPoints;
+
+    // Copy transformed components to the first {{Dimension}} rows
+    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+        const auto iComponentBegin = iPoint * (Dimension + 1);
+        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
+            // This array will be interpreted as an eigen matrix, which
+            // stores its data columnwise by default, so the order of the
+            // components must follow that.
+            homogeneousPoints[iComponentBegin + iComponent] = itTransformedBegin->at(iComponent);
+        } // for component in point
+        homogeneousPoints[iComponentBegin + Dimension] = 1; // <== last row contains homogeneous components
+    } // for point in transformedPoints
+
+    // Solve for transformation matrix components
+    this->computeTransformationMatrix(homogeneousPoints.data(),
+                                      this->getTransformationMatrix());
+
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative() noexcept
     : ProjectiveTransformDerivative(TransformationMatrix::makeIdentityMatrix())
 {

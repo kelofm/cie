@@ -14,8 +14,7 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
+void ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
     // Transform the input point to homogenized space.
     StaticArray<TValue,Dimension+1> homogenizedInput;
@@ -50,8 +49,7 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstSpan in, Span out
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline TValue
-ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan in) const
+TValue ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan in) const
 {
     StaticArray<TValue,Dimension*Dimension> derivative;
     this->evaluate(in, derivative);
@@ -60,42 +58,7 @@ ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan i
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-template <concepts::Iterator TPointIt>
-ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(TPointIt itTransformedBegin,
-                                                           TPointIt itTransformedEnd)
-    : ProjectiveTransform()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == Dimension*Dimension)
-
-    // Assemble RHS
-    StaticArray<TValue,Dimension*Dimension*(Dimension+1)> homogeneousPoints;
-
-    // Copy transformed components to the first {{Dimension}} rows
-    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
-        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
-        const auto iComponentBegin = iPoint * (Dimension + 1);
-        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
-            // This array will be interpreted as an eigen matrix, which
-            // stores its data columnwise by default, so the order of the
-            // components must follow that.
-            homogeneousPoints[iComponentBegin + iComponent] = itTransformedBegin->at(iComponent);
-        } // for component in point
-        homogeneousPoints[iComponentBegin + Dimension] = 1; // <== last row contains homogeneous components
-    } // for point in transformedPoints
-
-    // Solve for transformation matrix components
-    this->computeTransformationMatrix(homogeneousPoints.data(),
-                                      this->getTransformationMatrix());
-
-    CIE_END_EXCEPTION_TRACING
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-ProjectiveTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
+void ProjectiveTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
     CIE_OUT_OF_RANGE_CHECK(Dimension == in.size())
     CIE_OUT_OF_RANGE_CHECK(Dimension == out.size())

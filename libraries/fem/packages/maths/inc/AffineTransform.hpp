@@ -80,6 +80,8 @@ public:
 
     using Inverse = AffineTransform;
 
+    using Point = typename Kernel<Dimension,TValue>::Point;
+
 public:
     /// @brief Identity transform by default
     AffineTransform() noexcept;
@@ -107,9 +109,7 @@ public:
      *  @param itTransformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
      *  @param itTransformedEnd iterator past the last transformed point (should be identical to itTransformedBegin + D + 1 + 1).
      */
-    template <concepts::Iterator TPointIt>
-    AffineTransform(TPointIt itTransformedBegin,
-                    TPointIt itTransformedEnd);
+    AffineTransform(std::span<const Point> transformed);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
     void evaluate(ConstSpan input, Span output) const;

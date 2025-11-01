@@ -7,21 +7,21 @@
 #include <span> // span
 
 
-namespace cie::fem::maths {
+namespace cie::fem {
 
 
-template <Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives>
 class LinearIsotropicStiffnessIntegrand
-    : public ExpressionTraits<typename TAnsatzDerivatives::Value>
+    : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value>
 {
 public:
     static constexpr unsigned Dimension = TAnsatzDerivatives::Dimension;
 
-    using typename ExpressionTraits<typename TAnsatzDerivatives::Value>::Value;
+    using typename maths::ExpressionTraits<typename TAnsatzDerivatives::Value>::Value;
 
-    using typename ExpressionTraits<Value>::ConstSpan;
+    using typename maths::ExpressionTraits<Value>::ConstSpan;
 
-    using typename ExpressionTraits<Value>::Span;
+    using typename maths::ExpressionTraits<Value>::Span;
 
 public:
     LinearIsotropicStiffnessIntegrand();
@@ -50,6 +50,6 @@ private:
 }; // class LinearIsotropicStiffnessIntegrand
 
 
-} // namespace cie::fem::maths
+} // namespace cie::fem
 
-#include "packages/maths/impl/LinearIsotropicStiffnessIntegrand_impl.hpp"
+#include "packages/integrands/impl/LinearIsotropicStiffnessIntegrand_impl.hpp"

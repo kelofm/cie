@@ -58,7 +58,7 @@ public:
     unsigned size() const noexcept;
 
     /// @brief Compute the determinant of the projective transform's jacobian.
-    TValue evaluateDeterminant(ConstSpan) const;
+    TValue evaluateDeterminant(ConstSpan in) const;
 
 private:
     friend class ProjectiveTransform<TValue,Dimension>;
@@ -99,6 +99,8 @@ public:
 
     using Inverse = ProjectiveTransform;
 
+    using Point = typename Kernel<Dimension,TValue>::Point;
+
 public:
     /// @brief Identity transform by default
     ProjectiveTransform() noexcept;
@@ -117,12 +119,9 @@ public:
      *           -1 & -1 & -1 & -1 &  1 &  1 &  1 &  1
      *           \end{bmatrix} @f]
      *
-     *  @param itTransformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
-     *  @param itTransformedEnd iterator past the last transformed point (should be identical to itTransformedBegin + 2 * D + 1).
+     *  @param transformed Array of the transformed cube's vertices.
      */
-    template <concepts::Iterator PointIt>
-    ProjectiveTransform(PointIt itTransformedBegin,
-                        PointIt itTransformedEnd);
+    ProjectiveTransform(std::span<const Point> transformed);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
     void evaluate(ConstSpan in, Span out) const;

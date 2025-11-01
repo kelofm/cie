@@ -30,9 +30,9 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths]")
                                                 {3.0, 4.0}};
 
         CIE_TEST_REQUIRE_NOTHROW(Transform());
-        CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints.begin(), transformedPoints.end()));
+        CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints));
         Transform transform;
-        CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints.begin(), transformedPoints.end()));
+        CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints));
         const auto jacobian = transform.makeDerivative();
 
 
@@ -94,9 +94,9 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths]")
                                                 { 1.0,  1.0,  1.0}};
 
         CIE_TEST_REQUIRE_NOTHROW(Transform());
-        CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints.begin(), transformedPoints.end()));
+        CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints));
         Transform transform;
-        CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints.begin(), transformedPoints.end()));
+        CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints));
         const auto jacobian = transform.makeDerivative();
 
         const double delta = 1e-8;

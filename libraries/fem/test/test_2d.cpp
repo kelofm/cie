@@ -17,14 +17,16 @@
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
-#include "packages/maths/inc/AffineTransform.hpp"
+#include "packages/maths/inc/AffineEmbedding.hpp"
+#include "packages/maths/inc/LambdaExpression.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 //#include "packages/io/inc/Graphviz.hpp"
 #include "packages/io/inc/GraphML.hpp"
 #include "packages/io/inc/GraphML_specializations.hpp"
-#include "packages/maths/inc/LinearIsotropicStiffnessIntegrand.hpp"
-#include "packages/maths/inc/TransformedIntegrand.hpp"
+#include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
+#include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
+#include "packages/integrands/inc/TransformedIntegrand.hpp"
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
@@ -32,6 +34,7 @@
 
 // --- STL Includes ---
 #include <ranges> // ranges::iota
+#include <numbers> // std::numbers::pi
 
 
 namespace cie::fem {
@@ -40,7 +43,8 @@ namespace cie::fem {
 // Settings.
 constexpr Size nodesPerDirection            = 5e1;
 constexpr Size integrationOrder             = 3;
-constexpr unsigned postprocessResolution    = 3;
+constexpr double weakDirichletPenalty       = 1e3;
+constexpr unsigned postprocessResolution    = 10;
 
 
 /// @brief Number of spatial dimensions the problem is defined on.
@@ -77,6 +81,8 @@ struct MeshData
 struct CellData : public geo::BoxBoundable<Dimension,Scalar>
 {
     using geo::BoxBoundable<Dimension,Scalar>::BoundingBox;
+
+    VertexID id;
 
     /// @brief Index of the cell's ansatz space in @ref MeshData::ansatzSpaces.
     unsigned short iAnsatz;
@@ -115,11 +121,13 @@ struct CellData : public geo::BoxBoundable<Dimension,Scalar>
 
     CellData() noexcept = default;
 
-    CellData(unsigned short iAnsatz_,
+    CellData(VertexID _id,
+             unsigned short iAnsatz_,
              Scalar diffusivity_,
              OrientedAxes<Dimension> axes_,
              RightRef<SpatialTransform> rSpatialTransform) noexcept
-        : iAnsatz(iAnsatz_),
+        : id(_id),
+          iAnsatz(iAnsatz_),
           diffusivity(diffusivity_),
           axes(axes_),
           spatialTransform(std::move(rSpatialTransform))
@@ -183,7 +191,7 @@ using Mesh = Graph<CellData,BoundaryData,MeshData>;
 
 
 /// @brief Data structure unique to the triangulated, immersed boundary cells.
-using BoundaryCellData = maths::AffineTransform<Scalar,Dimension>;
+using BoundaryCellData = maths::AffineEmbedding<Scalar,1u,Dimension>;
 
 
 /// @brief Data structure unqiue to the triangulated, immersed boundary cell corners.
@@ -505,6 +513,7 @@ void generateMesh(Ref<Mesh> rMesh,
             // Insert the cell into the adjacency graph (mesh) as a vertex
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
             Mesh::Vertex::Data data (
+                VertexID(iCell), // <= todo: remove duplicate id
                 0u,   // <= All cells share the same ansatz space in this example.
                 1.0,
                 axes,
@@ -573,35 +582,32 @@ geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 
 BoundaryMesh generateBoundaryMesh()
 {
+    using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
+
     constexpr Scalar epsilon = 1e-12;
     BoundaryMesh boundary;
 
-    const auto corners = StaticArray<StaticArray<Scalar,Dimension>,4> {
-        StaticArray<Scalar,Dimension> {0.5,             epsilon         },
-        StaticArray<Scalar,Dimension> {1.0 - epsilon,   0.5             },
-        StaticArray<Scalar,Dimension> {0.5,             1.0 - epsilon   },
-        StaticArray<Scalar,Dimension> {epsilon,         0.5             }
+    const auto corners = StaticArray<Point,4> {
+        Point {0.5,             epsilon         },
+        Point {1.0 - epsilon,   0.5             },
+        Point {0.5,             1.0 - epsilon   },
+        Point {epsilon,         0.5             }
+        //Point {0.25, 0.25},
+        //Point {0.25, 0.75},
+        //Point {0.75, 0.75},
+        //Point {0.75, 0.25}
     };
 
     for (unsigned iCorner=0u; iCorner<corners.size(); ++iCorner) {
-        const StaticArray<Scalar,Dimension> normal {
-            corners[(iCorner + 1) % corners.size()][1] - corners[iCorner][1],
-            corners[iCorner][0] - corners[(iCorner + 1) % corners.size()][0]
-        };
-
-        const StaticArray<StaticArray<Scalar,Dimension>,3> transformed {
+        const StaticArray<Point,2> transformed {
             corners[iCorner],
-            corners[(iCorner + 1) % corners.size()],
-            StaticArray<Scalar,Dimension> {
-                corners[iCorner][0] + normal[0],
-                corners[iCorner][1] + normal[1]
-            }
+            corners[(iCorner + 1) % corners.size()]
         };
 
         boundary.insert(BoundaryMesh::Vertex(
             boundary.vertices().size(),
             {},
-            maths::AffineTransform<Scalar,Dimension>(transformed.begin(), transformed.end())
+            maths::AffineEmbedding<Scalar,1u,Dimension>(transformed)
         ));
     } // for iCorner in range(1, corners.size())
 
@@ -659,15 +665,74 @@ Ptr<const CellData> findContainingCell(Ref<geo::AABBoxNode<CellData>> rBVH,
 }
 
 
-void imposeBoundaryConditions(Ref<Mesh> rMesh,
-                              [[maybe_unused]] Ref<const Assembler> rAssembler,
-                              [[maybe_unused]] std::span<const int> rowExtents,
-                              [[maybe_unused]] std::span<const int> columnIndices,
-                              [[maybe_unused]] std::span<Scalar> entries,
-                              [[maybe_unused]] std::span<Scalar> rhs)
+template <class TDofMap>
+void addLHSContribution(std::span<const Scalar> contribution,
+                        TDofMap dofMap,
+                        std::span<const int> rowExtents,
+                        std::span<const int> columnIndices,
+                        std::span<Scalar> entries)
 {
-    constexpr unsigned maxTreeDepth       = 12 ;
-    //constexpr Scalar weakDirichletPenalty = 1e4;
+    const unsigned localSystemSize = dofMap.size();
+    for (unsigned iLocalRow=0u; iLocalRow<localSystemSize; ++iLocalRow) {
+        for (unsigned iLocalColumn=0u; iLocalColumn<localSystemSize; ++iLocalColumn) {
+            CIE_TEST_REQUIRE(iLocalRow < dofMap.size());
+            CIE_TEST_REQUIRE(iLocalColumn < dofMap.size());
+
+            const auto iRowBegin = rowExtents[dofMap[iLocalRow]];
+            const auto iRowEnd = rowExtents[dofMap[iLocalRow] + 1];
+            const auto itColumnIndex = std::lower_bound(columnIndices.begin() + iRowBegin,
+                                                        columnIndices.begin() + iRowEnd,
+                                                        dofMap[iLocalColumn]);
+            CIE_OUT_OF_RANGE_CHECK(itColumnIndex != columnIndices.begin() + iRowEnd
+                                && *itColumnIndex == dofMap[iLocalColumn]);
+            const auto iEntry = std::distance(columnIndices.begin(),
+                                            itColumnIndex);
+            entries[iEntry] += contribution[iLocalRow * localSystemSize + iLocalColumn];
+        } // for iLocalColumn in range(ansatzBuffer.size)
+    } // for iLocalRow in range(ansatzBuffer.size)
+}
+
+
+template <class TDofMap>
+void addRHSContribution(std::span<const Scalar> contribution,
+                        TDofMap dofMap,
+                        std::span<Scalar> rhs)
+{
+    for (unsigned iComponent=0u; iComponent<contribution.size(); ++iComponent) {
+        const auto iRow = dofMap[iComponent];
+        rhs[iRow] += contribution[iComponent];
+    }
+}
+
+
+struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
+{
+    using maths::ExpressionTraits<Scalar>::Span;
+    using maths::ExpressionTraits<Scalar>::ConstSpan;
+
+    void evaluate(ConstSpan, Span state) const noexcept
+    {
+        //CIE_TEST_CHECK(position.size() == Dimension);
+        //CIE_TEST_CHECK(state.size() == 1);
+        //state[0] = std::cos(position[0] / std::numbers::pi) + std::cos(position[1] / std::numbers::pi);
+        state[0] = 1;
+    }
+
+    unsigned size() const noexcept
+    {
+        return 1;
+    }
+}; // class DirichletBoundary
+
+
+void imposeBoundaryConditions(Ref<Mesh> rMesh,
+                              Ref<const Assembler> rAssembler,
+                              std::span<const int> rowExtents,
+                              std::span<const int> columnIndices,
+                              std::span<Scalar> entries,
+                              std::span<Scalar> rhs)
+{
+    constexpr unsigned maxTreeDepth       = 8;
 
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh();
@@ -677,13 +742,21 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
     CIE_TEST_CHECK(bvh.containedObjects().size() == rMesh.vertices().size());
 
     using TreePrimitive = geo::Cube<1,Scalar>;
-    using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>; r
+    using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
+
+    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
+    DynamicArray<Scalar> integrandBuffer(std::pow(rMesh.data().ansatzSpaces.front().size(),Dimension) + rMesh.data().ansatzSpaces.front().size());
+
+    DirichletBoundary dirichletBoundary;
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
         Tree tree(Tree::Point {-1.0}, 2.0);
 
         // Define a functor detecting cell boundaries.
-        const auto isBoundaryCell = [&bvh, &tree, &rBoundaryCell] (
+        const auto isBoundaryCell = [&bvh, &tree, &rBoundaryCell,
+                                     &lineQuadrature, &integrandBuffer, &rMesh,
+                                     &rowExtents, &columnIndices, &entries, &rAssembler,
+                                     &rhs, &dirichletBoundary] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
@@ -714,7 +787,37 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
             // Integrate if both endpoints lie in the same cell.
             if (pBaseCell && pOppositeCell && pBaseCell == pOppositeCell) {
+                Ref<const CellData> rCell = *pBaseCell;
+                const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
+                const auto& rBoundaryCellTransform = rBoundaryCell.data();
+                const auto jacobian = rBoundaryCellTransform.makeDerivative();
 
+                const auto integrand = makeTransformedIntegrand(
+                    makeDirichletPenaltyIntegrand(dirichletBoundary,
+                                                  /*penalty=*/weakDirichletPenalty,
+                                                  rAnsatzSpace,
+                                                  std::span<Scalar>(integrandBuffer)),
+                    jacobian
+                );
+                lineQuadrature.evaluate(integrand, integrandBuffer);
+
+                {
+                    const auto keys = rAssembler.keys();
+                    CIE_TEST_REQUIRE(std::find(keys.begin(), keys.end(), rCell.id) != keys.end());
+                }
+                const auto& rGlobalDofIndices = rAssembler[rCell.id];
+
+                addLHSContribution({integrandBuffer.data(),
+                                    static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
+                                   rGlobalDofIndices,
+                                   rowExtents,
+                                   columnIndices,
+                                   entries);
+
+                addRHSContribution({integrandBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
+                                    integrandBuffer.data() + integrandBuffer.size()},
+                                   rGlobalDofIndices,
+                                   rhs);
             } // if both endpoints lie in the same cell
 
             return pBaseCell != pOppositeCell && (pBaseCell || pOppositeCell);
@@ -789,18 +892,17 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
         DynamicArray<Scalar> derivativeBuffer(mesh.data().ansatzDerivatives.front().size());
-        DynamicArray<Scalar> integrandBuffer(std::pow(mesh.data().ansatzSpaces.front().size(), 2ul));
+        DynamicArray<Scalar> integrandBuffer(std::pow(mesh.data().ansatzSpaces.front().size(), Dimension));
         DynamicArray<Scalar> productBuffer(integrandBuffer.size());
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
-            const auto& rAnsatzSpace        = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
             auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
-            const auto jacobian = rCell.data().spatialTransform.makeInverse().makeDerivative();
+            const auto jacobian = rCell.data().spatialTransform.makeDerivative();
 
-            const auto localIntegrand = maths::makeTransformedIntegrand(
-                maths::LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
-                                                                             rAnsatzDerivatives,
-                                                                             {derivativeBuffer.data(), derivativeBuffer.size()}),
+            const auto localIntegrand = makeTransformedIntegrand(
+                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
+                                                                      rAnsatzDerivatives,
+                                                                      {derivativeBuffer.data(), derivativeBuffer.size()}),
                 jacobian
             );
             quadrature.evaluate(localIntegrand, integrandBuffer);
@@ -810,25 +912,11 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 CIE_TEST_REQUIRE(std::find(keys.begin(), keys.end(), rCell.id()) != keys.end());
             }
             const auto& rGlobalDofIndices = assembler[rCell.id()];
-            const unsigned localSystemSize = rAnsatzSpace.size();
-
-            for (unsigned iLocalRow=0u; iLocalRow<localSystemSize; ++iLocalRow) {
-                for (unsigned iLocalColumn=0u; iLocalColumn<localSystemSize; ++iLocalColumn) {
-                    CIE_TEST_REQUIRE(iLocalRow < rGlobalDofIndices.size());
-                    CIE_TEST_REQUIRE(iLocalColumn < rGlobalDofIndices.size());
-
-                    const auto iRowBegin = rowExtents[rGlobalDofIndices[iLocalRow]];
-                    const auto iRowEnd = rowExtents[rGlobalDofIndices[iLocalRow] + 1];
-                    const auto itColumnIndex = std::lower_bound(columnIndices.begin() + iRowBegin,
-                                                                columnIndices.begin() + iRowEnd,
-                                                                rGlobalDofIndices[iLocalColumn]);
-                    CIE_OUT_OF_RANGE_CHECK(itColumnIndex != columnIndices.begin() + iRowEnd
-                                           && *itColumnIndex == rGlobalDofIndices[iLocalColumn]);
-                    const auto iEntry = std::distance(columnIndices.begin(),
-                                                      itColumnIndex);
-                    entries[iEntry] += integrandBuffer[iLocalRow * localSystemSize + iLocalColumn];
-                } // for iLocalColumn in range(ansatzBuffer.size)
-            } // for iLocalRow in range(ansatzBuffer.size)
+            addLHSContribution(integrandBuffer,
+                               rGlobalDofIndices,
+                               rowExtents,
+                               columnIndices,
+                               entries);
         } // for rCell in mesh.vertices
     } // integrate
 
@@ -851,6 +939,13 @@ CIE_TEST_CASE("2D", "[systemTests]")
            columnIndices.data(),
            entries.data());
     } // matrix market output
+
+    {
+        CIE_TEST_CASE_INIT("write RHS vector")
+        std::ofstream file("rhs.mm");
+        cie::io::MatrixMarket::Output io(file);
+        io(rhs.data(), rhs.size());
+    }
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
