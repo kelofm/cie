@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_TEMPLATE_MACROS_HPP
-#define CIE_FEM_TEMPLATE_MACROS_HPP
+#pragma once
 
 /**
  * A collection of macros for instantiating templates
@@ -15,6 +14,11 @@
     template class CLASS_NAME<double>
 
 
+#define CIE_FEM_INSTANTIATE_MIXED_TEMPLATE(CLASS_NAME,...)                  \
+    template class CLASS_NAME<float,__VA_ARGS__>;                           \
+    template class CLASS_NAME<double,__VA_ARGS__>
+
+
 #define CIE_FEM_INSTANTIATE_TEMPLATE_DIMENSIONS(CLASS_NAME, NUMERIC_TYPE)   \
     template class CLASS_NAME<NUMERIC_TYPE, 1>;                             \
     template class CLASS_NAME<NUMERIC_TYPE, 2>;                             \
@@ -24,6 +28,3 @@
 #define CIE_FEM_INSTANTIATE_TEMPLATE(CLASS_NAME)                            \
     CIE_FEM_INSTANTIATE_TEMPLATE_DIMENSIONS(CLASS_NAME, float)              \
     CIE_FEM_INSTANTIATE_TEMPLATE_DIMENSIONS(CLASS_NAME, double)
-
-
-#endif
