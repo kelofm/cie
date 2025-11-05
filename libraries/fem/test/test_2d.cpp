@@ -40,22 +40,35 @@
 namespace cie::fem {
 
 
-// Settings: domain discretization.
+/// @brief Number of nodes in each direction of the discretized domain.
 constexpr unsigned nodesPerDirection        = 50;
+
+/// @brief Quadrature order used for integrands over the domain.
 constexpr unsigned integrationOrder         = 5;
 
-// Settings: boundary discretization.
+/// @brief Radius of the circle Dirichlet conditions are imposed on.
 constexpr double boundaryRadius             = 2.5e-1;
+
+/// @brief Number of nodes the boundary circle is discretized by.
 constexpr unsigned boundaryResolution       = 30;
+
+/// @brief Quadrature order used for integrands over the boundary.
 constexpr unsigned boundaryIntegrationOrder = 5;
+
+/// @brief Minimum depth of the spatial tree used to find intersections between domain cells and boundary cells.
 constexpr unsigned minBoundaryTreeDepth     = 3;
+
+/// @brief Maximum depth of the spatial tree used to find intersections between domain cells and boundary cells.
 constexpr unsigned maxBoundaryTreeDepth     = 15;
+
+/// @brief Minimum norm of a boundary segment to integrate over.
 constexpr double minBoundarySegmentNorm     = 1e-12;
+
+/// @brief Penalty parameter used for the weak imposition of Dirichlet conditions.
 constexpr double weakDirichletPenalty       = 1e-5 * nodesPerDirection * nodesPerDirection;
 
-// Settings: postprocessing discretization.
+/// @brief Number of sample points in each direction of every element to postprocess the solution on.
 constexpr unsigned postprocessResolution    = 2;
-
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
