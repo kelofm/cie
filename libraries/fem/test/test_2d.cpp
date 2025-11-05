@@ -41,10 +41,13 @@ namespace cie::fem {
 
 
 // Settings.
-constexpr Size nodesPerDirection            = 5e1;
-constexpr Size integrationOrder             = 3;
-constexpr double weakDirichletPenalty       = 1e3;
-constexpr unsigned postprocessResolution    = 10;
+constexpr Size nodesPerDirection            = 8e1;
+constexpr Size integrationOrder             = 5;
+
+constexpr double weakDirichletPenalty       = 5e-1 * nodesPerDirection * nodesPerDirection;
+constexpr unsigned maxBoundaryTreeDepth     = 17;
+
+constexpr unsigned postprocessResolution    = 2;
 
 
 /// @brief Number of spatial dimensions the problem is defined on.
@@ -710,12 +713,11 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
     using maths::ExpressionTraits<Scalar>::Span;
     using maths::ExpressionTraits<Scalar>::ConstSpan;
 
-    void evaluate(ConstSpan, Span state) const noexcept
+    void evaluate([[maybe_unused]] ConstSpan position, Span state) const noexcept
     {
-        //CIE_TEST_CHECK(position.size() == Dimension);
-        //CIE_TEST_CHECK(state.size() == 1);
-        //state[0] = std::cos(position[0] / std::numbers::pi) + std::cos(position[1] / std::numbers::pi);
-        state[0] = 1;
+        CIE_TEST_CHECK(position.size() == Dimension);
+        CIE_TEST_CHECK(state.size() == 1);
+        state[0] = position[0];
     }
 
     unsigned size() const noexcept
@@ -732,8 +734,6 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                               std::span<Scalar> entries,
                               std::span<Scalar> rhs)
 {
-    constexpr unsigned maxTreeDepth       = 8;
-
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh();
 
@@ -745,36 +745,35 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
 
     const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
-    DynamicArray<Scalar> integrandBuffer(std::pow(rMesh.data().ansatzSpaces.front().size(),Dimension) + rMesh.data().ansatzSpaces.front().size());
+    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces.front().size(),Dimension)
+                                          + rMesh.data().ansatzSpaces.front().size());
+    DynamicArray<Scalar> integrandBuffer(  rMesh.data().ansatzSpaces.front().size()
+                                         + Dimension
+                                         + 1);
 
     DirichletBoundary dirichletBoundary;
+    Scalar boundaryLength = 0.0;
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
         Tree tree(Tree::Point {-1.0}, 2.0);
 
         // Define a functor detecting cell boundaries.
         const auto isBoundaryCell = [&bvh, &tree, &rBoundaryCell,
-                                     &lineQuadrature, &integrandBuffer, &rMesh,
+                                     &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                      &rowExtents, &columnIndices, &entries, &rAssembler,
-                                     &rhs, &dirichletBoundary] (
+                                     &rhs, &dirichletBoundary, &boundaryLength] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
-            if (maxTreeDepth < level) return false;
+            if (maxBoundaryTreeDepth < level) return false;
 
             Scalar base, edgeLength;
             tree.getNodeGeometry(rNode, &base, &edgeLength);
 
             // Define sample points in the boundary cell's local space.
-            const StaticArray<Scalar,Dimension>
-                localBase {
-                    base,
-                    -1.0
-                },
-                localOpposite {
-                    base + edgeLength,
-                    -1.0
-                };
+            const StaticArray<Scalar,1>
+                localBase {base},
+                localOpposite {base + edgeLength};
 
             // Transform sample points to the global coordinate space.
             decltype(bvh)::Point globalBase, globalOpposite;
@@ -796,10 +795,11 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                     makeDirichletPenaltyIntegrand(dirichletBoundary,
                                                   /*penalty=*/weakDirichletPenalty,
                                                   rAnsatzSpace,
+                                                  rBoundaryCellTransform,
                                                   std::span<Scalar>(integrandBuffer)),
                     jacobian
                 );
-                lineQuadrature.evaluate(integrand, integrandBuffer);
+                lineQuadrature.evaluate(integrand, quadratureBuffer);
 
                 {
                     const auto keys = rAssembler.keys();
@@ -807,17 +807,22 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                 }
                 const auto& rGlobalDofIndices = rAssembler[rCell.id];
 
-                addLHSContribution({integrandBuffer.data(),
+                addLHSContribution({quadratureBuffer.data(),
                                     static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
                                    rGlobalDofIndices,
                                    rowExtents,
                                    columnIndices,
                                    entries);
 
-                addRHSContribution({integrandBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
-                                    integrandBuffer.data() + integrandBuffer.size()},
+                addRHSContribution({quadratureBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
+                                    quadratureBuffer.data() + quadratureBuffer.size()},
                                    rGlobalDofIndices,
                                    rhs);
+
+                boundaryLength += std::sqrt(
+                      std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
+                    + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2))
+                );
             } // if both endpoints lie in the same cell
 
             return pBaseCell != pOppositeCell && (pBaseCell || pOppositeCell);
@@ -827,6 +832,8 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
         // Cell boundaries and the current boundary cell.
         CIE_TEST_CHECK_NOTHROW(tree.scan(isBoundaryCell));
     } // for rBoundaryCell in boundary.vertices()
+
+    CIE_TEST_CHECK(boundaryLength == Approx(4 * std::sqrt(0.5)).margin(1e-2));
 }
 
 
@@ -942,6 +949,10 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
     {
         CIE_TEST_CASE_INIT("write RHS vector")
+
+        std::cout << "rhs norm: "
+                  << std::inner_product(rhs.begin(), rhs.end(), rhs.begin(), 0.0)
+                  << std::endl;
         std::ofstream file("rhs.mm");
         cie::io::MatrixMarket::Output io(file);
         io(rhs.data(), rhs.size());
