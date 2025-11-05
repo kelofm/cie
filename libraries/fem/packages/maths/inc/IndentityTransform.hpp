@@ -28,8 +28,8 @@ public:
 public:
     IdentityTransform() noexcept = default;
 
-    void evaluate([[maybe_unused]] ConstSpan in, Span out) const noexcept
-    {std::fill(out.begin(), out.end(), static_cast<TValue>(1));}
+    void evaluate(ConstSpan in, Span out) const noexcept
+    {std::copy(in.begin(), in.end(), out.begin());}
 
     constexpr unsigned size() const noexcept
     {return Dimension;}
