@@ -40,13 +40,20 @@
 namespace cie::fem {
 
 
-// Settings.
-constexpr Size nodesPerDirection            = 8e1;
-constexpr Size integrationOrder             = 5;
+// Settings: domain discretization.
+constexpr unsigned nodesPerDirection        = 50;
+constexpr unsigned integrationOrder         = 5;
 
-constexpr double weakDirichletPenalty       = 5e-1 * nodesPerDirection * nodesPerDirection;
-constexpr unsigned maxBoundaryTreeDepth     = 17;
+// Settings: boundary discretization.
+constexpr double boundaryRadius             = 2.5e-1;
+constexpr unsigned boundaryResolution       = 30;
+constexpr unsigned boundaryIntegrationOrder = 5;
+constexpr unsigned minBoundaryTreeDepth     = 3;
+constexpr unsigned maxBoundaryTreeDepth     = 15;
+constexpr double minBoundarySegmentNorm     = 1e-12;
+constexpr double weakDirichletPenalty       = 1e-5 * nodesPerDirection * nodesPerDirection;
 
+// Settings: postprocessing discretization.
 constexpr unsigned postprocessResolution    = 2;
 
 
@@ -583,23 +590,22 @@ geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 }
 
 
-BoundaryMesh generateBoundaryMesh()
+BoundaryMesh generateBoundaryMesh(const unsigned resolution)
 {
     using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
 
-    constexpr Scalar epsilon = 1e-12;
+    if (resolution < 3) CIE_THROW(Exception, "boundary resolution must be 3 or greater")
+
     BoundaryMesh boundary;
 
-    const auto corners = StaticArray<Point,4> {
-        Point {0.5,             epsilon         },
-        Point {1.0 - epsilon,   0.5             },
-        Point {0.5,             1.0 - epsilon   },
-        Point {epsilon,         0.5             }
-        //Point {0.25, 0.25},
-        //Point {0.25, 0.75},
-        //Point {0.75, 0.75},
-        //Point {0.75, 0.25}
-    };
+    DynamicArray<Point> corners;
+    for (unsigned iSegment=0u; iSegment<resolution + 1; ++iSegment) {
+        const Scalar arcParameter = iSegment * 2 * std::numbers::pi / resolution;
+        corners.push_back(Point {
+            boundaryRadius * std::cos(arcParameter) + 0.5,
+            boundaryRadius * std::sin(arcParameter) + 0.5
+        });
+    } // for iSegment in range(resolution)
 
     for (unsigned iCorner=0u; iCorner<corners.size(); ++iCorner) {
         const StaticArray<Point,2> transformed {
@@ -717,7 +723,7 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
     {
         CIE_TEST_CHECK(position.size() == Dimension);
         CIE_TEST_CHECK(state.size() == 1);
-        state[0] = std::cos(position[0]) + std::sin(position[1]);
+        state[0] = position[0] + position[1];
     }
 
     unsigned size() const noexcept
@@ -735,7 +741,7 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                               std::span<Scalar> rhs)
 {
     // Load the boundary mesh.
-    const auto boundary = generateBoundaryMesh();
+    const auto boundary = generateBoundaryMesh(boundaryResolution);
 
     // Create a spatial search over the background mesh.
     auto bvh = makeBoundingVolumeHierarchy(rMesh);
@@ -744,7 +750,7 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
     using TreePrimitive = geo::Cube<1,Scalar>;
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
 
-    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
+    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(boundaryIntegrationOrder)));
     DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces.front().size(),Dimension)
                                           + rMesh.data().ansatzSpaces.front().size());
     DynamicArray<Scalar> integrandBuffer(  rMesh.data().ansatzSpaces.front().size()
@@ -765,6 +771,7 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
+            if (level < minBoundaryTreeDepth) return true;
             if (maxBoundaryTreeDepth < level) return false;
 
             Scalar base, edgeLength;
@@ -786,48 +793,50 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
             // Integrate if both endpoints lie in the same cell.
             if (pBaseCell && pOppositeCell && pBaseCell == pOppositeCell) {
-                Ref<const CellData> rCell = *pBaseCell;
-                const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
+                const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
+                                           + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
 
-                StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
-                globalCorners[0][0] = globalBase[0];
-                globalCorners[0][1] = globalBase[1];
-                globalCorners[1][0] = globalOpposite[0];
-                globalCorners[1][1] = globalOpposite[1];
-                const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(globalCorners);
+                if (minBoundarySegmentNorm < segmentNorm) {
+                    Ref<const CellData> rCell = *pBaseCell;
+                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
 
-                const auto integrand = makeTransformedIntegrand(
-                    makeDirichletPenaltyIntegrand(dirichletBoundary,
-                                                  /*penalty=*/weakDirichletPenalty,
-                                                  rAnsatzSpace,
-                                                  segmentTransform,
-                                                  std::span<Scalar>(integrandBuffer)),
-                    segmentTransform.makeDerivative()
-                );
-                lineQuadrature.evaluate(integrand, quadratureBuffer);
+                    StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
+                    globalCorners[0][0] = globalBase[0];
+                    globalCorners[0][1] = globalBase[1];
+                    globalCorners[1][0] = globalOpposite[0];
+                    globalCorners[1][1] = globalOpposite[1];
+                    const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(globalCorners);
 
-                {
-                    const auto keys = rAssembler.keys();
-                    CIE_TEST_REQUIRE(std::find(keys.begin(), keys.end(), rCell.id) != keys.end());
+                    const auto integrand = makeTransformedIntegrand(
+                        makeDirichletPenaltyIntegrand(dirichletBoundary,
+                                                      /*penalty=*/weakDirichletPenalty,
+                                                      rAnsatzSpace,
+                                                      segmentTransform,
+                                                      std::span<Scalar>(integrandBuffer)),
+                        segmentTransform.makeDerivative()
+                    );
+                    lineQuadrature.evaluate(integrand, quadratureBuffer);
+
+                    {
+                        const auto keys = rAssembler.keys();
+                        CIE_TEST_REQUIRE(std::find(keys.begin(), keys.end(), rCell.id) != keys.end());
+                    }
+                    const auto& rGlobalDofIndices = rAssembler[rCell.id];
+
+                    addLHSContribution({quadratureBuffer.data(),
+                                           static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
+                                       rGlobalDofIndices,
+                                       rowExtents,
+                                       columnIndices,
+                                       entries);
+
+                    addRHSContribution({quadratureBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
+                                           quadratureBuffer.data() + quadratureBuffer.size()},
+                                       rGlobalDofIndices,
+                                       rhs);
+
+                    boundaryLength += std::sqrt(segmentNorm);
                 }
-                const auto& rGlobalDofIndices = rAssembler[rCell.id];
-
-                addLHSContribution({quadratureBuffer.data(),
-                                    static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
-                                   rGlobalDofIndices,
-                                   rowExtents,
-                                   columnIndices,
-                                   entries);
-
-                addRHSContribution({quadratureBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
-                                    quadratureBuffer.data() + quadratureBuffer.size()},
-                                   rGlobalDofIndices,
-                                   rhs);
-
-                boundaryLength += std::sqrt(
-                      std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
-                    + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2))
-                );
             } // if both endpoints lie in the same cell
 
             return pBaseCell != pOppositeCell && (pBaseCell || pOppositeCell);
@@ -838,7 +847,7 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
         CIE_TEST_CHECK_NOTHROW(tree.scan(isBoundaryCell));
     } // for rBoundaryCell in boundary.vertices()
 
-    CIE_TEST_CHECK(boundaryLength == Approx(4 * std::sqrt(0.5)).margin(1e-2));
+    CIE_TEST_CHECK(boundaryLength == Approx(boundaryRadius * 2 *std::numbers::pi).margin(5e-2));
 }
 
 
