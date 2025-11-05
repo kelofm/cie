@@ -717,7 +717,7 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
     {
         CIE_TEST_CHECK(position.size() == Dimension);
         CIE_TEST_CHECK(state.size() == 1);
-        state[0] = position[0];
+        state[0] = std::cos(position[0]) + std::sin(position[1]);
     }
 
     unsigned size() const noexcept
@@ -788,16 +788,21 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
             if (pBaseCell && pOppositeCell && pBaseCell == pOppositeCell) {
                 Ref<const CellData> rCell = *pBaseCell;
                 const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
-                const auto& rBoundaryCellTransform = rBoundaryCell.data();
-                const auto jacobian = rBoundaryCellTransform.makeDerivative();
+
+                StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
+                globalCorners[0][0] = globalBase[0];
+                globalCorners[0][1] = globalBase[1];
+                globalCorners[1][0] = globalOpposite[0];
+                globalCorners[1][1] = globalOpposite[1];
+                const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(globalCorners);
 
                 const auto integrand = makeTransformedIntegrand(
                     makeDirichletPenaltyIntegrand(dirichletBoundary,
                                                   /*penalty=*/weakDirichletPenalty,
                                                   rAnsatzSpace,
-                                                  rBoundaryCellTransform,
+                                                  segmentTransform,
                                                   std::span<Scalar>(integrandBuffer)),
-                    jacobian
+                    segmentTransform.makeDerivative()
                 );
                 lineQuadrature.evaluate(integrand, quadratureBuffer);
 
