@@ -10,7 +10,9 @@
 namespace cie::fem{
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatzSpace>
+template <maths::Expression TDirichlet,
+          maths::Expression TAnsatzSpace,
+          maths::Expression TTransform>
 class DirichletPenaltyIntegrand
     : public maths::ExpressionTraits<typename TAnsatzSpace::Value>
 {
@@ -28,11 +30,13 @@ public:
 
     DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
                               const Value penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace);
+                              Ref<const TAnsatzSpace> rAnsatzSpace,
+                              Ref<const TTransform> rSpatialTransform);
 
     DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
                               const Value penalty,
                               Ref<const TAnsatzSpace> rAnsatzSpace,
+                              Ref<const TTransform> rSpatialTransform,
                               std::span<Value> buffer);
 
     void evaluate(ConstSpan in, Span out) const;
@@ -50,23 +54,28 @@ private:
 
     Ptr<const TAnsatzSpace> _pAnsatzSpace;
 
+    Ptr<const TTransform> _pSpatialTransform;
+
     std::span<Value> _buffer;
 }; // class DirichletPenaltyIntegrand
 
 
 template <maths::Expression TDirichlet,
           maths::Expression TAnsatzSpace,
+          maths::Expression TTransform,
           concepts::Numeric TValue>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TTransform>
 makeDirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
                               const TValue penalty,
                               Ref<const TAnsatzSpace> rAnsatzSpace,
+                              Ref<const TTransform> rSpatialTransform,
                               std::span<TValue> buffer)
 {
-    return DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace>(
+    return DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TTransform>(
         rDirichletFunctor,
         penalty,
         rAnsatzSpace,
+        rSpatialTransform,
         buffer
     );
 }

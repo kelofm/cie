@@ -4,6 +4,7 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
+#include "packages/maths/inc/IndentityTransform.hpp"
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
 
 
@@ -44,14 +45,18 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
 
     // Construct the integrand without a buffer.
     constexpr Scalar penalty = 10.0;
-    DirichletPenaltyIntegrand<DirichletPenaltyTest,Ansatz> integrand(DirichletPenaltyTest(),
-                                                                     penalty,
-                                                                     *pAnsatzSpace);
+    const maths::IdentityTransform<Scalar,Dimension> spatialTransform;
+    const DirichletPenaltyTest dirichlet;
+    DirichletPenaltyIntegrand<DirichletPenaltyTest,Ansatz,maths::IdentityTransform<Scalar,Dimension>> integrand(
+        dirichlet,
+        penalty,
+        *pAnsatzSpace,
+        spatialTransform);
     CIE_TEST_CHECK(integrand.size() == 4 * 4 + 4);
-    CIE_TEST_CHECK(integrand.getMinBufferSize() == 4 + 1);
+    CIE_TEST_CHECK(integrand.getMinBufferSize() == 4 + 2 + 1);
 
     // Set buffer.
-    StaticArray<Scalar,5> buffer;
+    StaticArray<Scalar,7> buffer;
     StaticArray<Scalar,20> output;
 
     #ifdef CIE_ENABLE_OUT_OF_RANGE_CHECKS
@@ -64,12 +69,12 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
         // Attempt to set insufficiently sized buffers.
         CIE_TEST_CHECK_THROWS(integrand.setBuffer({}));
 
-        for (unsigned bufferSize : {0u, 1u, 4u}) {
+        for (unsigned bufferSize : {0u, 1u, 6u}) {
             CIE_TEST_CHECK_THROWS(integrand.setBuffer({buffer.data(), bufferSize}));
         }
 
         // Attempt to construct with insufficiently sized buffers.
-        for (unsigned bufferSize : {0u, 1u, 4u}) {
+        for (unsigned bufferSize : {0u, 1u, 6u}) {
             CIE_TEST_CHECK_THROWS(integrand = DirichletPenaltyIntegrand<Ansatz::Derivative>(
                 1.0,
                 pAnsatzSpace,
@@ -77,7 +82,7 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
         }
     #endif
 
-    CIE_TEST_CHECK_NOTHROW(integrand.setBuffer({buffer.data(), buffer.size()}));
+    CIE_TEST_CHECK_NOTHROW(integrand.setBuffer(buffer));
 
     // Check mass values.
     DynamicArray<std::pair<
