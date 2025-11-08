@@ -494,9 +494,11 @@ void generateMesh(Ref<Mesh> rMesh,
     // Define an ansatz space and its derivatives.
     // In this example, every cell will use the same ansatz space.
     rMesh.data().ansatzSpaces.emplace_back(Ansatz::AnsatzSet {
-         Basis({ 0.5,  0.5      })
-        ,Basis({ 0.5, -0.5      })
-        ,Basis({ 1.0,  0.0, -1.0})
+         Basis({ 0.5,  0.5                  })
+        ,Basis({ 0.5, -0.5                  })
+        ,Basis({ 1.0,  0.0, -1.0            })
+        ,Basis({ 0.0,  1.0,  0.0, -1.0      })
+        ,Basis({ 0.0,  0.0,  1.0,  0.0, -1.0})
     });
 
     rMesh.data().ansatzDerivatives.emplace_back(
@@ -753,6 +755,8 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                               std::span<Scalar> entries,
                               std::span<Scalar> rhs)
 {
+    CIE_TEST_CASE_INIT("weak boundary condition imposition")
+
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh(boundaryResolution);
 
