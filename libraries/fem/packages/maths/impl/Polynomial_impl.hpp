@@ -11,23 +11,35 @@
 namespace cie::fem::maths {
 
 
-template <class TValue>
-template <concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-Polynomial<TValue>::Polynomial(TItBegin itBegin, TItEnd itEnd)
+template <concepts::Numeric TValue>
+void PolynomialView<TValue>::evaluate(ConstSpan in, Span out) const
 {
-    _coefficients.reserve(std::distance(itBegin, itEnd));
-    std::copy(itBegin, itEnd, std::back_inserter(_coefficients));
+    CIE_OUT_OF_RANGE_CHECK(in.size() == 1u)
+    CIE_OUT_OF_RANGE_CHECK(out.size() == 1u)
+    out.front() = utils::evaluatePolynomialHorner(in.front(),
+                                                  _coefficients.begin(),
+                                                  _coefficients.end());
+}
+
+
+template <concepts::Numeric TValue>
+unsigned PolynomialView<TValue>::size() const noexcept
+{
+    return 1u;
 }
 
 
 template <class TValue>
 void Polynomial<TValue>::evaluate(ConstSpan in, Span out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(in.size() == 1ul)
-    CIE_OUT_OF_RANGE_CHECK(out.size() == 1ul)
-    out.front() = utils::evaluatePolynomialHorner(in.front(),
-                                                  _coefficients.begin(),
-                                                  _coefficients.end());
+    _wrapped.evaluate(in, out);
+}
+
+
+template <class TValue>
+unsigned Polynomial<TValue>::size() const noexcept
+{
+    return _wrapped.size();
 }
 
 
