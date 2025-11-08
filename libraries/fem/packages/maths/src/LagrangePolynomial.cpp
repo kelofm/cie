@@ -24,11 +24,11 @@ LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> pNodeBegin,
     CIE_BEGIN_EXCEPTION_TRACING
 
     const Size polynomialOrder = std::distance(pNodeBegin, pNodeEnd);
+    typename LagrangePolynomial::Coefficients coefficients(polynomialOrder);
 
     if (polynomialOrder) [[likely]] {
         DynamicArray<TValue> localNodes;
         localNodes.reserve(polynomialOrder - 1);
-        this->_coefficients.resize(polynomialOrder);
 
         // Get the base node
         CIE_OUT_OF_RANGE_CHECK(iBase < polynomialOrder)
@@ -63,9 +63,11 @@ LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> pNodeBegin,
                 coefficient += term;
             } while (permutation.next());
 
-            this->_coefficients[exponent] = coefficient / denominator;
+            coefficients[exponent] = coefficient / denominator;
         } // for numberOfSelectedNodes in range(polynomialOrder)
     } // if polynomialOrder
+
+    static_cast<Polynomial<TValue>&>(*this) = Polynomial<TValue>(std::move(coefficients));
 
     CIE_END_EXCEPTION_TRACING
 }

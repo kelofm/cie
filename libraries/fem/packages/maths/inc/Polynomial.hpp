@@ -9,11 +9,42 @@
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
+// --- STD Includes ---
+#include <span>
+
 
 namespace cie::fem::maths {
 
 
+template <concepts::Numeric TValue>
+class PolynomialView : public ExpressionTraits<TValue>
+{
+public:
+    using typename ExpressionTraits<TValue>::Span;
+
+    using typename ExpressionTraits<TValue>::ConstSpan;
+
+    using Derivative = PolynomialView;
+
+    using Coefficients = DynamicArray<TValue>;
+
+    PolynomialView() noexcept = default;
+
+    PolynomialView(Span coefficients) noexcept;
+
+    void evaluate(ConstSpan in, Span out) const;
+
+    unsigned size() const noexcept;
+
+    Derivative makeDerivative(Span buffer) const;
+
+private:
+    Span _coefficients;
+}; // class PolynomialView
+
+
 /// @brief @ref Expression representing a scalar polynomial.
+/// @ingroup fem
 template <class TValue>
 class Polynomial : public ExpressionTraits<TValue>
 {
@@ -30,6 +61,10 @@ public:
     /// @brief Uninitialized by default.
     Polynomial() noexcept = default;
 
+    Polynomial(Polynomial&&) noexcept = default;
+
+    Polynomial(const Polynomial& rRight);
+
     /// @brief Construct from a container of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
@@ -38,16 +73,11 @@ public:
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    template <concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-    Polynomial(TItBegin itBegin, TItEnd itEnd);
+    Polynomial(Span coefficients);
 
-    Polynomial(Polynomial&& rRhs) noexcept = default;
+    Polynomial& operator=(Polynomial&&) noexcept = default;
 
-    Polynomial(Ref<const Polynomial> rRhs) = default;
-
-    Ref<Polynomial> operator=(RightRef<Polynomial> rRhs) noexcept = default;
-
-    Ref<Polynomial> operator=(Ref<const Polynomial> rRhs) = default;
+    Polynomial& operator=(const Polynomial& rRight);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -61,8 +91,10 @@ public:
 
     std::span<const TValue> coefficients() const noexcept;
 
-protected:
+private:
     Coefficients _coefficients;
+
+    PolynomialView<TValue> _wrapped;
 }; // class Polynomial
 
 

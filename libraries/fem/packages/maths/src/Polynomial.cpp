@@ -10,32 +10,82 @@
 namespace cie::fem::maths {
 
 
+template <concepts::Numeric TValue>
+PolynomialView<TValue>::PolynomialView(Span coefficients) noexcept
+    : _coefficients(coefficients)
+{
+}
+
+
+template <concepts::Numeric TValue>
+typename PolynomialView<TValue>::Derivative
+PolynomialView<TValue>::makeDerivative(Span buffer) const
+{
+    if (!_coefficients.empty() && buffer.size() != _coefficients.size() - 1) {
+        CIE_THROW(OutOfRangeException,
+                  "required buffer size is " << _coefficients.size() - 1 << " "
+                    << "but got " << buffer.size());
+    }
+
+    const auto polynomialOrder = _coefficients.size();
+
+    if (1 < polynomialOrder) [[likely]] {
+        // Push first coefficient (no multiplication required)
+        buffer.front() = _coefficients[1];
+        if (2 < polynomialOrder) {
+            const auto itCoefficientEnd = _coefficients.end();
+            TValue power = static_cast<TValue>(2);
+            auto itBuffer = buffer.begin() + 1;
+            for (auto itCoefficient=_coefficients.begin()+2; itCoefficient!=itCoefficientEnd; ++itCoefficient, ++power, ++itBuffer)
+                *itBuffer = power * (*itCoefficient);
+        } // if 2 < polynoialOrder
+    } // if 1 < polynomialOrder
+
+    return PolynomialView(buffer);
+}
+
+
+template <class TValue>
+Polynomial<TValue>::Polynomial(const Polynomial& rRight)
+    : _coefficients(rRight._coefficients),
+      _wrapped()
+{
+    _wrapped = PolynomialView<TValue>(_coefficients);
+}
+
+
 template <class TValue>
 Polynomial<TValue>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
     : _coefficients(std::move(rCoefficients))
 {
+    _wrapped = PolynomialView<TValue>(_coefficients);
+}
+
+
+template <class TValue>
+Polynomial<TValue>& Polynomial<TValue>::operator=(const Polynomial& rRight)
+{
+    _coefficients = rRight._coefficients;
+    _wrapped = PolynomialView<TValue>(_coefficients);
+    return *this;
+}
+
+
+template <class TValue>
+Polynomial<TValue>::Polynomial(Span coefficients)
+    : _coefficients(coefficients.begin(), coefficients.end())
+{
+    _wrapped = PolynomialView<TValue>(_coefficients);
 }
 
 
 template <class TValue>
 Polynomial<TValue> Polynomial<TValue>::makeDerivative() const
 {
-    const auto polynomialOrder = _coefficients.size();
-    Coefficients derivativeCoefficients;
-
-    if (1 < polynomialOrder) [[likely]] {
-        // Push first coefficient (no multiplication required)
-        derivativeCoefficients.push_back(_coefficients[1]);
-        if (2 < polynomialOrder) {
-            derivativeCoefficients.reserve(polynomialOrder - 1u);
-            const auto itCoefficientEnd = _coefficients.end();
-            TValue power = static_cast<TValue>(2);
-            for (auto itCoefficient=_coefficients.begin()+2; itCoefficient!=itCoefficientEnd; ++itCoefficient, ++power)
-                derivativeCoefficients.push_back(power * (*itCoefficient));
-        } // if 2 < polynoialOrder
-    } // if 1 < polynomialOrder
-
-    return Polynomial(std::move(derivativeCoefficients));
+    Polynomial derivative;
+    derivative._coefficients.resize(_coefficients.empty() ? 0 : _coefficients.size() - 1);
+    derivative._wrapped = _wrapped.makeDerivative(derivative._coefficients);
+    return derivative;
 }
 
 
@@ -46,6 +96,7 @@ std::span<const TValue> Polynomial<TValue>::coefficients() const noexcept
 }
 
 
+CIE_FEM_INSTANTIATE_NUMERIC_TEMPLATE(PolynomialView);
 CIE_FEM_INSTANTIATE_NUMERIC_TEMPLATE(Polynomial);
 
 
