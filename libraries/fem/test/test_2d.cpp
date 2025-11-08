@@ -144,12 +144,12 @@ struct CellData : public geo::BoxBoundable<Dimension,Scalar>
 
     CellData() noexcept = default;
 
-    CellData(VertexID _id,
+    CellData(VertexID id_,
              unsigned short iAnsatz_,
              Scalar diffusivity_,
              OrientedAxes<Dimension> axes_,
              RightRef<SpatialTransform> rSpatialTransform) noexcept
-        : id(_id),
+        : id(id_),
           iAnsatz(iAnsatz_),
           diffusivity(diffusivity_),
           axes(axes_),
@@ -166,7 +166,7 @@ protected:
         std::fill(rBox.base().begin(), rBox.base().end(), std::numeric_limits<Scalar>::max());
         std::fill(opposite.begin(), opposite.end(), std::numeric_limits<Scalar>::lowest());
 
-        StaticArray<std::uint8_t,2> state {0u, 0u};
+        StaticArray<std::uint8_t,Dimension> state {0u, 0u};
         StaticArray<Scalar,2> ordinates {-1.0, 1.0};
 
         do {
