@@ -72,7 +72,7 @@ Polynomial<TValue>& Polynomial<TValue>::operator=(const Polynomial& rRight)
 
 
 template <class TValue>
-Polynomial<TValue>::Polynomial(Span coefficients)
+Polynomial<TValue>::Polynomial(ConstSpan coefficients)
     : _coefficients(coefficients.begin(), coefficients.end())
 {
     _wrapped = PolynomialView<TValue>(_coefficients);

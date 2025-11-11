@@ -73,7 +73,7 @@ public:
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    Polynomial(Span coefficients);
+    Polynomial(ConstSpan coefficients);
 
     Polynomial& operator=(Polynomial&&) noexcept = default;
 
