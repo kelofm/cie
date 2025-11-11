@@ -8,6 +8,7 @@
 #include <numeric>
 #include <algorithm>
 #include <unordered_map>
+#include <mutex>
 
 
 namespace cie::utils {
@@ -48,23 +49,35 @@ struct NChooseK::Impl {
 
     std::string     _mask;
 
-    std::unordered_map<
+    static std::unordered_map<
         std::pair<unsigned,unsigned>,
         Size,
         Hash<std::pair<unsigned,unsigned>>,
         Equal<std::pair<unsigned,unsigned>>
     > _memo;
+
+    static std::mutex _mutex;
 }; // struct NChooseK::Impl
+
+
+std::unordered_map<
+    std::pair<unsigned,unsigned>,
+    Size,
+    Hash<std::pair<unsigned,unsigned>>,
+    Equal<std::pair<unsigned,unsigned>>
+> NChooseK::Impl::_memo = {};
+
+
+std::mutex NChooseK::Impl::_mutex = {};
 
 
 NChooseK::NChooseK(unsigned n, unsigned k)
     : _pImpl(new Impl {
         ._state = state_container(k),
-        ._mask = std::string(n, 0),
-        ._memo = {}
+        ._mask = std::string(n, 0)
     })
 {
-    CIE_CHECK(k <= n, "Cannot choose " + std::to_string(k) + " from " + std::to_string(n) + " elements!")
+    CIE_CHECK(k <= n, "Cannot choose " + std::to_string(k) + " items from " + std::to_string(n) + " elements!")
 
     CIE_BEGIN_EXCEPTION_TRACING
     this->reset();
@@ -141,6 +154,7 @@ unsigned NChooseK::k() const noexcept
 
 Size NChooseK::numberOfPermutations() const noexcept
 {
+    std::scoped_lock<std::mutex> lock(_pImpl->_mutex);
     return nChooseK(this->n(), this->k(), this->_pImpl->_memo);
 }
 
