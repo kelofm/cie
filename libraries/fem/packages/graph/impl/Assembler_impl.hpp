@@ -90,7 +90,7 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
 
             // Memory stability time.
             // OK, hear me out. I need to (potentially) insert two new items into the hash table (_dofMap),
-            // which is not a iterator-stable operation. That said, the values this hash table stores are
+            // which is not an iterator-stable operation. That said, the values this hash table stores are
             // dynamic arrays (i.e.: std::vector) that do not have small-array optimizations, which means
             // that the addresses of the objects they store remain stable unless a resizing is performed.
             // Thankfully, moving a dynamic array does not trigger a resizing so I can count on the contents
@@ -101,7 +101,9 @@ void Assembler::addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGra
             std::span<DoFMap::mapped_type::value_type> sourceDoFs, targetDoFs;
 
             {
-                Ref<DoFMap::mapped_type> rDoFs = _dofMap.emplace(rEdge.source(), DoFMap::mapped_type {}).first.value();
+                Ref<DoFMap::mapped_type> rDoFs = _dofMap.emplace(
+                    rEdge.source(),
+                    DoFMap::mapped_type {}).first.value();
                 rDoFs.resize(rDoFCounter(rSource));
                 sourceDoFs = std::span<DoFMap::mapped_type::value_type>(rDoFs.data(), rDoFs.data() + rDoFs.size());
             }
