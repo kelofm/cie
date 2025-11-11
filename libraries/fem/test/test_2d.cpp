@@ -14,7 +14,7 @@
 #include "packages/graph/inc/BoundaryID.hpp"
 #include "packages/graph/inc/connectivity.hpp"
 #include "packages/graph/inc/Assembler.hpp"
-#include "packages/maths/inc/Polynomial.hpp"
+#include "packages/maths/inc/LegendrePolynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
@@ -43,32 +43,34 @@ namespace cie::fem {
 /// @brief Number of nodes in each direction of the discretized domain.
 constexpr unsigned nodesPerDirection        = 50;
 
+constexpr unsigned polynomialOrder          = 1;
+
 /// @brief Quadrature order used for integrands over the domain.
-constexpr unsigned integrationOrder         = 5;
+constexpr unsigned integrationOrder         = polynomialOrder;
 
 /// @brief Radius of the circle Dirichlet conditions are imposed on.
 constexpr double boundaryRadius             = 2.5e-1;
 
 /// @brief Number of nodes the boundary circle is discretized by.
-constexpr unsigned boundaryResolution       = 30;
+constexpr unsigned boundaryResolution       = 50;
 
 /// @brief Quadrature order used for integrands over the boundary.
-constexpr unsigned boundaryIntegrationOrder = 5;
+constexpr unsigned boundaryIntegrationOrder = polynomialOrder;
 
 /// @brief Minimum depth of the spatial tree used to find intersections between domain cells and boundary cells.
 constexpr unsigned minBoundaryTreeDepth     = 3;
 
 /// @brief Maximum depth of the spatial tree used to find intersections between domain cells and boundary cells.
-constexpr unsigned maxBoundaryTreeDepth     = 15;
+constexpr unsigned maxBoundaryTreeDepth     = 20;
 
 /// @brief Minimum norm of a boundary segment to integrate over.
 constexpr double minBoundarySegmentNorm     = 1e-12;
 
 /// @brief Penalty parameter used for the weak imposition of Dirichlet conditions.
-constexpr double weakDirichletPenalty       = 1e-5 * nodesPerDirection * nodesPerDirection;
+constexpr double weakDirichletPenalty       = 1e-6 * nodesPerDirection * nodesPerDirection;
 
 /// @brief Number of sample points in each direction of every element to postprocess the solution on.
-constexpr unsigned postprocessResolution    = 2;
+constexpr unsigned postprocessResolution    = 5;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
@@ -493,13 +495,16 @@ void generateMesh(Ref<Mesh> rMesh,
 {
     // Define an ansatz space and its derivatives.
     // In this example, every cell will use the same ansatz space.
-    rMesh.data().ansatzSpaces.emplace_back(Ansatz::AnsatzSet {
-         Basis({ 0.5,  0.5                  })
-        ,Basis({ 0.5, -0.5                  })
-        ,Basis({ 1.0,  0.0, -1.0            })
-        ,Basis({ 0.0,  1.0,  0.0, -1.0      })
-        ,Basis({ 0.0,  0.0,  1.0,  0.0, -1.0})
-    });
+    {
+        Ansatz::AnsatzSet ansatzSet;
+        for (unsigned iBasis=0; iBasis<polynomialOrder + 1; ++iBasis) {
+            Basis::Coefficients coefficients;
+            maths::IntegratedLegendrePolynomial<Scalar> legendre(iBasis);
+            std::ranges::copy(legendre.coefficients(), std::back_inserter(coefficients));
+            ansatzSet.emplace_back(coefficients);
+        }
+        rMesh.data().ansatzSpaces.emplace_back(std::move(ansatzSet));
+    }
 
     rMesh.data().ansatzDerivatives.emplace_back(
         rMesh.data().ansatzSpaces.front().makeDerivative()

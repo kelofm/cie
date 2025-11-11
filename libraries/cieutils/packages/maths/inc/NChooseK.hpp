@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_MATHS_N_CHOOSE_K_HPP
-#define CIE_UTILS_MATHS_N_CHOOSE_K_HPP
+#pragma once
 
 // --- Utility Inlcudes ---
 #include "packages/types/inc/types.hpp"
@@ -7,6 +6,7 @@
 // --- STL Includes ---
 #include <vector>
 #include <string>
+#include <memory>
 
 
 namespace cie::utils {
@@ -16,43 +16,39 @@ namespace cie::utils {
 class NChooseK
 {
 public:
-    using state_container = std::vector<Size>;
+    using state_container = std::vector<unsigned>;
 
 public:
-    NChooseK( Size n, Size k );
+    NChooseK(unsigned n, unsigned k);
 
     NChooseK() = delete;
 
-    NChooseK( NChooseK&& r_rhs ) = delete;
+    NChooseK(NChooseK&& r_rhs) = delete;
 
-    NChooseK( const NChooseK& r_rhs ) = delete;
+    NChooseK(const NChooseK& r_rhs) = delete;
 
-    NChooseK& operator=( const NChooseK& r_rhs ) = delete;
+    NChooseK& operator=(const NChooseK& r_rhs) = delete;
 
-    bool next();
+    ~NChooseK();
 
-    void reset();
+    bool next() noexcept;
 
-    state_container::const_iterator begin() const;
+    void reset() noexcept;
 
-    state_container::const_iterator end() const;
+    state_container::const_iterator begin() const noexcept;
 
-    Size n() const;
+    state_container::const_iterator end() const noexcept;
 
-    Size k() const;
+    unsigned n() const noexcept;
 
-    Size numberOfPermutations() const;
+    unsigned k() const noexcept;
+
+    Size numberOfPermutations() const noexcept;
 
 private:
-    static Size nChooseK( Size n, Size k );
-
-private:
-    state_container _state;
-    std::string     _mask;
+    struct Impl;
+    std::unique_ptr<Impl> _pImpl;
 };
 
 
 } // namespace cie::utils
-
-
-#endif
