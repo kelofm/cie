@@ -41,9 +41,9 @@ namespace cie::fem {
 
 
 /// @brief Number of nodes in each direction of the discretized domain.
-constexpr unsigned nodesPerDirection        = 50;
+constexpr unsigned nodesPerDirection        = 30;
 
-constexpr unsigned polynomialOrder          = 1;
+constexpr unsigned polynomialOrder          = 7;
 
 /// @brief Quadrature order used for integrands over the domain.
 constexpr unsigned integrationOrder         = polynomialOrder;
@@ -67,10 +67,10 @@ constexpr unsigned maxBoundaryTreeDepth     = 20;
 constexpr double minBoundarySegmentNorm     = 1e-12;
 
 /// @brief Penalty parameter used for the weak imposition of Dirichlet conditions.
-constexpr double weakDirichletPenalty       = 1e-6 * nodesPerDirection * nodesPerDirection;
+constexpr double weakDirichletPenalty       = 1e-5 * nodesPerDirection * nodesPerDirection;
 
 /// @brief Number of sample points in each direction of every element to postprocess the solution on.
-constexpr unsigned postprocessResolution    = 5;
+constexpr unsigned postprocessResolution    = 1;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
@@ -604,6 +604,7 @@ geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
     }
 
     root.partition(targetLeafWidth, maxTreeDepth);
+    root.shrink();
     CIE_TEST_CHECK(!root.isLeaf());
 
     return root;
@@ -655,7 +656,7 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution)
 bool isInCell(Ref<const CellData> rCellData,
               std::span<const Scalar> point) noexcept
 {
-    const utils::Comparison<Scalar> comparison(1e-18, 1e-20);
+    const utils::Comparison<Scalar> comparison(1e-8, 1e-10);
 
     StaticArray<Scalar,Dimension> localPoint;
     rCellData.inverseSpatialTransform.evaluate(point, localPoint);
@@ -690,6 +691,7 @@ Ptr<const CellData> findContainingCell(Ref<geo::AABBoxNode<CellData>> rBVH,
         }
     }
 
+    CIE_TEST_CHECK(false);
     return nullptr;
 }
 
@@ -781,15 +783,18 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     DirichletBoundary dirichletBoundary;
     Scalar boundaryLength = 0.0;
+    std::ofstream edgeFile("test_2d_integrated_boundary_segments.dat", std::ios::binary);
+    std::ofstream edgeIDFile("test_2d_integrated_boundary_segment_ids.dat", std::ios::binary);
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
         Tree tree(Tree::Point {-1.0}, 2.0);
 
         // Define a functor detecting cell boundaries.
-        const auto isBoundaryCell = [&bvh, &tree, &rBoundaryCell,
-                                     &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
-                                     &rowExtents, &columnIndices, &entries, &rAssembler,
-                                     &rhs, &dirichletBoundary, &boundaryLength] (
+        const auto boundaryVisitor = [&bvh, &tree, &rBoundaryCell,
+                                      &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
+                                      &rowExtents, &columnIndices, &entries, &rAssembler,
+                                      &rhs, &dirichletBoundary, &boundaryLength,
+                                      &edgeFile, &edgeIDFile] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
@@ -857,19 +862,58 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                                        rGlobalDofIndices,
                                        rhs);
 
+                    // Log debug and output info.
                     boundaryLength += std::sqrt(segmentNorm);
+                    const Scalar null = 0;
+                    for (const auto& rCorner : globalCorners) {
+                        for (auto c : rCorner)
+                            edgeFile.write(reinterpret_cast<const char*>(&c), sizeof(Scalar));
+                        edgeFile.write(reinterpret_cast<const char*>(&null), sizeof(Scalar));
+                    }
+                    const std::uint32_t lvl = level;
+                    edgeIDFile.write(reinterpret_cast<const char*>(&lvl), sizeof(lvl));
                 }
             } // if both endpoints lie in the same cell
 
             return pBaseCell != pOppositeCell && (pBaseCell || pOppositeCell);
-        }; // isBoundaryCell
+        }; // boundaryVisitor
 
         // Construct a binary tree that detects intersections between
         // Cell boundaries and the current boundary cell.
-        CIE_TEST_CHECK_NOTHROW(tree.scan(isBoundaryCell));
+        CIE_TEST_CHECK_NOTHROW(tree.scan(boundaryVisitor));
     } // for rBoundaryCell in boundary.vertices()
 
     CIE_TEST_CHECK(boundaryLength == Approx(boundaryRadius * 2 *std::numbers::pi).margin(5e-2));
+
+    const unsigned segmentCount = edgeFile.tellp() / sizeof(Scalar) / 2 / 3;
+    std::ofstream xdmf("test_2d_integrated_boundary_segments.xdmf");
+    xdmf << R"(
+<Xdmf Version="3.0">
+    <Domain>
+        <Grid Name="edges" GridType="Uniform">
+
+            <Topology TopologyType="Polyline" NumberOfElements=")" << segmentCount << R"(" NodesPerElement="2">
+                <DataItem Format="XML" Dimensions=")" << segmentCount << R"( 2">
+                    )"; {unsigned iPoint=0u; for (unsigned iEdge=0u; iEdge<segmentCount; ++iEdge) {xdmf << iPoint << " " << iPoint + 1 << "\n                    "; iPoint += 2;}}; xdmf << R"(
+                </DataItem>
+            </Topology>
+
+            <Geometry Type="XYZ">
+                <DataItem ItemType="Uniform" Format="Binary" Precision="8" Dimensions=")" << 2 * segmentCount << R"( 3">
+                    test_2d_integrated_boundary_segments.dat
+                </DataItem>
+            </Geometry>
+
+            <Attribute Name="level" Center="Cell" AttributeType="Scalar">
+                <DataItem NumberType="UInt" Precision="4" Format="Binary" Dimensions=")" << segmentCount << R"(">
+                    test_2d_integrated_boundary_segment_ids.dat
+                </DataItem>
+            </Attribute>
+
+        </Grid>
+    </Domain>
+</Xdmf>
+)";
 }
 
 
@@ -1105,8 +1149,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
         CIE_TEST_CASE_INIT("STL postprocess")
 
         // Compute the total number of triangles.
-        const std::uint32_t triangleCount = std::pow(nodesPerDirection - 1, 2ul) * std::pow(2 * (postprocessResolution - 1), 2ul);
-        constexpr Scalar postprocessDelta  = 2.0 / (postprocessResolution - 1.0);
+        const std::uint32_t triangleCount = std::pow(nodesPerDirection - 1, 2ul) * std::pow(2 * postprocessResolution, 2ul);
+        constexpr Scalar postprocessDelta  = 2.0 / postprocessResolution;
 
         std::ofstream file("test_2d_solution.stl", std::ios::binary);
 
@@ -1130,7 +1174,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                     localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * postprocessDelta;
                 }
                 localSamples.emplace_back(localSamplePoint);
-            } while (cie::maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
+            } while (cie::maths::OuterProduct<Dimension>::next(postprocessResolution + 1, samplePointState.data()));
         }
 
         for (const auto& rCell : mesh.vertices()) {
@@ -1156,17 +1200,17 @@ CIE_TEST_CASE("2D", "[systemTests]")
                 }
             } // for localCoordinates in localSamples
 
-            for (unsigned iSampleX=1u; iSampleX<postprocessResolution; ++iSampleX) {
-                for (unsigned iSampleY=1u; iSampleY<postprocessResolution; ++iSampleY) {
+            for (unsigned iSampleX=1u; iSampleX<(postprocessResolution + 1); ++iSampleX) {
+                for (unsigned iSampleY=1u; iSampleY<(postprocessResolution + 1); ++iSampleY) {
                     // Each triangle is represented by its normal, and 3 vertices.
                     StaticArray<float,12> stlTriangle;
 
                     // Collect and write the first triangle.
                     {
                         StaticArray<std::size_t,3> sampleIndices {
-                            iSampleY * postprocessResolution + iSampleX,
-                            iSampleY * postprocessResolution + iSampleX - 1,
-                            (iSampleY - 1) * postprocessResolution + iSampleX - 1
+                            iSampleY * (postprocessResolution + 1) + iSampleX,
+                            iSampleY * (postprocessResolution + 1) + iSampleX - 1,
+                            (iSampleY - 1) * (postprocessResolution + 1) + iSampleX - 1
                         };
 
                         for (unsigned iVertex=0u; iVertex<sampleIndices.size(); ++iVertex) {
@@ -1198,9 +1242,9 @@ CIE_TEST_CASE("2D", "[systemTests]")
                     // Collect and write the second triangle.
                     {
                         StaticArray<std::size_t,3> sampleIndices {
-                            iSampleY * postprocessResolution + iSampleX,
-                            (iSampleY - 1) * postprocessResolution + iSampleX - 1,
-                            (iSampleY - 1) * postprocessResolution + iSampleX,
+                            iSampleY * (postprocessResolution + 1) + iSampleX,
+                            (iSampleY - 1) * (postprocessResolution + 1) + iSampleX - 1,
+                            (iSampleY - 1) * (postprocessResolution + 1) + iSampleX,
                         };
 
                         for (unsigned iVertex=0u; iVertex<sampleIndices.size(); ++iVertex) {
@@ -1230,8 +1274,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
                     }
 
                     // Collect the second triangle.
-                } // for iSampleY in range(1, postprocessResolution)
-            } // for iSampleX in range(1, postprocessResolution)
+                } // for iSampleY in range(1, (postprocessResolution + 1))
+            } // for iSampleX in range(1, (postprocessResolution + 1))
         } // for rCell in mesh.vertices
     } // STL postprocess
 }
