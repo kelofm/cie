@@ -1,5 +1,8 @@
 #pragma once
 
+// help the language server
+#include "packages/trees/inc/abstree.hpp"
+
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/stl_extension/inc/getReference.hpp"
@@ -63,51 +66,105 @@ Size AbsTree<TSelf,TContainer,TStored,TArgs...>::level() const
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 template <class TVisitor>
-bool AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor)
+bool AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor, VisitStrategy visitStrategy)
 {
-    bool result = rVisitor(dynamic_cast<TSelf*>(this));
-
-    if (result)
-        for (auto& rChild : this->_children) {
-            getRef(rChild).visit(rVisitor);
+    switch (visitStrategy) {
+        case VisitStrategy::DepthFirst: {
+            bool result = rVisitor(dynamic_cast<TSelf*>(this));
+            if (result)
+                for (auto& rChild : this->_children) {
+                    getRef(rChild).visit(rVisitor, visitStrategy);
+                }
+            return result;
         }
+        case VisitStrategy::ReverseBreadthFirst: {
+            bool result;
+            for (auto& rChild : this->_children) {
+                result = getRef(rChild).visit(rVisitor, visitStrategy);
+                if (!result) break;
+            }
 
-    return result;
+            if (result)
+                return rVisitor(dynamic_cast<TSelf*>(this));
+            else
+                return result;
+        }
+    }
+
+    return false;
 }
 
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 template <class TVisitor>
-bool AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor) const
+bool AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor, VisitStrategy visitStrategy) const
 {
-    bool result = rVisitor(dynamic_cast<const TSelf*>(this));
-
-    if (result)
-        for (auto& rChild : this->_children) {
-            getRef(rChild).visit(rVisitor);
+    switch (visitStrategy) {
+        case VisitStrategy::DepthFirst: {
+            bool result = rVisitor(dynamic_cast<const TSelf*>(this));
+            if (result)
+                for (auto& rChild : this->_children) {
+                    getRef(rChild).visit(rVisitor, visitStrategy);
+                }
+            return result;
         }
+        case VisitStrategy::ReverseBreadthFirst: {
+            bool result;
+            for (auto& rChild : this->_children) {
+                result = getRef(rChild).visit(rVisitor, visitStrategy);
+                if (!result) break;
+            }
 
-    return result;
+            if (result)
+                return rVisitor(dynamic_cast<const TSelf*>(this));
+            else
+                return result;
+        }
+    }
+
+    return false;
 }
 
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 template <class TVisitor, class TPool>
-void AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor, TPool& rThreadPool)
+void AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor, TPool& rThreadPool, VisitStrategy visitStrategy)
 {
-    rThreadPool.queueJob(std::bind(rVisitor, this));
-    for (auto& rChild : _children)
-        getRef(rChild).visit(rVisitor);
+    switch (visitStrategy) {
+        case VisitStrategy::DepthFirst: {
+            rThreadPool.queueJob(std::bind(rVisitor, dynamic_cast<TSelf*>(this)));
+            for (auto& rChild : this->_children) {
+                getRef(rChild).visit(rVisitor, visitStrategy);
+            }
+        }
+        case VisitStrategy::ReverseBreadthFirst: {
+            for (auto& rChild : this->_children) {
+                getRef(rChild).visit(rVisitor, visitStrategy);
+            }
+            rThreadPool.queueJob(std::bind(rVisitor, dynamic_cast<TSelf*>(this)));
+        }
+    }
 }
 
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 template <class TVisitor, class TPool>
-void AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor, TPool& rThreadPool) const
+void AbsTree<TSelf,TContainer,TStored,TArgs...>::visit(TVisitor&& rVisitor, TPool& rThreadPool, VisitStrategy visitStrategy) const
 {
-    rThreadPool.queueJob(std::bind(rVisitor, this));
-    for (const auto& rChild : _children)
-        getRef(rChild).visit(rVisitor);
+    switch (visitStrategy) {
+        case VisitStrategy::DepthFirst: {
+            rThreadPool.queueJob(std::bind(rVisitor, dynamic_cast<const TSelf*>(this)));
+            for (auto& rChild : this->_children) {
+                getRef(rChild).visit(rVisitor, visitStrategy);
+            }
+        }
+        case VisitStrategy::ReverseBreadthFirst: {
+            for (auto& rChild : this->_children) {
+                getRef(rChild).visit(rVisitor, visitStrategy);
+            }
+            rThreadPool.queueJob(std::bind(rVisitor, dynamic_cast<const TSelf*>(this)));
+        }
+    }
 }
 
 

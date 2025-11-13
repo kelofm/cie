@@ -14,6 +14,14 @@
 namespace cie::utils {
 
 
+enum class VisitStrategy
+{
+    //BreadthFirst,
+    DepthFirst,
+    ReverseBreadthFirst
+};
+
+
 /// Basic tree class.
 /// @ingroup cieutils
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
@@ -43,31 +51,41 @@ public:
 
     virtual ~AbsTree() = default;
 
-    /** Send a function down the tree and execute it on all nodes while it returns true
-     *  @param rVisitor lambda taking a node pointer and returning a bool
+    /** @brief Send a function down the tree and execute it on all nodes while it returns true.
+     *  @param rVisitor Lambda taking a node pointer and returning a bool.
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor>
-    bool visit(TVisitor&& rVisitor);
+    bool visit(TVisitor&& rVisitor,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst);
 
-    /** Send a function down the tree and execute it on all nodes while it returns true
-     *  @param rVisitor lambda taking a const node pointer and returning a bool
+    /** @brief Send a function down the tree and execute it on all nodes while it returns true.
+     *  @param rVisitor Lambda taking a const node pointer and returning a bool.
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor>
-    bool visit(TVisitor&& rVisitor) const;
+    bool visit(TVisitor&& rVisitor,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst) const;
 
-    /** Send a function down the tree and execute it on all nodes
-     *  @param rVisitor lambda taking a const node pointer and returning a bool
+    /** Send a function down the tree and execute it on all nodes.
+     *  @param rVisitor Lambda taking a const node pointer and returning a bool.
      *  @param rThreadPool thread pool to assign the evaluations to
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor, class TPool>
-    void visit(TVisitor&& rVisitor, TPool& rThreadPool);
+    void visit(TVisitor&& rVisitor,
+               TPool& rThreadPool,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst);
 
-    /** Send a function down the tree and execute it on all nodes
-     *  @param rVisitor lambda taking a const node pointer and returning a bool
+    /** Send a function down the tree and execute it on all nodes.
+     *  @param rVisitor Lambda taking a const node pointer and returning a bool.
      *  @param rThreadPool thread pool to assign the evaluations to
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor, class TPool>
-    void visit(TVisitor&& rVisitor, TPool& rThreadPool) const;
+    void visit(TVisitor&& rVisitor,
+               TPool& rThreadPool,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst) const;
 
     /// Clear children (non-recursive)
     virtual void clear();
