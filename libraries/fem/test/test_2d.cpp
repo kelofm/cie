@@ -33,6 +33,8 @@
 #include "packages/trees/inc//ContiguousSpaceTree.hpp"
 
 // --- STL Includes ---
+#include <packages/partitioning/inc/BoxBoundable.hpp>
+#include <packages/primitives/inc/Object.hpp>
 #include <ranges> // ranges::iota
 #include <numbers> // std::numbers::pi
 
@@ -52,7 +54,7 @@ constexpr unsigned integrationOrder         = polynomialOrder;
 constexpr double boundaryRadius             = 2.5e-1;
 
 /// @brief Number of nodes the boundary circle is discretized by.
-constexpr unsigned boundaryResolution       = 50;
+constexpr unsigned boundaryResolution       = 20;
 
 /// @brief Quadrature order used for integrands over the boundary.
 constexpr unsigned boundaryIntegrationOrder = polynomialOrder;
@@ -160,6 +162,22 @@ struct CellData : public geo::BoxBoundable<Dimension,Scalar>
         this->inverseSpatialTransform = spatialTransform.makeInverse();
     }
 
+    bool at(geo::BoxBoundable<Dimension,Scalar>::Point point) const
+    {
+        const utils::Comparison<Scalar> comparison(1e-8, 1e-10);
+        StaticArray<Scalar,Dimension> local;
+
+        this->inverseSpatialTransform.evaluate(point, local);
+
+        return std::all_of(
+            local.begin(),
+            local.end(),
+            [&comparison](Scalar coordinate) {
+                return comparison.less(std::abs(coordinate), static_cast<Scalar>(1))
+                    || comparison.equal(std::abs(coordinate), static_cast<Scalar>(1));}
+        );
+    }
+
 protected:
     void computeBoundingBoxImpl(BoundingBox& rBox) noexcept override
     {
@@ -197,6 +215,9 @@ protected:
                        std::minus<Scalar>());
     }
 }; // struct CellData
+
+
+static_assert(::cie::concepts::SamplableGeometry<CellData>);
 
 
 /// @brief Data structure unique to @ref Graph::Edge "boundaries" between cells.
@@ -605,6 +626,7 @@ geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 
     root.partition(targetLeafWidth, maxTreeDepth);
     root.shrink();
+
     CIE_TEST_CHECK(!root.isLeaf());
 
     return root;
@@ -653,24 +675,6 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution)
 }
 
 
-bool isInCell(Ref<const CellData> rCellData,
-              std::span<const Scalar> point) noexcept
-{
-    const utils::Comparison<Scalar> comparison(1e-8, 1e-10);
-
-    StaticArray<Scalar,Dimension> localPoint;
-    rCellData.inverseSpatialTransform.evaluate(point, localPoint);
-
-    return std::all_of(
-        localPoint.begin(),
-        localPoint.end(),
-        [&comparison](Scalar coordinate) {
-            return comparison.less(std::abs(coordinate), static_cast<Scalar>(1))
-                || comparison.equal(std::abs(coordinate), static_cast<Scalar>(1));}
-    );
-}
-
-
 Ptr<const CellData> findContainingCell(Ref<geo::AABBoxNode<CellData>> rBVH,
                                        Ref<const geo::AABBoxNode<CellData>::Point> rPoint)
 {
@@ -679,14 +683,14 @@ Ptr<const CellData> findContainingCell(Ref<geo::AABBoxNode<CellData>> rBVH,
 
     CIE_TEST_CHECK(pBVHNode->contains(geo::boundingBox(rPoint)));
 
-    for (const auto pCellData : pBVHNode->containedObjects()) {
-        if (isInCell(*pCellData, rPoint)) {
+    for (const auto pCellData : pBVHNode->contained()) {
+        if (pCellData->at(rPoint)) {
             return pCellData;
         }
     }
 
-    for (const auto pCellData : pBVHNode->intersectedObjects()) {
-        if (isInCell(*pCellData, rPoint)) {
+    for (const auto pCellData : pBVHNode->intersected()) {
+        if (pCellData->at(rPoint)) {
             return pCellData;
         }
     }
@@ -755,13 +759,15 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
 }; // class DirichletBoundary
 
 
-void imposeBoundaryConditions(Ref<Mesh> rMesh,
-                              Ref<const Assembler> rAssembler,
-                              std::span<const int> rowExtents,
-                              std::span<const int> columnIndices,
-                              std::span<Scalar> entries,
-                              std::span<Scalar> rhs)
+DynamicArray<StaticArray<Scalar,2*Dimension+1>>
+imposeBoundaryConditions(Ref<Mesh> rMesh,
+                         Ref<const Assembler> rAssembler,
+                         std::span<const int> rowExtents,
+                         std::span<const int> columnIndices,
+                         std::span<Scalar> entries,
+                         std::span<Scalar> rhs)
 {
+    DynamicArray<StaticArray<Scalar,2*Dimension+1>> boundarySegments; // {p0x, p0y, p1x, p1y, level}
     CIE_TEST_CASE_INIT("weak boundary condition imposition")
 
     // Load the boundary mesh.
@@ -769,7 +775,6 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     // Create a spatial search over the background mesh.
     auto bvh = makeBoundingVolumeHierarchy(rMesh);
-    CIE_TEST_CHECK(bvh.containedObjects().size() == rMesh.vertices().size());
 
     using TreePrimitive = geo::Cube<1,Scalar>;
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
@@ -783,8 +788,6 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     DirichletBoundary dirichletBoundary;
     Scalar boundaryLength = 0.0;
-    std::ofstream edgeFile("test_2d_integrated_boundary_segments.dat", std::ios::binary);
-    std::ofstream edgeIDFile("test_2d_integrated_boundary_segment_ids.dat", std::ios::binary);
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
         Tree tree(Tree::Point {-1.0}, 2.0);
@@ -794,7 +797,7 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                       &rowExtents, &columnIndices, &entries, &rAssembler,
                                       &rhs, &dirichletBoundary, &boundaryLength,
-                                      &edgeFile, &edgeIDFile] (
+                                      &boundarySegments] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
@@ -864,14 +867,11 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
                     // Log debug and output info.
                     boundaryLength += std::sqrt(segmentNorm);
-                    const Scalar null = 0;
-                    for (const auto& rCorner : globalCorners) {
-                        for (auto c : rCorner)
-                            edgeFile.write(reinterpret_cast<const char*>(&c), sizeof(Scalar));
-                        edgeFile.write(reinterpret_cast<const char*>(&null), sizeof(Scalar));
-                    }
-                    const std::uint32_t lvl = level;
-                    edgeIDFile.write(reinterpret_cast<const char*>(&lvl), sizeof(lvl));
+                    decltype(boundarySegments)::value_type segment;
+                    std::copy_n(globalCorners[0].data(), Dimension, segment.data());
+                    std::copy_n(globalCorners[1].data(), Dimension, segment.data() + Dimension);
+                    segment.back() = level;
+                    boundarySegments.push_back(segment);
                 }
             } // if both endpoints lie in the same cell
 
@@ -885,35 +885,22 @@ void imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     CIE_TEST_CHECK(boundaryLength == Approx(boundaryRadius * 2 *std::numbers::pi).margin(5e-2));
 
-    const unsigned segmentCount = edgeFile.tellp() / sizeof(Scalar) / 2 / 3;
-    std::ofstream xdmf("test_2d_integrated_boundary_segments.xdmf");
-    xdmf << R"(
-<Xdmf Version="3.0">
-    <Domain>
-        <Grid Name="edges" GridType="Uniform">
+    // Collect output for the bounding volume hierarchy.
+    DynamicArray<StaticArray<Scalar,4*Dimension>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
+    bvh.visit([&boundingVolumes](const auto& pBoundingVolume) -> bool {
+        constexpr unsigned cornerCount = intPow(2,Dimension);
+        StaticArray<geo::AABBoxNode<CellData>::Point,cornerCount> corners;
+        boundingVolumes.emplace_back();
+        pBoundingVolume->makeCorners(std::span<geo::AABBoxNode<CellData>::Point,cornerCount>{corners.data(),cornerCount});
+        for (unsigned iCorner=0u; iCorner<cornerCount; ++iCorner) {
+            std::copy_n(corners[iCorner].data(),
+                        Dimension,
+                        boundingVolumes.back().data() + iCorner * Dimension);
+        }
+        return true;
+    });
 
-            <Topology TopologyType="Polyline" NumberOfElements=")" << segmentCount << R"(" NodesPerElement="2">
-                <DataItem Format="XML" Dimensions=")" << segmentCount << R"( 2">
-                    )"; {unsigned iPoint=0u; for (unsigned iEdge=0u; iEdge<segmentCount; ++iEdge) {xdmf << iPoint << " " << iPoint + 1 << "\n                    "; iPoint += 2;}}; xdmf << R"(
-                </DataItem>
-            </Topology>
-
-            <Geometry Type="XYZ">
-                <DataItem ItemType="Uniform" Format="Binary" Precision="8" Dimensions=")" << 2 * segmentCount << R"( 3">
-                    test_2d_integrated_boundary_segments.dat
-                </DataItem>
-            </Geometry>
-
-            <Attribute Name="level" Center="Cell" AttributeType="Scalar">
-                <DataItem NumberType="UInt" Precision="4" Format="Binary" Dimensions=")" << segmentCount << R"(">
-                    test_2d_integrated_boundary_segment_ids.dat
-                </DataItem>
-            </Attribute>
-
-        </Grid>
-    </Domain>
-</Xdmf>
-)";
+    return boundarySegments;
 }
 
 
@@ -1007,12 +994,13 @@ CIE_TEST_CASE("2D", "[systemTests]")
         } // for rCell in mesh.vertices
     } // integrate
 
-    imposeBoundaryConditions(mesh,
-                             assembler,
-                             rowExtents,
-                             columnIndices,
-                             entries,
-                             rhs);
+    const auto boundarySegments = imposeBoundaryConditions(
+        mesh,
+        assembler,
+        rowExtents,
+        columnIndices,
+        entries,
+        rhs);
 
     // Matrix market output.
     {
@@ -1144,8 +1132,89 @@ CIE_TEST_CASE("2D", "[systemTests]")
         } // for samplePoint, rValue in solutionSamples
     } // scatter postprocess
 
+    // XDMF output.
+std::ofstream xdmf("test_2d.xdmf");
+    xdmf << R"(
+<Xdmf Version="3.0">
+    <Domain>
+        <Grid name="root" GridType="Collection" CollectionType="Spatial">
+
+            <Grid Name="edges" GridType="Uniform">
+                <Topology TopologyType="Polyline" NumberOfElements=")" << segments.size() << R"(" NodesPerElement="2">
+                    <DataItem Format="XML" Dimensions=")" << segments.size() << R"( 2">
+                        )"; {
+                            for (unsigned iSegment=0u; iSegment<segments.size(); ++iSegment) {
+                                xdmf << 2 * iSegment << " " << 2 * iSegment + 1 << "\n                        ";
+                            }
+                        };
+                        xdmf << R"(
+                    </DataItem>
+                </Topology>
+
+                <Geometry Type="XYZ">
+                    <DataItem ItemType="Uniform" Format="XML" Dimensions=")" << 2 * segments.size() << R"( 3">
+                        )"; {
+                            for (const auto& rSegment : segments) {
+                                xdmf << rSegment[0] << " " << rSegment[1] << " 0" << "\n                        "
+                                     << rSegment[2] << " " << rSegment[3] << " 0" << "\n                        ";
+                            }
+                        };
+                        xdmf << R"(
+                    </DataItem>
+                </Geometry>
+
+                <Attribute Name="level" Center="Cell" AttributeType="Scalar">
+                    <DataItem Format="XML" Dimensions=")" << segments.size() << R"( 1">
+                        )"; {
+                            for (const auto& rSegment : segments) {
+                                xdmf << rSegment.back() << "\n                        ";
+                            }
+                        };
+                        xdmf << R"(
+                    </DataItem>
+                </Attribute>
+            </Grid>
+
+            <Grid Name="boundingVolumes" GridType="Uniform">
+                <Topology TopologyType="Quadrilateral" NumberOfElements=")" << boundingVolumes.size() << R"(" NodesPerElement="4">
+                    <DataItem Format="XML" Dimensions=")" << boundingVolumes.size() << R"( 4">
+                        )"; {
+                            for (unsigned iBoundingVolume=0u; iBoundingVolume<boundingVolumes.size(); ++iBoundingVolume) {
+                                const unsigned iPointBegin = 4 * iBoundingVolume;
+                                xdmf << iPointBegin << " "
+                                     << iPointBegin + 1 << " "
+                                     << iPointBegin + 3 << " "
+                                     << iPointBegin + 2
+                                     << "\n                        ";
+                            }
+                        };
+                        xdmf << R"(
+                    </DataItem>
+                </Topology>
+
+                <Geometry Type="XYZ">
+                    <DataItem ItemType="Uniform" Format="XML" Dimensions=")" << boundingVolumes.size() * 4 << R"( 3">
+                        )"; {
+                            for (const auto& rBoundingVolume : boundingVolumes) {
+                                for (unsigned iCorner=0u; iCorner<4u; ++iCorner) {
+                                    for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension)
+                                        xdmf << rBoundingVolume[Dimension * iCorner + iDimension] << " ";
+                                    xdmf << 0 << "\n                        ";
+                                }
+                            }
+                        };
+                        xdmf << R"(
+                    </DataItem>
+                </Geometry>
+            </Grid>
+
+        </Grid>
+    </Domain>
+</Xdmf>
+)";
+
     // STL surface.
-    if (Dimension == 2 && 2 <= postprocessResolution) {
+    if (Dimension == 2 && 1 <= postprocessResolution) {
         CIE_TEST_CASE_INIT("STL postprocess")
 
         // Compute the total number of triangles.
