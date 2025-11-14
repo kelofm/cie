@@ -892,6 +892,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
     CIE_TEST_CASE_INIT("2D")
 
     Mesh mesh;
+    mp::ThreadPoolBase threads;
 
     // Fill the mesh with cells and boundaries.
     {
@@ -1095,10 +1096,11 @@ CIE_TEST_CASE("2D", "[systemTests]")
             constexpr Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
             DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.front().size());
 
-            for (unsigned iSampleY=0u; iSampleY<postprocessResolution; ++iSampleY) {
-                for (unsigned iSampleX=0u; iSampleX<postprocessResolution; ++iSampleX) {
-                    // Compute sample point location in global space.
-                    const unsigned iSample = iSampleY * postprocessResolution + iSampleX;
+            mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>())(
+                intPow(postprocessResolution, 2),
+                [&samples, &solution, &assembler, &mesh, &bvh](unsigned iSample, Ref<DynamicArray<Scalar>> rAnsatzBuffer) -> void {
+                    const unsigned iSampleY = iSample / postprocessResolution;
+                    const unsigned iSampleX = iSampleY % postprocessResolution;
                     auto& rSample = samples[iSample];
                     rSample.position = {epsilon + iSampleX * postprocessDelta,
                                         epsilon + iSampleY * postprocessDelta};
@@ -1115,8 +1117,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
                         // Evaluate the cell's ansatz functions at the local sample point.
                         const auto& rAnsatzSpace = mesh.data().ansatzSpaces[pCellData->iAnsatz];
-                        ansatzBuffer.resize(rAnsatzSpace.size());
-                        rAnsatzSpace.evaluate(localSamplePoint, ansatzBuffer);
+                        rAnsatzBuffer.resize(rAnsatzSpace.size());
+                        rAnsatzSpace.evaluate(localSamplePoint, rAnsatzBuffer);
 
                         // Find the entries of the cell's DoFs in the global state vector.
                         const auto& rGlobalIndices = assembler[pCellData->id];
@@ -1125,14 +1127,13 @@ CIE_TEST_CASE("2D", "[systemTests]")
                         // and the ansatz function values at the local corner coordinates.
                         rSample.state = 0;
                         for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
-                            rSample.state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                            rSample.state += solution[rGlobalIndices[iFunction]] * rAnsatzBuffer[iFunction];
                         } // for iFunction in range(rGlobalIndices.size())
                     } else {
                         // Could not find the cell that contains the current sample point.
                         rSample.state = NAN;
                     }
-                } // for iSampleX in range(postprocessResolution)
-            } // for iSampleY in range(postprocessResolution)
+                });
         }
 
         // Write XDMF.
