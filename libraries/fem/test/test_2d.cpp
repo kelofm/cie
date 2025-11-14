@@ -512,7 +512,8 @@ struct io::GraphML::Deserializer<BoundaryData>
 ///            [u(0,0)=0]                                     [u(1,0)=1]
 ///          @endcode
 void generateMesh(Ref<Mesh> rMesh,
-                  Size nodesPerDirection)
+                  Size nodesPerDirection,
+                  Ref<const mp::ThreadPoolBase> rThreadPool)
 {
     // Define an ansatz space and its derivatives.
     // In this example, every cell will use the same ansatz space.
@@ -524,7 +525,7 @@ void generateMesh(Ref<Mesh> rMesh,
             std::ranges::copy(legendre.coefficients(), std::back_inserter(coefficients));
             ansatzSet.emplace_back(coefficients);
         }
-        rMesh.data().ansatzSpaces.emplace_back(std::move(ansatzSet));
+        rMesh.data().ansatzSpaces.emplace_back(std::move(ansatzSet), rThreadPool);
     }
 
     rMesh.data().ansatzDerivatives.emplace_back(
@@ -897,7 +898,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
     // Fill the mesh with cells and boundaries.
     {
         CIE_TEST_CASE_INIT("generate mesh")
-        generateMesh(mesh, nodesPerDirection);
+        generateMesh(mesh, nodesPerDirection, threads);
     }
 
     {
@@ -1087,8 +1088,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
             Scalar                          state;
             unsigned                        cellID;
         }; // struct Sample
-        DynamicArray<Sample> samples;
-        samples.resize(postprocessResolution * postprocessResolution);
+        DynamicArray<Sample> samples(postprocessResolution * postprocessResolution);
 
         {
             CIE_TEST_CASE_INIT("scatter postprocess")
@@ -1098,7 +1098,8 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
             mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>())(
                 intPow(postprocessResolution, 2),
-                [&samples, &solution, &assembler, &mesh, &bvh](unsigned iSample, Ref<DynamicArray<Scalar>> rAnsatzBuffer) -> void {
+                [&samples, &solution, &assembler, &mesh, &bvh](const unsigned iSample,
+                                                               Ref<DynamicArray<Scalar>> rAnsatzBuffer) -> void {
                     const unsigned iSampleY = iSample / postprocessResolution;
                     const unsigned iSampleX = iSampleY % postprocessResolution;
                     auto& rSample = samples[iSample];

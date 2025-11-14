@@ -16,6 +16,7 @@ CIE_TEST_CASE("scanConnectivities", "[graph]")
 {
     CIE_TEST_CASE_INIT("scanConnectivities")
     using Basis = maths::Polynomial<double>;
+    mp::ThreadPoolBase threadPool;
 
     DynamicArray<Basis> basisFunctions {
         Basis(Basis::Coefficients {0.5, -0.5}),
@@ -30,7 +31,7 @@ CIE_TEST_CASE("scanConnectivities", "[graph]")
 
     { // Linear shape functions on a square
         CIE_TEST_CASE_INIT("2D")
-        maths::AnsatzSpace<Basis,2> ansatzSpace(basisFunctions);
+        maths::AnsatzSpace<Basis,2> ansatzSpace(basisFunctions, threadPool);
         connectivities.clear();
 
         CIE_TEST_CHECK_NOTHROW(scanConnectivities(
@@ -94,7 +95,7 @@ CIE_TEST_CASE("scanConnectivities", "[graph]")
 
     { // Linear shape functions on a cube
         CIE_TEST_CASE_INIT("3D")
-        maths::AnsatzSpace<Basis,3> ansatzSpace(basisFunctions);
+        maths::AnsatzSpace<Basis,3> ansatzSpace(basisFunctions, threadPool);
         connectivities.clear();
 
         CIE_TEST_CHECK_NOTHROW(scanConnectivities(
@@ -259,6 +260,8 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
 {
     CIE_TEST_CASE_INIT("AnsatzMap")
     using Basis = maths::Polynomial<double>;
+    mp::ThreadPoolBase threadPool;
+
     const DynamicArray<Basis> basisFunctions {
         Basis(Basis::Coefficients { 0.5, -0.5}),
         Basis(Basis::Coefficients { 0.5,  0.5}),
@@ -273,7 +276,7 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
 
     {
         CIE_TEST_CASE_INIT("1D")
-        maths::AnsatzSpace<Basis,1> ansatzSpace(basisFunctions);
+        maths::AnsatzSpace<Basis,1> ansatzSpace(basisFunctions, threadPool);
         const auto map = makeAnsatzMap(ansatzSpace,
                                        {samples.data(), samples.size()},
                                        utils::Comparison<double>(1e-10, 1e-10));
@@ -307,7 +310,7 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
 
     {
         CIE_TEST_CASE_INIT("2D")
-        maths::AnsatzSpace<Basis,2> ansatzSpace(basisFunctions);
+        maths::AnsatzSpace<Basis,2> ansatzSpace(basisFunctions, threadPool);
         const auto map = makeAnsatzMap(ansatzSpace,
                                        {samples.data(), samples.size()},
                                        utils::Comparison<double>(1e-10, 1e-10));
@@ -424,7 +427,7 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
 
     {
         CIE_TEST_CASE_INIT("3D")
-        maths::AnsatzSpace<Basis,3> ansatzSpace(basisFunctions);
+        maths::AnsatzSpace<Basis,3> ansatzSpace(basisFunctions, threadPool);
         const auto map = makeAnsatzMap(ansatzSpace,
                                        {samples.data(), samples.size()},
                                        utils::Comparison<double>(1e-10, 1e-8));

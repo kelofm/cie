@@ -23,6 +23,8 @@ CIE_TEST_CASE("Assembler", "[graph]")
     using EdgeData = std::pair<Boundary,Boundary>;
     using Mesh = Graph<VertexData,EdgeData>;
 
+    mp::ThreadPoolBase threadPool;
+
     // Build mesh
     /** Build a mesh that consists of 6 linear quads with a linear set
      *  of Lagrangian basis functions. The local axes of each quad are
@@ -84,7 +86,7 @@ CIE_TEST_CASE("Assembler", "[graph]")
     const auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
         Basis({ 0.5, -0.5}),
         Basis({ 0.5,  0.5})
-    });
+    }, threadPool);
 
     const auto ansatzMap = makeAnsatzMap(*pAnsatzSpace,
                                          DynamicArray<float> {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f},

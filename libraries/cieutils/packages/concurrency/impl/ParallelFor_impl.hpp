@@ -57,12 +57,12 @@ template <concepts::Integer TIndex, class TStorage>
 template <class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(TIndex indexMin,
-                                         TIndex indexMax,
+                                         TIndex indexSentinel,
                                          long stepSize,
                                          Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(DynamicIndexPartitionFactory({indexMin, indexMax, stepSize}, _pool.size()),
+    this->execute(DynamicIndexPartitionFactory({indexMin, indexSentinel, stepSize}, _pool.size()),
                   rFunction,
                   true);
     return *this;
@@ -73,11 +73,11 @@ ParallelFor<TIndex,TStorage>::operator()(TIndex indexMin,
 template <concepts::Integer TIndex, class TStorage>
 template <class TFunction>
 ParallelFor<TIndex,TStorage>&
-ParallelFor<TIndex,TStorage>::operator()(TIndex indexMax,
+ParallelFor<TIndex,TStorage>::operator()(TIndex indexSentinel,
                                          Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(DynamicIndexPartitionFactory({0, indexMax, 1}, _pool.size()),
+    this->execute(DynamicIndexPartitionFactory({0, indexSentinel, 1}, _pool.size()),
                   rFunction,
                   true);
     return *this;
@@ -169,6 +169,7 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
             _pool.queueTLSJob(
                 [partition, &rFunction](auto&... rArgs) -> void {
                     for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                        if (1e4 <= i) CIE_THROW(Exception, std::to_string(i))
                         rFunction(i, rArgs...);
                     }
                 }

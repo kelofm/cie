@@ -19,11 +19,13 @@ CIE_TEST_CASE("LinearIsotropicMassIntegrand", "[integrands]")
     using Basis = maths::Polynomial<Scalar>;
     using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
 
+    mp::ThreadPoolBase threadPool;
+
     // Define a bilinear ansatz space.
     const auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
         Basis({ 0.5,  0.5}),
         Basis({ 0.5, -0.5})
-    });
+    }, threadPool);
 
     // Construct the integrand without a buffer.
     constexpr Scalar modulus = 10.0;

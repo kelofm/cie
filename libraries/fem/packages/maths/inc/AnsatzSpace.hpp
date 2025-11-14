@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_ANSATZ_SPACE_HPP
-#define CIE_FEM_ANSATZ_SPACE_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
@@ -41,7 +40,8 @@ public:
 private:
     friend class AnsatzSpace<TScalarExpression,Dim>;
 
-    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace);
+    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace,
+                          Ref<const mp::ThreadPoolBase> rThreadPool);
 
 private:
     DynamicArray<TScalarExpression> _ansatzSet;
@@ -86,9 +86,9 @@ public:
 public:
     AnsatzSpace() noexcept;
 
-    AnsatzSpace(AnsatzSet&& rSet) noexcept;
+    AnsatzSpace(AnsatzSet&& rSet, Ref<const mp::ThreadPoolBase> rPool) noexcept;
 
-    AnsatzSpace(const AnsatzSet& rSet);
+    AnsatzSpace(const AnsatzSet& rSet, Ref<const mp::ThreadPoolBase> rPool);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -162,8 +162,5 @@ private:
 
 
 } // namespace cie::fem::io
-
-
-#endif
 
 #include "packages/maths/impl/AnsatzSpace_impl.hpp"

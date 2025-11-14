@@ -11,6 +11,7 @@
 
 // --- STL Includes ---
 #include <algorithm>
+#include <thread>
 
 
 namespace cie::fem::maths {
@@ -82,10 +83,12 @@ unsigned AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
-AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace)
+AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace,
+                                                                    Ref<const mp::ThreadPoolBase> rThreadPool)
     : _ansatzSet(rAnsatzSpace._set),
       _derivativeSet(),
-      _buffer(IndexBuffer(),
+      _buffer(rThreadPool,
+              IndexBuffer(),
               ValueBuffer(intPow(_ansatzSet.size(), Dim)),
               ValueBuffer(intPow(_ansatzSet.size(), Dim)))
 {
@@ -103,15 +106,16 @@ AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const An
 
 template <class TScalarExpression, unsigned Dim>
 AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace() noexcept
-    : AnsatzSpace(AnsatzSet {})
+    : AnsatzSpace(AnsatzSet {}, mp::ThreadPoolBase())
 {
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& rSet) noexcept
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& rSet, Ref<const mp::ThreadPoolBase> rThreadPool) noexcept
     : _set(std::move(rSet)),
-      _buffer(IndexBuffer(),
+      _buffer(rThreadPool,
+              IndexBuffer(),
               ValueBuffer(intPow(_set.size(), Dim)))
 {
     std::fill(_buffer.template get<0>().begin(),
@@ -121,8 +125,8 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& rSet) noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
-AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& rSet)
-    : AnsatzSpace(AnsatzSet(rSet))
+AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& rSet, Ref<const mp::ThreadPoolBase> rThreadPool)
+    : AnsatzSpace(AnsatzSet(rSet), rThreadPool)
 {
 }
 
@@ -136,6 +140,7 @@ void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
 
     Ref<IndexBuffer> rIndexBuffer = _buffer.template get<0>();
     Ref<ValueBuffer> rValueBuffer = _buffer.template get<1>();
+    std::cout << std::this_thread::get_id() << " " << &rValueBuffer << std::endl;
 
     // No need to clear the index buffer of its leftover state
     // (the leftover state is all zeros)
@@ -166,7 +171,7 @@ template <class TScalarExpression, unsigned Dim>
 typename AnsatzSpace<TScalarExpression,Dim>::Derivative
 AnsatzSpace<TScalarExpression,Dim>::makeDerivative() const
 {
-    return Derivative(*this);
+    return Derivative(*this, _buffer.threadPool());
 }
 
 
@@ -257,7 +262,7 @@ void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim>>::onElement
 {
     CIE_BEGIN_EXCEPTION_TRACING
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-    rThis.instance() = Value(std::move(rThis._set));
+    rThis.instance() = Value(std::move(rThis._set), mp::ThreadPoolBase(1));
     rThis.template release<Deserializer>(&rThis, elementName);
     CIE_END_EXCEPTION_TRACING
 }
