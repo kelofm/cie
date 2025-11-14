@@ -72,7 +72,7 @@ constexpr double minBoundarySegmentNorm     = 1e-12;
 constexpr double weakDirichletPenalty       = 1e-5 * nodesPerDirection * nodesPerDirection;
 
 /// @brief Number of sample points in each direction of every element to postprocess the solution on.
-constexpr unsigned postprocessResolution    = 1;
+constexpr unsigned postprocessResolution    = 1e2;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
@@ -675,7 +675,7 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution)
 }
 
 
-Ptr<const CellData> findContainingCell(Ref<geo::AABBoxNode<CellData>> rBVH,
+Ptr<const CellData> findContainingCell(Ref<const geo::AABBoxNode<CellData>> rBVH,
                                        Ref<const geo::AABBoxNode<CellData>::Point> rPoint)
 {
     const auto pBVHNode = rBVH.find(rPoint);
@@ -759,9 +759,10 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
 }; // class DirichletBoundary
 
 
-DynamicArray<StaticArray<Scalar,2*Dimension+1>>
+[[nodiscard]] DynamicArray<StaticArray<Scalar,2*Dimension+1>>
 imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const Assembler> rAssembler,
+                         Ref<const geo::AABBoxNode<CellData>> rBVH,
                          std::span<const int> rowExtents,
                          std::span<const int> columnIndices,
                          std::span<Scalar> entries,
@@ -772,9 +773,6 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh(boundaryResolution);
-
-    // Create a spatial search over the background mesh.
-    auto bvh = makeBoundingVolumeHierarchy(rMesh);
 
     using TreePrimitive = geo::Cube<1,Scalar>;
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
@@ -793,7 +791,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         Tree tree(Tree::Point {-1.0}, 2.0);
 
         // Define a functor detecting cell boundaries.
-        const auto boundaryVisitor = [&bvh, &tree, &rBoundaryCell,
+        const auto boundaryVisitor = [&rBVH, &tree, &rBoundaryCell,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                       &rowExtents, &columnIndices, &entries, &rAssembler,
                                       &rhs, &dirichletBoundary, &boundaryLength,
@@ -813,13 +811,13 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                 localOpposite {base + edgeLength};
 
             // Transform sample points to the global coordinate space.
-            decltype(bvh)::Point globalBase, globalOpposite;
+            geo::Traits<Dimension,Scalar>::Point globalBase, globalOpposite;
             rBoundaryCell.data().evaluate(localBase, globalBase);
             rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
 
             // Check whether the two endpoints are in different cells.
-            Ptr<const CellData> pBaseCell     = findContainingCell(bvh, globalBase),
-                                pOppositeCell = findContainingCell(bvh, globalOpposite);
+            Ptr<const CellData> pBaseCell     = findContainingCell(rBVH, globalBase),
+                                pOppositeCell = findContainingCell(rBVH, globalOpposite);
 
             // Integrate if both endpoints lie in the same cell.
             if (pBaseCell && pOppositeCell && pBaseCell == pOppositeCell) {
@@ -884,22 +882,6 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
     } // for rBoundaryCell in boundary.vertices()
 
     CIE_TEST_CHECK(boundaryLength == Approx(boundaryRadius * 2 *std::numbers::pi).margin(5e-2));
-
-    // Collect output for the bounding volume hierarchy.
-    DynamicArray<StaticArray<Scalar,4*Dimension>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
-    bvh.visit([&boundingVolumes](const auto& pBoundingVolume) -> bool {
-        constexpr unsigned cornerCount = intPow(2,Dimension);
-        StaticArray<geo::AABBoxNode<CellData>::Point,cornerCount> corners;
-        boundingVolumes.emplace_back();
-        pBoundingVolume->makeCorners(std::span<geo::AABBoxNode<CellData>::Point,cornerCount>{corners.data(),cornerCount});
-        for (unsigned iCorner=0u; iCorner<cornerCount; ++iCorner) {
-            std::copy_n(corners[iCorner].data(),
-                        Dimension,
-                        boundingVolumes.back().data() + iCorner * Dimension);
-        }
-        return true;
-    });
-
     return boundarySegments;
 }
 
@@ -994,9 +976,11 @@ CIE_TEST_CASE("2D", "[systemTests]")
         } // for rCell in mesh.vertices
     } // integrate
 
+    auto bvh = makeBoundingVolumeHierarchy(mesh);
     const auto boundarySegments = imposeBoundaryConditions(
         mesh,
         assembler,
+        bvh,
         rowExtents,
         columnIndices,
         entries,
@@ -1078,83 +1062,101 @@ CIE_TEST_CASE("2D", "[systemTests]")
 //        );
 //    } // write GraphViz
 
-    // Postprocessing
+    // XDMF output.
     {
-        CIE_TEST_CASE_INIT("scatter postprocess")
+        // Collect output for the bounding volume hierarchy.
+        DynamicArray<StaticArray<Scalar,4 * Dimension + 1>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
+        bvh.visit([&boundingVolumes](const auto& pBoundingVolume) -> bool {
+            constexpr unsigned cornerCount = intPow(2,Dimension);
+            StaticArray<geo::AABBoxNode<CellData>::Point,cornerCount> corners;
+            boundingVolumes.emplace_back();
+            pBoundingVolume->makeCorners(std::span<geo::AABBoxNode<CellData>::Point,cornerCount>{corners.data(),cornerCount});
+            for (unsigned iCorner=0u; iCorner<cornerCount; ++iCorner) {
+                std::copy_n(corners[iCorner].data(),
+                            Dimension,
+                            boundingVolumes.back().data() + iCorner * Dimension);
+            }
+            boundingVolumes.back().back() = pBoundingVolume->level();
+            return true;
+        });
 
-        DynamicArray<std::pair<StaticArray<Scalar,Dimension>,Scalar>> solutionSamples;
-        solutionSamples.reserve(postprocessResolution * intPow(nodesPerDirection - 1u, Dimension));
-
-        constexpr Scalar postprocessDelta  = 2.0 / (postprocessResolution + 1.0);
-        constexpr Scalar postprocessOffset = -1.0 + 2.0 / (postprocessResolution + 1.0);
-
-        DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.size());
-        DynamicArray<StaticArray<Scalar,Dimension>> localSamplePoints;
+        // Collect state samples.
+        struct Sample {
+            StaticArray<Scalar,Dimension>   position;
+            Scalar                          state;
+            unsigned                        cellID;
+        }; // struct Sample
+        DynamicArray<Sample> samples;
+        samples.resize(postprocessResolution * postprocessResolution);
 
         {
-            StaticArray<unsigned,Dimension> samplePointState;
-            std::fill(samplePointState.begin(), samplePointState.end(), 0u);
-            do {
-                StaticArray<Scalar,Dimension> localSamplePoint;
-                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
-                    localSamplePoint[iDimension] = postprocessOffset + samplePointState[iDimension] * postprocessDelta;
-                }
-                localSamplePoints.emplace_back(localSamplePoint);
-            } while (cie::maths::OuterProduct<Dimension>::next(postprocessResolution, samplePointState.data()));
+            CIE_TEST_CASE_INIT("scatter postprocess")
+            constexpr Scalar epsilon = 1e-10;
+            constexpr Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
+            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.front().size());
+
+            for (unsigned iSampleY=0u; iSampleY<postprocessResolution; ++iSampleY) {
+                for (unsigned iSampleX=0u; iSampleX<postprocessResolution; ++iSampleX) {
+                    // Compute sample point location in global space.
+                    const unsigned iSample = iSampleY * postprocessResolution + iSampleX;
+                    auto& rSample = samples[iSample];
+                    rSample.position = {epsilon + iSampleX * postprocessDelta,
+                                        epsilon + iSampleY * postprocessDelta};
+
+                    // Find which cell the global point lies in.
+                    Ptr<const CellData> pCellData = findContainingCell(bvh, rSample.position);
+
+                    if (pCellData) {
+                        rSample.cellID = pCellData->id;
+
+                        // Compute sample point in the cell's local space.
+                        StaticArray<Scalar,2> localSamplePoint;
+                        pCellData->inverseSpatialTransform.evaluate(rSample.position, localSamplePoint);
+
+                        // Evaluate the cell's ansatz functions at the local sample point.
+                        const auto& rAnsatzSpace = mesh.data().ansatzSpaces[pCellData->iAnsatz];
+                        ansatzBuffer.resize(rAnsatzSpace.size());
+                        rAnsatzSpace.evaluate(localSamplePoint, ansatzBuffer);
+
+                        // Find the entries of the cell's DoFs in the global state vector.
+                        const auto& rGlobalIndices = assembler[pCellData->id];
+
+                        // Compute state as an indirect inner product of the solution vector
+                        // and the ansatz function values at the local corner coordinates.
+                        rSample.state = 0;
+                        for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
+                            rSample.state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                        } // for iFunction in range(rGlobalIndices.size())
+                    } else {
+                        // Could not find the cell that contains the current sample point.
+                        rSample.state = NAN;
+                    }
+                } // for iSampleX in range(postprocessResolution)
+            } // for iSampleY in range(postprocessResolution)
         }
 
-        for (const auto& rCell : mesh.vertices()) {
-            const auto& rGlobalIndices = assembler[rCell.id()];
-            const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
-
-            for (const auto& localCoordinates : localSamplePoints) {
-                StaticArray<Scalar,Dimension> globalSamplePoint;
-                rCell.data().spatialTransform.evaluate(localCoordinates, globalSamplePoint);
-                solutionSamples.emplace_back(globalSamplePoint, 0.0);
-                ansatzBuffer.resize(rAnsatzSpace.size());
-                rAnsatzSpace.evaluate(localCoordinates, ansatzBuffer);
-
-                for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
-                    solutionSamples.back().second += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                }
-            } // for localCoordinates in localSamplePoints
-        } // for rCell in mesh.vertices
-
-        const std::string fileName = "test_2d_solution.csv";
-        std::cout << "write scatter samples to " << fileName << std::endl;
-        std::ofstream file(fileName);
-        file << "cells-per-direction,"       << "postprocess-resolution\n"
-             << nodesPerDirection - 1 << "," << postprocessResolution << "\n"
-             << "x,y,state\n";
-        for (const auto& [rSamplePoint, rValue] : solutionSamples) {
-            for (const auto coordinate : rSamplePoint) file << coordinate << ',';
-            file << rValue << '\n';
-        } // for samplePoint, rValue in solutionSamples
-    } // scatter postprocess
-
-    // XDMF output.
-std::ofstream xdmf("test_2d.xdmf");
-    xdmf << R"(
+        // Write XDMF.
+        std::ofstream xdmf("test_2d.xdmf");
+        xdmf << R"(
 <Xdmf Version="3.0">
     <Domain>
         <Grid name="root" GridType="Collection" CollectionType="Spatial">
 
-            <Grid Name="edges" GridType="Uniform">
-                <Topology TopologyType="Polyline" NumberOfElements=")" << segments.size() << R"(" NodesPerElement="2">
-                    <DataItem Format="XML" Dimensions=")" << segments.size() << R"( 2">
+            <Grid Name="boundary" GridType="Uniform">
+                <Topology TopologyType="Polyline" NumberOfElements=")" << boundarySegments.size() << R"(" NodesPerElement="2">
+                    <DataItem Format="XML" Dimensions=")" << boundarySegments.size() << R"( 2">
                         )"; {
-                            for (unsigned iSegment=0u; iSegment<segments.size(); ++iSegment) {
+                            for (unsigned iSegment=0u; iSegment<boundarySegments.size(); ++iSegment) {
                                 xdmf << 2 * iSegment << " " << 2 * iSegment + 1 << "\n                        ";
                             }
-                        };
-                        xdmf << R"(
+                        } xdmf << R"(
                     </DataItem>
                 </Topology>
 
                 <Geometry Type="XYZ">
-                    <DataItem ItemType="Uniform" Format="XML" Dimensions=")" << 2 * segments.size() << R"( 3">
+                    <DataItem ItemType="Uniform" Format="XML" Dimensions=")" << 2 * boundarySegments.size() << R"( 3">
                         )"; {
-                            for (const auto& rSegment : segments) {
+                            for (const auto& rSegment : boundarySegments) {
                                 xdmf << rSegment[0] << " " << rSegment[1] << " 0" << "\n                        "
                                      << rSegment[2] << " " << rSegment[3] << " 0" << "\n                        ";
                             }
@@ -1164,18 +1166,17 @@ std::ofstream xdmf("test_2d.xdmf");
                 </Geometry>
 
                 <Attribute Name="level" Center="Cell" AttributeType="Scalar">
-                    <DataItem Format="XML" Dimensions=")" << segments.size() << R"( 1">
+                    <DataItem Format="XML" Dimensions=")" << boundarySegments.size() << R"( 1">
                         )"; {
-                            for (const auto& rSegment : segments) {
+                            for (const auto& rSegment : boundarySegments) {
                                 xdmf << rSegment.back() << "\n                        ";
                             }
-                        };
-                        xdmf << R"(
+                        } xdmf << R"(
                     </DataItem>
                 </Attribute>
             </Grid>
 
-            <Grid Name="boundingVolumes" GridType="Uniform">
+            <Grid Name="bvh" GridType="Uniform">
                 <Topology TopologyType="Quadrilateral" NumberOfElements=")" << boundingVolumes.size() << R"(" NodesPerElement="4">
                     <DataItem Format="XML" Dimensions=")" << boundingVolumes.size() << R"( 4">
                         )"; {
@@ -1187,8 +1188,7 @@ std::ofstream xdmf("test_2d.xdmf");
                                      << iPointBegin + 2
                                      << "\n                        ";
                             }
-                        };
-                        xdmf << R"(
+                        } xdmf << R"(
                     </DataItem>
                 </Topology>
 
@@ -1202,151 +1202,139 @@ std::ofstream xdmf("test_2d.xdmf");
                                     xdmf << 0 << "\n                        ";
                                 }
                             }
-                        };
-                        xdmf << R"(
+                        } xdmf << R"(
                     </DataItem>
                 </Geometry>
+
+                <Attribute Name="level" Center="Cell" AttributeType="Scalar">
+                    <DataItem Format="XML" Dimensions=")" << boundingVolumes.size() << R"( 1">
+                        )"; {
+                            for (const auto& rBoundingVolume : boundingVolumes) {
+                                xdmf << rBoundingVolume.back() << "\n                        ";
+                            }
+                        } xdmf << R"(
+                    </DataItem>
+                </Attribute>
             </Grid>
 
+            <Grid Name="mesh" GridType="Uniform">
+                <Topology TopologyType="Quadrilateral" NumberOfElements=")" << mesh.vertices().size() << R"(" NodesPerElement="4">
+                    <DataItem Format="XML" Dimensions=")" << mesh.vertices().size() << R"( 4">
+                        )"; {
+                            for (unsigned iCell=0u; iCell<mesh.vertices().size(); ++iCell) {
+                                const unsigned i = 4 * iCell;
+                                xdmf << i << " " << i + 1 << " " << i + 3 << " " << i + 2 << "\n                        ";
+                            } // for iCell in range(mesh.vertices().size())
+                        } xdmf << R"(
+                    </DataItem>
+                </Topology>
+
+                <Geometry Type="XYZ">
+                    <DataItem Format="XML" Dimensions=")" << 4 * mesh.vertices().size() << R"( 3">
+                        )"; {
+                            StaticArray<StaticArray<Scalar,Dimension>,intPow(2,Dimension)> localCorners {
+                                {-1.0, -1.0},
+                                { 1.0, -1.0},
+                                {-1.0,  1.0},
+                                { 1.0,  1.0}
+                            };
+
+                            for (const auto& rCell : mesh.vertices()) {
+                                for (const auto& rLocalPoint : localCorners) {
+                                    StaticArray<Scalar,Dimension> globalPoint;
+                                    rCell.data().spatialTransform.evaluate(rLocalPoint, globalPoint);
+                                    for (auto c : globalPoint) xdmf << c << " ";
+                                    xdmf << "0\n                        ";
+                                } // for rLocalPoint : localCorners
+                            } // for rCell in mesh.vertices()
+                        } xdmf << R"(
+                    </DataItem>
+                </Geometry>
+
+                <Attribute Name="state" Center="Node" AttributeType="Scalar">
+                    <DataItem Format="XML" Dimensions=")" << 4 * mesh.vertices().size() << R"( 1">
+                        )"; {
+                            StaticArray<StaticArray<Scalar,Dimension>,intPow(2,Dimension)> localCorners {
+                                {-1.0, -1.0},
+                                { 1.0, -1.0},
+                                {-1.0,  1.0},
+                                { 1.0,  1.0}
+                            };
+                            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.front().size());
+
+                            for (const auto& rCell : mesh.vertices()) {
+                                const auto& rGlobalIndices = assembler[rCell.id()];
+                                const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
+                                ansatzBuffer.resize(rAnsatzSpace.size());
+
+                                for (const auto& rLocalPoint : localCorners) {
+                                    // Compute ansatz function values at the current local corner.
+                                    rAnsatzSpace.evaluate(rLocalPoint, ansatzBuffer);
+
+                                    // Compute state as an indirect inner product of the solution vector
+                                    // and the ansatz function values at the local corner coordinates.
+                                    Scalar state = 0;
+                                    for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
+                                        state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                                    } // for iFunction in range(rGlobalIndices.size())
+
+                                    xdmf << state << "\n                        ";
+                                } // for rLocalPoint : localCorners
+                            } // for rCell in mesh.vertices()
+                        } xdmf << R"(
+                    </DataItem>
+                </Attribute>
+            </Grid>
+
+            <Grid Name="sample" GridType="Uniform">
+                <Topology TopologyType="Quadrilateral" NumberOfElements=")" << intPow(postprocessResolution - 1, 2) << R"(" NodePerElement="4">
+                    <DataItem Format="XML" Dimensions=")" << intPow(postprocessResolution - 1, 2) << R"( 4">
+                        )"; {
+                            for (unsigned iSampleCellY=0u; iSampleCellY<postprocessResolution - 1; ++iSampleCellY) {
+                                for (unsigned iSampleCellX=0u; iSampleCellX<postprocessResolution - 1; ++iSampleCellX) {
+                                    const unsigned iBase = iSampleCellY * postprocessResolution + iSampleCellX;
+                                    xdmf << iBase << " " << iBase + 1 << " " << iBase + postprocessResolution +1 << " " << iBase + postprocessResolution << "\n                        ";
+                                } // for iSampleCellX in range(proceprocessResolution)
+                            } // for iSampleCellY in range(proceprocessResolution)
+                        } xdmf << R"(
+                    </DataItem>
+                </Topology>
+
+                <Geometry Type="XYZ">
+                    <DataItem Format="XML" Dimensions=")" << samples.size() << R"( 3">
+                        )"; {
+                            for (const auto& rSample : samples) {
+                                xdmf << rSample.position[0] << " " << rSample.position[1] << " 0\n                        ";
+                            } // for rSample in samples
+                        } xdmf << R"(
+                    </DataItem>
+                </Geometry>
+
+                <Attribute Name="state" Center="Node" AttributeType="Scalar">
+                    <DataItem Format="XML" Dimensions=")" << samples.size() << R"( 1">
+                        )"; {
+                            for (const auto& rSample : samples) {
+                                xdmf << rSample.state << "\n                        ";
+                            } // for rSample in samples
+                        } xdmf << R"(
+                    </DataItem>
+                </Attribute>
+
+                <Attribute Name="cellID" Center="Node" AttributeType="Scalar">
+                    <DataItem Format="XML" Dimensions=")" << samples.size() << R"( 1">
+                        )"; {
+                            for (const auto& rSample : samples) {
+                                xdmf << rSample.cellID << "\n                        ";
+                            } // for rSample in samples
+                        } xdmf << R"(
+                    </DataItem>
+                </Attribute>
+            </Grid>
         </Grid>
     </Domain>
 </Xdmf>
 )";
-
-    // STL surface.
-    if (Dimension == 2 && 1 <= postprocessResolution) {
-        CIE_TEST_CASE_INIT("STL postprocess")
-
-        // Compute the total number of triangles.
-        const std::uint32_t triangleCount = std::pow(nodesPerDirection - 1, 2ul) * std::pow(2 * postprocessResolution, 2ul);
-        constexpr Scalar postprocessDelta  = 2.0 / postprocessResolution;
-
-        std::ofstream file("test_2d_solution.stl", std::ios::binary);
-
-        // Write STL header.
-        {
-            std::array<std::uint8_t,80> buffer;
-            file.write(reinterpret_cast<const char*>(buffer.data()), 80);
-            file.write(reinterpret_cast<const char*>(&triangleCount), sizeof(triangleCount));
-        }
-
-        DynamicArray<StaticArray<Scalar,Dimension+1>> solutionSamples;
-        DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.size());
-        DynamicArray<StaticArray<Scalar,Dimension>> localSamples;
-
-        {
-            StaticArray<unsigned,Dimension> samplePointState;
-            std::fill(samplePointState.begin(), samplePointState.end(), 0u);
-            do {
-                StaticArray<Scalar,Dimension> localSamplePoint;
-                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
-                    localSamplePoint[iDimension] = -1.0 + samplePointState[iDimension] * postprocessDelta;
-                }
-                localSamples.emplace_back(localSamplePoint);
-            } while (cie::maths::OuterProduct<Dimension>::next(postprocessResolution + 1, samplePointState.data()));
-        }
-
-        for (const auto& rCell : mesh.vertices()) {
-            solutionSamples.clear();
-            const auto& rGlobalIndices = assembler[rCell.id()];
-            const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
-
-            for (const auto& localCoordinates : localSamples) {
-                solutionSamples.emplace_back();
-
-                // Compute coordinates in global space.
-                rCell.data().spatialTransform.evaluate(localCoordinates, solutionSamples.back());
-                solutionSamples.back().back() = static_cast<Scalar>(0);
-
-                // Compute ansatz function values at the sample points.
-                ansatzBuffer.resize(rAnsatzSpace.size());
-                rAnsatzSpace.evaluate(localCoordinates, ansatzBuffer);
-
-                // Compute state as an indirect inner product of the solution vector
-                // and the ansatz function values at the local sample point coordinates.
-                for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
-                    solutionSamples.back().back() += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                }
-            } // for localCoordinates in localSamples
-
-            for (unsigned iSampleX=1u; iSampleX<(postprocessResolution + 1); ++iSampleX) {
-                for (unsigned iSampleY=1u; iSampleY<(postprocessResolution + 1); ++iSampleY) {
-                    // Each triangle is represented by its normal, and 3 vertices.
-                    StaticArray<float,12> stlTriangle;
-
-                    // Collect and write the first triangle.
-                    {
-                        StaticArray<std::size_t,3> sampleIndices {
-                            iSampleY * (postprocessResolution + 1) + iSampleX,
-                            iSampleY * (postprocessResolution + 1) + iSampleX - 1,
-                            (iSampleY - 1) * (postprocessResolution + 1) + iSampleX - 1
-                        };
-
-                        for (unsigned iVertex=0u; iVertex<sampleIndices.size(); ++iVertex) {
-                            const auto& rSource = solutionSamples[sampleIndices[iVertex]];
-                            std::span<float> target(stlTriangle.data() + (iVertex + 1) * 3, 3);
-                            std::copy(rSource.begin(), rSource.end(), target.begin());
-                        }
-
-                        StaticArray<StaticArray<Scalar,3>,2> edges {
-                            StaticArray<Scalar,3> {stlTriangle[ 6] - stlTriangle[3],
-                                                   stlTriangle[ 7] - stlTriangle[4],
-                                                   stlTriangle[ 8] - stlTriangle[5]},
-                            StaticArray<Scalar,3> {stlTriangle[ 9] - stlTriangle[3],
-                                                   stlTriangle[10] - stlTriangle[4],
-                                                   stlTriangle[11] - stlTriangle[5]},
-                        };
-
-                        stlTriangle[0] = edges[0][1] * edges[1][2] - edges[0][2] * edges[1][1];
-                        stlTriangle[1] = edges[0][2] * edges[1][0] - edges[0][0] * edges[1][2];
-                        stlTriangle[2] = edges[0][0] * edges[1][1] - edges[0][1] * edges[1][0];
-
-                        file.write(reinterpret_cast<char*>(stlTriangle.data()),
-                                   sizeof(float) * stlTriangle.size());
-
-                        std::uint16_t attribute = 0;
-                        file.write(reinterpret_cast<char*>(&attribute), sizeof(attribute));
-                    }
-
-                    // Collect and write the second triangle.
-                    {
-                        StaticArray<std::size_t,3> sampleIndices {
-                            iSampleY * (postprocessResolution + 1) + iSampleX,
-                            (iSampleY - 1) * (postprocessResolution + 1) + iSampleX - 1,
-                            (iSampleY - 1) * (postprocessResolution + 1) + iSampleX,
-                        };
-
-                        for (unsigned iVertex=0u; iVertex<sampleIndices.size(); ++iVertex) {
-                            const auto& rSource = solutionSamples[sampleIndices[iVertex]];
-                            std::span<float> target(stlTriangle.data() + (iVertex + 1) * 3, 3);
-                            std::copy(rSource.begin(), rSource.end(), target.begin());
-                        }
-
-                        StaticArray<StaticArray<Scalar,3>,2> edges {
-                            StaticArray<Scalar,3> {stlTriangle[ 6] - stlTriangle[3],
-                                                   stlTriangle[ 7] - stlTriangle[4],
-                                                   stlTriangle[ 8] - stlTriangle[5]},
-                            StaticArray<Scalar,3> {stlTriangle[ 9] - stlTriangle[3],
-                                                   stlTriangle[10] - stlTriangle[4],
-                                                   stlTriangle[11] - stlTriangle[5]},
-                        };
-
-                        stlTriangle[0] = edges[0][1] * edges[1][2] - edges[0][2] * edges[1][1];
-                        stlTriangle[1] = edges[0][2] * edges[1][0] - edges[0][0] * edges[1][2];
-                        stlTriangle[2] = edges[0][0] * edges[1][1] - edges[0][1] * edges[1][0];
-
-                        file.write(reinterpret_cast<char*>(stlTriangle.data()),
-                                   sizeof(float) * stlTriangle.size());
-
-                        std::uint16_t attribute = 0;
-                        file.write(reinterpret_cast<char*>(&attribute), sizeof(attribute));
-                    }
-
-                    // Collect the second triangle.
-                } // for iSampleY in range(1, (postprocessResolution + 1))
-            } // for iSampleX in range(1, (postprocessResolution + 1))
-        } // for rCell in mesh.vertices
-    } // STL postprocess
+    }
 }
 
 
