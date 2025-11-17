@@ -61,6 +61,51 @@ private:
 }; // class AnsatzSpaceDerivative
 
 
+/** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
+ */
+template <class TScalarExpression, unsigned Dim>
+class BufferedAnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value>
+{
+private:
+    using Base = ExpressionTraits<typename TScalarExpression::Value>;
+
+public:
+    static constexpr unsigned Dimension = Dim;
+
+    using typename Base::Value;
+
+    using typename Base::Span;
+
+    using typename Base::ConstSpan;
+
+    BufferedAnsatzSpace() noexcept;
+
+    BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet) noexcept;
+
+    BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet,
+                        Span buffer);
+
+    void evaluate(ConstSpan in, Span out) const;
+
+    unsigned size() const noexcept;
+
+    unsigned getMinBufferSize() const noexcept;
+
+    void setBuffer(Span buffer);
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept;
+
+private:
+    std::span<unsigned,Dim> getIndexBuffer() const noexcept;
+
+    Span getValueBuffer() const noexcept;
+
+    std::span<const TScalarExpression> _set;
+
+    mutable Span _buffer;
+}; // class AnsatzSpace
+
+
 
 /** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
  */
@@ -99,19 +144,13 @@ public:
     std::span<const TScalarExpression> ansatzSet() const noexcept;
 
 private:
-    AnsatzSet _set;
-
-    using IndexBuffer = StaticArray<unsigned,Dim>;
-
-    using ValueBuffer = DynamicArray<Value>;
-
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;
 
-    /// @brief A threadsafe container for eliminating allocations from @ref AnsatzSpace::evaluate.
-    mutable mp::ThreadLocal<
-        IndexBuffer,
-        ValueBuffer
-    > _buffer;
+    AnsatzSet _set;
+
+    DynamicArray<Value> _buffer;
+
+    BufferedAnsatzSpace<TScalarExpression,Dim> _wrapped;
 }; // class AnsatzSpace
 
 

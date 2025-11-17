@@ -475,7 +475,7 @@ struct io::GraphML::Deserializer<BoundaryData>
         }
     }
 
-    static void onText(Ptr<void>, std::string_view) noexcept
+    static void onText(Ptr<void>, std::string_view)
     {
         CIE_THROW(
             Exception,

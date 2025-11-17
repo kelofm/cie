@@ -102,6 +102,141 @@ AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(Ref<const An
 
 
 template <class TScalarExpression, unsigned Dim>
+BufferedAnsatzSpace<TScalarExpression,Dim>::BufferedAnsatzSpace() noexcept
+    : _set(),
+      _buffer()
+{
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+BufferedAnsatzSpace<TScalarExpression,Dim>::BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet) noexcept
+    : _set(ansatzSet),
+      _buffer()
+{
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+BufferedAnsatzSpace<TScalarExpression,Dim>::BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet,
+                                                                Span buffer)
+    : _set(ansatzSet),
+      _buffer()
+{
+    this->setBuffer(buffer);
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+void BufferedAnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
+{
+    // Sanity checks
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
+    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
+
+    auto valueBuffer = this->getValueBuffer();
+    auto indexBuffer = this->getIndexBuffer();
+
+    // No need to clear the index buffer of its leftover state
+    // (the leftover state is all zeros)
+    //std::fill(indexBuffer->begin(), rIndexBuffer->end(), 0);
+
+    // Fill the value buffer
+    auto pValue = valueBuffer.data();
+    for (unsigned iDim=0u; iDim<Dim; ++iDim) {
+        for (auto& rScalarExpression : _set) {
+            rScalarExpression.evaluate({in.data() + iDim, 1}, {pValue++, 1});
+        } // for rScalarExpression in _set
+    } // for iDim in range(Dim)
+
+    const unsigned setSize = _set.size();
+    auto itOut = out.data();
+    do {
+        // Compute product of bases
+        *itOut = static_cast<Value>(1);
+        for (unsigned iIndex=0; iIndex<indexBuffer.size(); ++iIndex) {
+            *itOut *= valueBuffer[indexBuffer[iIndex] + iIndex * setSize];
+        }
+        ++itOut;
+    } while (cie::maths::OuterProduct<Dim>::next(setSize, indexBuffer.data()));
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::size() const noexcept
+{
+    return intPow(_set.size(), Dim);
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::getMinBufferSize() const noexcept
+{
+    // Size of the index buffer in bytes.
+    constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
+
+    // Offset of the value buffer from the begin of the buffer, in bytes.
+    constexpr unsigned valueBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
+
+    // Required size of the value buffer in bytes.
+    unsigned valueBufferSize = sizeof(Value) * intPow(_set.size(), Dim);
+
+    return (valueBufferOffset + valueBufferSize) / sizeof(Value);
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+void BufferedAnsatzSpace<TScalarExpression,Dim>::setBuffer(Span buffer)
+{
+    if (buffer.size() < this->getMinBufferSize()) {
+        CIE_THROW(
+            OutOfRangeException ,
+            "provided buffer size (" << buffer.size() << ") does not meet the minimum requirement (" << this->getMinBufferSize() << ")"
+        )
+    }
+
+    _buffer = buffer;
+
+    auto indexBuffer = this->getIndexBuffer();
+    std::fill_n(indexBuffer.data(), indexBuffer.size(), 0u);
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+std::span<unsigned,Dim> BufferedAnsatzSpace<TScalarExpression,Dim>::getIndexBuffer() const noexcept
+{
+    return std::span<unsigned,Dim> {
+        static_cast<unsigned*>(static_cast<void*>(_buffer.data())),
+        Dim
+    };
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+typename BufferedAnsatzSpace<TScalarExpression,Dim>::Span
+BufferedAnsatzSpace<TScalarExpression,Dim>::getValueBuffer() const noexcept
+{
+    // Size of the index buffer in bytes.
+    constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
+
+    // Offset of the value buffer from the begin of the buffer, in bytes.
+    constexpr unsigned valueBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
+
+    return Span(
+        _buffer.data() + valueBufferOffset / sizeof(Value),
+        _set.size()
+    );
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+std::span<const TScalarExpression> BufferedAnsatzSpace<TScalarExpression,Dim>::ansatzSet() const noexcept
+{
+    return _set;
+}
+
+
+template <class TScalarExpression, unsigned Dim>
 AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace() noexcept
     : AnsatzSpace(AnsatzSet {})
 {
@@ -111,12 +246,12 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace() noexcept
 template <class TScalarExpression, unsigned Dim>
 AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(AnsatzSet&& rSet) noexcept
     : _set(std::move(rSet)),
-      _buffer(IndexBuffer(),
-              ValueBuffer(intPow(_set.size(), Dim)))
+      _buffer(),
+      _wrapped()
 {
-    std::fill(_buffer.template get<0>().begin(),
-              _buffer.template get<0>().end(),
-              0u);
+    _wrapped = BufferedAnsatzSpace<TScalarExpression,Dim>({_set.data(), _set.size()});
+    _buffer.resize(_wrapped.getMinBufferSize());
+    _wrapped.setBuffer({_buffer.data(), _buffer.size()});
 }
 
 
@@ -130,35 +265,7 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSet& rSet)
 template <class TScalarExpression, unsigned Dim>
 void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
 {
-    // Sanity checks
-    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
-    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
-
-    Ref<IndexBuffer> rIndexBuffer = _buffer.template get<0>();
-    Ref<ValueBuffer> rValueBuffer = _buffer.template get<1>();
-
-    // No need to clear the index buffer of its leftover state
-    // (the leftover state is all zeros)
-    //std::fill(rIndexBuffer->begin(), rIndexBuffer->end(), 0);
-
-    // Fill the value buffer
-    auto pValue = rValueBuffer.data();
-    for (unsigned iDim=0u; iDim<Dim; ++iDim) {
-        for (auto& rScalarExpression : _set) {
-            rScalarExpression.evaluate({in.data() + iDim, 1}, {pValue++, 1});
-        } // for rScalarExpression in _set
-    } // for iDim in range(Dim)
-
-    const unsigned setSize = _set.size();
-    auto itOut = out.data();
-    do {
-        // Compute product of bases
-        *itOut = static_cast<Value>(1);
-        for (unsigned iIndex=0; iIndex<rIndexBuffer.size(); ++iIndex) {
-            *itOut *= rValueBuffer.at(rIndexBuffer.at(iIndex) + iIndex * setSize);
-        }
-        ++itOut;
-    } while (cie::maths::OuterProduct<Dim>::next(setSize, rIndexBuffer.data()));
+    _wrapped.evaluate(in, out);
 }
 
 
@@ -173,7 +280,7 @@ AnsatzSpace<TScalarExpression,Dim>::makeDerivative() const
 template <class TScalarExpression, unsigned Dim>
 unsigned AnsatzSpace<TScalarExpression,Dim>::size() const noexcept
 {
-    return intPow(_set.size(), Dim);
+    return _wrapped.size();
 }
 
 
