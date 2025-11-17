@@ -135,7 +135,7 @@ AttributeContainer<TValues...>::empty() const noexcept
 
 template <class ...TValues>
 template <class TValue>
-TValue
+Ref<const TValue>
 AttributeContainer<TValues...>::at(Size index) const noexcept
 {
     return std::get<DynamicArray<TValue>>(_containers).at(index);

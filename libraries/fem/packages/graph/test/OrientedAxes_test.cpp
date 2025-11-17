@@ -61,6 +61,11 @@ CIE_TEST_CASE("OrientedAxes", "[graph]")
         CIE_TEST_CHECK(Axes("+x-y") == Axes("+x-y"));
         CIE_TEST_CHECK(Axes("-x-y") == Axes("-x-y"));
 
+        CIE_TEST_CHECK(Axes(std::string_view("+x+y")) == Axes("+x+y"));
+        CIE_TEST_CHECK(Axes(std::string_view("-x+y")) == Axes("-x+y"));
+        CIE_TEST_CHECK(Axes(std::string_view("+x-y")) == Axes("+x-y"));
+        CIE_TEST_CHECK(Axes(std::string_view("-x-y")) == Axes("-x-y"));
+
         // Size
         CIE_TEST_CHECK(Axes("+x+y").size() == 2u);
         CIE_TEST_CHECK(Axes("-x+y").size() == 2u);

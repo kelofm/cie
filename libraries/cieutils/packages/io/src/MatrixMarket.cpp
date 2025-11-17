@@ -6,7 +6,7 @@
 #include <iostream> // std::cin, std::cout
 
 
-namespace cie::utils::io {
+namespace cie::io {
 
 
 struct MatrixMarket::Output::Impl {
@@ -84,5 +84,5 @@ CIE_MATRIX_MARKET_OUTPUT_DEFINITION_FOR_VALUE(double)
 #undef CIE_MATRIX_MARKET_OUTPUT_DEFINITION_FOR_VALUE
 
 
-} // namespace cie::utils::io
+} // namespace cie::io
 

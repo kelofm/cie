@@ -27,7 +27,7 @@ std::size_t getParentIndex(Ptr<std::size_t> pOutputBegin,
                            std::size_t iAttribute,
                            Ref<const std::tuple<Ptr<const TAttributeContainers>...>> rContainers)
 {
-    Ref<std::size_t> rParentIndex = *(pOutputBegin + ContainerIndex);
+    Ref<std::size_t> rParentIndex = pOutputBegin[ContainerIndex];
     rParentIndex = std::get<ContainerIndex>(rContainers)->template at<ParentIndex>(iAttribute);
     return rParentIndex;
 }
@@ -39,29 +39,28 @@ void getParentIndices(Ptr<std::size_t> pOutputBegin,
                       Ref<const std::tuple<Ptr<const TAttributeContainers>...>> rContainers,
                       ct::IndexSequence<Is...>)
 {
-    *(pOutputBegin + ct::PackSize<TAttributeContainers...>) = iLeaf;
+    pOutputBegin[ct::PackSize<TAttributeContainers...>] = iLeaf;
     (..., (iLeaf = getParentIndex<Is>(pOutputBegin, iLeaf, rContainers)));
 }
 
 
 template <std::size_t ContainerIndex, class ...TAttributeContainers, class ...TAttributes>
 auto getAttributes(Ptr<const std::size_t> pAttributeIndexBegin,
-                   Ref<const std::tuple<Ptr<const TAttributeContainers>...>> rContainers,
+                   Ref<const std::tuple<Ptr<TAttributeContainers>...>> rContainers,
                    Ptr<std::tuple<TAttributes...>>)
 {
-    return std::make_tuple(
+    return std::tie(
         std::get<ContainerIndex>(rContainers)->template at<TAttributes>(pAttributeIndexBegin[ContainerIndex])...
     );
-    //return std::get<ContainerIndex>(rContainers)->get(pAttributeIndexBegin[ContainerIndex]);
 }
 
 
 template <class ...TAttributeContainers, std::size_t ...Is>
 auto collectAttributes(Ptr<const std::size_t> pAttributeIndexBegin,
-                       Ref<const std::tuple<Ptr<const TAttributeContainers>...>> rContainers,
+                       Ref<const std::tuple<Ptr<TAttributeContainers>...>> rContainers,
                        ct::IndexSequence<Is...>)
 {
-    return std::tuple_cat(getAttributes<Is>(
+    return std::tuple_cat(getAttributes<Is, TAttributeContainers...>(
         pAttributeIndexBegin,
         rContainers,
         Ptr<typename ct::Filter<typename std::tuple_element_t<Is,std::tuple<TAttributeContainers...>>::Values,
@@ -70,25 +69,29 @@ auto collectAttributes(Ptr<const std::size_t> pAttributeIndexBegin,
 }
 
 
-template <class TAttributeContainer, class ...TAttributeContainers>
 struct AttributeAggregate
 {
-    static auto get(const TAttributeContainer& rContainer,
-                    const TAttributeContainers&... rContainers,
-                    Size leafIndex)
+    template <class TAttributeContainer, class ...TAttributeContainers>
+    static auto get(Size leafIndex,
+                    TAttributeContainer&& rContainer,
+                    TAttributeContainers&&... rContainers)
     {
         constexpr auto packSize = ct::PackSize<TAttributeContainers...>;
         std::array<std::size_t,packSize+1> indices;
+        const auto immutableContainers = std::make_tuple<Ptr<const std::remove_reference_t<TAttributeContainers>>...>(&rContainers...);
         const auto containers = std::make_tuple(&rContainers...);
         impl::getParentIndices(
             indices.data(),
             leafIndex,
-            containers,
+            immutableContainers,
             ct::MakeReverseIndexSequence<packSize>()
         );
-        return collectAttributes(indices.data(),
-                                 std::tuple_cat(std::make_tuple(&rContainer), containers),
-                                 ct::MakeIndexSequence<packSize+1>());
+        return collectAttributes<
+            std::remove_reference_t<TAttributeContainer>,
+            std::remove_reference_t<TAttributeContainers>...
+        >(indices.data(),
+          std::tuple_cat(std::make_tuple(&rContainer), containers),
+          ct::MakeIndexSequence<packSize+1>());
     }
 }; // struct AttributeAggregate
 

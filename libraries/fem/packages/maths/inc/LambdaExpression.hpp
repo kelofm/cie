@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_LAMBDA_EXPRESSION_HPP
-#define CIE_FEM_LAMBDA_EXPRESSION_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
@@ -14,15 +13,14 @@ namespace cie::fem::maths {
 
 template <class TLambda, concepts::Numeric TValue>
 requires concepts::CallableWith<TLambda,
-                                typename ExpressionTraits<TValue>::ConstIterator,
-                                typename ExpressionTraits<TValue>::ConstIterator,
-                                typename ExpressionTraits<TValue>::Iterator>
+                                typename ExpressionTraits<TValue>::ConstSpan,
+                                typename ExpressionTraits<TValue>::Span>
 class LambdaExpression : public ExpressionTraits<TValue>
 {
 public:
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
 public:
     LambdaExpression(RightRef<TLambda> rLambda,
@@ -36,10 +34,8 @@ public:
         : LambdaExpression(TLambda(rLambda), size)
     {}
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const
-    {this->_wrapped(itArgumentBegin, itArgumentEnd, itOut);}
+    void evaluate(ConstSpan in, Span out) const
+    {this->_wrapped(in, out);}
 
     unsigned size() const noexcept
     {return this->_size;}
@@ -57,6 +53,3 @@ LambdaExpression<TLambda,TValue> makeLambdaExpression(TLambda&& rLambda, unsigne
 
 
 } // namespace cie::fem::maths
-
-
-#endif

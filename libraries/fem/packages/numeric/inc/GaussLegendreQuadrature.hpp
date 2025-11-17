@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_NUMERIC_GAUSS_LEGENDRE_QUADRATURE_HPP
-#define CIE_FEM_NUMERIC_GAUSS_LEGENDRE_QUADRATURE_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/maths/inc/Comparison.hpp"
@@ -37,5 +36,3 @@ public:
 ///@}
 
 } // namespace cie::fem
-
-#endif

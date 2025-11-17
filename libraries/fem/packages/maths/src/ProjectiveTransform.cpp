@@ -20,86 +20,57 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative() noexcept
-    : _enumeratorCoefficients(),
-      _denominatorCoefficients({0, 0, 1})
+ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(std::span<const Point> transformed)
+    : ProjectiveTransform()
 {
-    // Set w components on the main diagonal to unity, everything else to zero
-    std::fill(_enumeratorCoefficients.begin(),
-              _enumeratorCoefficients.end(),
-              0);
+    CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension * Dimension)
 
-    for (unsigned iComponent=Dimension; iComponent<_enumeratorCoefficients.size(); iComponent+=(Dimension+1)*Dimension) {
-        _enumeratorCoefficients[iComponent] = 1;
-    }
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    // Assemble RHS
+    auto itTransformedBegin = transformed.begin();
+    const auto itTransformedEnd = transformed.end();
+    StaticArray<TValue,Dimension*Dimension*(Dimension+1)> homogeneousPoints;
+
+    // Copy transformed components to the first {{Dimension}} rows
+    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+        const auto iComponentBegin = iPoint * (Dimension + 1);
+        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
+            // This array will be interpreted as an eigen matrix, which
+            // stores its data columnwise by default, so the order of the
+            // components must follow that.
+            homogeneousPoints[iComponentBegin + iComponent] = itTransformedBegin->at(iComponent);
+        } // for component in point
+        homogeneousPoints[iComponentBegin + Dimension] = 1; // <== last row contains homogeneous components
+    } // for point in transformedPoints
+
+    // Solve for transformation matrix components
+    this->computeTransformationMatrix(homogeneousPoints.data(),
+                                      this->getTransformationMatrix());
+
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative() noexcept
+    : ProjectiveTransformDerivative(TransformationMatrix::makeIdentityMatrix())
+{
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(Ref<const ProjectiveTransform<TValue,Dimension>> rProjection)
-    : _enumeratorCoefficients(),
-      _denominatorCoefficients()
+    : ProjectiveTransformDerivative(rProjection.getTransformationMatrix())
 {
-    static_assert(Dimension == 2, "Projective transformations are only supported in 2D for now.");
+}
 
-    // Compute denominator coefficients
 
-    const auto& rMatrix = rProjection.getTransformationMatrix();
-    for (unsigned iCoefficient=0; iCoefficient<=Dimension; ++iCoefficient) {
-        _denominatorCoefficients[iCoefficient] = rMatrix(Dimension, iCoefficient);
-    }
-
-    // Suppose the the projective transform matrix looks like this:
-    // (ignore the discrepancy between the row-major naming here
-    // and the general column-wise data storage in the implementation).
-    // +---+---+---+
-    // | a   b   c |
-    // | d   e   f |
-    // | g   h   i |
-    // +---+---+---+
-    // The derivative's 3D enumerator matrix then follows from subdeterminants:
-    // + ----------------------+-----------------------+
-    // | [    0, ah-bg,   i-c]   [    0, dh-eg,   i-f] |
-    // | [bg-ah,     0,   i-c]   [eg-dh,     0,   i-f] |
-    // +-----------------------+-----------------------+
-
-    // Compute temporaries
-
-    // ah-bg
-    const TValue ahbg =   rMatrix(0, 0) * rMatrix(Dimension, 1)
-                        - rMatrix(0, 1) * rMatrix(Dimension, 0);
-
-    // dh-eg
-    const TValue dheg =   rMatrix(1, 0) * rMatrix(Dimension, 1)
-                        - rMatrix(1, 1) * rMatrix(Dimension, 0);
-
-    // i-c
-    const TValue omc = rMatrix(Dimension, Dimension) - rMatrix(0, Dimension);
-
-    // i-f
-    const TValue omf = rMatrix(Dimension, Dimension) - rMatrix(1, Dimension);
-
-    // Compute enumerator coefficients
-
-    // [0, 0, :]
-    _enumeratorCoefficients[ 0] = 0;
-    _enumeratorCoefficients[ 1] = ahbg;
-    _enumeratorCoefficients[ 2] = omc;
-
-    // [1, 0, :]
-    _enumeratorCoefficients[ 3] = -ahbg;
-    _enumeratorCoefficients[ 4] = 0;
-    _enumeratorCoefficients[ 5] = omc;
-
-    // [0, 1, :]
-    _enumeratorCoefficients[ 6] = 0;
-    _enumeratorCoefficients[ 7] = dheg;
-    _enumeratorCoefficients[ 8] = omf;
-
-    // [1, 1, :]
-    _enumeratorCoefficients[ 9] = -dheg;
-    _enumeratorCoefficients[10] = 0;
-    _enumeratorCoefficients[11] = omf;
+template <concepts::Numeric TValue, unsigned Dimension>
+ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(Ref<const TransformationMatrix> rProjectionMatrix) noexcept
+    : _projectionMatrix(rProjectionMatrix)
+{
 }
 
 
@@ -194,29 +165,43 @@ std::optional<ProjectiveCoefficients<TValue,Dimension>>
 ProjectiveCoefficientsSingleton<TValue,Dimension>::_object;
 
 
+//template <class TValue, unsigned Dimension>
+//struct ComputeProjectiveMatrix
+//{
+//    static void compute(Ptr<TValue>, Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>)
+//    {
+//        throw NotImplementedException("","");
+//    }
+//};
+
+
+//template <class TValue>
+//struct ComputeProjectiveMatrix<TValue,2>
 template <class TValue, unsigned Dimension>
 struct ComputeProjectiveMatrix
 {
-    static void compute(Ptr<TValue>, Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>)
-    {
-        throw NotImplementedException("","");
-    }
-};
-
-
-template <class TValue>
-struct ComputeProjectiveMatrix<TValue,2>
-{
     static void compute(Ptr<TValue> pTransformedBegin,
-                        Ref<typename ProjectiveTransform<TValue,2>::TransformationMatrix> rMatrix)
+                        Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix> rMatrix)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        constexpr unsigned Dimension = 2;
+        //constexpr unsigned Dimension = 2;
         Eigen::Map<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
         Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,1>> rhs(pTransformedBegin + (Dimension + 1) * (Dimension + 1));
 
-        const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>>(homogeneousPoints).solve(rhs);
+        Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> solver;
+        solver.compute(homogeneousPoints);
+
+        if (!solver.isInvertible()) {
+            CIE_THROW(
+                Exception,
+                "Singular input for projective transform.\n"
+                << "LHS:\n" << homogeneousPoints << "\n"
+                << "RHS:\n" << rhs)
+        }
+
+        const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = solver.solve(rhs);
+
         for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++) {
             const TValue scale = homogeneousSolution[iPoint];
             for (unsigned iComponent=0; iComponent<Dimension+1; iComponent++) {
@@ -301,16 +286,10 @@ ProjectiveTransform<TValue,Dimension>::getTransformationMatrix() noexcept
 }
 
 
-template class ProjectiveTransformDerivative<float,2>;
+CIE_FEM_INSTANTIATE_TEMPLATE(ProjectiveTransformDerivative);
 
 
-template class ProjectiveTransformDerivative<double,2>;
-
-
-template class ProjectiveTransform<float,2>;
-
-
-template class ProjectiveTransform<double,2>;
+CIE_FEM_INSTANTIATE_TEMPLATE(ProjectiveTransform);
 
 
 } // namespace cie::fem::maths

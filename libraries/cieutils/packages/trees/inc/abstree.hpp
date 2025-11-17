@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_ABS_TREE_HPP
-#define CIE_CIEUTILS_ABS_TREE_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
@@ -13,6 +12,14 @@
 #include <memory>
 
 namespace cie::utils {
+
+
+enum class VisitStrategy
+{
+    //BreadthFirst,
+    DepthFirst,
+    ReverseBreadthFirst
+};
 
 
 /// Basic tree class.
@@ -30,65 +37,69 @@ public:
     //CIE_DEFINE_CLASS_POINTERS(TSelf)
 
 public:
+    AbsTree() noexcept;
 
-    AbsTree();
+    AbsTree(Size level) noexcept;
 
-    AbsTree(Size level);
-
-    AbsTree(AbsTree&& r_rhs) = default;
+    AbsTree(AbsTree&& r_rhs) noexcept = default;
 
     AbsTree(const AbsTree& r_rhs) = default;
 
-    AbsTree& operator=(AbsTree&& r_rhs) = default;
+    AbsTree& operator=(AbsTree&& r_rhs) noexcept = default;
 
     AbsTree& operator=(const AbsTree& r_rhs) = default;
 
     virtual ~AbsTree() = default;
 
-    /** Send a function down the tree and execute it on all nodes while it returns true
-     *  @param r_visitor lambda taking a node pointer and returning a bool
+    /** @brief Send a function down the tree and execute it on all nodes while it returns true.
+     *  @param rVisitor Lambda taking a node pointer and returning a bool.
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor>
-    bool visit(TVisitor&& r_visitor);
+    bool visit(TVisitor&& rVisitor,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst);
 
-    /** Send a function down the tree and execute it on all nodes while it returns true
-     *  @param r_visitor lambda taking a const node pointer and returning a bool
+    /** @brief Send a function down the tree and execute it on all nodes while it returns true.
+     *  @param rVisitor Lambda taking a const node pointer and returning a bool.
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor>
-    bool visit(TVisitor&& r_visitor) const;
+    bool visit(TVisitor&& rVisitor,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst) const;
 
-    /** Send a function down the tree and execute it on all nodes
-     *  @param r_visitor lambda taking a const node pointer and returning a bool
-     *  @param r_threadPool thread pool to assign the evaluations to
+    /** Send a function down the tree and execute it on all nodes.
+     *  @param rVisitor Lambda taking a const node pointer and returning a bool.
+     *  @param rThreadPool thread pool to assign the evaluations to
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor, class TPool>
-    void visit(TVisitor&& r_visitor, TPool& r_threadPool);
+    void visit(TVisitor&& rVisitor,
+               TPool& rThreadPool,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst);
 
-    /** Send a function down the tree and execute it on all nodes
-     *  @param r_visitor lambda taking a const node pointer and returning a bool
-     *  @param r_threadPool thread pool to assign the evaluations to
+    /** Send a function down the tree and execute it on all nodes.
+     *  @param rVisitor Lambda taking a const node pointer and returning a bool.
+     *  @param rThreadPool thread pool to assign the evaluations to
+     *  @param visitStrategy Strategy to apply to the ordering of the nodes to visit.
      */
     template <class TVisitor, class TPool>
-    void visit(TVisitor&& r_visitor, TPool& r_threadPool) const;
+    void visit(TVisitor&& rVisitor,
+               TPool& rThreadPool,
+               VisitStrategy visitStrategy = VisitStrategy::DepthFirst) const;
 
     /// Clear children (non-recursive)
     virtual void clear();
 
-    /// Check whether this node is a leaf node
-    bool isLeaf() const
-    requires concepts::Pointer<TStored>;
-
-    /// Check whether this node is a leaf node
-    bool isLeaf() const
-    requires concepts::NonPointer<TStored>;
+    /// Check whether this node is a leaf node.
+    bool isLeaf() const noexcept;
 
     template <class ...Ts>
     requires concepts::Pointer<TStored>
-    TSelf& emplaceChild(Ts&&... r_arguments);
+    TSelf& emplaceChild(Ts&&... rArguments);
 
     template <class ...Ts>
     requires concepts::NonPointer<TStored>
-    TSelf& emplaceChild(Ts&&... r_arguments);
+    TSelf& emplaceChild(Ts&&... rArguments);
 
     Size level() const;
 
@@ -103,12 +114,10 @@ public:
 protected:
     StoredContainer _children;
 
-    Size _level;
+    std::uint16_t _level;
 };
 
 
 } // namespace cie::utils
 
 #include "packages/trees/impl/abstree_impl.hpp"
-
-#endif

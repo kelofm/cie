@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_ORTHOGONAL_SCALE_TRANSFORM_IMPL_HPP
-#define CIE_FEM_ORTHOGONAL_SCALE_TRANSFORM_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/OrthogonalScaleTransform.hpp"
@@ -15,28 +14,24 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstIterator,
-                                                               ConstIterator,
-                                                               Iterator itOut) const noexcept
+void OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, [[maybe_unused]] Span out) const noexcept
 {
+    if constexpr (!Dimension) return;
+
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
-    auto itScale = this->_scales.cbegin();
-    *itOut++ = *itScale++;
-    for (unsigned iColumn=1; iColumn<Dimension - 1; ++iColumn) {
-        for (unsigned iNullComponent=0; iNullComponent<Dimension+1; ++iNullComponent) {
-            *itOut++ = static_cast<TValue>(0);
-        } // for iNullComponent in range(Dimension+1)
-        *itOut++ = *itScale++;
-    } // for iColumn in range(Dimension-2)
-    *itOut = *itScale;
+    auto itOut = out.data();
+    for (unsigned i=0u; i<Dimension; ++i) {
+        for (unsigned j=0u; j<Dimension; ++j) {
+            *itOut++ = i == j ? this->_scales[i] : static_cast<TValue>(0);
+        }
+    }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-inline OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(TPointIt itTransformedBegin,
-                                                                            [[maybe_unused]] TPointIt itTransformedEnd)
+OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(TPointIt itTransformedBegin,
+                                                                     [[maybe_unused]] TPointIt itTransformedEnd)
 {
     CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == 1)
     Ptr<const TValue> pBegin = &(*itTransformedBegin)[0];
@@ -47,21 +42,15 @@ inline OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(TPoi
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline void
-OrthogonalScaleTransform<TValue,Dimension>::evaluate(ConstIterator itArgumentBegin,
-                                                     ConstIterator itArgumentEnd,
-                                                     Iterator itOut) const
+void OrthogonalScaleTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
-    CIE_OUT_OF_RANGE_CHECK(std::distance(itArgumentBegin, itArgumentEnd) == Dimension)
-    std::transform(itArgumentBegin,
-                   itArgumentEnd,
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
+    std::transform(in.begin(),
+                   in.end(),
                    this->_scales.begin(),
-                   itOut,
+                   out.begin(),
                    [] (TValue left, TValue right) {return left * right;});
 }
 
 
 } // namespace cie::fem::maths
-
-
-#endif

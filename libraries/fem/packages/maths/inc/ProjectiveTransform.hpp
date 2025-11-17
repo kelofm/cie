@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_PROJECTIVE_TRANSFORM_HPP
-#define CIE_FEM_PROJECTIVE_TRANSFORM_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
@@ -22,90 +21,44 @@ class ProjectiveTransform;
 
 
 /** @brief Expression representing the derivative of @ref ProjectiveTransform.
- *  @todo Implement in 3D (or any dimension).
- *  @details The derivative is a @f$ D x D @f$ matrix that can be separated into
- *           an enumerator matrix, which is a matrix product of a 3D coefficient
- *           matrix and a 2D square matrix consisting of repeated copies of the
- *           homogeneous coordinates, and a scalar denominator, which is equal
- *           to the square of the inner product of the projective transform's
- *           last row and the homogeneous coordinates.
+ *  @details Given the transformation matrix of a @ref ProjectiveTransform "projective transform" @f$t_{ij}@f$,
+ *           in @f$d@f$ dimensions and the input vector @f$x@f$ in homogenized space
+ *           @f$\xi = \begin{bmatrix} x^T & 1 \end{bmatrix}^T,
+ *           @f$ this class is responsible for computing
  *           @f[
- *           \frac{\mathbf C \begin{bmatrix} \mathbf {\hat{x}} & \mathbf {\hat{x}} & \ldots & \mathbf {\hat{x}} \end{bmatrix}}
- *                {\begin{bmatrix} last\_row\_of\_ \mathbf T \end{bmatrix}
- *                 \begin{bmatrix}
- *                      x \\
- *                      y \\
- *                 \vdots \\
- *                      1
- *                 \end{bmatrix}}
+ *              \frac{
+ *                  t_{ij} (t_{dk} \xi_k) - t_{dj} (t_{ik} \xi_k)
+ *              }{
+ *                  (t_{dk} \xi_k)^2
+ *              }
  *           @f]
- *  @details The 3D coefficient matrix is stored as a flattened matrix in the
- *           following index order
- *           1) homogeneous component index (x, y, z, ..., w)
- *           2) row index (Eigen stores column-major matrices by default)
- *           3) column index
- *  @details The 2D matrix of homogeneous coordinates takes the following form
- *           @f[ \begin{bmatrix} \mathbf {\hat{x}} & \mathbf {\hat{x}} & \ldots & \mathbf {\hat{x}} \end{bmatrix} = \begin{bmatrix}
- *                x &      x & \ldots &      x \\
- *                y &      y & \ldots &      y \\
- *           \vdots & \vdots & \ddots & \vdots \\
- *                1 &      1 & \ldots &      1
- *           \end{bmatrix} @f]
- *
+ *           where @f$ i, j \in \{0 \ldots d-1\} @f$ and @f$ k \in \{0 \ldots d\} @f$.
  */
 template <concepts::Numeric TValue, unsigned Dimension>
 class ProjectiveTransformDerivative : public ExpressionTraits<TValue>
 {
 private:
-    /** @brief Flattened 3D matrix storing the enumerator's coefficients.
-     *  @details The enumerator of the derivative is computed by evaluating the product
-     *           of this 3D matrix with the following 2D matrix:
-     *           @code
-     *           +---+---+-----+---+
-     *           | x   x   ...   x |
-     *           | y   y   ...   y |
-     *           | .   .   ...   . |
-     *           | .   .   ...   . |
-     *           | .   .   ...   . |
-     *           | 1   1   ...   1 |
-     *           +---+---+-----+---+
-     *           @endcode
-     *  @details Finally, we can get the derivative by dividing each component of the
-     *           product computed in the previous step by the following denominator:
-     *           @code
-     *                                          +---+
-     *           [_denominatorCoefficients]  *  | x |
-     *                                          | y |
-     *                                          | . |
-     *                                          | . |
-     *                                          | . |
-     *                                          | 1 |
-     *                                          +---+
-     *           @endcode
-     */
-    using EnumeratorCoefficients = StaticArray<TValue,Dimension*Dimension*(Dimension+1)>;
+    using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
 
 public:
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransformDerivative)
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
 public:
     /// @brief Identity by default.
     ProjectiveTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstIterator itBegin,
-                  ConstIterator itEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
 
     /// @brief Compute the determinant of the projective transform's jacobian.
-    TValue evaluateDeterminant(ConstIterator itBegin, ConstIterator itEnd) const;
+    TValue evaluateDeterminant(ConstSpan in) const;
 
 private:
     friend class ProjectiveTransform<TValue,Dimension>;
@@ -113,10 +66,11 @@ private:
     /// @brief Construct from a @ref ProjectiveTransform.
     ProjectiveTransformDerivative(Ref<const ProjectiveTransform<TValue,Dimension>> rProjection);
 
-private:
-    EnumeratorCoefficients _enumeratorCoefficients;
+    /// @brief Construct directly from a transformation matrix representing a @ref ProjectiveTransform.
+    ProjectiveTransformDerivative(Ref<const TransformationMatrix> rTransformationMatrix) noexcept;
 
-    StaticArray<TValue,3> _denominatorCoefficients;
+private:
+    TransformationMatrix _projectionMatrix;
 }; // class ProjectiveTransformDerivative
 
 
@@ -137,13 +91,15 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = ProjectiveTransformDerivative<TValue,Dimension>;
 
     using Inverse = ProjectiveTransform;
+
+    using Point = typename Kernel<Dimension,TValue>::Point;
 
 public:
     /// @brief Identity transform by default
@@ -163,17 +119,12 @@ public:
      *           -1 & -1 & -1 & -1 &  1 &  1 &  1 &  1
      *           \end{bmatrix} @f]
      *
-     *  @param itTransformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
-     *  @param itTransformedEnd iterator past the last transformed point (should be identical to itTransformedBegin + 2 * D + 1).
+     *  @param transformed Array of the transformed cube's vertices.
      */
-    template <concepts::Iterator PointIt>
-    ProjectiveTransform(PointIt itTransformedBegin,
-                        PointIt itTransformedEnd);
+    ProjectiveTransform(std::span<const Point> transformed);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
@@ -212,5 +163,3 @@ private:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/ProjectiveTransform_impl.hpp"
-
-#endif

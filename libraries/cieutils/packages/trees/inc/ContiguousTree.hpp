@@ -85,9 +85,9 @@ public:
     ///          an index representing its depth. If the depth is not required,
     ///          use @ref begin and @ref end to loop through the nodes in
     ///          unspecified order instead.
-    /// @param rVisitFunctor: function to invoke on each node. It must take a node
-    ///                        and level as argument, and produce a bool that
-    ///                        indicates whether the visit loop should be continued.
+    /// @param rVisitFunctor Function to invoke on each node. It must take a node
+    ///                      and level as argument, and produce a bool that
+    ///                      indicates whether the visit loop should be continued.
     /// @details Single thread version.
     template <concepts::FunctionWithSignature<bool, const TNode&, TIndex> TFunctor>
     void visit(const TFunctor& rVisitFunctor) const;

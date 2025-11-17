@@ -27,29 +27,18 @@ namespace cie::fem::maths {
 ///          to @p T. A query function that exposes this information to the user is thus required.
 ///
 ///          Specifically, a class implementing @p Expression must have:
-///
 ///          - An alias for the scalar type: @p Value
-///
-///          - An alias for an immutable iterator spanning the input array: @p ConstIterator.
-///            It is expected to be a raw pointer (<tt>using ConstIterator = const Value*</tt>).
-///
-///          - An alias for a mutable iterator spanning the output array: @p Iterator.
-///            It is expected to be a raw pointer (<tt>using Iterator = Value*</tt>).
-///
+///          - An alias for an immutable span of the input array: @p ConstSpan.
+///          - An alias for a mutable span of the output array: @p Span.
 ///          - A member function querying the size of the output array with the following signature:
 ///            @code
 ///            unsigned T::size() const
 ///            @endcode
-///
 ///          - A member function for the evaluation of the mathematical function at a specific point.
-///            - @p itArgumentBegin Iterator pointing to the first component of the input array.
-///            - @p itArgumentEnd Iterator pointing one past the last component of the input array.
-///            - @p itOut Iterator pointing the the first component of the output array, where the
-///                       function will begin writing its results.
+///            - @p input Span over the input array.
+///            - @p output Span over the output array.
 ///            @code
-///            void T::evaluate(ConstIterator itArgumentBegin,
-///                             ConstIterator itArgumentEnd,
-///                             Iterator itOut) const
+///            void T::evaluate(ConstSpan input, Span output) const
 ///            @endcode
 /// @see cie::fem::maths::ExpressionTraits
 /// @ingroup fem
@@ -60,11 +49,11 @@ concept Expression
     /// @brief Value type to perform numerical operations on (eg: @a double).
     typename T::Value;
 
-    /// @brief Iterator over a contiguous array of value types.
-    typename T::Iterator;
+    /// @brief Span over a contiguous array of value types.
+    typename T::Span;
 
-    /// @brief Iterator over a contiguous array of const value types.
-    typename T::ConstIterator;
+    /// @brief Span over a contiguous array of const value types.
+    typename T::ConstSpan;
 
     // /// @brief Type of the function's derivative; must also be an @p Expression.
     // typename T::Derivative;
@@ -77,9 +66,8 @@ concept Expression
     ///          void Expression::evaluate(ConstIterator itBegin, ConstIterator itEnd, Iterator itOut)
     ///          @endcode
     {
-        instance.evaluate(std::declval<typename T::ConstIterator>(),
-                          std::declval<typename T::ConstIterator>(),
-                          std::declval<typename T::Iterator>())
+        instance.evaluate(std::declval<typename T::ConstSpan>(),
+                          std::declval<typename T::Span>())
     } -> std::same_as<void>;
 
     // /// @brief Require a derivative factory
@@ -91,23 +79,22 @@ concept Expression
 
 
 /// @brief Static interface for the derivatives of spatial transformations between different spaces of identical dimensions.
-/// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression", @p SpatialTransformDerivative
+/// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression", @p JacobianExpression
 ///          adds 1 extra requirement. Namely, the class must be able to compute the determinant of the transformation's
 ///          derivative with the following signature:
 ///          @code{.cpp}
-///          typename T::Value T::
+///          typename T::Value T::evaluateDeterminant(typename T::ConstSpan)
 ///          @endcode
 /// @see cie::fem::maths::SpatialTransform
 /// @ingroup fem
 template <class T>
-concept SpatialTransformDerivative
+concept JacobianExpression
 = Expression<T> && requires (const T constInstance)
 {
     {
-        constInstance.evaluateDeterminant(typename T::ConstIterator(),
-                                          typename T::ConstIterator())
+        constInstance.evaluateDeterminant(typename T::ConstSpan())
     } -> std::same_as<typename T::Value>;
-}; // concept SpatialTransformDerivative
+}; // concept JacobianExpression
 
 
 
@@ -118,7 +105,7 @@ concept SpatialTransformDerivative
 ///
 ///          - the class must have a derivative factory computing the Jacobian of the transform.
 ///            The class must have an alias <tt>typename T::Derivative</tt> for the type of its derivative, which must
-///            satisfy @ref cie::fem::maths::SpatialTransformDerivative "SpatialTransformDerivative". The member function
+///            satisfy @ref cie::fem::maths::JacobianExpression "JacobianExpression". The member function
 ///            constructing the derivative expression must have the following signature:
 ///            @code{.cpp}
 ///            typename T::Derivative T::makeDerivative() const
@@ -145,9 +132,9 @@ concept SpatialTransform
 = Expression<T> && requires (const T constInstance)
 {
     /// @details Require a derivative factory. The derivative type need not be a @p SpatialTransform,
-    ///          but it must satisfy @ref SpatialTransformDerivative that is used for computing
+    ///          but it must satisfy @ref JacobianExpression that is used for computing
     ///          @ref IntegrandTransform "transformed integrals" (they require the Jacobian's determinant).
-    {constInstance.makeDerivative()} -> SpatialTransformDerivative;
+    {constInstance.makeDerivative()} -> JacobianExpression;
 
     /// @details Require an inverse factory. The inverse must also be a @p SpatialTransform, but this
     ///          requirement sadly cannot be encoded recursively in C++.
@@ -198,9 +185,9 @@ struct ExpressionTraits
 {
     using Value = TValue;
 
-    using Iterator = Ptr<TValue>;
+    using Span = std::span<TValue>;
 
-    using ConstIterator = Ptr<const TValue>;
+    using ConstSpan = std::span<const TValue>;
 }; // struct Traits
 
 
@@ -209,23 +196,21 @@ struct ExpressionTraits
 template <class TValue>
 struct DynamicExpression : ExpressionTraits<TValue>
 {
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = DynamicExpression;
 
     unsigned size() const = 0;
 
-    virtual void evaluate(ConstIterator itArgumentBegin,
-                          ConstIterator itArgumentEnd,
-                          Iterator itOutput) const = 0;
+    virtual void evaluate(ConstSpan input, Span output) = 0;
 
     virtual std::shared_ptr<Derivative> makeDerivative() const = 0;
 }; // class DynamicExpression
 
 
-/// @brief Wrapper class embedding the functionality of an @ref Expression with static polynmorphism into @ref DynamicExpression.
+/// @brief Wrapper class embedding the functionality of an @ref Expression with static polymorphism into @ref DynamicExpression.
 /// @ingroup fem
 template <Expression TExpression>
 class WrappedExpression : public DynamicExpression<typename TExpression::Value>
@@ -234,9 +219,9 @@ private:
     using Base = DynamicExpression<typename TExpression::Value>;
 
 public:
-    using typename Base::Iterator;
+    using typename Base::Span;
 
-    using typename Base::ConstIterator;
+    using typename Base::ConstSpan;
 
     using typename Base::Derivative;
 
@@ -251,9 +236,7 @@ public:
 
     unsigned size() const override;
 
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOutput) const override;
+    void evaluate(ConstSpan input, Span output) override;
 
     std::shared_ptr<Derivative> makeDerivative() const override;
 

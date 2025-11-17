@@ -134,6 +134,40 @@ AffineTransform<TValue,Dimension>::AffineTransform() noexcept
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+AffineTransform<TValue,Dimension>::AffineTransform(std::span<const Point> transformed)
+    : AffineTransform()
+{
+    CIE_BEGIN_EXCEPTION_TRACING
+
+    CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension + 1)
+
+    // Assemble RHS
+    StaticArray<TValue,(Dimension+1)*(Dimension+1)> homogeneousPoints;
+
+    auto itTransformedBegin = transformed.begin();
+    const auto itTransformedEnd = transformed.end();
+
+    // Copy transformed components to the first {{Dimension}} rows
+    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
+            // This array will be interpreted as an eigen matrix, which
+            // stores its data columnwise by default, so the order of the
+            // components must follow that.
+            homogeneousPoints[iComponent + iPoint * (Dimension + 1)] = itTransformedBegin->at(iComponent);
+        } // for component in point
+        homogeneousPoints[Dimension + iPoint * (Dimension + 1)] = 1; // <== last row contains homogeneous components
+    } // for point in transformedPoints
+
+    // Solve for transformation matrix components
+    this->computeTransformationMatrix(homogeneousPoints.data(),
+                                      this->getTransformationMatrix());
+
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 AffineTransform<TValue,Dimension>::AffineTransform(RightRef<TransformationMatrix> rMatrix) noexcept
     : _transformationMatrix(std::move(rMatrix))
 {

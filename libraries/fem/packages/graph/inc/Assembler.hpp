@@ -1,22 +1,21 @@
 #ifndef CIE_FEM_ASSEMBLER_HPP
 #define CIE_FEM_ASSEMBLER_HPP
 
+// --- External Includes ---
+#include "tsl/robin_map.h"
+
 // --- FEM Includes ---
 #include "packages/graph/inc/Graph.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
-#include "packages/maths/inc/Comparison.hpp"
 #include "packages/stl_extension/inc/DynamicArray.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
+#include "packages/macros/inc/checks.hpp"
 
 // --- STL Includes ---
-#include <packages/macros/inc/checks.hpp>
-#include <unordered_map>
 #include <optional> // optional
 #include <ranges> // transform_view
-#include <set> // set
 
 
 namespace cie::fem {
@@ -27,8 +26,8 @@ class Assembler
 private:
     using DefaultMesh = Graph<void,void>;
 
-    using DoFMap = std::unordered_map<
-        DefaultMesh::VertexID,                      // <== ID of the cell
+    using DoFMap = tsl::robin_map<
+        VertexID,                                   // <== ID of the cell
         DynamicArray<std::optional<std::size_t>>    // <== DoF indices of its basis functions
     >;
 
@@ -51,9 +50,10 @@ public:
 
     template <class TVertexData,
               class TEdgeData,
-              concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData>::Vertex>> TDoFCounter,
-              concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData>::Edge>,DoFPairIterator> TDoFPairFunctor>
-    void addGraph(Ref<const Graph<TVertexData,TEdgeData>> rGraph,
+              class TGraphData,
+              concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex>> TDoFCounter,
+              concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Edge>,DoFPairIterator> TDoFPairFunctor>
+    void addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
                   TDoFCounter&& rDoFCounter,
                   TDoFPairFunctor&& rDoFMatcher);
 
@@ -91,7 +91,7 @@ public:
         );
     }
 
-    auto operator[](DefaultMesh::VertexID vertexID) const
+    auto operator[](VertexID vertexID) const
     {
         const auto it = _dofMap.find(vertexID);
         CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end())
@@ -102,9 +102,6 @@ private:
     std::size_t _dofCounter;
 
     DoFMap _dofMap;
-
-    using IndexPair = StaticArray<std::size_t,2>;
-    std::set<IndexPair,utils::Ordering<IndexPair>> _sparsityPattern;
 }; // class Assembler
 
 

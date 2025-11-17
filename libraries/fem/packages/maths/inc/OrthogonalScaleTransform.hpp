@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_ORTHOGONAL_SCALE_TRANSFORM_HPP
-#define CIE_FEM_ORTHOGONAL_SCALE_TRANSFORM_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
@@ -30,22 +29,19 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
 public:
     /// @brief Identity by default.
     OrthogonalScaleTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const noexcept;
+    void evaluate(ConstSpan in, Span out) const noexcept;
 
     /// @brief Evaluate the determinant of the original transform's jacobian at the provided location.
-    TValue evaluateDeterminant(ConstIterator itArgumentBegin,
-                               ConstIterator itArgumentEnd) const noexcept;
+    TValue evaluateDeterminant(ConstSpan in) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -72,9 +68,9 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = OrthogonalScaleTransformDerivative<TValue,Dimension>;
 
@@ -94,9 +90,7 @@ public:
                              TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     unsigned size() const noexcept;
@@ -120,5 +114,3 @@ private:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/OrthogonalScaleTransform_impl.hpp"
-
-#endif

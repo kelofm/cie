@@ -36,8 +36,10 @@ struct Hash<std::pair<TFirst,TSecond>>
 
 
 template <class TFirst, class TSecond>
-requires (std::default_initializable<Hash<TFirst>>
-          && std::default_initializable<Hash<TSecond>>)
+requires (  !(std::default_initializable<std::hash<TFirst>>
+              && std::default_initializable<std::hash<TSecond>>)
+          && (std::default_initializable<Hash<TFirst>>
+              && std::default_initializable<Hash<TSecond>>))
 struct Hash<std::pair<TFirst,TSecond>>
 {
     std::size_t operator()(const std::pair<TFirst,TSecond>& rInstance) const noexcept;

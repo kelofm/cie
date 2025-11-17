@@ -21,6 +21,8 @@ template <class ...TValues>
 class AttributeContainer
 {
 private:
+    static_assert(!(std::is_same_v<TValues,bool> || ...), "cannot form references std::vector<bool>'s value type.");
+
     using Tuple = std::tuple<DynamicArray<TValues>...>;
 
     constexpr static inline auto TupleIndices = std::make_index_sequence<std::tuple_size_v<Tuple>>();
@@ -54,7 +56,7 @@ public:
     std::tuple<TValues...> get(Size index) const noexcept;
 
     template <class TValue>
-    TValue at(Size index) const noexcept;
+    Ref<const TValue> at(Size index) const noexcept;
 
     template <class TValue>
     Ref<TValue> at(Size index) noexcept;

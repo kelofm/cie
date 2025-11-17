@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_MATHS_IDENTITY_TRANSFORM_HPP
-#define CIE_FEM_MATHS_IDENTITY_TRANSFORM_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
@@ -18,9 +17,9 @@ template <concepts::Numeric TValue, unsigned Dimension>
 class IdentityTransform : public ExpressionTraits<TValue>
 {
 public:
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
     using Derivative = IdentityTransform;
 
@@ -29,10 +28,8 @@ public:
 public:
     IdentityTransform() noexcept = default;
 
-    void evaluate([[maybe_unused]] ConstIterator itArgumentBegin,
-                  [[maybe_unused]] ConstIterator itArgumentEnd,
-                  Iterator itOut) const noexcept
-    {std::fill(itOut, itOut + Dimension, static_cast<TValue>(1));}
+    void evaluate(ConstSpan in, Span out) const noexcept
+    {std::copy(in.begin(), in.end(), out.begin());}
 
     constexpr unsigned size() const noexcept
     {return Dimension;}
@@ -43,13 +40,9 @@ public:
     constexpr Derivative makeDerivative() const noexcept
     {return *this;}
 
-    constexpr TValue evaluateDeterminant([[maybe_unused]] ConstIterator itArgumentBegin,
-                                         [[maybe_unused]] ConstIterator itArgumentEnd) const noexcept
-    {return 1;}
+    constexpr TValue evaluateDeterminant([[maybe_unused]] ConstSpan in) const noexcept
+    {return static_cast<TValue>(1);}
 }; // class IdentityTransform
 
 
 } // namespace cie::fem::maths
-
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_MATHS_ABS_AFFINE_TRANSFORM_HPP
-#define CIE_FEM_MATHS_ABS_AFFINE_TRANSFORM_HPP
+#pragma once
 
 // --- Utilty Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
@@ -31,24 +30,22 @@ private:
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineTransformDerivative)
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
 public:
     /// @brief Identity by default.
     AffineTransformDerivative() noexcept;
 
     /// @brief This function is constant so the arguments are not necessary.
-    void evaluate(ConstIterator itBegin,
-                  ConstIterator itEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan input, Span output) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
 
     /// @brief Compute the determinant of the affine transform's jacobian.
-    TValue evaluateDeterminant(ConstIterator itBegin, ConstIterator itEnd) const;
+    TValue evaluateDeterminant(ConstSpan input) const;
 
 private:
     friend class AffineTransform<TValue,Dimension>;
@@ -75,13 +72,15 @@ public:
 
     using typename ExpressionTraits<TValue>::Value;
 
-    using typename ExpressionTraits<TValue>::Iterator;
+    using typename ExpressionTraits<TValue>::Span;
 
-    using typename ExpressionTraits<TValue>::ConstIterator;
+    using typename ExpressionTraits<TValue>::ConstSpan;
 
     using Derivative = AffineTransformDerivative<TValue,Dimension>;
 
     using Inverse = AffineTransform;
+
+    using Point = typename Kernel<Dimension,TValue>::Point;
 
 public:
     /// @brief Identity transform by default
@@ -110,14 +109,10 @@ public:
      *  @param itTransformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
      *  @param itTransformedEnd iterator past the last transformed point (should be identical to itTransformedBegin + D + 1 + 1).
      */
-    template <concepts::Iterator TPointIt>
-    AffineTransform(TPointIt itTransformedBegin,
-                    TPointIt itTransformedEnd);
+    AffineTransform(std::span<const Point> transformed);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
-    void evaluate(ConstIterator itArgumentBegin,
-                  ConstIterator itArgumentEnd,
-                  Iterator itOut) const;
+    void evaluate(ConstSpan input, Span output) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     unsigned size() const noexcept;
@@ -153,5 +148,3 @@ private:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/AffineTransform_impl.hpp"
-
-#endif

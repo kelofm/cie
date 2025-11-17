@@ -9,7 +9,6 @@
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 #include "packages/stl_extension/inc/NoOpIterator.hpp"
 #include "packages/stl_extension/inc/StrongTypeDef.hpp"
-#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
 // --- STL Includes ---
 #include <type_traits> // conditional_t
@@ -19,12 +18,24 @@
 namespace cie::fem {
 
 
+/// @brief Vertex identifier type.
+/// @class VertexID
+/// @see StrongTypeDef
+CIE_STRONG_TYPEDEF(unsigned, VertexID);
+
+/// @brief Edge identifier type.
+/// @class EdgeID
+/// @see StrongTypeDef
+CIE_STRONG_TYPEDEF(unsigned, EdgeID);
+
+
 
 /// @brief A directed graph that automatically manages the connectivities of its
 ///        @ref Graph::Vertex "vertices" and @ref Graph::Edge "edges".
-/// @tparam TVertexData additional data type stored in each vertex.
-/// @tparam TEdgeData additional data type stored in each edge.
-template <class TVertexData, class TEdgeData>
+/// @tparam TVertexData Additional data type stored by each vertex.
+/// @tparam TEdgeData Additional data type stored by each edge.
+/// @tparam TGraphData Additional data type stored by the graph.
+template <class TVertexData, class TEdgeData, class TGraphData = void>
 class Graph
 {
 private:
@@ -62,16 +73,6 @@ private:
     }; // class ItemBase
 
 public:
-    /// @brief Vertex identifier type.
-    /// @class VertexID
-    /// @see StrongTypeDef
-    CIE_STRONG_TYPEDEF(unsigned, VertexID);
-
-    /// @brief Edge identifier type.
-    /// @class EdgeID
-    /// @see StrongTypeDef
-    CIE_STRONG_TYPEDEF(unsigned, EdgeID);
-
     /// @brief Vertex type of @ref Graph.
     /// @details This vertex implementation stores the IDs of the @ref Edge "edges" originating from-
     ///          or ending at it, as well as additional data associated with it via @p TVertexData.
@@ -86,9 +87,13 @@ public:
         /// @brief Alias for the data type stored in vertices of the graph.
         using Data = TVertexData;
 
+        /// @brief Construct a new @ref Vertex with an @ref ID.
+        /// @param id Identifier of the new vertex.
+        explicit Vertex(VertexID id) noexcept;
+
         /// @brief Construct a new @ref Vertex with an @ref ID and set of @ref Edge "edges".
-        /// @param id identifier of the new vertex.
-        /// @param rEdges set of edges originating from, or ending at the new vertex.
+        /// @param id Identifier of the new vertex.
+        /// @param rEdges Set of edges originating from, or ending at the new vertex.
         Vertex(VertexID id,
                RightRef<tsl::robin_set<EdgeID>> rEdges) noexcept;
 
@@ -99,11 +104,7 @@ public:
         /// @note This constructor is disabled if @p TVertexData is @p void.
         Vertex(VertexID id,
                RightRef<tsl::robin_set<EdgeID>> rEdges,
-               std::conditional_t<
-                    std::is_same_v<std::remove_const_t<TVertexData>,void>,
-                    char, // dummy type, cannot be void
-                    typename VoidSafe<TVertexData>::RightRef
-               > rData) noexcept
+               typename VoidSafe<TVertexData,char>::RightRef rData) noexcept
         requires (!std::is_same_v<std::remove_const_t<TVertexData>,void>);
 
         /// @brief Construct a new @ref Vertex with an @ref VertexID, a set of @ref Edge "edges", and associated data.
@@ -113,11 +114,7 @@ public:
         /// @note This constructor is disabled if @p TVertexData is @p void.
         Vertex(VertexID id,
                RightRef<tsl::robin_set<EdgeID>> rEdges,
-               std::conditional_t<
-                    std::is_same_v<std::remove_const_t<TVertexData>,void>,
-                    int, // dummy type, cannot be void
-                    typename VoidSafe<const TVertexData>::Ref
-               > rData)
+               typename VoidSafe<const TVertexData,int>::Ref rData)
         requires (!std::is_same_v<std::remove_const_t<TVertexData>,void>);
 
         /// @brief Immutable access to the set of @ref Edge "edge" IDs originating from or ending at this @ref Vertex.
@@ -368,9 +365,9 @@ public:
     auto vertices() const noexcept
     {
         return std::ranges::transform_view(
-            std::ranges::subrange(utils::makeNoOpIterator(_vertices.begin()),
-                                  utils::makeNoOpIterator(_vertices.end()),
-                                  _vertices.size()),
+            std::ranges::subrange(utils::makeNoOpIterator(_vertices().begin()),
+                                  utils::makeNoOpIterator(_vertices().end()),
+                                  _vertices().size()),
             [](auto it) -> Ref<const Vertex> {return it->second;}
         );
     }
@@ -380,9 +377,9 @@ public:
     auto vertices() noexcept
     {
         return std::ranges::transform_view(
-            std::ranges::subrange(utils::makeNoOpIterator(_vertices.begin()),
-                                  utils::makeNoOpIterator(_vertices.end()),
-                                  _vertices.size()),
+            std::ranges::subrange(utils::makeNoOpIterator(_vertices().begin()),
+                                  utils::makeNoOpIterator(_vertices().end()),
+                                  _vertices().size()),
             [](auto it) -> Ref<Vertex> {return it.value();}
         );
     }
@@ -392,9 +389,9 @@ public:
     auto edges() const noexcept
     {
         return std::ranges::transform_view(
-            std::ranges::subrange(utils::makeNoOpIterator(_edges.begin()),
-                                  utils::makeNoOpIterator(_edges.end()),
-                                  _edges.size()),
+            std::ranges::subrange(utils::makeNoOpIterator(_edges().begin()),
+                                  utils::makeNoOpIterator(_edges().end()),
+                                  _edges().size()),
             [](auto it) -> Ref<const Edge> {return it->second;}
         );
     }
@@ -404,28 +401,50 @@ public:
     auto edges() noexcept
     {
         return std::ranges::transform_view(
-            std::ranges::subrange(utils::makeNoOpIterator(_edges.begin()),
-                                  utils::makeNoOpIterator(_edges.end()),
-                                  _edges.size()),
+            std::ranges::subrange(utils::makeNoOpIterator(_edges().begin()),
+                                  utils::makeNoOpIterator(_edges().end()),
+                                  _edges().size()),
             [](auto it) -> Ref<Edge> {return it.value();}
         );
     }
+
+    /// @brief Immutable access to additional data stored by the graph.
+    typename VoidSafe<const TGraphData>::Ref data() const noexcept
+    requires (!std::is_same_v<TGraphData,void>);
+
+    /// @brief Mutable access to additional data stored by the graph.
+    typename VoidSafe<TGraphData>::Ref data() noexcept
+    requires (!std::is_same_v<TGraphData,void>);
 
     /// @brief Return true if the graph contains no vertices, false otherwise.
     bool empty() const noexcept;
 
 private:
-    tsl::robin_map<
+    using VertexContainer = tsl::robin_map<
         Size,
         Vertex,
         typename Vertex::hash
-    > _vertices;
+    >;
 
-    tsl::robin_map<
+    using EdgeContainer = tsl::robin_map<
         Size,
         Edge,
         typename Edge::hash
-    > _edges;
+    >;
+
+    Ref<const VertexContainer> _vertices() const noexcept {return std::get<0>(_members);}
+
+    Ref<VertexContainer> _vertices() noexcept {return std::get<0>(_members);}
+
+    Ref<const EdgeContainer> _edges() const noexcept {return std::get<1>(_members);}
+
+    Ref<EdgeContainer> _edges() noexcept {return std::get<1>(_members);}
+
+    std::conditional_t<
+        std::is_same_v<TGraphData,void>,
+        std::tuple<VertexContainer,EdgeContainer>,
+        std::tuple<VertexContainer,EdgeContainer,TGraphData>
+    > _members;
 }; // class Graph
 
 

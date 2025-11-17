@@ -30,8 +30,10 @@ std::size_t Hash<std::pair<TFirst,TSecond>>::operator()(const std::pair<TFirst,T
 
 
 template <class TFirst, class TSecond>
-requires (std::default_initializable<Hash<TFirst>>
-          && std::default_initializable<Hash<TSecond>>)
+requires (  !(std::default_initializable<std::hash<TFirst>>
+              && std::default_initializable<std::hash<TSecond>>)
+          && (std::default_initializable<Hash<TFirst>>
+              && std::default_initializable<Hash<TSecond>>))
 std::size_t Hash<std::pair<TFirst,TSecond>>::operator()(const std::pair<TFirst,TSecond>& rInstance) const noexcept
 {
     const std::size_t tmp = Hash<TFirst>()(rInstance.first);

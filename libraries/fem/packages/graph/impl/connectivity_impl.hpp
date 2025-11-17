@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_GRAPH_CONNECTIVITY_IMPL_HPP
-#define CIE_FEM_GRAPH_CONNECTIVITY_IMPL_HPP
+#pragma once
 
 // --- External Includes ---
 #include "tsl/robin_set.h"
@@ -98,16 +97,14 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
             } // for i in range(Dimension)
 
             // Evaluate the ansatz space
-            rAnsatzSpace.evaluate(argument.begin(),
-                                   argument.end(),
-                                   valueBuffer.data());
+            rAnsatzSpace.evaluate(argument, valueBuffer);
 
             for (Size iAnsatz=0; iAnsatz<ansatzSize; ++iAnsatz) {
                 if (tolerance < valueBuffer[iAnsatz]) {
                     activeBoundaries.emplace(boundaryID, iAnsatz);
                 }
             }
-        } while (maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
+        } while (cie::maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
 
         for (auto pair : activeBoundaries) {
             rFunctor(pair.first, pair.second);
@@ -217,7 +214,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                             samplePoints.back()[iDimension] = samples[argumentState[iState++]];
                         }
                     }
-                } while (maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
+                } while (cie::maths::OuterProduct<Dimension-1>::next(numberOfSamples, argumentState.data()));
 
                 // Indices of ansatz functions that don't vanish on the current boundary.
                 // Begin by assuming that all functions vanish.
@@ -253,9 +250,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 
                     // Negative side
                     rSamplePoint[iBoundaryAxis] = -1;
-                    rAnsatzSpace.evaluate(rSamplePoint.data(),
-                                          rSamplePoint.data() + rSamplePoint.size(),
-                                          valueBuffer.data());
+                    rAnsatzSpace.evaluate(rSamplePoint, valueBuffer);
                     for (Size iLeftAnsatz=0u; iLeftAnsatz<ansatzSize; ++iLeftAnsatz) {
                         negativeSideVanish[iLeftAnsatz] = negativeSideVanish[iLeftAnsatz] && comparison.equal(valueBuffer[iLeftAnsatz], 0);
 
@@ -269,9 +264,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 
                     // Positive side
                     rSamplePoint[iBoundaryAxis] = 1;
-                    rAnsatzSpace.evaluate(rSamplePoint.data(),
-                                          rSamplePoint.data() + rSamplePoint.size(),
-                                          valueBuffer.data());
+                    rAnsatzSpace.evaluate(rSamplePoint, valueBuffer);
                     for (Size iLeftAnsatz=0u; iLeftAnsatz<ansatzSize; ++iLeftAnsatz) {
                         positiveSideVanish[iLeftAnsatz] = positiveSideVanish[iLeftAnsatz] && comparison.equal(valueBuffer[iLeftAnsatz], 0);
 
@@ -324,9 +317,9 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                     } // if !positiveSideVanish[iAnsatz]
                 } // for iAnsatz in range(ansatzSize)
             } // for iBoundaryAxis in range(dimension)
-        } while (maths::OuterProduct<Dimension>::next(axisOptionBegins.data(),
-                                                      axisOptionEnds.data(),
-                                                      axisState.data()));
+        } while (cie::maths::OuterProduct<Dimension>::next(axisOptionBegins.data(),
+                                                           axisOptionEnds.data(),
+                                                           axisState.data()));
     } // if sampleSize && ansatzSize
     CIE_END_EXCEPTION_TRACING
 }
@@ -383,6 +376,3 @@ makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 
 
 } // namespace cie::fem
-
-
-#endif

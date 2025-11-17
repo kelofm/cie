@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_GRAPH_CONNECTIVITY_HPP
-#define CIE_FEM_GRAPH_CONNECTIVITY_HPP
+#pragma once
 
 // --- External Includes ---
 #include "tsl/robin_map.h"
@@ -149,5 +148,3 @@ makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 } // namespace cie::fem
 
 #include "packages/graph/impl/connectivity_impl.hpp"
-
-#endif
