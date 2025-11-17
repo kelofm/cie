@@ -21,6 +21,8 @@ std::filesystem::path getOutputPath();
 
 bool isMPIEnabled();
 
+bool isSYCLEnabled();
+
 std::string getCompiler();
 
 std::string getCompilerVersion();

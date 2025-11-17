@@ -41,7 +41,13 @@ std::filesystem::path getOutputPath()
 
 bool isMPIEnabled()
 {
-    return @CIEUTILS_ENABLE_MPI@;
+    return @CIE_ENABLE_MPI@;
+}
+
+
+bool isSYCLEnabled()
+{
+    return @CIE_ENABLE_SYCL@;
 }
 
 
