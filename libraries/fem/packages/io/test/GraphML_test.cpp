@@ -107,7 +107,7 @@ struct io::GraphML::Deserializer<T>
 
     static void onElementBegin(Ptr<void> pThis,
                                std::string_view elementName,
-                               std::span<AttributePair>) noexcept
+                               std::span<AttributePair>)
     {
         Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
         using SubDeserializer = GraphML::Deserializer<std::string>;
@@ -129,7 +129,7 @@ struct io::GraphML::Deserializer<T>
     }
 
     static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName) noexcept
+                             std::string_view elementName)
     {
         if (elementName != "value") {
             CIE_THROW(
@@ -319,8 +319,6 @@ CIE_TEST_CASE("GraphML heterogeneous", "[graphml]")
         Ansatz
     >;
 
-    mp::ThreadPoolBase threadPool;
-
     {
         CIE_TEST_CASE_INIT("output")
         G graph;
@@ -328,7 +326,7 @@ CIE_TEST_CASE("GraphML heterogeneous", "[graphml]")
         graph.data() = Ansatz({
             Basis({1.0f, 2.5f, 3.8f}),
             Basis({-1.0f, -144.0f})
-        }, threadPool);
+        });
 
         std::array<std::array<double,3>,2> transformDefinition {
             std::array<double,3> {1.0, 2.0, 3.0},

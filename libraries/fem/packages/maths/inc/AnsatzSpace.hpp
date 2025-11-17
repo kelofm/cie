@@ -7,7 +7,6 @@
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/stl_extension/inc/StaticArray.hpp"
-#include "packages/concurrency/inc/ThreadLocal.hpp"
 
 
 namespace cie::fem::maths {
@@ -16,6 +15,53 @@ namespace cie::fem::maths {
 template <class TScalarExpression, unsigned Dim>
 class AnsatzSpace;
 
+
+
+template <class TScalarExpression, unsigned Dim>
+class BufferedAnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value>
+{
+public:
+    static constexpr unsigned Dimension = Dim;
+
+    using typename ExpressionTraits<typename TScalarExpression::Value>::Value;
+
+    using typename ExpressionTraits<Value>::ConstSpan;
+
+    using typename ExpressionTraits<Value>::Span;
+
+public:
+    BufferedAnsatzSpaceDerivative() noexcept = default;
+
+    BufferedAnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet,
+                                  std::span<typename TScalarExpression::Derivative> derivativeSet);
+
+    BufferedAnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet,
+                                  std::span<typename TScalarExpression::Derivative> derivativeSet,
+                                  Span buffer);
+
+    void evaluate(ConstSpan in, Span out) const;
+
+    unsigned size() const noexcept;
+
+    unsigned getMinBufferSize() const noexcept;
+
+    void setBuffer(Span buffer);
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept;
+
+private:
+    std::span<unsigned,Dim> getIndexBuffer() const noexcept;
+
+    Span getAnsatzBuffer() const noexcept;
+
+    Span getDerivativeBuffer() const noexcept;
+
+    std::span<const TScalarExpression> _ansatzSet;
+
+    std::span<typename TScalarExpression::Derivative> _derivativeSet;
+
+    Span _buffer;
+}; // class BufferedAnsatzSpaceDerivative
 
 
 template <class TScalarExpression, unsigned Dim>
@@ -33,6 +79,16 @@ public:
 public:
     AnsatzSpaceDerivative() noexcept = default;
 
+    AnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet);
+
+    AnsatzSpaceDerivative(AnsatzSpaceDerivative&&) noexcept = default;
+
+    AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs);
+
+    AnsatzSpaceDerivative& operator=(AnsatzSpaceDerivative&&) noexcept = default;
+
+    AnsatzSpaceDerivative& operator=(const AnsatzSpaceDerivative& rRhs);
+
     void evaluate(ConstSpan in, Span out) const;
 
     unsigned size() const noexcept;
@@ -40,25 +96,60 @@ public:
 private:
     friend class AnsatzSpace<TScalarExpression,Dim>;
 
-    AnsatzSpaceDerivative(Ref<const AnsatzSpace<TScalarExpression,Dim>> rAnsatzSpace,
-                          Ref<const mp::ThreadPoolBase> rThreadPool);
-
 private:
     DynamicArray<TScalarExpression> _ansatzSet;
 
     DynamicArray<typename TScalarExpression::Derivative> _derivativeSet;
 
-    using IndexBuffer = StaticArray<unsigned,Dim>;
+    DynamicArray<Value> _buffer;
 
-    using ValueBuffer = DynamicArray<Value>;
-
-    /// @brief A threadsafe container for eliminating allocations from @ref AnsatzSpaceDerivative::evaluate.
-    mutable mp::ThreadLocal<
-        IndexBuffer, // <== indices for the cartesian product
-        ValueBuffer, // <== buffer for ansatz function values at the cartesian grid points
-        ValueBuffer  // <== buffer for the derivatives at the cartesian grid points
-    > _buffer;
+    BufferedAnsatzSpaceDerivative<TScalarExpression,Dim> _wrapped;
 }; // class AnsatzSpaceDerivative
+
+
+/** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
+ */
+template <class TScalarExpression, unsigned Dim>
+class BufferedAnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value>
+{
+private:
+    using Base = ExpressionTraits<typename TScalarExpression::Value>;
+
+public:
+    static constexpr unsigned Dimension = Dim;
+
+    using typename Base::Value;
+
+    using typename Base::Span;
+
+    using typename Base::ConstSpan;
+
+    BufferedAnsatzSpace() noexcept;
+
+    BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet) noexcept;
+
+    BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet,
+                        Span buffer);
+
+    void evaluate(ConstSpan in, Span out) const;
+
+    unsigned size() const noexcept;
+
+    unsigned getMinBufferSize() const noexcept;
+
+    void setBuffer(Span buffer);
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept;
+
+private:
+    std::span<unsigned,Dim> getIndexBuffer() const noexcept;
+
+    Span getValueBuffer() const noexcept;
+
+    std::span<const TScalarExpression> _set;
+
+    mutable Span _buffer;
+}; // class AnsatzSpace
 
 
 
@@ -86,9 +177,17 @@ public:
 public:
     AnsatzSpace() noexcept;
 
-    AnsatzSpace(AnsatzSet&& rSet, Ref<const mp::ThreadPoolBase> rPool) noexcept;
+    AnsatzSpace(AnsatzSet&& rSet) noexcept;
 
-    AnsatzSpace(const AnsatzSet& rSet, Ref<const mp::ThreadPoolBase> rPool);
+    AnsatzSpace(const AnsatzSet& rSet);
+
+    AnsatzSpace(AnsatzSpace&&) noexcept = default;
+
+    AnsatzSpace(const AnsatzSpace& rRhs);
+
+    AnsatzSpace& operator=(AnsatzSpace&&) noexcept = default;
+
+    AnsatzSpace& operator=(const AnsatzSpace& rRhs);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -99,19 +198,13 @@ public:
     std::span<const TScalarExpression> ansatzSet() const noexcept;
 
 private:
-    AnsatzSet _set;
-
-    using IndexBuffer = StaticArray<unsigned,Dim>;
-
-    using ValueBuffer = DynamicArray<Value>;
-
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;
 
-    /// @brief A threadsafe container for eliminating allocations from @ref AnsatzSpace::evaluate.
-    mutable mp::ThreadLocal<
-        IndexBuffer,
-        ValueBuffer
-    > _buffer;
+    AnsatzSet _set;
+
+    DynamicArray<Value> _buffer;
+
+    BufferedAnsatzSpace<TScalarExpression,Dim> _wrapped;
 }; // class AnsatzSpace
 
 

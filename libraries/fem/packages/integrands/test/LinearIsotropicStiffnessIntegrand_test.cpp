@@ -18,13 +18,12 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
 
     using Basis = maths::Polynomial<Scalar>;
     using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
-    mp::ThreadPoolBase threadPool;
 
     // Define a bilinear ansatz space.
     const auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
         Basis({ 0.5,  0.5}),
         Basis({ 0.5, -0.5})
-    }, threadPool);
+    });
 
     // Compute the derivatives of the ansatz space.
     const auto pAnsatzDerivatives = std::make_shared<Ansatz::Derivative>(pAnsatzSpace->makeDerivative());

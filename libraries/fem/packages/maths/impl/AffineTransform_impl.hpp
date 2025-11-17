@@ -19,9 +19,9 @@ template <concepts::Numeric TValue, unsigned Dimension>
 inline void
 AffineTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, Span output) const
 {
-    std::copy(this->_matrix.wrapped().data(),
-              this->_matrix.wrapped().data() + Dimension * Dimension,
-              output.data());
+    std::copy_n(this->_matrix.wrapped().data(),
+                Dimension * Dimension,
+                output.data());
 }
 
 
@@ -42,9 +42,9 @@ AffineTransform<TValue,Dimension>::evaluate(ConstSpan input, Span output) const
 
     // Copy augmented point
     typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
-    std::copy(input.data(),
-              input.data() + Dimension,
-              augmentedPoint.data());
+    std::copy_n(input.data(),
+                Dimension,
+                augmentedPoint.data());
 
     augmentedPoint[Dimension] = static_cast<TValue>(1);
 
@@ -52,9 +52,9 @@ AffineTransform<TValue,Dimension>::evaluate(ConstSpan input, Span output) const
     const auto transformed = this->getTransformationMatrix() * augmentedPoint;
 
     // Output result components
-    std::copy(transformed.begin(),
-              transformed.begin() + Dimension,
-              output.data());
+    std::copy_n(transformed.data(),
+                Dimension,
+                output.data());
 }
 
 

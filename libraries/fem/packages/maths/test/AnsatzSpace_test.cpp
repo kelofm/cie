@@ -15,7 +15,6 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" )
 
     using Basis = Polynomial<double>;
     using AnsatzSpace = AnsatzSpace<Basis,2>;
-    mp::ThreadPoolBase threadPool;
 
     DynamicArray<Basis> basisFunctions {
         Basis(Basis::Coefficients { 0.5, -0.5}),
@@ -23,8 +22,8 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" )
         Basis(Basis::Coefficients { 0.0,  0.0, 1.0})
     };
 
-    CIE_TEST_REQUIRE_NOTHROW(AnsatzSpace(basisFunctions, threadPool));
-    AnsatzSpace ansatzSpace(basisFunctions, threadPool);
+    CIE_TEST_REQUIRE_NOTHROW(AnsatzSpace(basisFunctions));
+    AnsatzSpace ansatzSpace(basisFunctions);
     CIE_TEST_REQUIRE(ansatzSpace.size() == 9);
 
     using Point = Kernel<2,double>::Point;
@@ -89,15 +88,14 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" )
 
     using Basis = Polynomial<double>;
     using AnsatzSpace = AnsatzSpace<Basis,2>;
-    mp::ThreadPoolBase threadPool;
 
     DynamicArray<Basis> basisFunctions {
         Basis(Basis::Coefficients {0.5, -0.5}),
         Basis(Basis::Coefficients {0.5, 0.5})
     };
 
-    CIE_TEST_REQUIRE_NOTHROW(AnsatzSpace(basisFunctions, threadPool));
-    const auto ansatzDerivative = AnsatzSpace(basisFunctions, threadPool).makeDerivative();
+    CIE_TEST_REQUIRE_NOTHROW(AnsatzSpace(basisFunctions).makeDerivative());
+    const auto ansatzDerivative = AnsatzSpace(basisFunctions).makeDerivative();
     CIE_TEST_REQUIRE(ansatzDerivative.size() == 8);
 
     using Point = Kernel<2,double>::Point;

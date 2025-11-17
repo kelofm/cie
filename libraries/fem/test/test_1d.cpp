@@ -63,8 +63,6 @@ CIE_TEST_CASE("1D", "[systemTests]")
     constexpr unsigned Dimension = 1;
     constexpr Size nodeCount = 10;
 
-    mp::ThreadPoolBase threads;
-
     // Construct a linear 1D ansatz space
     using Basis = maths::Polynomial<Scalar>;
     using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
@@ -74,7 +72,7 @@ CIE_TEST_CASE("1D", "[systemTests]")
         //Basis({ 0.0, -0.5,  0.5}),
         //Basis({ 0.0,  0.5,  0.5}),
         //Basis({ 1.0,  0.0, -1.0})
-    }, threads);
+    });
     auto pAnsatzDerivatives = std::make_shared<Ansatz::Derivative>(pAnsatzSpace->makeDerivative());
 
     // Find ansatz functions that coincide on opposite boundaries.
