@@ -37,6 +37,7 @@ cCacheFlag=""
 cmakeArguments=""                       # <== semicolon-separated list of options to pass to CMake
 cmakeCxxFlags=""                        # <== value to set for CMAKE_CXX_FLAGS
 cxx="g++"
+enableSYCL="OFF"                        # <== set to true if the requested compiler is acpp
 
 while getopts ":h p t: b: c: i: o:" arg; do
     case "$arg" in
@@ -71,6 +72,7 @@ while getopts ":h p t: b: c: i: o:" arg; do
             elif [ "$compilerFamily" = "acpp" ]; then
                 export cc="$(which acpp)"
                 export cxx="$(which acpp)"
+                enableSYCL="ON"
             else
                 echo "Error: unsupported compiler family: $compilerFamily"
                 exit 1
@@ -170,6 +172,7 @@ if ! cmake                                                  \
     "-D${projectNameUpper}_BUILD_SHARED_LIBRARY:BOOL=ON"    \
     "-D${projectNameUpper}_BUILD_PYTHON_MODULE:BOOL=ON"     \
     "-D${projectNameUpper}_BUILD_TESTS:BOOL=ON"             \
+    "-DCIE_ENABLE_SYCL=${enableSYCL}"                       \
     "$cCacheFlag"                                           \
     "${cmakeArguments[@]}"                                  \
     ; then
