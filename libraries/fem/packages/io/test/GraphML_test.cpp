@@ -107,7 +107,7 @@ struct io::GraphML::Deserializer<T>
 
     static void onElementBegin(Ptr<void> pThis,
                                std::string_view elementName,
-                               std::span<AttributePair>) noexcept
+                               std::span<AttributePair>)
     {
         Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
         using SubDeserializer = GraphML::Deserializer<std::string>;
@@ -129,7 +129,7 @@ struct io::GraphML::Deserializer<T>
     }
 
     static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName) noexcept
+                             std::string_view elementName)
     {
         if (elementName != "value") {
             CIE_THROW(

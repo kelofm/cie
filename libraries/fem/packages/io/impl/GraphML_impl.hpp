@@ -19,9 +19,6 @@ Ptr<GraphML::Deserializer<T>> GraphML::DeserializerBase<T>::make(typename VoidSa
                                                                  Ref<SAXHandler> rSAX,
                                                                  [[maybe_unused]] std::string_view elementName)
 {
-    //std::cout << "make    " << "\033[0;32m" << elementName << "\033[0;37m"
-    //          << " " << typeid(T).name()
-    //          << std::endl;
     return new GraphML::Deserializer<T>(rInstance, rSAX);
 }
 
@@ -127,7 +124,7 @@ struct GraphML::Deserializer<detail::GraphMLElement<TGraph>>
     }
 
     static void onElementEnd(Ptr<void> pThis,
-                             [[maybe_unused]] std::string_view elementName) noexcept
+                             [[maybe_unused]] std::string_view elementName)
     {
         if (elementName != "graphml") {
             CIE_THROW(
@@ -151,7 +148,7 @@ struct GraphML::Deserializer<detail::GraphMLRoot<TGraph>>
 
     static void onElementBegin(Ptr<void> pThis,
                                std::string_view elementName,
-                               std::span<GraphML::AttributePair> attributes) noexcept
+                               std::span<GraphML::AttributePair> attributes)
     {
         Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
@@ -268,7 +265,7 @@ struct GraphML::Deserializer<detail::GraphMLKeyElement>
     }
 
     static void onElementEnd(Ptr<void> pThis,
-                             [[maybe_unused]] std::string_view elementName) noexcept
+                             [[maybe_unused]] std::string_view elementName)
     {
         if (elementName != "key") {
             CIE_THROW(
