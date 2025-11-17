@@ -15,8 +15,11 @@ namespace cie::mp {
 
 template <class ...TStored>
 ThreadLocal<TStored...>::ThreadLocal(Ref<const ThreadPoolBase> rPool)
+    : _pThreadPool(&rPool),
+      _map()
 {
     CIE_BEGIN_EXCEPTION_TRACING
+    _map.try_emplace(std::this_thread::get_id());
     for (Ref<const std::thread> rThread : rPool.threads()) {
         _map.try_emplace(rThread.get_id());
     } // for thread.id in threads
@@ -30,8 +33,9 @@ ThreadLocal<TStored...>::ThreadLocal(Ref<const ThreadPoolBase> rPool,
     : ThreadLocal(rPool)
 {
     CIE_BEGIN_EXCEPTION_TRACING
+    _map[std::this_thread::get_id()] = Tuple(rItems...);
     for (Ref<const std::thread> rThread : rPool.threads()) {
-        _map.try_emplace(rThread.get_id(), Tuple(rItems...));
+        _map[rThread.get_id()] = Tuple(rItems...);
     }
     CIE_END_EXCEPTION_TRACING
 }

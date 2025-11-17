@@ -11,7 +11,6 @@
 
 // --- STL Includes ---
 #include <algorithm>
-#include <thread>
 
 
 namespace cie::fem::maths {
@@ -140,7 +139,6 @@ void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
 
     Ref<IndexBuffer> rIndexBuffer = _buffer.template get<0>();
     Ref<ValueBuffer> rValueBuffer = _buffer.template get<1>();
-    std::cout << std::this_thread::get_id() << " " << &rValueBuffer << std::endl;
 
     // No need to clear the index buffer of its leftover state
     // (the leftover state is all zeros)
