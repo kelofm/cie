@@ -169,7 +169,6 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
             _pool.queueTLSJob(
                 [partition, &rFunction](auto&... rArgs) -> void {
                     for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
-                        if (1e4 <= i) CIE_THROW(Exception, std::to_string(i))
                         rFunction(i, rArgs...);
                     }
                 }
