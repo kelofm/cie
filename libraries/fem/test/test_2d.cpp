@@ -986,29 +986,29 @@ CIE_TEST_CASE("2D", "[systemTests]")
         entries,
         rhs);
 
-    // Matrix market output.
-    {
-        CIE_TEST_CASE_INIT("write LHS matrix")
-        std::ofstream file("lhs.mm");
-        cie::io::MatrixMarket::Output io(file);
-        io(rowCount,
-           columnCount,
-           entries.size(),
-           rowExtents.data(),
-           columnIndices.data(),
-           entries.data());
-    } // matrix market output
-
-    {
-        CIE_TEST_CASE_INIT("write RHS vector")
-
-        std::cout << "rhs norm: "
-                  << std::inner_product(rhs.begin(), rhs.end(), rhs.begin(), 0.0)
-                  << std::endl;
-        std::ofstream file("rhs.mm");
-        cie::io::MatrixMarket::Output io(file);
-        io(rhs.data(), rhs.size());
-    }
+//    // Matrix market output.
+//    {
+//        CIE_TEST_CASE_INIT("write LHS matrix")
+//        std::ofstream file("lhs.mm");
+//        cie::io::MatrixMarket::Output io(file);
+//        io(rowCount,
+//           columnCount,
+//           entries.size(),
+//           rowExtents.data(),
+//           columnIndices.data(),
+//           entries.data());
+//    } // matrix market output
+//
+//    {
+//        CIE_TEST_CASE_INIT("write RHS vector")
+//
+//        std::cout << "rhs norm: "
+//                  << std::inner_product(rhs.begin(), rhs.end(), rhs.begin(), 0.0)
+//                  << std::endl;
+//        std::ofstream file("rhs.mm");
+//        cie::io::MatrixMarket::Output io(file);
+//        io(rhs.data(), rhs.size());
+//    }
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
@@ -1101,7 +1101,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                                         Ref<DynamicArray<Scalar>> rAnsatzBuffer,
                                                         Ref<const DynamicArray<Ansatz>> rAnsatzSpaces) -> void {
                     const unsigned iSampleY = iSample / postprocessResolution;
-                    const unsigned iSampleX = iSampleY % postprocessResolution;
+                    const unsigned iSampleX = iSample % postprocessResolution;
                     auto& rSample = samples[iSample];
                     rSample.position = {epsilon + iSampleX * postprocessDelta,
                                         epsilon + iSampleY * postprocessDelta};
@@ -1306,7 +1306,9 @@ CIE_TEST_CASE("2D", "[systemTests]")
                     <DataItem Format="XML" Dimensions=")" << samples.size() << R"( 3">
                         )"; {
                             for (const auto& rSample : samples) {
-                                xdmf << rSample.position[0] << " " << rSample.position[1] << " 0\n                        ";
+                                xdmf << rSample.position[0] << " "
+                                     << rSample.position[1]
+                                     << " 0\n                        ";
                             } // for rSample in samples
                         } xdmf << R"(
                     </DataItem>
