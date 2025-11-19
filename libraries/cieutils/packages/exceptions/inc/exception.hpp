@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_EXCEPTIONS_HPP
-#define CIE_CIEUTILS_EXCEPTIONS_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
@@ -7,7 +6,6 @@
 // --- STL Includes ---
 #include <stdexcept>
 #include <string>
-#include <deque>
 #include <memory>
 
 
@@ -189,5 +187,3 @@ TException exceptionFactory(TException& r_exception, const String& r_location, c
 } // namespace cie
 
 #include "packages/exceptions/impl/exceptions_impl.hpp"
-
-#endif
