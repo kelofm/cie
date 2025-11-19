@@ -15,6 +15,18 @@
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],
             "cwd" : "${workspaceRoot}"
+        },
+        {
+            "name": "geo testrunner",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/libraries/geo/build/bin/geo_testrunner",
+            "externalConsole": false,
+            "args" : [],
+            "environment" : [
+                {"name" : "OMP_NUM_THREADS", "value" : "1"}
+            ],
+            "cwd" : "${workspaceRoot}"
         }
     ]
 }
