@@ -3,6 +3,10 @@
 // --- Internal Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
+// --- STL Includes ---
+#include <iterator>
+#include <ranges>
+
 
 namespace cie::concepts {
 
@@ -165,23 +169,40 @@ concept HasData
 };
 
 
+template <class T, class TValue = void>
+concept HasContainerTypeAliases
+= requires () {
+    typename T::iterator;
+    //typename T::const_iterator;
+    typename T::value_type;
+    typename T::size_type;
+} && (std::is_same_v<TValue,void> || std::is_same_v<typename T::value_type,TValue>);
+
+
 } // namespace detail
 
 
 template <class T, class TValue = void>
 concept Container
-= requires (T instance, const T constInstance)
-{
-    typename T::value_type;
-    typename T::size_type;
-    typename T::iterator;
-    //typename T::const_iterator;
+= requires (T instance, const T constInstance) {
     {instance.size()};
     {instance.begin()};
     {instance.end()};
     {constInstance.begin()};
     {constInstance.end()};
-} && (std::is_same_v<TValue,void> || std::is_same_v<typename T::value_type,TValue>);
+} && (
+    detail::HasContainerTypeAliases<T,TValue>
+    ||
+    (
+        std::ranges::range<T> && (
+            std::is_same_v<TValue,void> ?
+            true :
+            requires (T instance) {
+                {instance[std::size_t()]} -> std::same_as<std::remove_cvref_t<TValue>>;
+            }
+        )
+    )
+);
 
 
 template <class TContainer>
