@@ -297,6 +297,29 @@ concept NonPointer
 
 
 // ---------------------------------------------------------
+// Memory
+// ---------------------------------------------------------
+
+
+template <class TAllocator, class TValue>
+concept Allocator
+= requires (TAllocator instance,
+            std::size_t count,
+            TValue* pValue) {
+    //typename TAllocator::pointer;
+    //typename TAllocator::const_pointer;
+    //typename TAllocator::void_pointer;
+    //typename TAllocator::const_void_pointer;
+    typename TAllocator::value_type;
+    typename TAllocator::size_type;
+    typename TAllocator::difference_type;
+    {instance.allocate(count)} -> std::same_as<TValue*>;
+    {instance.deallocate(pValue, count)};
+    //{instance.max_size()} -> std::same_as<typename TAllocator::size_type>;
+};
+
+
+// ---------------------------------------------------------
 // MISC
 // ---------------------------------------------------------
 
