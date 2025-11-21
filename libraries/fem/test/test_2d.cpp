@@ -18,7 +18,6 @@
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
-#include "packages/maths/inc/LambdaExpression.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 //#include "packages/io/inc/Graphviz.hpp"
@@ -218,6 +217,7 @@ protected:
 
 
 static_assert(::cie::concepts::SamplableGeometry<CellData>);
+using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
 
 
 /// @brief Data structure unique to @ref Graph::Edge "boundaries" between cells.
@@ -605,7 +605,7 @@ void generateMesh(Ref<Mesh> rMesh,
 }
 
 
-geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
+BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 {
     constexpr int targetLeafWidth = 5;
     constexpr int maxTreeDepth = 5;
@@ -629,7 +629,10 @@ geo::AABBoxNode<CellData> makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 
     CIE_TEST_CHECK(!root.isLeaf());
 
-    return root;
+    return BVH::flatten(
+        root,
+        [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id;},
+        std::allocator<std::byte>());
 }
 
 
@@ -762,7 +765,8 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
 [[nodiscard]] DynamicArray<StaticArray<Scalar,2*Dimension+1>>
 imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const Assembler> rAssembler,
-                         Ref<const geo::AABBoxNode<CellData>> rBVH,
+                         Ref<BVH> rBVH,
+                         std::span<const CellData> contiguousCellData,
                          std::span<const int> rowExtents,
                          std::span<const int> columnIndices,
                          std::span<Scalar> entries,
@@ -795,7 +799,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                       &rowExtents, &columnIndices, &entries, &rAssembler,
                                       &rhs, &dirichletBoundary, &boundaryLength,
-                                      &boundarySegments] (
+                                      &boundarySegments, &contiguousCellData] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
@@ -816,16 +820,22 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
 
             // Check whether the two endpoints are in different cells.
-            Ptr<const CellData> pBaseCell     = findContainingCell(rBVH, globalBase),
-                                pOppositeCell = findContainingCell(rBVH, globalOpposite);
+            const auto pMaybeBaseCell = rBVH.find(
+                std::span<const Scalar,Dimension>(globalBase.data(), Dimension),
+                contiguousCellData
+            );
+            const auto pMaybeOppositeCell = rBVH.find(
+                std::span<const Scalar,Dimension>(globalOpposite.data(), Dimension),
+                contiguousCellData
+            );
 
             // Integrate if both endpoints lie in the same cell.
-            if (pBaseCell && pOppositeCell && pBaseCell == pOppositeCell) {
+            if (pMaybeBaseCell.has_value() && pMaybeOppositeCell.has_value() && *pMaybeBaseCell == *pMaybeOppositeCell) {
                 const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
                                            + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
 
                 if (minBoundarySegmentNorm < segmentNorm) {
-                    Ref<const CellData> rCell = *pBaseCell;
+                    Ref<const CellData> rCell = **pMaybeBaseCell;
                     const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
@@ -873,7 +883,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                 }
             } // if both endpoints lie in the same cell
 
-            return pBaseCell != pOppositeCell && (pBaseCell || pOppositeCell);
+            return *pMaybeBaseCell != *pMaybeOppositeCell && (*pMaybeBaseCell || *pMaybeOppositeCell);
         }; // boundaryVisitor
 
         // Construct a binary tree that detects intersections between
@@ -892,6 +902,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
     CIE_TEST_CASE_INIT("2D")
 
     Mesh mesh;
+    mp::ThreadPoolBase threads;
 
     // Fill the mesh with cells and boundaries.
     {
@@ -976,11 +987,23 @@ CIE_TEST_CASE("2D", "[systemTests]")
         } // for rCell in mesh.vertices
     } // integrate
 
+    // Construct a bounding volume hierarchy over the cells to accelerate
+    // point membership tests. Running on accelerator devices also requires
+    // - the cell data to be available in a contiguous array
+    // - the cell data to be self contained (no pointers and heap storage)
     auto bvh = makeBoundingVolumeHierarchy(mesh);
+    DynamicArray<CellData> contiguousCellData(mesh.vertices().size());
+    std::ranges::transform(
+        mesh.vertices(),
+        contiguousCellData.data(),
+        [](Ref<const Mesh::Vertex> rCell){return rCell.data();}
+    );
+
     const auto boundarySegments = imposeBoundaryConditions(
         mesh,
         assembler,
         bvh,
+        contiguousCellData,
         rowExtents,
         columnIndices,
         entries,
@@ -1065,18 +1088,15 @@ CIE_TEST_CASE("2D", "[systemTests]")
     // XDMF output.
     {
         // Collect output for the bounding volume hierarchy.
-        DynamicArray<StaticArray<Scalar,4 * Dimension + 1>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
-        bvh.visit([&boundingVolumes](const auto& pBoundingVolume) -> bool {
+        DynamicArray<StaticArray<Scalar,Dimension*intPow(2,Dimension)>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
+        bvh.visit([&boundingVolumes](const auto& rBox) -> bool {
             constexpr unsigned cornerCount = intPow(2,Dimension);
-            StaticArray<geo::AABBoxNode<CellData>::Point,cornerCount> corners;
             boundingVolumes.emplace_back();
-            pBoundingVolume->makeCorners(std::span<geo::AABBoxNode<CellData>::Point,cornerCount>{corners.data(),cornerCount});
-            for (unsigned iCorner=0u; iCorner<cornerCount; ++iCorner) {
-                std::copy_n(corners[iCorner].data(),
-                            Dimension,
-                            boundingVolumes.back().data() + iCorner * Dimension);
-            }
-            boundingVolumes.back().back() = pBoundingVolume->level();
+            geo::Box<Dimension,Scalar>::makeCorners(
+                rBox.base(),
+                rBox.lengths(),
+                std::span<Scalar,cornerCount*Dimension> (boundingVolumes.back().data(), cornerCount * Dimension)
+            );
             return true;
         });
 
@@ -1094,12 +1114,11 @@ CIE_TEST_CASE("2D", "[systemTests]")
             constexpr Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
             DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.front().size());
 
-            mp::ThreadPoolBase threads;
             mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>(), mesh.data().ansatzSpaces)(
                 intPow(postprocessResolution, 2),
-                [&samples, &solution, &assembler, &bvh](const unsigned iSample,
-                                                        Ref<DynamicArray<Scalar>> rAnsatzBuffer,
-                                                        Ref<const DynamicArray<Ansatz>> rAnsatzSpaces) -> void {
+                [&samples, &solution, &assembler, &bvh, &contiguousCellData](const unsigned iSample,
+                                                                             Ref<DynamicArray<Scalar>> rAnsatzBuffer,
+                                                                             Ref<const DynamicArray<Ansatz>> rAnsatzSpaces) -> void {
                     const unsigned iSampleY = iSample / postprocessResolution;
                     const unsigned iSampleX = iSample % postprocessResolution;
                     auto& rSample = samples[iSample];
@@ -1107,22 +1126,26 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                         epsilon + iSampleY * postprocessDelta};
 
                     // Find which cell the global point lies in.
-                    Ptr<const CellData> pCellData = findContainingCell(bvh, rSample.position);
+                    const auto pMaybeCellData = bvh.find(
+                        std::span<const Scalar,Dimension>(rSample.position.data(), Dimension),
+                        std::span<const CellData>(contiguousCellData)
+                    );
 
-                    if (pCellData) {
-                        rSample.cellID = pCellData->id;
+                    if (pMaybeCellData.has_value()) {
+                        Ref<const CellData> rCellData = *pMaybeCellData.value();
+                        rSample.cellID = rCellData.id;
 
                         // Compute sample point in the cell's local space.
                         StaticArray<Scalar,2> localSamplePoint;
-                        pCellData->inverseSpatialTransform.evaluate(rSample.position, localSamplePoint);
+                        rCellData.inverseSpatialTransform.evaluate(rSample.position, localSamplePoint);
 
                         // Evaluate the cell's ansatz functions at the local sample point.
-                        const auto& rAnsatzSpace = rAnsatzSpaces[pCellData->iAnsatz];
+                        const auto& rAnsatzSpace = rAnsatzSpaces[rCellData.iAnsatz];
                         rAnsatzBuffer.resize(rAnsatzSpace.size());
                         rAnsatzSpace.evaluate(localSamplePoint, rAnsatzBuffer);
 
                         // Find the entries of the cell's DoFs in the global state vector.
-                        const auto& rGlobalIndices = assembler[pCellData->id];
+                        const auto& rGlobalIndices = assembler[rCellData.id];
 
                         // Compute state as an indirect inner product of the solution vector
                         // and the ansatz function values at the local corner coordinates.
@@ -1207,16 +1230,6 @@ CIE_TEST_CASE("2D", "[systemTests]")
                         } xdmf << R"(
                     </DataItem>
                 </Geometry>
-
-                <Attribute Name="level" Center="Cell" AttributeType="Scalar">
-                    <DataItem Format="XML" Dimensions=")" << boundingVolumes.size() << R"( 1">
-                        )"; {
-                            for (const auto& rBoundingVolume : boundingVolumes) {
-                                xdmf << rBoundingVolume.back() << "\n                        ";
-                            }
-                        } xdmf << R"(
-                    </DataItem>
-                </Attribute>
             </Grid>
 
             <Grid Name="mesh" GridType="Uniform">
