@@ -820,22 +820,22 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
 
             // Check whether the two endpoints are in different cells.
-            const auto pMaybeBaseCell = rBVH.find(
+            const auto iMaybeBaseCell = rBVH.find(
                 std::span<const Scalar,Dimension>(globalBase.data(), Dimension),
                 contiguousCellData
             );
-            const auto pMaybeOppositeCell = rBVH.find(
+            const auto iMaybeOppositeCell = rBVH.find(
                 std::span<const Scalar,Dimension>(globalOpposite.data(), Dimension),
                 contiguousCellData
             );
 
             // Integrate if both endpoints lie in the same cell.
-            if (pMaybeBaseCell.has_value() && pMaybeOppositeCell.has_value() && *pMaybeBaseCell == *pMaybeOppositeCell) {
+            if (iMaybeBaseCell.has_value() && iMaybeOppositeCell.has_value() && *iMaybeBaseCell == *iMaybeOppositeCell) {
                 const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
                                            + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
 
                 if (minBoundarySegmentNorm < segmentNorm) {
-                    Ref<const CellData> rCell = **pMaybeBaseCell;
+                    Ref<const CellData> rCell = contiguousCellData[*iMaybeBaseCell];
                     const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
@@ -883,7 +883,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                 }
             } // if both endpoints lie in the same cell
 
-            return *pMaybeBaseCell != *pMaybeOppositeCell && (*pMaybeBaseCell || *pMaybeOppositeCell);
+            return *iMaybeBaseCell != *iMaybeOppositeCell && (*iMaybeBaseCell || *iMaybeOppositeCell);
         }; // boundaryVisitor
 
         // Construct a binary tree that detects intersections between
@@ -1126,13 +1126,13 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                         epsilon + iSampleY * postprocessDelta};
 
                     // Find which cell the global point lies in.
-                    const auto pMaybeCellData = bvh.find(
+                    const auto iMaybeCellData = bvh.find(
                         std::span<const Scalar,Dimension>(rSample.position.data(), Dimension),
                         std::span<const CellData>(contiguousCellData)
                     );
 
-                    if (pMaybeCellData.has_value()) {
-                        Ref<const CellData> rCellData = *pMaybeCellData.value();
+                    if (iMaybeCellData.has_value()) {
+                        Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData.value()];
                         rSample.cellID = rCellData.id;
 
                         // Compute sample point in the cell's local space.
