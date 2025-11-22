@@ -58,6 +58,19 @@ CIE_TEST_CASE("StackArray", "[stl_extension]")
         CIE_TEST_CHECK(array.cbegin() == array.cend());
         CIE_TEST_CHECK(array.rbegin() == array.rend());
         CIE_TEST_CHECK(array.crbegin() == array.crend());
+
+        for (std::size_t iItem=0ul; iItem<maxSize; ++iItem) {
+            if (iItem % 2) {
+                CIE_TEST_CHECK(array.push_back(iItem * iItem));
+            } else {
+                CIE_TEST_CHECK(array.emplace_back(iItem * iItem));
+            }
+            CIE_TEST_CHECK(array.back() == iItem * iItem);
+        }
+
+        for (std::size_t iItem=0ul; iItem<maxSize; ++iItem) {
+            CIE_TEST_CHECK_NOTHROW(array.at(iItem) = iItem * iItem);
+        }
     }
 }
 

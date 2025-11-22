@@ -28,6 +28,8 @@ public:
     using const_reverse_iterator    = std::reverse_iterator<const_iterator>;
 
     constexpr StackArray() noexcept
+        : _data(),
+          _iEnd(0ul)
     {}
 
     [[nodiscard]] constexpr size_type size() const noexcept {
@@ -132,7 +134,7 @@ public:
                 // Call the default constructor of all the newly "allocated" items.
                 if constexpr (!std::is_integral_v<T>) {
                     iterator itConstruct = this->begin() + currentSize;
-                    const iterator itEnd = this->begin() + newSize + 1;
+                    const iterator itEnd = this->begin() + newSize;
                     for (; itConstruct<itEnd; ++itConstruct) new (itConstruct) T();
                 }
                 _iEnd = newSize * sizeof(T);
@@ -142,8 +144,8 @@ public:
         } else if (newSize < currentSize) {
             // Call the destructor of erased objects.
             if constexpr (!std::is_integral_v<T>) {
-                reverse_iterator itDestroy   = ++reverse_iterator(this->begin() + currentSize);
-                const reverse_iterator itEnd = ++reverse_iterator(this->begin() + newSize + 1);
+                reverse_iterator itDestroy   = reverse_iterator(this->begin() + currentSize);
+                const reverse_iterator itEnd = reverse_iterator(this->begin() + newSize);
                 for (; itDestroy < itEnd; ++itDestroy) itDestroy->~T();
             }
             _iEnd = newSize * sizeof(T);
@@ -157,6 +159,7 @@ public:
         if (!this->reserve(this->size() + 1ul)) return false;
         new (it) T(std::forward<TArgs>(rArgs)...);
         _iEnd += sizeof(T);
+        return true;
     }
 
     [[nodiscard]] bool push_back(T&& r) {
@@ -164,6 +167,7 @@ public:
         if (!this->reserve(this->size() + 1ul)) return false;
         new (it) T(std::move(r));
         _iEnd += sizeof(T);
+        return true;
     }
 
     [[nodiscard]] bool push_back(const T& r) {
@@ -171,6 +175,7 @@ public:
         if (!this->reserve(this->size() + 1ul)) return false;
         new (it) T(r);
         _iEnd += sizeof(T);
+        return true;
     }
 
     void pop_back() {
