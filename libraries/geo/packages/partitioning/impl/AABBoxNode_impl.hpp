@@ -46,7 +46,7 @@ AABBoxNode<TObject>::AABBoxNode() noexcept
 template <concepts::BoxBoundable TObject>
 bool AABBoxNode<TObject>::insert(Ptr<ObjectType> pObject)
 {
-    if (this->parent()) CIE_THROW(Exception, "attempt to insert object into non-root node")
+    if (this->parent() != nullptr) CIE_THROW(Exception, "attempt to insert object into non-root node")
     if (!this->children().empty()) CIE_THROW(Exception, "attempt to insert into non-empty root node")
 
     if (this->contains(boundingBox(*pObject)))
@@ -262,9 +262,11 @@ bool AABBoxNode<TObject>::partition(Size maxObjects,
             constexpr unsigned Dimension = AABBoxNode::Dimension;
             //StaticArray<typename AABBoxNode::Point,intPow(2, Dimension)> corners;
             StaticArray<TCoordinate,Dimension*intPow(2,Dimension)> corners;
+            const auto base = pNode->base();
+            const auto lengths = pNode->lengths();
             pNode->makeCorners(
-                std::span<TCoordinate,Dimension>(pNode->base().data(), Dimension),
-                std::span<TCoordinate,Dimension>(pNode->lengths().data(), Dimension),
+                std::span<TCoordinate,Dimension>(base.data(), Dimension),
+                std::span<TCoordinate,Dimension>(lengths.data(), Dimension),
                 std::span<TCoordinate,Dimension*intPow(2,Dimension)>(corners.data(), corners.size()));
 
             // Pull contained objects from the parent
@@ -322,10 +324,10 @@ bool AABBoxNode<TObject>::partition(Size maxObjects,
         typename AABBoxNode<TObject>::Point midPoint;
         utils::resize(midPoint, AABBoxNode<TObject>::Dimension);
         for (Size dim=0; dim<AABBoxNode<TObject>::Dimension; ++dim)
-            midPoint[dim] = pNode->_base[dim] + pNode->_lengths[dim] / 2.0;
+            midPoint[dim] = pNode->base()[dim] + pNode->lengths()[dim] / 2.0;
 
         // Subdivide node
-        auto cellConstructors = pNode->split(midPoint);
+        const auto cellConstructors = pNode->split(midPoint);
 
         for (const auto& rCellConstructor : cellConstructors)
             pNode->_children.emplace_back(new AABBoxNode<TObject>(
@@ -894,9 +896,11 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::find(Ref<const st
             maybeNode.reset();
 
             // Check whether the point lies within the node.
+            const auto base = node.base();
+            const auto lengths = node.lengths();
             const bool inNode = Geometry::at(rPoint.data(),
-                                             node.base().data(),
-                                             node.lengths().data());
+                                             base.data(),
+                                             lengths.data());
 
             if (inNode) {
                 // The point lies within the current node.
@@ -980,10 +984,12 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::flatten(Ref<const
             const unsigned currentLevel = pNode->level();
 
             // Fill unique data of the current node.
-            std::copy_n(pNode->base().data(),
+            const auto base = pNode->base();
+            const auto lengths = pNode->lengths();
+            std::copy_n(base.data(),
                         Dimension,
                         current.base().data());
-            std::copy_n(pNode->lengths().data(),
+            std::copy_n(lengths.data(),
                         Dimension,
                         current.lengths().data());
             current.iSibling()          = 0ul; // <== temporary init

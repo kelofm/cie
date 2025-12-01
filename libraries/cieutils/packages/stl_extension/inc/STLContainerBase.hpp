@@ -3,6 +3,7 @@
 
 // --- Internal Includes ---
 #include "packages/compile_time/packages/concepts/inc/container_concepts.hpp"
+#include "packages/compile_time/packages/parameter_pack/inc/Size.hpp"
 #include "packages/macros/inc/typedefs.hpp"
 #include "packages/types/inc/types.hpp"
 #include "packages/macros/inc/exceptions.hpp"
@@ -50,6 +51,8 @@ public:
     ///@name Constructor / Destructor
     ///@{
 
+    STLContainerBase() noexcept = default;
+
     STLContainerBase(const std::initializer_list<value_type>& rInitializer)
     requires concepts::detail::HasPushBack<TBase, const value_type&, void>
     {
@@ -68,6 +71,18 @@ public:
         CIE_END_EXCEPTION_TRACING
     }
 
+    template <std::size_t TSize>
+    STLContainerBase(Ref<const std::span<const value_type,TSize>> rRhs) {
+        utils::resize(*this, rRhs.size());
+        std::copy(rRhs.begin(), rRhs.end(), this->begin());
+    }
+
+    template <std::size_t TSize>
+    STLContainerBase(Ref<const std::span<value_type,TSize>> rRhs) {
+        utils::resize(*this, rRhs.size());
+        std::copy(rRhs.begin(), rRhs.end(), this->begin());
+    }
+
     STLContainerBase(RightRef<TBase> r_rhs) noexcept
         : TBase(std::move(r_rhs))
     {}
@@ -81,7 +96,8 @@ public:
     STLContainerBase(const STLContainerBase<TBase>& r_rhs) = default;
 
     template <class ...TArgs>
-    STLContainerBase(TArgs&&... rArgs)
+    requires (0 < ct::PackSize<TArgs...>)
+    explicit STLContainerBase(TArgs&&... rArgs)
         : TBase(std::forward<TArgs>(rArgs)...)
     {}
 
@@ -144,19 +160,31 @@ public:
 
     reference at(size_type index) noexcept
     requires concepts::detail::HasAt<TBase, size_type, reference>
-    {return TBase::at(index);}
+    {
+        assert(index < this->size());
+        return TBase::at(index);
+    }
 
     const_reference at(size_type index) const noexcept
     requires concepts::detail::HasAt<const TBase, size_type, const_reference>
-    {return TBase::at(index);}
+    {
+        assert(index < this->size());
+        return TBase::at(index);
+    }
 
     reference operator[](size_type index) noexcept
     requires concepts::detail::HasAccessOperator<TBase, size_type, reference>
-    {return TBase::operator[](index);}
+    {
+        assert(index < this->size());
+        return TBase::operator[](index);
+    }
 
     const_reference operator[](size_type index) const noexcept
     requires concepts::detail::HasAccessOperator<const TBase, size_type, const_reference>
-    {return TBase::operator[](index);}
+    {
+        assert(index < this->size());
+        return TBase::operator[](index);
+    }
 
     pointer data() noexcept
     requires concepts::detail::HasData<TBase>
@@ -235,11 +263,17 @@ public:
 
     void pop_front()
     requires concepts::detail::HasPopFront<TBase>
-    {TBase::pop_front();}
+    {
+        assert(this->empty());
+        TBase::pop_front();
+    }
 
     void pop_back()
     requires concepts::detail::HasPopBack<TBase>
-    {TBase::pop_back();}
+    {
+        assert(!this->empty());
+        TBase::pop_back();
+    }
 
     void resize(size_type size)
     requires concepts::detail::HasResize<TBase, size_type>

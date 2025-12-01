@@ -37,7 +37,8 @@ if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options(-Wall -Wpedantic -Wextra -Wno-dangling-reference -Werror)
+    add_compile_options(-Wall -Wpedantic -Wextra -Werror
+                        -Wno-dangling-reference -Wno-maybe-uninitialized)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")

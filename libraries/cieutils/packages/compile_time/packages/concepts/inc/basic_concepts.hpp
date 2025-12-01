@@ -311,8 +311,8 @@ concept Allocator
     //typename TAllocator::void_pointer;
     //typename TAllocator::const_void_pointer;
     typename TAllocator::value_type;
-    typename TAllocator::size_type;
-    typename TAllocator::difference_type;
+    //typename TAllocator::size_type;
+    //typename TAllocator::difference_type;
     {instance.allocate(count)} -> std::same_as<TValue*>;
     {instance.deallocate(pValue, count)};
     //{instance.max_size()} -> std::same_as<typename TAllocator::size_type>;

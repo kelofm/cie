@@ -25,8 +25,8 @@ private:
     void computeBoundingBoxImpl(TestBoundableObject::BoundingBox& r_box) noexcept override
     {
         this->_counter++;
-        r_box.base() = { Double(this->_counter) };
-        r_box.lengths() = { Double(this->_counter) };
+        r_box.base().front() = double(this->_counter);
+        r_box.lengths().front() = double(this->_counter);
     }
 
 private:

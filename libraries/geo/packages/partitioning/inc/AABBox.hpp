@@ -19,17 +19,17 @@ public:
     /// @brief Check whether this box fully encloses the input box.
     /// @param rBox Query box.
     /// @note Closed boundaries.
-    Bool contains(const AABBox& rBox) const noexcept;
+    Bool contains(const stack::Box<Dimension,TCoordinate>& rBox) const noexcept;
 
     /// @brief Check for intersections with the argument box.
     /// @param rBox Query box.
     /// @note Touching does not constitute an intersection.
-    Bool intersects(const AABBox& rBox) const noexcept;
+    Bool intersects(const stack::Box<Dimension,TCoordinate>& rBox) const noexcept;
 
     /// @brief Expand the box to include target box.
     /// @param rBox Target box.
     /// @note The target box will not necessarily be "contained".
-    void include(const AABBox& rBox) noexcept;
+    void include(const stack::Box<Dimension,TCoordinate>& rBox) noexcept;
 };
 
 

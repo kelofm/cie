@@ -45,6 +45,8 @@ endif()
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_compile_options(-Wall -Wpedantic -Wextra
                         -Wno-dangling-reference
+                        -Wno-maybe-uninitialized
+                        -Wno-uninitialized
                         -Wno-array-bounds           #< spurious warning for 1-item copies
                         -Wno-stringop-overflow      #< spurious warning for 1-item copies
                         -Werror)

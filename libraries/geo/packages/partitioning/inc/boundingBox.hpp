@@ -5,6 +5,7 @@
 
 // --- Internal Includes ---
 #include "packages/partitioning/inc/BoxBoundable.hpp"
+#include "packages/primitives/inc/Box.hpp"
 
 
 namespace cie::geo {
@@ -13,6 +14,10 @@ namespace cie::geo {
 /// @brief Bounding box factory for objects with internal bounding boxes.
 template <concepts::HasBoundingBox TObject>
 const typename TObject::BoundingBox& boundingBox(TObject& rObject) noexcept;
+
+
+template <unsigned Dimension, class TCoordinate>
+stack::Box<Dimension,TCoordinate> boundingBox(Ref<const stack::Box<Dimension,TCoordinate>> rObject) noexcept;
 
 
 /// @brief Bounding box factory for points.

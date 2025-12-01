@@ -11,13 +11,13 @@ namespace cie::geo {
 
 
 template <Size Dimension, concepts::Numeric TCoordinate>
-Bool AABBox<Dimension,TCoordinate>::contains(const AABBox& rBox) const noexcept
+Bool AABBox<Dimension,TCoordinate>::contains(const stack::Box<Dimension,TCoordinate>& rBox) const noexcept
 {
     // All points inside
     for (Size dim=0; dim<Dimension; ++dim) {
-        if (rBox._base[dim] < this->_base[dim]
+        if (rBox.base()[dim] < this->base()[dim]
             ||
-            this->_base[dim] + this->_lengths[dim] < rBox._base[dim] + rBox._lengths[dim])
+            this->base()[dim] + this->lengths()[dim] < rBox.base()[dim] + rBox.lengths()[dim])
             return false;
     }
 
@@ -26,7 +26,7 @@ Bool AABBox<Dimension,TCoordinate>::contains(const AABBox& rBox) const noexcept
 
 
 template <Size Dimension, concepts::Numeric TCoordinate>
-Bool AABBox<Dimension,TCoordinate>::intersects(const AABBox& rBox) const noexcept
+Bool AABBox<Dimension,TCoordinate>::intersects(const stack::Box<Dimension,TCoordinate>& rBox) const noexcept
 {
     //if (rBox.contains(*this)) return true;
 
@@ -57,21 +57,21 @@ Bool AABBox<Dimension,TCoordinate>::intersects(const AABBox& rBox) const noexcep
 
 
 template <Size Dimension, concepts::Numeric TCoordinate>
-void AABBox<Dimension,TCoordinate>::include(const AABBox& rBox) noexcept
+void AABBox<Dimension,TCoordinate>::include(const stack::Box<Dimension,TCoordinate>& rBox) noexcept
 {
     for (Size dim=0; dim<Dimension; ++dim) {
-        auto dBase = rBox._base[dim] - this->_base[dim];
+        auto dBase = rBox.base()[dim] - this->base()[dim];
 
         if (dBase < static_cast<TCoordinate>(0)) {
-            this->_base[dim]    += dBase;
-            this->_lengths[dim] -= dBase;
+            this->base()[dim]    += dBase;
+            this->lengths()[dim] -= dBase;
         }
 
-        auto thisMax = this->_base[dim] + this->_lengths[dim];
-        auto boxMax  = rBox._base[dim] + rBox._lengths[dim];
+        auto thisMax = this->base()[dim] + this->lengths()[dim];
+        auto boxMax  = rBox.base()[dim] + rBox.lengths()[dim];
 
         if (thisMax < boxMax)
-            this->_lengths[dim] = boxMax - this->_base[dim];
+            this->lengths()[dim] = boxMax - this->base()[dim];
     } // for dim in range(Dimension)
 }
 

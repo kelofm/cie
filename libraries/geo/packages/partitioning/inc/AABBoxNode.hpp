@@ -26,13 +26,13 @@ namespace cie::geo {
 template <concepts::BoxBoundable TObject>
 class AABBoxNode :
     public Cell<AABBox<GetTraits<TObject>::Type::Dimension,typename GetTraits<TObject>::Type::Coordinate>>,
-    public utils::AbsTree<AABBoxNode<TObject>,std::vector,Ptr<AABBoxNode<TObject>>>,
+    public utils::AbsTree<AABBoxNode<TObject>,std::vector,std::unique_ptr<AABBoxNode<TObject>>>,
     public std::enable_shared_from_this<AABBoxNode<TObject>>
 {
 private:
     using CellBase = Cell<AABBox<GetTraits<TObject>::Type::Dimension,typename GetTraits<TObject>::Type::Coordinate>>;
 
-    using TreeBase = utils::AbsTree<AABBoxNode<TObject>,std::vector,Ptr<AABBoxNode<TObject>>>;
+    using TreeBase = utils::AbsTree<AABBoxNode<TObject>,std::vector,std::unique_ptr<AABBoxNode<TObject>>>;
 
 public:
     using ObjectType = TObject;
@@ -146,7 +146,7 @@ class FlatAABBoxTree
 public:
     template <bool TMutable>
     struct Node {
-        using Geometry = boolean::Box<Dimension,TCoordinate>;
+        using Geometry = stack::Box<Dimension,TCoordinate>;
 
         Node() = delete;
 

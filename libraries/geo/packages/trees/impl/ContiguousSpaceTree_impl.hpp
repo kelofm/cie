@@ -311,8 +311,9 @@ requires concepts::Cube<TGeometry>
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    std::copy(this->base().begin(),
-              this->base().end(),
+    const auto& rBase = this->base();
+    std::copy(rBase.begin(),
+              rBase.end(),
               itBaseBegin);
     auto [trace, bitOffset] = this->getNodeTrace(rNode);
 
@@ -340,12 +341,14 @@ requires concepts::Box<TGeometry>
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    std::copy(this->base().begin(),
-              this->base().end(),
+    const auto& rBase = this->base();
+    std::copy(rBase.begin(),
+              rBase.end(),
               itBaseBegin);
 
-    std::copy(this->lengths().begin(),
-              this->lengths().end(),
+    const auto& rLengths = this->lengths();
+    std::copy(rLengths.begin(),
+              rLengths.end(),
               itLengthBegin);
 
     auto [trace, bitOffset] = this->getNodeTrace(rNode);

@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_ARG_PARSE_RESULTS_IMPL_HPP
-#define CIE_UTILS_ARG_PARSE_RESULTS_IMPL_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/commandline/inc/ArgParse.hpp"
@@ -288,8 +287,7 @@ ArgParse& ArgParse::addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals)
     using OptionalTuple = typename detail::ArgParseOptionalTupleConverter<ct::PackSize<TArgs...>,TArgs...>::Tuple;
     OptionalTuple optionals(std::forward<TArgs>(r_optionals)...);
 
-    auto add = [this, r_keys = std::move(r_keys)](std::string r_docString) mutable -> ArgParse&
-    {
+    auto add = [this, r_keys = std::move(r_keys)](std::string r_docString) mutable -> ArgParse& {
         std::string name;
         if (!r_keys.empty())
             name = detail::KeywordParser::strip(r_keys.front());
@@ -312,6 +310,3 @@ ArgParse& ArgParse::addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals)
 
 
 } // namespace cie::utils
-
-
-#endif

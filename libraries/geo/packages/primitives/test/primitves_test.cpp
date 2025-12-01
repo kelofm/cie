@@ -15,9 +15,9 @@ namespace cie::geo {
 namespace boolean {
 
 
-CIE_TEST_CASE( "Cube", "[primitives]" )
+CIE_TEST_CASE("Cube", "[primitives]")
 {
-    CIE_TEST_CASE_INIT( "Cube" )
+    CIE_TEST_CASE_INIT("Cube")
 
     const Size Dimension = 2;
     using CoordinateType = Double;
@@ -30,41 +30,41 @@ CIE_TEST_CASE( "Cube", "[primitives]" )
     // Unit cube
     {
         length = 1.0;
-        CIE_TEST_REQUIRE_NOTHROW( PrimitiveType(base, length) );
-        PrimitiveType primitive( base, length );
-        CIE_TEST_CHECK( !primitive.isDegenerate() );
-        CIE_TEST_REQUIRE( primitive.base().size() == Dimension );
-        CIE_TEST_CHECK( primitive.base()[0] == Approx(base[0]) );
-        CIE_TEST_CHECK( primitive.base()[1] == Approx(base[1]) );
-        CIE_TEST_CHECK( primitive.length() == Approx(length) );
+        CIE_TEST_REQUIRE_NOTHROW(PrimitiveType(base, length));
+        PrimitiveType primitive(base, length);
+        CIE_TEST_CHECK(!primitive.isDegenerate());
+        CIE_TEST_REQUIRE(primitive.base().size() == Dimension);
+        CIE_TEST_CHECK(primitive.base()[0] == Approx(base[0]));
+        CIE_TEST_CHECK(primitive.base()[1] == Approx(base[1]));
+        CIE_TEST_CHECK(primitive.length() == Approx(length));
     }
 
     // Degenerate cube
     {
         length = 0.0;
-        CIE_TEST_REQUIRE_NOTHROW( PrimitiveType(base, length) );
-        PrimitiveType primitive( base, length );
-        CIE_TEST_CHECK( primitive.isDegenerate() );
-        CIE_TEST_REQUIRE( primitive.base().size() == Dimension );
-        CIE_TEST_CHECK( primitive.base()[0] == Approx(base[0]) );
-        CIE_TEST_CHECK( primitive.base()[1] == Approx(base[1]) );
-        CIE_TEST_CHECK( primitive.length() == Approx(length) );
+        CIE_TEST_REQUIRE_NOTHROW(PrimitiveType(base, length));
+        PrimitiveType primitive(base, length);
+        CIE_TEST_CHECK(primitive.isDegenerate());
+        CIE_TEST_REQUIRE(primitive.base().size() == Dimension);
+        CIE_TEST_CHECK(primitive.base()[0] == Approx(base[0]));
+        CIE_TEST_CHECK(primitive.base()[1] == Approx(base[1]));
+        CIE_TEST_CHECK(primitive.length() == Approx(length));
     }
 
     // Invalid cube
     {
         #ifdef CIE_ENABLE_RUNTIME_GEOMETRY_CHECKS
         length = -1.0;
-        CIE_TEST_CHECK_THROWS( PrimitiveType(base, length) );
+        CIE_TEST_CHECK_THROWS(PrimitiveType(base, length));
         #endif
     }
 }
 
 
 
-CIE_TEST_CASE( "Box", "[primitives]" )
+CIE_TEST_CASE("Box", "[primitives]")
 {
-    CIE_TEST_CASE_INIT( "Box" )
+    CIE_TEST_CASE_INIT("Box")
 
     const Size Dimension = 2;
     using CoordinateType = Double;
@@ -77,85 +77,85 @@ CIE_TEST_CASE( "Box", "[primitives]" )
     // Unit cubeas box
     {
         lengths = { 1.0, 1.0 };
-        CIE_TEST_REQUIRE_NOTHROW( PrimitiveType(base, lengths) );
-        PrimitiveType primitive( base, lengths );
-        CIE_TEST_CHECK( !primitive.isDegenerate() );
-        CIE_TEST_REQUIRE( primitive.base().size() == Dimension );
-        CIE_TEST_CHECK( primitive.base()[0] == Approx(base[0]) );
-        CIE_TEST_CHECK( primitive.base()[1] == Approx(base[1]) );
-        CIE_TEST_REQUIRE( primitive.lengths().size() == Dimension );
-        CIE_TEST_CHECK( primitive.lengths()[0] == Approx(lengths[0]) );
-        CIE_TEST_CHECK( primitive.lengths()[1] == Approx(lengths[1]) );
+        CIE_TEST_REQUIRE_NOTHROW(PrimitiveType(base, lengths));
+        PrimitiveType primitive(base, lengths);
+        CIE_TEST_CHECK(!primitive.isDegenerate());
+        CIE_TEST_REQUIRE(primitive.base().size() == Dimension);
+        CIE_TEST_CHECK(primitive.base()[0] == Approx(base[0]));
+        CIE_TEST_CHECK(primitive.base()[1] == Approx(base[1]));
+        CIE_TEST_REQUIRE(primitive.lengths().size() == Dimension);
+        CIE_TEST_CHECK(primitive.lengths()[0] == Approx(lengths[0]));
+        CIE_TEST_CHECK(primitive.lengths()[1] == Approx(lengths[1]));
     }
 
     // Degenerate boxes
     {
         lengths = { 1.0, 0.0 };
-        CIE_TEST_REQUIRE_NOTHROW( PrimitiveType(base, lengths) );
-        PrimitiveType primitive( base, lengths );
-        CIE_TEST_CHECK( primitive.isDegenerate() );
+        CIE_TEST_REQUIRE_NOTHROW(PrimitiveType(base, lengths));
+        PrimitiveType primitive(base, lengths);
+        CIE_TEST_CHECK(primitive.isDegenerate());
 
         lengths = { 0.0, 1.0 };
-        CIE_TEST_REQUIRE_NOTHROW( PrimitiveType(base,lengths) );
-        primitive = PrimitiveType( base, lengths );
-        CIE_TEST_CHECK( primitive.isDegenerate() );
+        CIE_TEST_REQUIRE_NOTHROW(PrimitiveType(base,lengths));
+        primitive = PrimitiveType(base, lengths);
+        CIE_TEST_CHECK(primitive.isDegenerate());
     }
 
     // Invalid boxes
     {
         #ifdef CIE_ENABLE_RUNTIME_GEOMETRY_CHECKS
         lengths = { -1.0, 1.0 };
-        CIE_TEST_CHECK_THROWS( PrimitiveType(base, lengths) );
+        CIE_TEST_CHECK_THROWS(PrimitiveType(base, lengths));
 
         lengths = { 1.0, -1.0 };
-        CIE_TEST_CHECK_THROWS( PrimitiveType(base, lengths) );
+        CIE_TEST_CHECK_THROWS(PrimitiveType(base, lengths));
         #endif
     }
 }
 
 
 
-CIE_TEST_CASE( "boolean::Cube", "[primitives]" )
+CIE_TEST_CASE("boolean::Cube", "[primitives]")
 {
-    CIE_TEST_CASE_INIT( "boolean::Cube" )
+    CIE_TEST_CASE_INIT("boolean::Cube")
 
     const Size dimension = 2;
 
-    CIE_TEST_REQUIRE_NOTHROW( Cube<dimension,Double>(DoubleArray<dimension>({10.0,20.0}),2.0) );
-    Cube<dimension,Double> cube( DoubleArray<dimension>({10.0,20.0}),
-                                    2.0 );
-    CIE_TEST_CHECK( Cube<dimension,Double>::Dimension == dimension );
+    CIE_TEST_REQUIRE_NOTHROW(Cube<dimension,Double>(DoubleArray<dimension>({10.0,20.0}),2.0));
+    Cube<dimension,Double> cube(DoubleArray<dimension>({10.0,20.0}),
+                                    2.0);
+    CIE_TEST_CHECK(Cube<dimension,Double>::Dimension == dimension);
 
     DoubleArray<dimension> point = {0.0, 0.0};
 
-    CIE_TEST_REQUIRE_NOTHROW( cube.at(point) );
-    CIE_TEST_CHECK( cube.at(point) == false );
+    CIE_TEST_REQUIRE_NOTHROW(cube.at(point));
+    CIE_TEST_CHECK(cube.at(point) == false);
 
-    CIE_TEST_REQUIRE_NOTHROW( cube.at(cube.base()) );
-    CIE_TEST_CHECK( cube.at( cube.base() ) == true );
+    CIE_TEST_REQUIRE_NOTHROW(cube.at(cube.base()));
+    CIE_TEST_CHECK(cube.at(cube.base()) == true);
 
-    CIE_TEST_REQUIRE_NOTHROW( cube.at( Cube<dimension,Double>::Point {11.999,21.999} ) );
-    CIE_TEST_CHECK( cube.at( Cube<dimension,Double>::Point {11.999,21.999} ) == true );
+    CIE_TEST_REQUIRE_NOTHROW(cube.at(Cube<dimension,Double>::Point {11.999,21.999}));
+    CIE_TEST_CHECK(cube.at(Cube<dimension,Double>::Point {11.999,21.999}) == true);
 }
 
 
-CIE_TEST_CASE( "boolean::Box", "[primitives]" )
+CIE_TEST_CASE("boolean::Box", "[primitives]")
 {
-    CIE_TEST_CASE_INIT( "boolean::Box" )
+    CIE_TEST_CASE_INIT("boolean::Box")
 
     const Size dimension = 2;
-    Box<dimension,Double> box( DoubleArray<dimension>({10.0,20.0}),
-                               DoubleArray<dimension>({1.0,2.0}) );
+    Box<dimension,Double> box(DoubleArray<dimension>({10.0,20.0}),
+                               DoubleArray<dimension>({1.0,2.0}));
     DoubleArray<dimension> point = {0.0, 0.0};
 
-    CIE_TEST_REQUIRE_NOTHROW( box.at(point) );
-    CIE_TEST_CHECK( box.at(point) == false );
+    CIE_TEST_REQUIRE_NOTHROW(box.at(point));
+    CIE_TEST_CHECK(box.at(point) == false);
 
-    CIE_TEST_REQUIRE_NOTHROW( box.at(box.base()) );
-    CIE_TEST_CHECK( box.at( box.base() ) == true );
+    CIE_TEST_REQUIRE_NOTHROW(box.at(box.base()));
+    CIE_TEST_CHECK(box.at(box.base()) == true);
 
-    CIE_TEST_REQUIRE_NOTHROW( box.at( Cube<dimension,Double>::Point {10.999999,21.99999} ) );
-    CIE_TEST_CHECK( box.at( Cube<dimension,Double>::Point {10.999999,21.99999} ) == true );
+    CIE_TEST_REQUIRE_NOTHROW(box.at(Cube<dimension,Double>::Point {10.999999,21.99999}));
+    CIE_TEST_CHECK(box.at(Cube<dimension,Double>::Point {10.999999,21.99999}) == true);
 }
 
 

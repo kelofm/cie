@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_ARG_PARSE_HPP
-#define CIE_UTILS_ARG_PARSE_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
@@ -366,5 +365,3 @@ std::ostream& operator<<(std::ostream& r_stream, const ArgParse::Results& r_pars
 } // namespace cie::utils
 
 #include "packages/commandline/impl/ArgParse_impl.hpp"
-
-#endif
