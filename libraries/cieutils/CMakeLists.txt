@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
-set(CIE_ENABLE_SYCL                                         ON CACHE BOOL "Build CiE projects with SYCL support.")
+set(CIE_ENABLE_SYCL                                         OFF CACHE BOOL "Build CiE projects with SYCL support.")
 set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
 set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
 set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
@@ -103,6 +103,7 @@ if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUI
 else()
     add_library(${PROJECT_NAME} STATIC ${sources})
 endif()
+add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json)
 
 target_include_directories(${PROJECT_NAME}

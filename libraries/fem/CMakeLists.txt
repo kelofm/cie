@@ -67,6 +67,7 @@ if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUI
 else()
     add_library(${PROJECT_NAME} STATIC ${sources})
 endif()
+add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
                       PUBLIC cie::cieutils cie::linalg cie::geo
