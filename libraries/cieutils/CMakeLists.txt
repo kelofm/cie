@@ -54,6 +54,15 @@ else()
     set(${PROJECT_NAME_UPPER}_COMMIT_HASH "unavailable")
 endif()
 
+# Create a target for the main library.
+if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE})
+    add_library(${PROJECT_NAME} SHARED)
+    set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
+else()
+    add_library(${PROJECT_NAME} STATIC)
+endif()
+add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
 # Generate sources from source templates
 file(GLOB source_templates "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp.in")
 foreach(source_template ${source_templates})
@@ -68,44 +77,43 @@ foreach(source_template ${source_templates})
 endforeach()
 
 # Compile definitions
-if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
-    add_compile_definitions(CIE_ENABLE_PROFILING=1)
+if(CIE_ENABLE_PROFILING)
+    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_PROFILING=1)
 endif()
 
-if(${PROJECT_NAME_UPPER}_ENABLE_OUT_OF_RANGE_CHECKS)
-    add_compile_definitions(CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
+if(CIE_ENABLE_OUT_OF_RANGE_CHECKS)
+    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
 endif()
 
-if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    add_compile_definitions(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
+if(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS)
+    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options(-Wall -Wpedantic -Wextra -Werror)
-
-    # GCC with sanitizers spews out insane amounts of false positive warnings, even within
-    # its own standard library. This is a known issue but GCC devs don't seem to care, so
-    # I have to disable some warnings here.
-    add_compile_options(-Wno-dangling-reference -Wno-maybe-uninitialized)
+# GCC with sanitizers spews out insane amounts of false positive warnings, even within
+# its own standard library. This is a known issue but GCC devs don't seem to care, so
+# I have to disable some warnings here.
+    target_compile_options(${PROJECT_NAME} PUBLIC
+                           -Wall -Wpedantic -Wextra -Werror
+                           -Wno-dangling-reference -Wno-maybe-uninitialized)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(-Wall -Wpedantic -Wextra -Werror)
+    target_compile_options(${PROJECT_NAME} PUBLIC
+                           -Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    add_compile_options(-Wall -Wpedantic -Wextra -Werror)
+    target_compile_options(${PROJECT_NAME} PUBLIC
+                           -Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     message(FATAL_ERROR "MSVC is not supported yet")
 endif ()
 
-# Build main library
-file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE})
-    add_library(${PROJECT_NAME} SHARED ${sources})
-    set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
-else()
-    add_library(${PROJECT_NAME} STATIC ${sources})
-endif()
-add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json)
+# Add sources to the main library.
+file(GLOB_RECURSE sources
+     "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+target_sources(${PROJECT_NAME} PRIVATE ${sources})
 
+
+target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json)
 target_include_directories(${PROJECT_NAME}
                            PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
@@ -114,27 +122,27 @@ target_include_directories(${PROJECT_NAME}
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
-
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       INSTALL_RPATH "$ORIGIN")
 
-# MPI support
-if (${PROJECT_NAME_UPPER}_ENABLE_MPI)
+# MPI support.
+if (CIE_ENABLE_MPI)
     find_package(MPI REQUIRED)
     target_include_directories(${PROJECT_NAME} PRIVATE "${MPI_INCLUDE_PATH}")
     target_compile_definitions(${PROJECT_NAME} PUBLIC "${PROJECT_NAME_UPPER}_COMPILE_MPI")
     target_link_libraries(${PROJECT_NAME} PUBLIC MPI::MPI_CXX)
 endif()
 
-# Build test executable
+# Build test executable.
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
     file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
     list(INSERT test_sources 0 "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
 
     find_package(Catch2 REQUIRED)
-    add_executable(${PROJECT_NAME}_testrunner ${test_sources})
+    add_executable(${PROJECT_NAME}_testrunner)
+    target_sources(${PROJECT_NAME}_testrunner PRIVATE ${test_sources})
     target_link_libraries(${PROJECT_NAME}_testrunner PRIVATE ${PROJECT_NAME} Catch2::Catch2)
     set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES
                           RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
