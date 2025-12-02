@@ -123,7 +123,7 @@ ParallelFor<TIndex,TStorage>::operator()(TIterator itBegin,
                                          Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(DynamicIndexPartitionFactory({0, std::distance(itBegin, itEnd), 1}, _pool.size()),
+    this->execute(DynamicIndexPartitionFactory({0, static_cast<std::size_t>(std::distance(itBegin, itEnd)), 1}, _pool.size()),
                   itBegin,
                   rFunction);
     return *this;

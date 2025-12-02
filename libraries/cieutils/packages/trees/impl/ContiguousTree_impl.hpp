@@ -35,7 +35,7 @@ ContiguousTree<TNode,TIndex,TTag>::erase(TIndex nodeIndex)
     CIE_OUT_OF_RANGE_CHECK(nodeIndex + ContiguousTree::ChildrenPerNode < _nodes.size())
     CIE_DEBUG_CHECK((nodeIndex - 1) % ContiguousTree::ChildrenPerNode == 0, "Attempt to partly erase sibling nodes")
 
-    const auto lock = _mutex.makeScopedLock();
+    [[maybe_unused]] const auto lock = _mutex.makeScopedLock();
     std::stack<TIndex,std::vector<TIndex>> indexStack;
     indexStack.push(nodeIndex);
 
@@ -111,7 +111,7 @@ TIndex ContiguousTree<TNode,TIndex,TTag>::insert(TIterator itNodeBegin)
     static_assert(TNode::ChildrenPerNode < std::numeric_limits<TIndex>::max(),
                   "Children cannot be indexed by the specified index type!");
 
-    const auto lock = _mutex.makeScopedLock();
+    [[maybe_unused]] const auto lock = _mutex.makeScopedLock();
 
     TIndex iBegin;
 
