@@ -6,9 +6,29 @@ projectName="$(basename $scriptDir)"
 projectNameUpper=$(printf '%s\n' "$projectName" | awk '{ print toupper($0) }')
 
 print_help() {
-    echo "$scriptName - Configure, build, and install $projectName"
+    projectNames=""
+    for item in $(ls "$scriptDir/libraries"); do
+        if [ -d "$scriptDir/libraries/$item" ]; then
+            if [ "$projectNames" = "" ]; then
+                projectNames=$item
+            else
+                projectNames="$projectNames, $item"
+            fi
+        fi
+    done
+    for item in $(ls "$scriptDir/executables"); do
+        if [ -d "$scriptDir/executables/$item" ]; then
+            if [ "$projectNames" = "" ]; then
+                projectNames=$item
+            else
+                projectNames="$projectNames, $item"
+            fi
+        fi
+    done
+
+    echo "$scriptName - Configure, build, and install $projectName."
     echo "Usage: $scriptName [OPTION [ARGUMENT]]"
-    echo "-a                : Add project to the list of compiled ones. Options are [cieutils, linalg, geo, fem, ciegl, bad_apple, benchmarks]."
+    echo "-a project-name   : Add a project to the list of compiled ones. Options are [$projectNames]."
     echo "-b build-dir      : Build directory."
     echo "-c compiler-name  : Compiler family [gcc, clang, intel, acpp] (Default: gcc)."
     echo "-h                : Print this help and exit."

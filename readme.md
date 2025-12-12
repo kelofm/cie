@@ -1,6 +1,8 @@
 # Table of Contents
 
 - [Building from Source](#building-from-source)
+    - [CMake](#building-from-source-cmake)
+    - [Shell Script](#building-from-source-shell-script)
     - [SYCL Support](#building-from-source-sycl-support)
         - [Arch](#building-from-source-sycl-support-arch)
     - [Sanitizers](#building-from-source-sanitizers)
@@ -11,6 +13,32 @@
 
 # Building from Source
 
+<a name="building-from-source-cmake"></a>
+
+## CMake
+
+`CiE` consists of several components that include libraries (`/libraries`) and executables (`/executables`). A root `CMake` configuration is available, but each component can be configured separately as well, if necessary.
+
+<a name="building-from-source-shell-script"></a>
+
+## Shell Script
+
+Alternatively, a build script (`/build.sh`) is provided for a bit more convenience.
+```
+$> ./build.sh -h
+
+build.sh - Configure, build, and install cie.
+Usage: build.sh [OPTION [ARGUMENT]]
+-a project-name   : Add a project to the list of compiled ones. Options are [ciegl, cieutils, fem, geo, linalg, bad_apple, benchmarks].
+-b build-dir      : Build directory.
+-c compiler-name  : Compiler family [gcc, clang, intel, acpp] (Default: gcc).
+-h                : Print this help and exit.
+-i install-dir    : Install directory (python site package by default).
+-o [opts]         : Options/arguments to pass on to CMake. Semicolon (;) delimited, or defined repeatedly.
+-p                : Package after building.
+-t build-type     : Build type [Debug, Release, RelWithDebInfo] (default: Release).
+```
+
 <a name="building-from-source-sycl-support"></a>
 
 ## SYCL Support
@@ -18,7 +46,7 @@
 At the moment, `SYCL` features are only supported when compiling with `AdaptiveCpp`, which can be set by passing `-c acpp` to the build script.
 
 ```bash
-build.sh -a cieutils -c acpp
+./build.sh -a cieutils -c acpp
 ```
 
 <a name="building-from-source-sycl-support-arch"></a>
@@ -39,7 +67,7 @@ Building with sanitizers involves manipulating the compiler flags at `CMake` con
 
 Configuration
 ```bash
-build.sh                                    \
+./build.sh                                  \
     -c gcc                                  \
     -a cieutils                             \
     -o -DCMAKE_CXX_FLAGS=-fsanitize=address \
@@ -59,7 +87,7 @@ export LD_PRELOAD=$(gcc -print-file-name=libasan.so)
 
 Configuration
 ```bash
-build.sh                                    \
+./build.sh                                  \
     -c gcc                                  \
     -a cieutils                             \
     -o -DCMAKE_CXX_FLAGS=-fsanitize=address \
