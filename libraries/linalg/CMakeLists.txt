@@ -20,7 +20,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
 find_package(cieutils CONFIG REQUIRED)
-find_package(Eigen3 REQUIRED)
+find_package(Eigen3 REQUIRED NO_MODULE)
 
 # Compile definitions
 if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
@@ -55,15 +55,13 @@ else()
 endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC cie::cieutils)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+                      cie::cieutils
+                      Eigen3::Eigen)
 target_include_directories(${PROJECT_NAME}
                            PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                            INTERFACE "$<INSTALL_INTERFACE:cie/include>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
-target_include_directories(${PROJECT_NAME}
-                           SYSTEM PUBLIC
-                           "${EIGEN3_INCLUDE_DIR}"
-                           "${EIGEN3_INCLUDE_DIR}/unsupported")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
