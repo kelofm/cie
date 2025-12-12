@@ -5,6 +5,7 @@
 !CMakeLists.txt
 !license
 !readme
+!readme.md
 
 !.clangd
 !.vscode
