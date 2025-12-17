@@ -20,7 +20,7 @@ AbsTree<TSelf,TContainer,TStored,TArgs...>::AbsTree(Size level) noexcept
 
 template <class TSelf, template <class ...> class TContainer, class TStored, class ...TArgs>
 AbsTree<TSelf,TContainer,TStored,TArgs...>::AbsTree() noexcept
-    : _level(SIZE_MAX)
+    : _level(std::numeric_limits<std::uint16_t>::max())
 {
 }
 
