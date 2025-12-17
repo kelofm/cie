@@ -22,7 +22,7 @@ void ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstSpan in, Spa
     homogenizedInput.back() = static_cast<TValue>(1);
 
     // Compute the denominator shared by all entries in the output matrix.
-    const auto lastRow = _projectionMatrix.wrapped()(Dimension, Eigen::all);
+    const auto lastRow = _projectionMatrix.wrapped()(Dimension, Eigen::placeholders::all);
     const TValue lastRowProduct = std::inner_product(homogenizedInput.begin(),
                                                      homogenizedInput.end(),
                                                      lastRow.begin(),
@@ -34,7 +34,7 @@ void ProjectiveTransformDerivative<TValue,Dimension>::evaluate(ConstSpan in, Spa
 
     auto itOut = out.data();
     for (unsigned iRow=0u; iRow<Dimension; ++iRow) {
-        const auto row = _projectionMatrix.wrapped()(iRow, Eigen::all);
+        const auto row = _projectionMatrix.wrapped()(iRow, Eigen::placeholders::all);
         const TValue rowProduct = std::inner_product(
             homogenizedInput.begin(),
             homogenizedInput.end(),
