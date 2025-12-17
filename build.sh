@@ -96,6 +96,12 @@ while getopts ":a: h p t: b: c: i: o:" arg; do
                 fi
                 export cc="$(which icx)"
                 export cxx="$(which icpx)"
+                if [ "$cmakeCxxFlags" = "" ]; then
+                    cmakeCxxFlags="-fsycl"
+                else
+                    cmakeCxxFlags="${cmakeCxxFlags} -fsycl "
+                fi
+                enableSYCL="ON"
             elif [ "$compilerFamily" = "acpp" ]; then
                 export cc="$(which acpp)"
                 export cxx="$(which acpp)"
