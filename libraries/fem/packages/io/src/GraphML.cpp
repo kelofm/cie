@@ -122,15 +122,25 @@ struct GraphML::SAXHandler::Impl
     std::stack<State> _stateStack;
 
     template <class TChar>
-    requires (std::is_same_v<TChar,char> || std::is_same_v<TChar,unsigned char>)
-    static std::basic_string_view<TChar> makeView(const TChar* pBegin) noexcept
+    requires (std::is_same_v<std::remove_cv_t<TChar>,char> || std::is_same_v<std::remove_cv_t<TChar>,unsigned char>)
+    static auto makeView(TChar* pBegin) noexcept
     {
+        struct CharView {
+            Ptr<TChar> _begin, _end;
+            constexpr Ptr<TChar> begin() const noexcept {
+                return _begin;}
+            constexpr Ptr<TChar> end() const noexcept {
+                return _end;}
+            constexpr std::size_t size() const noexcept {
+                return static_cast<std::size_t>(std::distance(begin(), end()));}
+        };
+
         if (pBegin) {
             const TChar* pEnd = pBegin;
             while (*pEnd != '\0') {++pEnd;}
-            return {pBegin, pEnd};
+            return CharView {._begin = pBegin, ._end = pEnd};
         } else {
-            return {};
+            return CharView {._begin = nullptr, ._end = nullptr};
         }
     }
 

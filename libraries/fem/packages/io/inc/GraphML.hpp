@@ -19,7 +19,7 @@ namespace cie::fem::io {
 class GraphML
 {
 public:
-    using XMLStringView = std::basic_string_view<unsigned char>;
+    using XMLStringView = std::span<const unsigned char>;
 
     using AttributePair = std::pair<std::string_view,std::string_view>;
 
