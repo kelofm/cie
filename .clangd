@@ -1,6 +1,5 @@
 If:
     PathMatch: libraries/cieutils/.*
-
 CompileFlags:
     CompilationDatabase: libraries/cieutils/build
     Add: [-std=c++20]
@@ -9,7 +8,6 @@ CompileFlags:
 
 If:
     PathMatch: libraries/linalg/.*
-
 CompileFlags:
     CompilationDatabase: libraries/linalg/build
     Add: [-std=c++20]
@@ -18,7 +16,6 @@ CompileFlags:
 
 If:
     PathMatch: libraries/geo/.*
-
 CompileFlags:
     CompilationDatabase: libraries/geo/build
     Add: [-std=c++20]
@@ -27,7 +24,6 @@ CompileFlags:
 
 If:
     PathMatch: libraries/fem/.*
-
 CompileFlags:
     CompilationDatabase: libraries/fem/build
     Add: [-std=c++20]
@@ -36,7 +32,6 @@ CompileFlags:
 
 If:
     PathMatch: ibraries/ciegl/.*
-
 CompileFlags:
     CompilationDatabase: libraries/ciegl/build
     Add: [-std=c++20]
