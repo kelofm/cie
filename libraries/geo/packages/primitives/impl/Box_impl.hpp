@@ -39,7 +39,7 @@ constexpr Box<Dimension,TCoordinate>::Box(Ref<const StaticArray<TCoordinate,Dime
 
 
 template <unsigned Dimension, concepts::Numeric TCoordinate>
-StaticArray<TCoordinate,Dimension>
+Ref<const StaticArray<TCoordinate,Dimension>>
 constexpr Box<Dimension,TCoordinate>::base() const noexcept {
     return _base;
 }
@@ -53,7 +53,7 @@ constexpr Box<Dimension,TCoordinate>::base() noexcept {
 
 
 template <unsigned Dimension, concepts::Numeric TCoordinate>
-StaticArray<TCoordinate,Dimension>
+Ref<const StaticArray<TCoordinate,Dimension>>
 constexpr Box<Dimension,TCoordinate>::lengths() const noexcept {
     return _lengths;
 }
@@ -63,20 +63,6 @@ template <unsigned Dimension, concepts::Numeric TCoordinate>
 std::span<TCoordinate,Dimension>
 constexpr Box<Dimension,TCoordinate>::lengths() noexcept {
     return std::span<TCoordinate,Dimension>(_lengths.data(), Dimension);
-}
-
-
-template <unsigned Dimension, concepts::Numeric TCoordinate>
-StaticArray<TCoordinate,Dimension>
-constexpr Box<Dimension,TCoordinate>::opposite() const noexcept {
-    StaticArray<TCoordinate,Dimension> out;
-    std::transform(
-        _base.begin(),
-        _base.end(),
-        _lengths.begin(),
-        out.begin(),
-        std::plus<TCoordinate>());
-    return out;
 }
 
 

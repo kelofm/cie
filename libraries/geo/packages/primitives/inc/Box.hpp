@@ -30,15 +30,13 @@ public:
     constexpr Box(Ref<const StaticArray<TCoordinate,Dimension>> rBase,
                   Ref<const StaticArray<TCoordinate,Dimension>> rLengths) noexcept;
 
-    constexpr StaticArray<TCoordinate,Dimension> base() const noexcept;
+    constexpr Ref<const StaticArray<TCoordinate,Dimension>> base() const noexcept;
 
     constexpr std::span<TCoordinate,Dimension> base() noexcept;
 
-    constexpr StaticArray<TCoordinate,Dimension> lengths() const noexcept;
+    constexpr Ref<const StaticArray<TCoordinate,Dimension>> lengths() const noexcept;
 
     constexpr std::span<TCoordinate,Dimension> lengths() noexcept;
-
-    constexpr StaticArray<TCoordinate,Dimension> opposite() const noexcept;
 
     constexpr bool at(Ref<const std::span<const TCoordinate,Dimension>> rPoint) const noexcept;
 
