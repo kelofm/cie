@@ -157,24 +157,21 @@ CIE_TEST_CASE("FlatAABBoxNode", "[partitioning]")
                 (double(j) + 0.5) / cellsPerDirection
             };
 
-            CIE_TEST_CHECK_NOTHROW(flatTree.find(
+            CIE_TEST_CHECK_NOTHROW(flatTree.makeView().find(
                 std::span<const TCoordinate,Dimension>(center.data(), Dimension),
                 std::span<const Object> {objects.data(), objects.size()}
             ));
 
-            const auto pMaybeObject = flatTree.find(
+            const std::size_t iMaybeObject = flatTree.makeView().find(
                 std::span<const TCoordinate,Dimension>(center.data(), Dimension),
                 std::span<const Object> {objects.data(), objects.size()}
             );
 
             if (i > j) {
-                CIE_TEST_CHECK(pMaybeObject.has_value());
-                if (pMaybeObject.has_value()) {
-                    const std::size_t iObject = pMaybeObject.value();
-                    CIE_TEST_CHECK(iObject == i * cellsPerDirection + j);
-                }
+                CIE_TEST_REQUIRE(iMaybeObject != objects.size());
+                CIE_TEST_CHECK(iMaybeObject == i * cellsPerDirection + j);
             } else {
-                CIE_TEST_CHECK(!pMaybeObject.has_value());
+                CIE_TEST_CHECK(iMaybeObject == objects.size());
             }
         }
     }
@@ -261,13 +258,14 @@ CIE_TEST_CASE("AABBoxNode SYCL", "[partitioning,sycl]")
     constexpr std::size_t samplesPerDirection = 1e3;
 
     // SYCL setup.
-    sycl::default_selector deviceSelector;
-    sycl::queue queue(deviceSelector);
+    CIE_TEST_REQUIRE_NOTHROW(sycl::device(sycl::default_selector_v));
+    sycl::device device(sycl::default_selector_v);
+    sycl::queue queue(device);
 
     // Construct SYCL allocators.
     sycl::usm_allocator<Object::Point,sycl::usm::alloc::shared> pointAllocator(queue);
     sycl::usm_allocator<Object,sycl::usm::alloc::shared> objectAllocator(queue);
-    sycl::usm_allocator<std::optional<unsigned>,sycl::usm::alloc::shared> unsignedAllocator(queue);
+    sycl::usm_allocator<std::size_t,sycl::usm::alloc::shared> unsignedAllocator(queue);
 
     // Generate objects
     Ptr<Object> pObjectBegin = objectAllocator.allocate(cellsPerDirection * cellsPerDirection);
@@ -294,7 +292,6 @@ CIE_TEST_CASE("AABBoxNode SYCL", "[partitioning,sycl]")
         nullptr);
 
     for (unsigned iObject=0u; iObject<cellsPerDirection*cellsPerDirection; ++iObject) {
-        std::cout << "insert " << iObject << std::endl;
         CIE_TEST_REQUIRE_NOTHROW(root.insert(pObjectBegin + iObject));
     }
 
@@ -320,21 +317,21 @@ CIE_TEST_CASE("AABBoxNode SYCL", "[partitioning,sycl]")
 
     // Construct sample points.
     Ptr<Object::Point> pSampleBegin = pointAllocator.allocate(samplesPerDirection * samplesPerDirection);
-    queue.parallel_for(sycl::range(samplesPerDirection, samplesPerDirection), [] (sycl::id<2> ) {
-//        Ref<Object::Point> rPoint = pSampleBegin[index.get(0) * samplesPerDirection + index.get(1)];
-//        rPoint[0] = (double(index.get(0)) + 0.5) / samplesPerDirection;
-//        rPoint[1] = (double(index.get(1)) + 0.5) / samplesPerDirection;
+    queue.parallel_for(sycl::range(samplesPerDirection, samplesPerDirection), [pSampleBegin] (sycl::id<2> index) {
+        Ref<Object::Point> rPoint = pSampleBegin[index.get(0) * samplesPerDirection + index.get(1)];
+        rPoint[0] = (double(index.get(0)) + 0.5) / samplesPerDirection;
+        rPoint[1] = (double(index.get(1)) + 0.5) / samplesPerDirection;
     }).wait();
 
     // Find which box each sample point is located in.
-    Ptr<std::optional<unsigned>> pMaybeObjectIndexBegin = unsignedAllocator.allocate(samplesPerDirection * samplesPerDirection);
-//    queue.parallel_for(
-//        sycl::range(samplesPerDirection * samplesPerDirection),
-//        [pMaybeObjectIndexBegin, pSampleBegin, pObjectBegin, &flatTree] (sycl::id<1> index) {
-//            pMaybeObjectIndexBegin[index.get(0)] = flatTree.find(
-//                std::span<const TCoordinate,Dimension>(pSampleBegin[index.get(0)].data(), Dimension),
-//                std::span<const Object>(pObjectBegin, cellsPerDirection * cellsPerDirection));
-//    }).wait();
+    Ptr<std::size_t> pMaybeObjectIndexBegin = unsignedAllocator.allocate(samplesPerDirection * samplesPerDirection);
+    queue.parallel_for(
+        sycl::range(samplesPerDirection * samplesPerDirection),
+        [pMaybeObjectIndexBegin, pSampleBegin, pObjectBegin, treeView = flatTree.makeView()] (sycl::id<1> index) {
+            pMaybeObjectIndexBegin[index.get(0)] = treeView.find(
+                std::span<const TCoordinate,Dimension>(pSampleBegin[index.get(0)].data(), Dimension),
+                std::span<const Object>(pObjectBegin, cellsPerDirection * cellsPerDirection));
+    }).wait();
 
     // Deallocate shared and device memory.
     unsignedAllocator.deallocate(pMaybeObjectIndexBegin, samplesPerDirection * samplesPerDirection);

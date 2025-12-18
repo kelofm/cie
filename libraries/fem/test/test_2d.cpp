@@ -765,7 +765,7 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
 [[nodiscard]] DynamicArray<StaticArray<Scalar,2*Dimension+1>>
 imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const Assembler> rAssembler,
-                         Ref<BVH> rBVH,
+                         BVH::View bvh,
                          std::span<const CellData> contiguousCellData,
                          std::span<const int> rowExtents,
                          std::span<const int> columnIndices,
@@ -795,7 +795,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         Tree tree(Tree::Point {-1.0}, 2.0);
 
         // Define a functor detecting cell boundaries.
-        const auto boundaryVisitor = [&rBVH, &tree, &rBoundaryCell,
+        const auto boundaryVisitor = [bvh, &tree, &rBoundaryCell,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                       &rowExtents, &columnIndices, &entries, &rAssembler,
                                       &rhs, &dirichletBoundary, &boundaryLength,
@@ -820,22 +820,22 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
 
             // Check whether the two endpoints are in different cells.
-            const auto iMaybeBaseCell = rBVH.find(
+            const auto iMaybeBaseCell = bvh.find(
                 std::span<const Scalar,Dimension>(globalBase.data(), Dimension),
                 contiguousCellData
             );
-            const auto iMaybeOppositeCell = rBVH.find(
+            const auto iMaybeOppositeCell = bvh.find(
                 std::span<const Scalar,Dimension>(globalOpposite.data(), Dimension),
                 contiguousCellData
             );
 
             // Integrate if both endpoints lie in the same cell.
-            if (iMaybeBaseCell.has_value() && iMaybeOppositeCell.has_value() && *iMaybeBaseCell == *iMaybeOppositeCell) {
+            if (iMaybeBaseCell != contiguousCellData.size() && iMaybeOppositeCell != contiguousCellData.size() && iMaybeBaseCell == iMaybeOppositeCell) {
                 const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
                                            + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
 
                 if (minBoundarySegmentNorm < segmentNorm) {
-                    Ref<const CellData> rCell = contiguousCellData[*iMaybeBaseCell];
+                    Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
                     const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
@@ -883,7 +883,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                 }
             } // if both endpoints lie in the same cell
 
-            return *iMaybeBaseCell != *iMaybeOppositeCell && (*iMaybeBaseCell || *iMaybeOppositeCell);
+            return iMaybeBaseCell != iMaybeOppositeCell &&
+                   (iMaybeBaseCell != contiguousCellData.size() || iMaybeOppositeCell != contiguousCellData.size());
         }; // boundaryVisitor
 
         // Construct a binary tree that detects intersections between
@@ -992,6 +993,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
     // - the cell data to be available in a contiguous array
     // - the cell data to be self contained (no pointers and heap storage)
     auto bvh = makeBoundingVolumeHierarchy(mesh);
+    const auto bvhView = bvh.makeView();
     DynamicArray<CellData> contiguousCellData(mesh.vertices().size());
     std::ranges::transform(
         mesh.vertices(),
@@ -1002,7 +1004,7 @@ CIE_TEST_CASE("2D", "[systemTests]")
     const auto boundarySegments = imposeBoundaryConditions(
         mesh,
         assembler,
-        bvh,
+        bvhView,
         contiguousCellData,
         rowExtents,
         columnIndices,
@@ -1116,9 +1118,9 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
             mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>(), mesh.data().ansatzSpaces)(
                 intPow(postprocessResolution, 2),
-                [&samples, &solution, &assembler, &bvh, &contiguousCellData](const unsigned iSample,
-                                                                             Ref<DynamicArray<Scalar>> rAnsatzBuffer,
-                                                                             Ref<const DynamicArray<Ansatz>> rAnsatzSpaces) -> void {
+                [&samples, &solution, &assembler, bvhView, &contiguousCellData](const unsigned iSample,
+                                                                                Ref<DynamicArray<Scalar>> rAnsatzBuffer,
+                                                                                Ref<const DynamicArray<Ansatz>> rAnsatzSpaces) -> void {
                     const unsigned iSampleY = iSample / postprocessResolution;
                     const unsigned iSampleX = iSample % postprocessResolution;
                     auto& rSample = samples[iSample];
@@ -1126,13 +1128,13 @@ CIE_TEST_CASE("2D", "[systemTests]")
                                         epsilon + iSampleY * postprocessDelta};
 
                     // Find which cell the global point lies in.
-                    const auto iMaybeCellData = bvh.find(
+                    const auto iMaybeCellData = bvhView.find(
                         std::span<const Scalar,Dimension>(rSample.position.data(), Dimension),
                         std::span<const CellData>(contiguousCellData)
                     );
 
-                    if (iMaybeCellData.has_value()) {
-                        Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData.value()];
+                    if (iMaybeCellData != contiguousCellData.size()) {
+                        Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
                         rSample.cellID = rCellData.id;
 
                         // Compute sample point in the cell's local space.

@@ -783,7 +783,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 template <concepts::SamplableGeometry TObject>
-std::optional<std::size_t>
+std::size_t
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::find(Ref<const typename Geometry::Point> rPoint,
                                                                                     Ref<const std::span<const TObject>> rObjects) const noexcept
 {
@@ -808,7 +808,19 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::f
         if (inObject) return iObject;
     } // for iObject in this->intersected()
 
-    return {};
+    return rObjects.size();
+}
+
+
+template <concepts::Numeric TCoordinate,
+          unsigned Dimension,
+          concepts::UnsignedInteger TObjectIndex,
+          concepts::Allocator<std::byte> TAllocator>
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::FlatAABBoxTree(FlatAABBoxTree&& rRhs) noexcept
+    : _data(std::move(rRhs._data)),
+      _allocator(std::move(rRhs._allocator))
+{
+    rRhs._data = std::span<std::byte>(static_cast<Ptr<std::byte>>(nullptr), 0);
 }
 
 
@@ -817,7 +829,7 @@ template <concepts::Numeric TCoordinate,
           concepts::UnsignedInteger TObjectIndex,
           concepts::Allocator<std::byte> TAllocator>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::FlatAABBoxTree(TAllocator&& rAllocator) noexcept
-    : _data(),
+    : _data(static_cast<Ptr<std::byte>>(nullptr), 0),
       _allocator(std::move(rAllocator))
 {
 }
@@ -829,41 +841,8 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::~FlatAABBoxTree()
 {
-    _allocator.deallocate(_data.data(), _data.size());
-}
-
-
-template <concepts::Numeric TCoordinate,
-          unsigned Dimension,
-          concepts::UnsignedInteger TObjectIndex,
-          concepts::Allocator<std::byte> TAllocator>
-std::optional<typename FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::template Node</*TMutable=*/false>>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::root() const noexcept
-{
-    if (!_data.empty()) {
-        return {typename FlatAABBoxTree::template Node<false>(
-            _data.data()
-        )};
-    } else {
-        return {};
-    }
-}
-
-
-template <concepts::Numeric TCoordinate,
-          unsigned Dimension,
-          concepts::UnsignedInteger TObjectIndex,
-          concepts::Allocator<std::byte> TAllocator>
-std::optional<typename FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::template Node</*TMutable=*/true>>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::root() noexcept
-{
-    if (!_data.empty()) {
-        return {typename FlatAABBoxTree::template Node<true>(
-            _data.data()
-        )};
-    } else {
-        return {};
-    }
+    if (_data.data() && !_data.empty())
+        _allocator.deallocate(_data.data(), _data.size());
 }
 
 
@@ -872,14 +851,16 @@ template <concepts::Numeric TCoordinate,
           concepts::UnsignedInteger TObjectIndex,
           concepts::Allocator<std::byte> TAllocator>
 template <concepts::SamplableGeometry TObject>
-std::optional<std::size_t>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::find(Ref<const std::span<const TCoordinate,Dimension>> rPoint,
-                                                                    Ref<const std::span<const TObject>> rObjects) const noexcept
+std::size_t
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::View::find(Ref<const std::span<const TCoordinate,Dimension>> rPoint,
+                                                                          Ref<const std::span<const TObject>> rObjects) const noexcept
 {
-    auto maybeRoot = this->root();
-    if (!maybeRoot.has_value()) {
+    Ptr<const std::byte> pMaybeRoot = _data.data();
+    if (pMaybeRoot == nullptr) {
         return {};
     } else {
+        typename FlatAABBoxTree::Node</*TMutable=*/false> root(pMaybeRoot);
+
         // Copy point data to a type the objects expect.
         using Geometry = typename FlatAABBoxTree::template Node<false>::Geometry;
         typename Geometry::Point point;
@@ -887,13 +868,13 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::find(Ref<const st
         const auto pDataEnd = _data.data() + _data.size();
 
         // Avoid recursion. Search at most TMaxLevels levels.
-        std::optional<std::size_t> output;
-        std::optional<typename FlatAABBoxTree::template Node<false>> maybeNode = maybeRoot;
+        std::size_t output = rObjects.size();
+        Ptr<const std::byte> pMaybeNode = pMaybeRoot;
 
         // Search the tree depth-first in a stack-unrolled recursive manner.
         do {
-            const auto node = maybeNode.value();
-            maybeNode.reset();
+            const typename FlatAABBoxTree::Node</*TMutable=*/false> node(pMaybeNode);
+            pMaybeNode = nullptr;
 
             // Check whether the point lies within the node.
             const auto base = node.base();
@@ -906,10 +887,10 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::find(Ref<const st
                 // The point lies within the current node.
                 // => search it.
                 output = node.find(point, rObjects);
-                if (output.has_value()) {
+                if (output != rObjects.size()) {
                     // The point was found in one of the objects.
                     break;
-                } /*if output.has_value()*/ else {
+                } /*if output != rObjects.size()*/ else {
                     // The point was not found in any of the objects.
                     // Search the child if this node has one, otherwise
                     // no object contains the provided point.
@@ -917,20 +898,20 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::find(Ref<const st
                     if (next._data < pDataEnd) {
                         const auto iSibling = node.iSibling();
                         if (iSibling == 0ul || _data.data() + iSibling != next._data) {
-                            maybeNode.emplace(next._data);
+                            pMaybeNode = next._data;
                         } // is this node has a child
                     } // if next exists
-                }/*if output.has_value() else*/
+                }/*if output != rObjects.size() else*/
             } /*if inNode*/ else {
                 // The point does not lie within the current node.
                 // => search the sibling (if this node has one)
                 const std::size_t iSibling = node.iSibling();
                 if (iSibling != 0ul) {
                     const auto pSibling = _data.data() + iSibling;
-                    maybeNode.emplace(pSibling);
+                    pMaybeNode = pSibling;
                 }
             } /*if inNode else*/
-        } while (maybeNode.has_value());
+        } while (pMaybeNode != nullptr);
 
         return output;
     }
@@ -965,12 +946,6 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::flatten(Ref<const
     if (byteCount) {
         // Allocate memory for the tree.
         flatTree._data = {flatTree._allocator.allocate(byteCount), byteCount};
-        if (!flatTree._data.data()) {
-            CIE_THROW(
-                MemoryException,
-                "Failed to allocate " << byteCount << " bytes while flattening a BVH."
-            )
-        }
 
         // Fill the flat tree.
         using NodeLevelPair = std::pair<
@@ -978,7 +953,7 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::flatten(Ref<const
             unsigned                                // <== level of the previous node
         >;
         std::stack<NodeLevelPair> trace;
-        typename FlatAABBoxTree::Node<true> current = flatTree.root().value();
+        typename FlatAABBoxTree::Node<true> current(flatTree._data.data());
 
         rRoot.visit([&trace, &current, &flatTree, &rHasher] (Ptr<const AABBoxNode<TObject>> pNode) -> bool {
             const unsigned currentLevel = pNode->level();
