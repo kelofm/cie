@@ -73,9 +73,10 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
     StaticArray<unsigned,Dimension-1> argumentState;
     DynamicArray<Value> valueBuffer(ansatzSize);
 
-    std::fill(argumentState.begin(),
-              argumentState.end(),
-              static_cast<unsigned>(0));
+    std::fill_n(
+        argumentState.data(),
+        Dimension - 1,
+        0u);
 
     constexpr unsigned maxBoundaries = 2 * Dimension;
     BoundaryID boundaryID;
@@ -200,7 +201,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 
                 // N-d index of the sample point.
                 StaticArray<Size,Dimension-1> argumentState;
-                std::fill(argumentState.begin(), argumentState.end(), 0ul);
+                std::fill_n(argumentState.data(), Dimension - 1, 0ul);
 
                 // Loop through the sample points as one-hot outer product of the
                 // provided sample coordinates. Coordinates of the boundary axis are

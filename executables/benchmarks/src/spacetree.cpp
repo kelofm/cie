@@ -107,7 +107,7 @@ void contiguousTree(benchmark::State& r_state)
 
             // Loop over sample points
             std::array<std::size_t,Dimension> state;
-            std::fill(state.begin(), state.end(), 0ul);
+            std::fill_n(state.data(), Dimension, 0ul);
             unsigned char result = 0b1; // first bit indicates whether the result is uninitialized,
                                         // second bit indicates whether the sample is inside the target
                                         // third bit indicates whether the cell is split
@@ -123,7 +123,7 @@ void contiguousTree(benchmark::State& r_state)
                     result = 0b100;
                     break;
                 }
-            } while (cie::fem::maths::OuterProduct<Dimension>::next(CELL_RESOLUTION, state.data()));
+            } while (cie::maths::OuterProduct<Dimension>::next(CELL_RESOLUTION, state.data()));
 
             // Add contribution if the cell is fully inside
             if (result & 0b100) {

@@ -35,9 +35,10 @@ Quadrature<TValue,Dimension>::Quadrature(Ref<const typename QuadratureBase<TValu
 
         // Create an index buffer for constructing the outer product
         StaticArray<unsigned,Dimension> indexBuffer;
-        std::fill(indexBuffer.begin(),
-                  indexBuffer.end(),
-                  0);
+        std::fill_n(
+            indexBuffer.data(),
+            Dimension,
+            0u);
 
         // Construct the outer product
         auto it_item = this->_nodesAndWeights.begin();

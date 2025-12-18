@@ -33,19 +33,17 @@ Cell<TPrimitive>::split_internal(const typename Cell<TPrimitive>::Point&)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    constexpr const Size numberOfChildren = intPow(Size(2),Cell<TPrimitive>::Dimension);
+    constexpr Size numberOfChildren = intPow(Size(2),Cell<TPrimitive>::Dimension);
     typename Cell<TPrimitive>::primitive_constructor_container constructorArgumentsContainer;
     utils::reserve(constructorArgumentsContainer, numberOfChildren);
     typename Cell<TPrimitive>::Point tempBase;
 
-    for (Size childIndex=0; childIndex < numberOfChildren; ++childIndex)
-    {
-        for (Size dim=0; dim<Cell<TPrimitive>::Dimension; ++dim)
-        {
-            if (_childIndexConverter.convert(childIndex)[dim] == 0)
-                tempBase[dim]   = this->base()[dim];
+    for (Size iChild=0; iChild < numberOfChildren; ++iChild) {
+        for (Size iDimension=0; iDimension<Cell<TPrimitive>::Dimension; ++iDimension) {
+            if (_childIndexConverter.convert(iChild)[iDimension] == 0)
+                tempBase[iDimension]   = this->base()[iDimension];
             else
-                tempBase[dim]   = this->base()[dim] + this->_length/2.0;
+                tempBase[iDimension]   = this->base()[iDimension] + this->_length/2.0;
         }
 
         constructorArgumentsContainer.emplace_back(tempBase, this->_length/2.0);
@@ -96,28 +94,24 @@ Cell<TPrimitive>::split_internal(const typename Cell<TPrimitive>::Point& point)
 {
     typename Cell<TPrimitive>::primitive_constructor_container constructorArgumentsContainer;
 
-    CIE_BEGIN_EXCEPTION_TRACING
-
     constexpr const Size numberOfChildren = intPow(Size(2),Cell<TPrimitive>::Dimension);
     utils::reserve(constructorArgumentsContainer, numberOfChildren);
 
     typename Cell<TPrimitive>::Point tempBase, tempLengths;
 
-    for (Size childIndex=0; childIndex < numberOfChildren; ++childIndex) {
-        for (Size dim=0; dim<Cell<TPrimitive>::Dimension; ++dim) {
-            if (_childIndexConverter.convert(childIndex)[dim] == 0) {
-                tempLengths[dim]  = point[dim] - this->base()[dim];
-                tempBase[dim]     = this->base()[dim];
+    for (Size iChild=0; iChild < numberOfChildren; ++iChild) {
+        for (Size iDimension=0; iDimension<Cell<TPrimitive>::Dimension; ++iDimension) {
+            if (_childIndexConverter.convert(iChild)[iDimension] == 0) {
+                tempLengths[iDimension]  = point[iDimension] - this->base()[iDimension];
+                tempBase[iDimension]     = this->base()[iDimension];
             } else {
-                tempLengths[dim]  = (this->base()[dim] + this->lengths()[dim]) - point[dim];
-                tempBase[dim]     = point[dim];
+                tempLengths[iDimension]  = (this->base()[iDimension] + this->lengths()[iDimension]) - point[iDimension];
+                tempBase[iDimension]     = point[iDimension];
             }
         }
 
         constructorArgumentsContainer.emplace_back(tempBase, tempLengths);
     }
-
-    CIE_END_EXCEPTION_TRACING
 
     return constructorArgumentsContainer;
 }
