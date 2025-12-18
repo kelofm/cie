@@ -35,6 +35,7 @@ Bool AABBox<Dimension,TCoordinate>::intersects(const stack::Box<Dimension,TCoord
 
     // At least one point outside and one inside
     StaticArray<std::uint8_t,Dimension> samplePointState;
+    std::fill_n(samplePointState.data(), Dimension, static_cast<std::uint8_t>(0));
     do {
         typename AABBox::Point corner;
         for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
