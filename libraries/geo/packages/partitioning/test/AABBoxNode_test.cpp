@@ -20,12 +20,14 @@ class TestAABBoxNodeObjectType final
       public AABBox<2,Double>
 {
 public:
-    TestAABBoxNodeObjectType(const typename TestAABBoxNodeObjectType::Point& rBase,
-                             const typename TestAABBoxNodeObjectType::Point& rLengths)
+    using AABBox<2,Double>::Point;
+
+    TestAABBoxNodeObjectType(Ref<const Point> rBase,
+                             Ref<const Point> rLengths)
         : BoxBoundable<2,Double>(),
           AABBox<2,Double>(rBase, rLengths) {}
 private:
-    void computeBoundingBoxImpl(typename TestAABBoxNodeObjectType::BoundingBox& rBox) noexcept override
+    void computeBoundingBoxImpl(TestAABBoxNodeObjectType::BoundingBox& rBox) noexcept override
     {rBox = *this;}
 };
 
@@ -332,6 +334,33 @@ CIE_TEST_CASE("AABBoxNode SYCL", "[partitioning,sycl]")
                 std::span<const TCoordinate,Dimension>(pSampleBegin[index.get(0)].data(), Dimension),
                 std::span<const Object>(pObjectBegin, cellsPerDirection * cellsPerDirection));
     }).wait();
+
+    // Check results.
+    for (unsigned i=0; i<cellsPerDirection; ++i) {
+        for (unsigned j=0; j<cellsPerDirection; ++j) {
+            const Object::Point center {
+                (double(i) + 0.5) / cellsPerDirection,
+                (double(j) + 0.5) / cellsPerDirection
+            };
+
+            CIE_TEST_CHECK_NOTHROW(flatTree.makeView().find(
+                std::span<const TCoordinate,Dimension>(center.data(), Dimension),
+                std::span<const Object> {pObjectBegin, cellsPerDirection * cellsPerDirection}
+            ));
+
+            const std::size_t iMaybeObject = flatTree.makeView().find(
+                std::span<const TCoordinate,Dimension>(center.data(), Dimension),
+                std::span<const Object> {pObjectBegin, cellsPerDirection * cellsPerDirection}
+            );
+
+            if (i > j) {
+                CIE_TEST_REQUIRE(iMaybeObject != cellsPerDirection * cellsPerDirection);
+                CIE_TEST_CHECK(iMaybeObject == i * cellsPerDirection + j);
+            } else {
+                CIE_TEST_CHECK(iMaybeObject == cellsPerDirection * cellsPerDirection);
+            }
+        }
+    }
 
     // Deallocate shared and device memory.
     unsignedAllocator.deallocate(pMaybeObjectIndexBegin, samplesPerDirection * samplesPerDirection);
