@@ -14,10 +14,10 @@ namespace cie {
 
 
 template <class T>
-void addBindings(Ref<pybind11::module_> r_module);
+void addBindings(Ref<pybind11::module_> rModule);
 
 
-void addCMakeVariables(Ref<pybind11::module_> r_module);
+void addCMakeVariables(Ref<pybind11::module_> rModule);
 
 
 } // namespace cie
