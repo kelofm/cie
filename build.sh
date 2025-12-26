@@ -33,6 +33,7 @@ print_help() {
     echo "-c compiler-name  : Compiler family [gcc, clang, intel, acpp] (Default: gcc)."
     echo "-h                : Print this help and exit."
     echo "-i install-dir    : Install directory (python site package by default)."
+    echo "-j job-count      : Number of jobs to launch the compilation with (default is the number of physical cores)."
     echo "-o [opts]         : Options/arguments to pass on to CMake. Semicolon (;) delimited, or defined repeatedly."
     echo "-p                : Package after building."
     echo "-t build-type     : Build type [Debug, Release, RelWithDebInfo] (default: Release)."
@@ -60,8 +61,9 @@ projects=()                             # <== list of projects to build
 cmakeArguments=""                       # <== semicolon-separated list of options to pass to CMake
 cmakeCxxFlags=""                        # <== value to set for CMAKE_CXX_FLAGS
 enableSYCL="OFF"                        # <== set to true if the requested compiler is acpp
+jobCount=""                             # <== number of processes to launch the compilation with
 
-while getopts ":a: h p t: b: c: i: o:" arg; do
+while getopts ":a: h p t: b: c: i: j: o:" arg; do
     case "$arg" in
         a)  # Add a project to the list of compiled ones.
             [[ "$OPTARG" = "cieutils" || "$OPTARG" = "linalg" || "$OPTARG" = "geo" || "$OPTARG" = "fem" || "$OPTARG" = "ciegl" || "$OPTARG" = "bad_apple" || "$OPTARG" = "benchmarks" ]] || (print_help && echo "Invalid project name: '$buildType'" && exit 1)
@@ -114,11 +116,18 @@ while getopts ":a: h p t: b: c: i: o:" arg; do
         i)  # Set install directory.
             installDir="$OPTARG"
             ;;
+        j)  # Set the number of compiler instances.
+            jobCount="$OPTARG"
+            ;;
         o)  # Append CMake arguments.
             if [[ "$OPTARG" == -DCMAKE_CXX_FLAGS* ]]; then
                 cmakeCxxFlags="${cmakeCxxFlags}${OPTARG#*-DCMAKE_CXX_FLAGS=} "
             else
-                cmakeArguments="$cmakeArguments;$OPTARG"
+                if [ "$cmakeArguments" = "" ]; then
+                    cmakeArguments="$OPTARG"
+                else
+                    cmakeArguments="$cmakeArguments;$OPTARG"
+                fi
             fi
             ;;
         \?) # Unrecognized argument.
@@ -131,6 +140,9 @@ done
 
 case "$(uname -s)" in
     Linux*)
+        if [ "$jobCount" = "" ]; then
+            jobCount=$(grep "^cpu\\scores" /proc/cpuinfo | uniq |  awk '{print $4}')
+        fi
         #export ACPP_TARGETS="hip:gfx1030"
         #toolchainRoot="/opt/hipSYCL/ROCm"
         #toolchainBin="$toolchainRoot/bin"
@@ -138,6 +150,10 @@ case "$(uname -s)" in
         #export cxx="$toolchainBin/acpp"
         ;;
     Darwin*)
+        if [ "$jobCount" = "" ]; then
+            jobCount=$(sysctl -n machdep.cpu.thread_count)
+        fi
+
         # Set clang from homebrew
         if ! command -v brew &> /dev/null; then
             echo "Error: $scriptName requires Homebrew"
@@ -210,10 +226,8 @@ if ! cmake                                                  \
     exit 1
 fi
 
-physicalCores=$(grep "^cpu\\scores" /proc/cpuinfo | uniq |  awk '{print $4}')
-
 # Build and install
-if ! cmake --build "$buildDir" --config "$buildType" --target install -j $physicalCores; then
+if ! cmake --build "$buildDir" --config "$buildType" --target install -j $jobCount; then
     exit 1
 fi
 
