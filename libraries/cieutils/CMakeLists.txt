@@ -119,6 +119,8 @@ target_include_directories(${PROJECT_NAME}
                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
                                    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
                            INTERFACE "$<INSTALL_INTERFACE:cie/include>"
+                                     "$<INSTALL_INTERFACE:cie/include/inc>"
+                                     "$<INSTALL_INTERFACE:cie/include/external/tessil/include>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
@@ -231,7 +233,10 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
         DESTINATION "cie/include"
         FILES_MATCHING PATTERN "*.hpp")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc"
-        DESTINATION "cie/include"
+        DESTINATION "cie/include/"
+        FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python"
+        DESTINATION "cie/include/"
         FILES_MATCHING PATTERN "*.hpp")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external"
         DESTINATION "cie/include"

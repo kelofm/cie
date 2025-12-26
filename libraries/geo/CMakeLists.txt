@@ -19,8 +19,7 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
-find_package(cieutils CONFIG REQUIRED)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
 find_package(linalg CONFIG REQUIRED)
 
 # Compile definitions
@@ -57,7 +56,7 @@ else()
 endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC cie::cieutils cie::linalg)
+target_link_libraries(${PROJECT_NAME} PUBLIC cie::linalg)
 target_include_directories(${PROJECT_NAME}
                            PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                            INTERFACE "$<INSTALL_INTERFACE:cie/include>"

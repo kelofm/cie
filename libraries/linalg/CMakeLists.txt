@@ -7,10 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
-set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
-set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
-set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
-set(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS                      OFF CACHE BOOL "Enable macros for checking division by zero errors.")
 set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY              ON CACHE BOOL "build shared libraries instead of static ones")
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
 
@@ -18,22 +14,9 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
 find_package(cieutils CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
-
-# Compile definitions
-if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
-    add_compile_definitions(CIE_ENABLE_PROFILING=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_OUT_OF_RANGE_CHECKS)
-    add_compile_definitions(CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    add_compile_definitions(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
-endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_compile_options(-Wall -Wpedantic -Wextra -Wno-dangling-reference -Werror)
@@ -60,8 +43,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
                       Eigen3::Eigen)
 target_include_directories(${PROJECT_NAME}
                            PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           INTERFACE "$<INSTALL_INTERFACE:cie/include>"
-                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+                           INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

@@ -19,9 +19,7 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib")
-find_package(cieutils CONFIG REQUIRED)
-find_package(linalg CONFIG REQUIRED)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
 find_package(geo REQUIRED)
 find_package(LibXml2 REQUIRED)
 
