@@ -352,7 +352,7 @@ public:
 
 private:
     class Impl;
-    std::unique_ptr<Impl> _p_impl;
+    std::unique_ptr<Impl> _pImpl;
 }; // class ArgParse
 
 

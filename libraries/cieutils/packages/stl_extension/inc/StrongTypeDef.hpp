@@ -46,51 +46,51 @@ public:
     /// Inherit all base constructors
     using T::T;
 
-    StrongTypeDef(T&& r_rhs) noexcept requires concepts::MoveConstructible<T>
-        : T(std::move(r_rhs))
+    StrongTypeDef(T&& rRhs) noexcept requires concepts::MoveConstructible<T>
+        : T(std::move(rRhs))
     {}
 
     /// Allow move constructor if possible
-    StrongTypeDef(StrongTypeDef&& r_rhs) noexcept requires concepts::MoveConstructible<T>
-        : T(std::move(r_rhs))
+    StrongTypeDef(StrongTypeDef&& rRhs) noexcept requires concepts::MoveConstructible<T>
+        : T(std::move(rRhs))
     {}
 
-    StrongTypeDef(const T& r_rhs) requires concepts::CopyConstructible<T>
-        : T(r_rhs)
+    StrongTypeDef(const T& rRhs) requires concepts::CopyConstructible<T>
+        : T(rRhs)
     {}
 
-    StrongTypeDef(T& r_rhs) requires concepts::CopyConstructible<T>
-        : T(r_rhs)
+    StrongTypeDef(T& rRhs) requires concepts::CopyConstructible<T>
+        : T(rRhs)
     {}
 
     /// Allow copy constructor if possible
-    StrongTypeDef(const StrongTypeDef& r_rhs) requires concepts::CopyConstructible<T>
-        : T(r_rhs)
+    StrongTypeDef(const StrongTypeDef& rRhs) requires concepts::CopyConstructible<T>
+        : T(rRhs)
     {}
 
-    StrongTypeDef& operator=(T&& r_rhs) noexcept requires concepts::MoveAssignable<T>
-    {static_cast<T&>(*this) = std::move(r_rhs); return *this;}
+    StrongTypeDef& operator=(T&& rRhs) noexcept requires concepts::MoveAssignable<T>
+    {static_cast<T&>(*this) = std::move(rRhs); return *this;}
 
     /// Allow move assignment operator if possible
-    StrongTypeDef& operator=(StrongTypeDef&& r_rhs) noexcept requires concepts::MoveAssignable<T>
-    {static_cast<T&>(*this) = std::move(static_cast<T&&>(r_rhs)); return *this;}
+    StrongTypeDef& operator=(StrongTypeDef&& rRhs) noexcept requires concepts::MoveAssignable<T>
+    {static_cast<T&>(*this) = std::move(static_cast<T&&>(rRhs)); return *this;}
 
-    StrongTypeDef& operator=(const T& r_rhs) requires concepts::CopyAssignable<T>
-    {static_cast<T&>(*this) = r_rhs; return *this;}
+    StrongTypeDef& operator=(const T& rRhs) requires concepts::CopyAssignable<T>
+    {static_cast<T&>(*this) = rRhs; return *this;}
 
-    StrongTypeDef& operator=(T& r_rhs) requires concepts::CopyAssignable<T>
-    {static_cast<T&>(*this) = r_rhs; return *this;}
+    StrongTypeDef& operator=(T& rRhs) requires concepts::CopyAssignable<T>
+    {static_cast<T&>(*this) = rRhs; return *this;}
 
     /// Allow copy assignment operator if possible
-    StrongTypeDef& operator=(const StrongTypeDef& r_rhs) requires concepts::CopyAssignable<T>
-    {static_cast<T&>(*this) = static_cast<const T&>(r_rhs); return *this;}
+    StrongTypeDef& operator=(const StrongTypeDef& rRhs) requires concepts::CopyAssignable<T>
+    {static_cast<T&>(*this) = static_cast<const T&>(rRhs); return *this;}
 
-    StrongTypeDef& operator=(StrongTypeDef& r_rhs) requires concepts::CopyAssignable<T>
-    {static_cast<T&>(*this) = static_cast<const T&>(r_rhs); return *this;}
+    StrongTypeDef& operator=(StrongTypeDef& rRhs) requires concepts::CopyAssignable<T>
+    {static_cast<T&>(*this) = static_cast<const T&>(rRhs); return *this;}
 
     /// Delete every assignment operator that's not in the base class, move or copy assignment operator
     template <class TT>
-    StrongTypeDef& operator=(TT&& r_rhs) = delete;
+    StrongTypeDef& operator=(TT&& rRhs) = delete;
 
     operator T&()
     {return static_cast<T&>(*this);}
@@ -100,41 +100,42 @@ public:
 };
 
 
-template <concepts::Integral T, class Tag>
+template <class T, class Tag>
+requires (std::is_integral_v<T> || std::is_floating_point_v<T>)
 class StrongTypeDef<T,Tag>
 {
 public:
     using Value = T;
 
-    StrongTypeDef() noexcept
+    constexpr StrongTypeDef() noexcept
     {}
 
-    StrongTypeDef(T wrapped) noexcept
+    constexpr StrongTypeDef(T wrapped) noexcept
         : _wrapped(wrapped)
     {}
 
     template <class TT>
     requires std::convertible_to<TT,T>
-    StrongTypeDef(TT wrapped)
+    constexpr StrongTypeDef(TT wrapped)
         : _wrapped(wrapped)
     {}
 
-    StrongTypeDef& operator=(T rhs) noexcept
+    constexpr StrongTypeDef& operator=(T rhs) noexcept
     {_wrapped = rhs; return *this;}
 
-    operator const T&() const noexcept
+    constexpr operator const T&() const noexcept
     {return _wrapped;}
 
-    operator T&() noexcept
+    constexpr operator T&() noexcept
     {return _wrapped;}
 
     template <class TT>
     requires std::convertible_to<T,TT>
-    explicit operator TT() const noexcept
+    explicit constexpr operator TT() const noexcept
     {return _wrapped;}
 
-    friend void swap(Ref<StrongTypeDef> rLeft,
-                        Ref<StrongTypeDef> rRight) noexcept
+    friend constexpr void swap(Ref<StrongTypeDef> rLeft,
+                               Ref<StrongTypeDef> rRight) noexcept
     {std::swap(rLeft._wrapped, rRight._wrapped);}
 
     friend std::ostream& operator<<(Ref<std::ostream> rStream,

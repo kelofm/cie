@@ -8,15 +8,12 @@
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/macros/inc/checks.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
 #include "packages/logging/inc/StreamInterceptor.hpp"
 
 // --- STL Includes ---
-#include <unordered_set>
 #include <algorithm>
 #include <ranges>
 #include <sstream>
-#include <limits>
 #include <iostream>
 #include <regex>
 #include <filesystem>
@@ -97,21 +94,21 @@ ArgParse::Impl::~Impl()
 
 ArgParse::ArgParse()
     : utils::NamedObject(""),
-      _p_impl(new ArgParse::Impl)
+      _pImpl(new ArgParse::Impl)
 {
 }
 
 
 ArgParse::ArgParse(std::string&& r_name)
     : utils::NamedObject(std::move(r_name)),
-      _p_impl(new ArgParse::Impl)
+      _pImpl(new ArgParse::Impl)
 {
 }
 
 
 ArgParse::ArgParse(const std::string& r_name)
     : utils::NamedObject(r_name),
-      _p_impl(new ArgParse::Impl)
+      _pImpl(new ArgParse::Impl)
 {
 }
 
@@ -125,8 +122,8 @@ bool ArgParse::has(const Key& r_key) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    for (const auto& rp_argument : this->_p_impl->_arguments)
-        if (rp_argument->matchesKey(r_key))
+    for (const auto& rpArgument : this->_pImpl->_arguments)
+        if (rpArgument->matchesKey(r_key))
             return true;
     return false;
 
@@ -156,25 +153,25 @@ ArgParse& ArgParse::addArgument(std::string&& r_name,
         "Empty argument name"
     )
 
-    for (const auto& rp_argument : _p_impl->_arguments)
+    for (const auto& rpArgument : _pImpl->_arguments)
     {
         CIE_CHECK(
-            rp_argument->name() != r_name,
+            rpArgument->name() != r_name,
             "Argument with name '" + r_name + "' already exists"
         )
     }
 
     // Check whether the new argument's keys clash with existing ones
-    const auto& r_arguments = _p_impl->_arguments;
-    for (const auto& rp_argument : r_arguments)
+    const auto& rArguments = _pImpl->_arguments;
+    for (const auto& rpArgument : rArguments)
         for (const auto& r_key : r_keys)
     CIE_CHECK(
-        !rp_argument->matchesKey(r_key),
-        "Key '" + r_key + "' of new argument '" + r_name + "' clashes with argument '" + rp_argument->name() + "'"
+        !rpArgument->matchesKey(r_key),
+        "Key '" + r_key + "' of new argument '" + r_name + "' clashes with argument '" + rpArgument->name() + "'"
     )
 
     // Init
-    const Size id = _p_impl->_arguments.size();
+    const Size id = _pImpl->_arguments.size();
     auto tag = detail::AbsArgument::Tag::Invalid;
 
     // Get tag
@@ -217,12 +214,12 @@ ArgParse& ArgParse::addArgument(std::string&& r_name,
             )
 
             // Check positional arguments' compatibility
-            for (const auto& rp_argument : std::ranges::subrange(_p_impl->_arguments.rbegin(), _p_impl->_arguments.rend()))
-                if (rp_argument->tag() == detail::AbsArgument::Tag::Positional)
+            for (const auto& rpArgument : std::ranges::subrange(_pImpl->_arguments.rbegin(), _pImpl->_arguments.rend()))
+                if (rpArgument->tag() == detail::AbsArgument::Tag::Positional)
                 {
                     CIE_CHECK(
-                        rp_argument->nArgs() != ArgumentCount::Any && rp_argument->nArgs() != ArgumentCount::NonZero,
-                        "Attempt to add positional argument '" + r_name + "' after another positional argument '" + rp_argument->name() + "' with variable number of values"
+                        rpArgument->nArgs() != ArgumentCount::Any && rpArgument->nArgs() != ArgumentCount::NonZero,
+                        "Attempt to add positional argument '" + r_name + "' after another positional argument '" + rpArgument->name() + "' with variable number of values"
                     )
                     break;
                 }
@@ -232,7 +229,7 @@ ArgParse& ArgParse::addArgument(std::string&& r_name,
             AggregateType::ArgumentContainer arguments;
             arguments.emplace_back();
 
-            _p_impl->_arguments.emplace_back(new AggregateType(
+            _pImpl->_arguments.emplace_back(new AggregateType(
                 std::move(arguments),
                 id,
                 isOptional,
@@ -254,7 +251,7 @@ ArgParse& ArgParse::addArgument(std::string&& r_name,
             for (const auto& r_key : r_keys)
                 arguments.emplace_back(r_key);
 
-            _p_impl->_arguments.emplace_back(new AggregateType(
+            _pImpl->_arguments.emplace_back(new AggregateType(
                 std::move(arguments),
                 id,
                 isOptional,
@@ -276,7 +273,7 @@ ArgParse& ArgParse::addArgument(std::string&& r_name,
             for (const auto& r_key : r_keys)
                 arguments.emplace_back(r_key);
 
-            _p_impl->_arguments.emplace_back(new AggregateType(
+            _pImpl->_arguments.emplace_back(new AggregateType(
                 std::move(arguments),
                 id,
                 isOptional,
@@ -317,19 +314,19 @@ ArgParse::ValueView CStringToView(const char* begin)
 detail::AbsAggregateArgument::SharedConstPointer
 consumeValues(int& argc,
               const char**& argv,
-              const DynamicArray<detail::AbsAggregateArgument::SharedPointer> r_arguments,
+              const DynamicArray<detail::AbsAggregateArgument::SharedPointer> rArguments,
               ArgParse::ValueViewContainer& r_views,
               int maxValues)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    detail::AbsAggregateArgument::SharedConstPointer p_matched;
+    detail::AbsAggregateArgument::SharedConstPointer pMatched;
 
     // Loop through values until:
     //  - end of values
     //  - consumed a fixed number of values (maxValues)
     //  - a value matches at least one of the arguments
-    for (; 0 < argc && 0 < maxValues && !p_matched; --argc, --maxValues, ++argv)
+    for (; 0 < argc && 0 < maxValues && !pMatched; --argc, --maxValues, ++argv)
     {
         // Create a view from the current value
         auto view = CStringToView(*argv);
@@ -338,14 +335,14 @@ consumeValues(int& argc,
         // it means that we've run out of values, or the input
         // is invalid (this case would handled caught later on).
         const auto it_argument = std::find_if(
-            r_arguments.begin(),
-            r_arguments.end(),
+            rArguments.begin(),
+            rArguments.end(),
             [&view](const auto& rp_arg){return rp_arg->matchesKey(view);}
         );
 
-        if (it_argument != r_arguments.end())
+        if (it_argument != rArguments.end())
         {
-            p_matched = *it_argument;
+            pMatched = *it_argument;
             break;
         }
 
@@ -353,7 +350,7 @@ consumeValues(int& argc,
         r_views.emplace_back(std::move(view));
     }
 
-    return p_matched;
+    return pMatched;
 
     CIE_END_EXCEPTION_TRACING
 }
@@ -368,19 +365,19 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
     // Create a map that tracks whether an argument
     // appeared in the input
     std::unordered_map<Impl::Argument::SharedConstPointer,bool> argumentFoundMap;
-    for (const auto& rp_argument : _p_impl->_arguments)
-        argumentFoundMap.emplace(rp_argument, false);
+    for (const auto& rpArgument : _pImpl->_arguments)
+        argumentFoundMap.emplace(rpArgument, false);
 
     // Collect positional arguments
     DynamicArray<Impl::Argument::SharedConstPointer> positionals;
     {
         int expectedPositionalCount = 0;
 
-        for (const auto& rp_argument : _p_impl->_arguments)
-            if (rp_argument->tag() == detail::AbsArgument::Tag::Positional)
+        for (const auto& rpArgument : _pImpl->_arguments)
+            if (rpArgument->tag() == detail::AbsArgument::Tag::Positional)
             {
-                positionals.emplace_back(rp_argument);
-                const auto nArgs = rp_argument->nArgs();
+                positionals.emplace_back(rpArgument);
+                const auto nArgs = rpArgument->nArgs();
                 if (nArgs == ArgumentCount::Any || nArgs == ArgumentCount::NonZero)
                 {
                     expectedPositionalCount = argc;
@@ -402,36 +399,35 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
     // Assign values to positional arguments
     ValueViewContainer views;
 
-    for (const auto& rp_positional : positionals)
+    for (const auto& rpPositional : positionals)
     {
-        const auto nArgs = rp_positional->nArgs();
+        const auto nArgs = rpPositional->nArgs();
         views.clear();
 
         // Consume values
         // Note: argc and argv are updated as values are consumed
-        auto p_matched = consumeValues(
+        auto pMatched = consumeValues(
             argc,
             argv,
-            _p_impl->_arguments,
+            _pImpl->_arguments,
             views,
             nArgs != ArgumentCount::Any && nArgs != ArgumentCount::NonZero ? int(nArgs) : argc
         );
 
         // A value matched an argument => end of positionals or error
-        if (p_matched)
+        if (pMatched)
             break;
 
         // Pass the collected views to the positional argument
         // which will validate them. Then push the validated
         // values to the output map.
-        try {rp_positional->parseValues(views, outputMap);}
-        catch (Exception& r_exception)
-        {
+        try {rpPositional->parseValues(views, outputMap);}
+        catch (Exception& rException) {
             std::stringstream stream;
             this->help(stream);
-            CIE_RETHROW(r_exception, stream.str())
+            CIE_RETHROW(rException, stream.str())
         }
-        argumentFoundMap[rp_positional] = true;
+        argumentFoundMap[rpPositional] = true;
     }
 
     // Assign values to keyword and flag arguments
@@ -441,22 +437,22 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
 
         // Get argument matching the key.
         // Possible results:
-        //  - 'views' is empty and 'p_matched' is valid:
+        //  - 'views' is empty and 'pMatched' is valid:
         //    argument is found and no additional values are consumed (OK)
         //
-        //  - 'views' is not empty and 'p_matched' is valid:
+        //  - 'views' is not empty and 'pMatched' is valid:
         //    unexpected positional arguments were found before finding a keyword (INPUT ERROR)
         //
-        //  - 'views' is empty and 'p_matched' is invalid:
+        //  - 'views' is empty and 'pMatched' is invalid:
         //    this should not happen and means there is a bug somewhere (ERROR)
         //
-        //  - 'views' is not empty and 'p_matched' is invalid
+        //  - 'views' is not empty and 'pMatched' is invalid
         //    unexpected trailing values (INPUT ERROR)
         views.clear();
-        auto p_matched = consumeValues(
+        auto pMatched = consumeValues(
             argc,
             argv,
-            _p_impl->_arguments,
+            _pImpl->_arguments,
             views,
             argc
         );
@@ -471,58 +467,57 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
         }
 
         CIE_CHECK(
-            p_matched,
+            pMatched,
             "Expecting a key but found none"
         )
 
-        // From here on, 'p_matched' is valid and 'views' is empty.
+        // From here on, 'pMatched' is valid and 'views' is empty.
         // => move on to the values (if any)
         --argc;
         ++argv;
 
         // Collect values
-        const auto nArgs = p_matched->nArgs();
+        const auto nArgs = pMatched->nArgs();
         consumeValues(
             argc,
             argv,
-            _p_impl->_arguments,
+            _pImpl->_arguments,
             views,
             nArgs != ArgumentCount::Any && nArgs != ArgumentCount::NonZero ? int(nArgs) : argc
         );
 
         // Check name collision
-        if (outputMap.contains(p_matched->name()))
-            CIE_THROW(Exception, "Duplicate key: '" + p_matched->name() + "'")
+        if (outputMap.contains(pMatched->name()))
+            CIE_THROW(Exception, "Duplicate key: '" + pMatched->name() + "'")
 
         // Pass the collected views to the argument,
         // which validates and registers them.
-        try {p_matched->parseValues(views, outputMap);}
-        catch (Exception& r_exception)
-        {
+        try {pMatched->parseValues(views, outputMap);}
+        catch (Exception& rException) {
             std::stringstream stream;
             this->help(stream);
-            CIE_RETHROW(r_exception, stream.str())
+            CIE_RETHROW(rException, stream.str())
         }
 
-        argumentFoundMap[p_matched] = true;
+        argumentFoundMap[pMatched] = true;
     } // for i_argument < argc
 
     // Check whether all required arguments were found
     // and assign default values to arguments that were not found.
-    for (const auto& r_pair : argumentFoundMap)
+    for (const auto& rPair : argumentFoundMap)
     {
-        if (!r_pair.second)
+        if (!rPair.second)
         {
-            if (!r_pair.first->isOptional())
-                CIE_THROW(Exception, "Required argument '" + r_pair.first->name() +"' was not found")
-            else if (r_pair.first->tag() == detail::AbsArgument::Tag::Flag)
-                outputMap.emplace(r_pair.first->name(), "false");
+            if (!rPair.first->isOptional())
+                CIE_THROW(Exception, "Required argument '" + rPair.first->name() +"' was not found")
+            else if (rPair.first->tag() == detail::AbsArgument::Tag::Flag)
+                outputMap.emplace(rPair.first->name(), "false");
             else
-                for (const auto& r_defaultValue : r_pair.first->defaultValue())
-                    outputMap.emplace(r_pair.first->name(), r_defaultValue);
+                for (const auto& r_defaultValue : rPair.first->defaultValue())
+                    outputMap.emplace(rPair.first->name(), r_defaultValue);
         }
-        else if (r_pair.first->tag() == detail::AbsArgument::Tag::Flag)
-            outputMap.emplace(r_pair.first->name(), "true");
+        else if (rPair.first->tag() == detail::AbsArgument::Tag::Flag)
+            outputMap.emplace(rPair.first->name(), "true");
     }
 
     return ArgParse::Results(std::move(outputMap));
@@ -532,33 +527,35 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
 
 
 template <class TStream, class TArguments>
-TStream& helpImpl(TStream& r_stream, const std::string& r_header, const TArguments& r_arguments)
+TStream& helpImpl(TStream& rStream, const std::string& rHeader, const TArguments& rArguments)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    r_stream << r_header;
-    for (const auto& rp_argument : r_arguments)
-        r_stream << *rp_argument << std::endl;
+    rStream << rHeader;
+    for (const auto& rpArgument : rArguments)
+        rStream << *rpArgument << std::endl;
 
-    return r_stream;
+    return rStream;
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
-OutputStream& ArgParse::help(OutputStream& r_stream) const
+OutputStream& ArgParse::help(OutputStream& rStream) const
 {
-    return helpImpl(r_stream,
-                    this->name().empty() ? "" : (this->name() + ":\n"),
-                    _p_impl->_arguments);
+    return helpImpl(
+        rStream,
+        this->name().empty() ? "" : (this->name() + "\n"),
+        _pImpl->_arguments);
 }
 
 
-std::ostream& ArgParse::help(std::ostream& r_stream) const
+std::ostream& ArgParse::help(std::ostream& rStream) const
 {
-    return helpImpl(r_stream,
-                    this->name().empty() ? "" : (this->name() + ":\n"),
-                    _p_impl->_arguments);
+    return helpImpl(
+        rStream,
+        this->name().empty() ? "" : (this->name() + "\n"),
+        _pImpl->_arguments);
 }
 
 
@@ -604,62 +601,62 @@ ArgParse::Validator ArgParse::validatorFactory<Double>()
 }
 
 
-OutputStream& ArgParse::Results::serialize(OutputStream& r_stream) const
+OutputStream& ArgParse::Results::serialize(OutputStream& rStream) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
     constexpr const auto indent = "    ";
 
-    r_stream << "{";
+    rStream << "{";
 
     if (!this->empty()) [[likely]]
-        r_stream << std::endl;
+        rStream << std::endl;
 
     ArgParse::Key key = "";
-    for (const auto& r_pair : *this)
+    for (const auto& rPair : *this)
     {
-        if (key == r_pair.first)
-            r_stream << ", ";
+        if (key == rPair.first)
+            rStream << ", ";
         else
         {
             if (!key.empty()) [[likely]]
-                r_stream << "}" << std::endl;
+                rStream << "}" << std::endl;
 
-            key = r_pair.first;
-            r_stream << indent << key << " : {";
+            key = rPair.first;
+            rStream << indent << key << " : {";
         }
 
-        r_stream << r_pair.second;
+        rStream << rPair.second;
     }
 
     if (!this->empty()) [[likely]]
-        r_stream << "}" << std::endl;
+        rStream << "}" << std::endl;
 
-    r_stream << "}";
+    rStream << "}";
 
-    return r_stream;
+    return rStream;
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
-OutputStream& operator<<(OutputStream& r_stream, const ArgParse::Results& r_parsedResults)
+OutputStream& operator<<(OutputStream& rStream, const ArgParse::Results& r_parsedResults)
 {
-    return r_parsedResults.serialize(r_stream);
+    return r_parsedResults.serialize(rStream);
 }
 
 
-std::ostream& operator<<(std::ostream& r_stream, const ArgParse::Results& r_parsedResults)
+std::ostream& operator<<(std::ostream& rStream, const ArgParse::Results& r_parsedResults)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    OutputStream::SharedPointer p_wrapper(new OutputStream(&r_stream));
+    OutputStream::SharedPointer p_wrapper(new OutputStream(&rStream));
     std::stringstream stringStream;
     OutputStream::SharedPointer p_stream(new OutputStream(&stringStream));
     StreamInterceptor redirector(p_stream, p_wrapper);
     r_parsedResults.serialize(*p_stream);
 
-    return r_stream;
+    return rStream;
 
     CIE_END_EXCEPTION_TRACING
 }

@@ -16,9 +16,10 @@
 namespace cie::fem::maths {
 
 
+/// @brief @ref Expression representing a scalar polynomial.
+/// @ingroup fem
 template <concepts::Numeric TValue>
-class PolynomialView : public ExpressionTraits<TValue>
-{
+class PolynomialView : public ExpressionTraits<TValue> {
 public:
     using typename ExpressionTraits<TValue>::Span;
 
@@ -46,8 +47,7 @@ private:
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
 template <class TValue>
-class Polynomial : public ExpressionTraits<TValue>
-{
+class Polynomial : public ExpressionTraits<TValue> {
 public:
     using typename ExpressionTraits<TValue>::Span;
 
@@ -105,8 +105,7 @@ namespace cie::fem::io {
 
 
 template <class TValue>
-struct io::GraphML::Serializer<maths::Polynomial<TValue>>
-{
+struct io::GraphML::Serializer<maths::Polynomial<TValue>> {
     void header(Ref<XMLElement> rElement);
 
     void operator()(Ref<XMLElement> rElement,

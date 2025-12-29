@@ -62,8 +62,7 @@ class Match
 private:
     template <Size I, class ...TRefs>
     requires (!Empty<TRefs...> && !Empty<Ts...>)
-    static constexpr bool any()
-    {
+    static constexpr bool any() {
         using Current = typename Select<Ts...>::template At<I>;
         if constexpr (detail::MatchOne<Current>::template Any<TRefs...>)
             return true;
@@ -80,8 +79,7 @@ private:
 
     template <Size I, class ...TRefs>
     requires (!Empty<TRefs...> && !Empty<Ts...>)
-    static constexpr bool all()
-    {
+    static constexpr bool all() {
         using Current = typename Select<Ts...>::template At<I>;
         constexpr const bool current = detail::MatchOne<Current>::template Any<TRefs...>;
 
@@ -97,8 +95,7 @@ private:
 
     template <Size I, class ...TRefs>
     requires (!Empty<TRefs...> && (PackSize<TRefs...> == PackSize<Ts...>))
-    static constexpr bool identical()
-    {
+    static constexpr bool identical() {
         using Current = typename Select<Ts...>::template At<I>;
         constexpr const bool current = std::is_same_v<Current, typename Select<TRefs...>::template At<I>>;
 

@@ -168,8 +168,8 @@ AggregateArgument<TArgument>::matchesKey(const ArgParse::KeyView& r_key) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    for (const auto& r_argument : _arguments)
-        if (r_argument.matchesKey(r_key))
+    for (const auto& rArgument : _arguments)
+        if (rArgument.matchesKey(r_key))
             return true;
 
     return false;
@@ -184,8 +184,8 @@ AggregateArgument<TArgument>::matchesKey(const ArgParse::ValueView& r_key) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    for (const auto& r_argument : _arguments)
-        if (r_argument.matchesKey(r_key))
+    for (const auto& rArgument : _arguments)
+        if (rArgument.matchesKey(r_key))
             return true;
 
     return false;
@@ -275,75 +275,71 @@ template <class TArgument>
 ArgParse::KeyContainer AggregateArgument<TArgument>::keys() const
 {
     ArgParse::KeyContainer keys;
-    for (const auto& r_argument : _arguments)
-        if (!r_argument.key().empty())
-            keys.emplace_back(r_argument.key());
+    for (const auto& rArgument : _arguments)
+        if (!rArgument.key().empty())
+            keys.emplace_back(rArgument.key());
     return keys;
 }
 
 
 // TODO
 template <class TStream>
-TStream& streamInsert(TStream& r_stream, const AbsAggregateArgument& r_argument)
+TStream& streamInsert(TStream& rStream, const AbsAggregateArgument& rArgument)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    if (r_argument.tag() == AbsArgument::Tag::Positional)
-        r_stream << r_argument.name() << " ";
-    else
-    {
-        if (r_argument.isOptional())
-            r_stream << "[";
+    if (rArgument.tag() == AbsArgument::Tag::Positional)
+        rStream << rArgument.name() << " ";
+    else {
+        if (rArgument.isOptional())
+            rStream << "[";
 
-        for (const auto& r_key : r_argument.keys())
-            r_stream << r_key << " ";
+        for (const auto& r_key : rArgument.keys())
+            rStream << r_key << " ";
 
-        if (r_argument.isOptional())
-            r_stream << "] ";
+        if (rArgument.isOptional())
+            rStream << "] ";
     }
 
-    const auto nArgs = r_argument.nArgs();
-    if (int(nArgs))
-    {
-    r_stream << "(";
-    if (nArgs == ArgParse::ArgumentCount::Any)
-        r_stream << "any number";
-    else if (nArgs == ArgParse::ArgumentCount::NonZero)
-        r_stream << "0+";
-    else
-        r_stream << int(nArgs);
-    r_stream << ")";
+    const auto nArgs = rArgument.nArgs();
+    if (int(nArgs)) {
+        rStream << "(";
+        if (nArgs == ArgParse::ArgumentCount::Any)
+            rStream << "any number";
+        else if (nArgs == ArgParse::ArgumentCount::NonZero)
+            rStream << "0+";
+        else
+            rStream << int(nArgs);
+        rStream << ")";
     }
 
-    //if (r_argument.tag() != AbsArgument::Tag::Positional)
-    //    r_stream << r_argument.name() << ", ";
+    //if (rArgument.tag() != AbsArgument::Tag::Positional)
+    //    rStream << rArgument.name() << ", ";
 
-    if (!r_argument.docString().empty())
-        r_stream << " : " << r_argument.docString();
+    if (!rArgument.docString().empty())
+        rStream << "\n\t" << rArgument.docString();
 
-    if (!r_argument.defaultValue().empty())
-    {
-        r_stream << " (Default: ";
-        for (const auto& r_default : r_argument.defaultValue())
-            r_stream << r_default << " ";
-        r_stream << ")";
+    if (!rArgument.defaultValue().empty()) {
+        rStream << "\n\tDefault: ";
+        for (const auto& r_default : rArgument.defaultValue())
+            rStream << r_default << " ";
     }
 
-    return r_stream;
+    return rStream;
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
-OutputStream& operator<<(OutputStream& r_stream, const AbsAggregateArgument& r_argument)
+OutputStream& operator<<(OutputStream& rStream, const AbsAggregateArgument& rArgument)
 {
-    return streamInsert(r_stream, r_argument);
+    return streamInsert(rStream, rArgument);
 }
 
 
-std::ostream& operator<<(std::ostream& r_stream, const AbsAggregateArgument& r_argument)
+std::ostream& operator<<(std::ostream& rStream, const AbsAggregateArgument& rArgument)
 {
-    return streamInsert(r_stream, r_argument);
+    return streamInsert(rStream, rArgument);
 }
 
 
