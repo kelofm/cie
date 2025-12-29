@@ -15,8 +15,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
-find_package(cieutils CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
+if (NOT TARGET cieutils)
+    find_package(cieutils CONFIG REQUIRED)
+endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_compile_options(-Wall -Wpedantic -Wextra -Wno-dangling-reference -Werror)
