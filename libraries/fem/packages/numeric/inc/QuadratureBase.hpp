@@ -15,9 +15,10 @@ namespace cie::fem {
 ///@{
 
 template <concepts::Numeric NT>
-class QuadratureBase
-{
+class QuadratureBase {
 public:
+    using Value = NT;
+
     using NodeContainer   = DynamicArray<NT>;
 
     using WeightContainer = DynamicArray<NT>;

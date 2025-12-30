@@ -54,7 +54,7 @@ struct hash<pair<cie::fem::BoundaryID,cie::Size>>
 namespace cie::fem {
 
 
-template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
+template <maths::Expression TAnsatzSpace, cie::concepts::CallableWith<BoundaryID,Size> TFunctor>
 void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
                         TFunctor&& rFunctor,
                         Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
@@ -327,7 +327,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 
 
 template <unsigned Dimension, class TValue>
-template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
+template <cie::concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
 void AnsatzMap<Dimension, TValue>::getPairs(const OrientedBoundary<Dimension> first,
                                             const OrientedBoundary<Dimension> second,
                                             TOutputIt itOutput) const

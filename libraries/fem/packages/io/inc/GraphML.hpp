@@ -143,8 +143,7 @@ public:
 
 
     template <class T>
-    struct Serializer
-    {
+    struct Serializer {
         void header(Ref<XMLElement>)
         requires std::is_same_v<T,std::monostate> {};
 
@@ -153,8 +152,7 @@ public:
     }; // class Serializer
 
 
-    class Output
-    {
+    class Output {
     public:
         Output();
 

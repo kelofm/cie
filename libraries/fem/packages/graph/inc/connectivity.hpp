@@ -37,7 +37,7 @@ namespace cie::fem {
  *  @param pSampleEnd Ptr past the last sample node.
  *  @param tolerance Absolute tolerance to check ansatz function values against.
  */
-template <maths::Expression TAnsatzSpace, concepts::CallableWith<BoundaryID,Size> TFunctor>
+template <maths::Expression TAnsatzSpace, cie::concepts::CallableWith<BoundaryID,Size> TFunctor>
 void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
                         TFunctor&& rFunctor,
                         Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
@@ -87,8 +87,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
  *           @endcode
  */
 template <unsigned Dimension, class TValue>
-class AnsatzMap
-{
+class AnsatzMap {
 public:
     AnsatzMap() noexcept = default;
 
@@ -98,7 +97,7 @@ public:
               std::span<const TValue> samples,
               utils::Comparison<TValue> comparison);
 
-    template <concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
+    template <cie::concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
     void getPairs(const OrientedBoundary<Dimension> first,
                   const OrientedBoundary<Dimension> second,
                   TOutputIt itOutput) const;
@@ -107,8 +106,7 @@ public:
                       OrientedBoundary<Dimension> second) const noexcept;
 
 private:
-    struct SymmetricHash
-    {
+    struct SymmetricHash {
         auto operator()(const std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>& rPair) const noexcept
         {
             utils::Hash<std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>> hasher;
@@ -117,8 +115,7 @@ private:
         }
     }; // struct SymmetricHash
 
-    struct SymmetricEquality
-    {
+    struct SymmetricEquality {
         auto operator()(const std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>& rLhs,
                         const std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>& rRhs) const noexcept
         {
