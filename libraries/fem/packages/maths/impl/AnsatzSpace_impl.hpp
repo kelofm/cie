@@ -421,6 +421,7 @@ AnsatzSpace<TScalarExpression,Dim>&
 AnsatzSpace<TScalarExpression,Dim>::operator=(const AnsatzSpace& rRhs)
 {
     (*this) = AnsatzSpace(rRhs._set);
+    return *this;
 }
 
 
