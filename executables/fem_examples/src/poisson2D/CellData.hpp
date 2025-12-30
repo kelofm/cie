@@ -9,6 +9,7 @@
 #include "packages/graph/inc/OrientedAxes.hpp"
 #include "packages/io/inc/GraphML.hpp"
 #include "packages/io/inc/GraphML_specializations.hpp"
+#include "packages/numeric/inc/Cell.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
 // --- GEO Includes ---
@@ -22,92 +23,45 @@ namespace cie::fem {
 
 
 /// @brief Data structure unique to each @ref Graph::Vertex "cell".
-struct CellData : public geo::BoxBoundable<Dimension,Scalar> {
-    using geo::BoxBoundable<Dimension,Scalar>::BoundingBox;
+struct CellData
+    : public geo::BoxBoundable<Dimension,Scalar>,
+      public CellBase<Dimension,Scalar,SpatialTransform,Scalar> {
+    using BoxBase = geo::BoxBoundable<cie::fem::Dimension,Scalar>;
+
+    using CellBase = CellBase<cie::fem::Dimension,Scalar,SpatialTransform,Scalar>;
+
+    using CellBase::Dimension;
 
     using LocalCoordinate = Kernel<Dimension,Scalar>::LocalCoordinate;
 
     using GlobalCoordinate = Kernel<Dimension,Scalar>::GlobalCoordinate;
 
-    VertexID id;
-
-    /// @brief Index of the cell's ansatz space in @ref MeshData::ansatzSpaces.
-    unsigned short iAnsatz;
-
-    /// @brief Local diffusivity coefficient.
-    /// @details Assumed to be constant throughout the cell for simplicity.
-    Scalar diffusivity;
-
-    /// @brief Local axis orientation of the cell to enforce continuity.
-    /// @details Adjacent cells must produce identical state fields
-    ///          on both sides of the shared boundary. A simple way of
-    ///          ensuring this is to orient the local axes of each cell
-    ///          such that matching axes point in the same direction on
-    ///          both sides, except the shared boundary's normal axes,
-    ///          that are pointing toward each other.
-    ///          @code
-    ///          + ----------- +   + ----------- +
-    ///          |      y      |   |      y      |
-    ///          |      ^      |   |      ^      |
-    ///          |      |      |   |      |      |
-    ///          |      + -> x |   | x <- +      |
-    ///          |             |   |             |
-    ///          |             |   |             |
-    ///          + ----------- +   + ----------- +
-    ///          @endcode
-    ///          The oriented axes define an intermediate space between
-    ///          local and global space (referred to as topological space).
-    ///          DoFs that don't vanish on the shared boundaries can be
-    ///          merged on both sides.
-    OrientedAxes<Dimension> axes;
-
-    /// @brief Spatial transform from local to global space.
-    SpatialTransform spatialTransform;
-
-    SpatialTransform::Inverse inverseSpatialTransform;
-
     CellData() noexcept = default;
 
-    CellData(VertexID id_,
-             unsigned short iAnsatz_,
-             Scalar diffusivity_,
-             OrientedAxes<Dimension> axes_,
+    CellData(VertexID id,
+             unsigned short iAnsatz,
+             Scalar diffusivity,
+             OrientedAxes<Dimension> axes,
              RightRef<SpatialTransform> rSpatialTransform) noexcept
-        : id(id_),
-          iAnsatz(iAnsatz_),
-          diffusivity(diffusivity_),
-          axes(axes_),
-          spatialTransform(std::move(rSpatialTransform)) {
-        this->inverseSpatialTransform = spatialTransform.makeInverse();
-    }
+        : BoxBase(),
+          CellBase(
+            id,
+            iAnsatz,
+            axes,
+            std::move(rSpatialTransform),
+            std::move(diffusivity))
+    {}
 
-    void transform(Ref<const std::span<const LocalCoordinate,Dimension>> rLocalCoordinates,
-                   Ref<const std::span<GlobalCoordinate,Dimension>> rGlobalCoordinates) const noexcept {
-        spatialTransform.evaluate(
-            Kernel<Dimension,Scalar>::decay(rLocalCoordinates),
-            Kernel<Dimension,Scalar>::decay(rGlobalCoordinates));
-    }
-
-    void transform(Ref<const std::span<const GlobalCoordinate,Dimension>> rGlobalCoordinates,
-                   Ref<const std::span<LocalCoordinate,Dimension>> rLocalCoordinates) const noexcept {
-        spatialTransform.evaluate(
-            Kernel<Dimension,Scalar>::decay(rGlobalCoordinates),
-            Kernel<Dimension,Scalar>::decay(rLocalCoordinates));
-    }
-
-    constexpr VertexID ID() const noexcept {
-        return id;
-    }
-
-    constexpr unsigned ansatzSpaceID() const noexcept {
-        return iAnsatz;
+    Scalar diffusivity() const noexcept {
+        return this->data();
     }
 
     bool at(geo::BoxBoundable<Dimension,Scalar>::Point point) const {
         const utils::Comparison<Scalar> comparison(1e-8, 1e-10);
-        StaticArray<Scalar,Dimension> local;
-
-        this->inverseSpatialTransform.evaluate(point, local);
+        StaticArray<LocalCoordinate,Dimension> local;
+        this->transform(
+            Kernel<Dimension,Scalar>::cast<GlobalCoordinate>(std::span<const Scalar,Dimension>(point.data(), Dimension)),
+            Kernel<Dimension,Scalar>::view(local));
 
         return std::all_of(
             local.begin(),
@@ -119,8 +73,7 @@ struct CellData : public geo::BoxBoundable<Dimension,Scalar> {
     }
 
 protected:
-    void computeBoundingBoxImpl(BoundingBox& rBox) noexcept override
-    {
+    void computeBoundingBoxImpl(BoundingBox& rBox) noexcept override {
         BoundingBox::Point opposite;
         StaticArray<LocalCoordinate,Dimension> localCorner;
         StaticArray<GlobalCoordinate,Dimension> globalCorner;
@@ -169,91 +122,14 @@ protected:
 
 template <>
 struct io::GraphML::Serializer<CellData>
-{
-    void header(Ref<io::GraphML::XMLElement> rElement) const {
-        io::GraphML::XMLElement defaultElement = rElement.addChild("default");
-        CellData instance;
-        this->operator()(defaultElement, instance);
-    }
-
-    void operator()(Ref<io::GraphML::XMLElement> rElement,
-                    Ref<const CellData> rInstance) const {
-        rElement.addAttribute("iAnsatz", std::to_string(rInstance.iAnsatz));
-        rElement.addAttribute("diffusivity", std::to_string(rInstance.diffusivity));
-
-        std::stringstream buffer;
-        buffer << rInstance.axes;
-        rElement.addAttribute("axes", buffer.view());
-
-        io::GraphML::Serializer<SpatialTransform>()(rElement, rInstance.spatialTransform);
-    }
-}; // struct GraphML::Serializer<CellData>
+    : io::GraphML::Serializer<CellData::CellBase>
+{};
 
 
 template <>
 struct io::GraphML::Deserializer<CellData>
-    : public io::GraphML::DeserializerBase<CellData>
-{
-    using io::GraphML::DeserializerBase<CellData>::DeserializerBase;
-
-    /// @brief This function is called when an element opening tag is parsed in the XML document.
-    static void onElementBegin(void* pThis,
-                               std::string_view elementName,
-                               std::span<io::GraphML::AttributePair> attributes) {
-        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-
-        {
-            const auto it = std::find_if(attributes.begin(),
-                                         attributes.end(),
-                                         [] (const auto pair) {
-                                         return pair.first == "iAnsatz";
-                                         });
-            char* pEnd;
-            rThis.instance().iAnsatz = std::strtoul(it->second.data(), &pEnd, 10);
-        }
-
-        {
-            const auto it = std::find_if(attributes.begin(),
-                                         attributes.end(),
-                                         [] (const auto pair) {
-                                         return pair.first == "diffusivity";
-                                         });
-            char* pEnd;
-            rThis.instance().diffusivity = std::strtod(it->second.data(), &pEnd);
-        }
-
-        {
-            const auto it = std::find_if(attributes.begin(),
-                                         attributes.end(),
-                                         [] (const auto pair) {
-                                         return pair.first == "axes";
-                                         });
-            rThis.instance().axes = OrientedAxes<Dimension>(it->second);
-        }
-
-        {
-            using SubSerializer = io::GraphML::Deserializer<SpatialTransform>;
-            rThis.sax().push({
-                SubSerializer::make(rThis.instance().spatialTransform, rThis.sax(), elementName),
-                SubSerializer::onElementBegin,
-                SubSerializer::onText,
-                SubSerializer::onElementEnd
-            });
-        }
-
-        CIE_THROW(NotImplementedException, "")
-    }
-
-    static void onText(Ptr<void>, std::string_view) noexcept {}
-
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName) {
-        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-        rThis.instance().inverseSpatialTransform = rThis.instance().spatialTransform.makeInverse();
-        rThis.template release<Deserializer>(&rThis, elementName);
-    }
-
-}; // struct GraphML::Deserializer<CellData>
+    : io::GraphML::Deserializer<CellData::CellBase>
+{};
 
 
 } // namespace cie::fem

@@ -77,7 +77,7 @@ BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 
     return BVH::flatten(
         root,
-        [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id;},
+        [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id();},
         std::allocator<std::byte>());
 }
 
@@ -275,7 +275,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
                 if (minBoundarySegmentNorm < segmentNorm) {
                     Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
-                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
+                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.ansatzSpaceID()];
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
                     globalCorners[0][0] = globalBase[0];
@@ -292,7 +292,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                                                       std::span<Scalar>(integrandBuffer)),
                         segmentTransform.makeDerivative());
                     lineQuadrature.evaluate(integrand, quadratureBuffer);
-                    const auto& rGlobalDofIndices = rAssembler[rCell.id];
+                    const auto& rGlobalDofIndices = rAssembler[rCell.id()];
 
                     addLHSContribution({quadratureBuffer.data(),
                                            static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
@@ -342,7 +342,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("write graphml");
-        io::GraphML::GraphML::Output("test_2d.graphml")(mesh);
+        io::GraphML::GraphML::Output("poisson2D.graphml")(mesh);
     }
 
     // Find ansatz functions that coincide on opposite boundaries.
@@ -361,12 +361,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("parse mesh topology");
         assembler.addGraph(mesh,
                            [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
-                                const Ansatz& rAnsatz = mesh.data().ansatzSpaces[rVertex.data().iAnsatz];
+                                const Ansatz& rAnsatz = mesh.data().ansatzSpaces[rVertex.data().ansatzSpaceID()];
                                 return rAnsatz.size();
                            },
-                           [&ansatzMap, &mesh](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
-                                const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes;
-                                const auto targetAxes = mesh.find(rEdge.target()).value().data().axes;
+                           [&ansatzMap, &mesh = std::as_const(mesh)](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
+                                const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes();
+                                const auto targetAxes = mesh.find(rEdge.target()).value().data().axes();
                                 ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
                                                    OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
                                                    it);
@@ -393,11 +393,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         DynamicArray<Scalar> productBuffer(integrandBuffer.size());
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
-            auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
-            const auto jacobian = rCell.data().spatialTransform.makeDerivative();
+            auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().ansatzSpaceID()];
+            const auto jacobian = rCell.data().makeJacobian();
 
             const auto localIntegrand = makeTransformedIntegrand(
-                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
+                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity(),
                                                                       rAnsatzDerivatives,
                                                                       {derivativeBuffer.data(), derivativeBuffer.size()}),
                 jacobian
@@ -514,7 +514,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
                     if (iMaybeCellData != contiguousCellData.size()) {
                         Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
-                        rSample.cellID = rCellData.id;
+                        rSample.cellID = rCellData.id();
 
                         // Compute sample point in the cell's local space.
                         StaticArray<CellData::LocalCoordinate,Dimension> localSamplePoint;
@@ -523,12 +523,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                             Kernel<Dimension,Scalar>::view(localSamplePoint));
 
                         // Evaluate the cell's ansatz functions at the local sample point.
-                        const auto& rAnsatzSpace = rAnsatzSpaces[rCellData.iAnsatz];
+                        const auto& rAnsatzSpace = rAnsatzSpaces[rCellData.ansatzSpaceID()];
                         rAnsatzBuffer.resize(rAnsatzSpace.size());
                         rAnsatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(localSamplePoint), rAnsatzBuffer);
 
                         // Find the entries of the cell's DoFs in the global state vector.
-                        const auto& rGlobalIndices = assembler[rCellData.id];
+                        const auto& rGlobalIndices = assembler[rCellData.id()];
 
                         // Compute state as an indirect inner product of the solution vector
                         // and the ansatz function values at the local corner coordinates.
@@ -544,7 +544,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         }
 
         // Write XDMF.
-        std::ofstream xdmf("test_2d.xdmf");
+        std::ofstream xdmf("poisson2D.xdmf");
         xdmf << R"(
 <Xdmf Version="3.0">
     <Domain>
@@ -664,7 +664,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
                             for (const auto& rCell : mesh.vertices()) {
                                 const auto& rGlobalIndices = assembler[rCell.id()];
-                                const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().iAnsatz];
+                                const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().ansatzSpaceID()];
                                 ansatzBuffer.resize(rAnsatzSpace.size());
 
                                 for (const auto& rLocalPoint : localCorners) {
