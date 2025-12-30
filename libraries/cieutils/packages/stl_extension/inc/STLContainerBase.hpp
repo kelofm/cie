@@ -194,6 +194,10 @@ public:
     requires concepts::detail::HasData<TBase>
     {return TBase::data();}
 
+    const_pointer cdata() const noexcept
+    requires concepts::detail::HasData<TBase>
+    {return TBase::data();}
+
     reference front() noexcept
     requires concepts::detail::HasFront<TBase, reference>
     {return TBase::front();}

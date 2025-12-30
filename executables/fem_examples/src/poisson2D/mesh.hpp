@@ -51,22 +51,27 @@ void generateMesh(Ref<Mesh> rMesh,
     const unsigned polynomialOrder = rArguments.get<std::size_t>("p");
     const unsigned nodesPerDirection = rArguments.get<std::size_t>("r");
 
-    // Define an ansatz space and its derivatives.
-    // In this example, every cell will use the same ansatz space.
     {
-        Ansatz::AnsatzSet ansatzSet;
-        for (unsigned iBasis=0; iBasis<polynomialOrder + 1; ++iBasis) {
-            Basis::Coefficients coefficients;
-            maths::IntegratedLegendrePolynomial<Scalar> legendre(iBasis);
-            std::ranges::copy(legendre.coefficients(), std::back_inserter(coefficients));
-            ansatzSet.emplace_back(coefficients);
+        // Define an ansatz space and its derivatives.
+        // In this example, every cell will use the same ansatz space.
+        DynamicArray<Ansatz> ansatzSpaces;
+        {
+            Ansatz::AnsatzSet ansatzSet;
+            for (unsigned iBasis=0; iBasis<polynomialOrder + 1; ++iBasis) {
+                Basis::Coefficients coefficients;
+                maths::IntegratedLegendrePolynomial<Scalar> legendre(iBasis);
+                std::ranges::copy(legendre.coefficients(), std::back_inserter(coefficients));
+                ansatzSet.emplace_back(coefficients);
+            }
+            ansatzSpaces.emplace_back(std::move(ansatzSet));
         }
-        rMesh.data().ansatzSpaces.emplace_back(std::move(ansatzSet));
-    }
 
-    rMesh.data().ansatzDerivatives.emplace_back(
-        rMesh.data().ansatzSpaces.front().makeDerivative()
-    );
+        // Define integration orders.
+        StaticArray<unsigned,1> integrationOrders;
+        integrationOrders.front() = rArguments.get<std::size_t>("i");
+
+        rMesh.data() = MeshData(std::move(ansatzSpaces), integrationOrders);
+    }
 
     // Insert cells into the adjacency graph
     const Scalar edgeLength = 1.0 / (nodesPerDirection - 1);

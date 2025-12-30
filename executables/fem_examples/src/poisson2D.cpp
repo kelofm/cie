@@ -3,6 +3,7 @@
 #include "Eigen/IterativeLinearSolvers"
 
 // --- Internal Includes ---
+#include "packages/numeric/inc/QuadraturePointFactory.hpp"
 #include "poisson2D/definitions.hpp"
 #include "poisson2D/MeshData.hpp"
 #include "poisson2D/CellData.hpp"
@@ -221,9 +222,9 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
 
     const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(boundaryIntegrationOrder)));
-    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces.front().size(),Dimension)
-                                          + rMesh.data().ansatzSpaces.front().size());
-    DynamicArray<Scalar> integrandBuffer(  rMesh.data().ansatzSpaces.front().size()
+    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces().front().size(),Dimension)
+                                          + rMesh.data().ansatzSpaces().front().size());
+    DynamicArray<Scalar> integrandBuffer(  rMesh.data().ansatzSpaces().front().size()
                                          + Dimension
                                          + 1);
 
@@ -275,7 +276,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
                 if (minBoundarySegmentNorm < segmentNorm) {
                     Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
-                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.ansatzSpaceID()];
+                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces()[rCell.ansatzID()];
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
                     globalCorners[0][0] = globalBase[0];
@@ -333,8 +334,6 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 int main(Ref<const utils::ArgParse::Results> rArguments) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
-
-    const unsigned integrationOrder = rArguments.get<std::size_t>("i");
     const unsigned postprocessResolution = rArguments.get<std::size_t>("scatter-resolution");
 
     // Fill the mesh with cells and boundaries.
@@ -349,7 +348,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // In adjacent cells, these ansatz functions will have to map
     // to the same DoF in the assembled system.
     const StaticArray<Scalar,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
-    const auto ansatzMap = makeAnsatzMap(mesh.data().ansatzSpaces.front(),
+    const auto ansatzMap = makeAnsatzMap(mesh.data().ansatzSpaces().front(),
                                          samples,
                                          utils::Comparison<Scalar>(/*absoluteTolerance =*/ 1e-8,
                                                                    /*relativeTolerance =*/ 1e-6));
@@ -359,18 +358,19 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("parse mesh topology");
-        assembler.addGraph(mesh,
-                           [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
-                                const Ansatz& rAnsatz = mesh.data().ansatzSpaces[rVertex.data().ansatzSpaceID()];
-                                return rAnsatz.size();
-                           },
-                           [&ansatzMap, &mesh = std::as_const(mesh)](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
-                                const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes();
-                                const auto targetAxes = mesh.find(rEdge.target()).value().data().axes();
-                                ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
-                                                   OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
-                                                   it);
-                           });
+        assembler.addGraph(
+            mesh,
+            [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
+                const Ansatz& rAnsatz = mesh.data().ansatzSpaces()[rVertex.data().ansatzID()];
+                return rAnsatz.size();
+            },
+            [&ansatzMap, &mesh = std::as_const(mesh)](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
+                const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes();
+                const auto targetAxes = mesh.find(rEdge.target()).value().data().axes();
+                ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
+                                    OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
+                                    it);
+            });
     } // parse mesh topology
 
     // Create empty CSR matrix
@@ -387,28 +387,62 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
 
-        const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(integrationOrder)));
-        DynamicArray<Scalar> derivativeBuffer(mesh.data().ansatzDerivatives.front().size());
-        DynamicArray<Scalar> integrandBuffer(std::pow(mesh.data().ansatzSpaces.front().size(), Dimension));
-        DynamicArray<Scalar> productBuffer(integrandBuffer.size());
+        DynamicArray<Scalar> derivativeBuffer(mesh.data().ansatzDerivatives().front().size());
+
+        constexpr std::size_t quadratureBatchSize = 0x100ul;
+        DynamicArray<QuadraturePoint<Dimension,Scalar>> quadraturePoints(quadratureBatchSize);
+        DynamicArray<DynamicArray<Scalar>> integrandBuffers(
+            quadratureBatchSize,
+            DynamicArray<Scalar>(std::pow(mesh.data().ansatzSpaces().front().size(), Dimension)));
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
-            auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().ansatzSpaceID()];
+            // Define integrand.
+            auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives()[rCell.data().ansatzID()];
             const auto jacobian = rCell.data().makeJacobian();
-
             const auto localIntegrand = makeTransformedIntegrand(
-                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity(),
-                                                                      rAnsatzDerivatives,
-                                                                      {derivativeBuffer.data(), derivativeBuffer.size()}),
+                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
+                    rCell.data().diffusivity(),
+                    rAnsatzDerivatives,
+                    derivativeBuffer),
                 jacobian
             );
-            quadrature.evaluate(localIntegrand, integrandBuffer);
+
             const auto& rGlobalDofIndices = assembler[rCell.id()];
-            addLHSContribution(integrandBuffer,
-                               rGlobalDofIndices,
-                               rowExtents,
-                               columnIndices,
-                               entries);
+
+            // Integrate in batches.
+            auto generator = mesh.data().makeQuadratureRule(rCell.data().ansatzID());
+            while (true) {
+                // Generate integration points.
+                const auto pointCount = generator.generate(rCell.data(), quadraturePoints);
+
+                // Check whether all quadrature points were visited.
+                if (!pointCount) break;
+
+                // Evaluate the integrand at the collected quadrature points.
+                for (std::size_t iPoint=0ul; iPoint<pointCount; ++iPoint) {
+                    quadraturePoints[iPoint].evaluate(localIntegrand, integrandBuffers[iPoint]);
+                } // for iPoint in range(pointCount)
+
+                // Reduce the integrands.
+                if (pointCount) {
+                    std::for_each(
+                        integrandBuffers.begin() + 1,
+                        integrandBuffers.end(),
+                        [&integrandBuffers](const auto& rBuffer){
+                            for (std::size_t iComponent=0ul; iComponent<rBuffer.size(); ++iComponent) {
+                                integrandBuffers.front()[iComponent] += rBuffer[iComponent];
+                            }
+                        });
+                }
+
+                // Assemble integrated values.
+                addLHSContribution(
+                    integrandBuffers.front(),
+                    rGlobalDofIndices,
+                    rowExtents,
+                    columnIndices,
+                    entries);
+            }
         } // for rCell in mesh.vertices
     } // integrate
 
@@ -492,9 +526,9 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             auto logBlock = utils::LoggerSingleton::get().newBlock("scatter postprocess");
             constexpr Scalar epsilon = 1e-10;
             const Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
-            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.front().size());
+            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces().front().size());
 
-            mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>(), mesh.data().ansatzSpaces)(
+            mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>(), mesh.data().ansatzSpaces())(
                 intPow(postprocessResolution, 2),
                 [&samples, &solution, &assembler, bvhView, &contiguousCellData, postprocessResolution, postprocessDelta](
                         const unsigned iSample,
@@ -523,7 +557,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                             Kernel<Dimension,Scalar>::view(localSamplePoint));
 
                         // Evaluate the cell's ansatz functions at the local sample point.
-                        const auto& rAnsatzSpace = rAnsatzSpaces[rCellData.ansatzSpaceID()];
+                        const auto& rAnsatzSpace = rAnsatzSpaces[rCellData.ansatzID()];
                         rAnsatzBuffer.resize(rAnsatzSpace.size());
                         rAnsatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(localSamplePoint), rAnsatzBuffer);
 
@@ -660,11 +694,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                                 {-1.0,  1.0},
                                 { 1.0,  1.0}
                             };
-                            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces.front().size());
+                            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces().front().size());
 
                             for (const auto& rCell : mesh.vertices()) {
                                 const auto& rGlobalIndices = assembler[rCell.id()];
-                                const auto& rAnsatzSpace = mesh.data().ansatzSpaces[rCell.data().ansatzSpaceID()];
+                                const auto& rAnsatzSpace = mesh.data().ansatzSpaces()[rCell.data().ansatzID()];
                                 ansatzBuffer.resize(rAnsatzSpace.size());
 
                                 for (const auto& rLocalPoint : localCorners) {

@@ -19,7 +19,7 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 template <maths::Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                                                                         Ref<TAnsatzDerivatives> rAnsatzDerivatives)
+                                                                                         Ref<const TAnsatzDerivatives> rAnsatzDerivatives)
     : _modulus(modulus),
       _pAnsatzDerivatives(&rAnsatzDerivatives),
       _buffer()
@@ -29,7 +29,7 @@ LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessI
 
 template <maths::Expression TAnsatzDerivatives>
 LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                                                                         Ref<TAnsatzDerivatives> rAnsatzDerivatives,
+                                                                                         Ref<const TAnsatzDerivatives> rAnsatzDerivatives,
                                                                                          std::span<Value> buffer)
     : LinearIsotropicStiffnessIntegrand(modulus, rAnsatzDerivatives)
 {
@@ -43,7 +43,7 @@ void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstSpan i
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
     CIE_CHECK_POINTER(_pAnsatzDerivatives)
 
-    Ref<TAnsatzDerivatives> rAnsatzDerivatives = *_pAnsatzDerivatives;
+    Ref<const TAnsatzDerivatives> rAnsatzDerivatives = *_pAnsatzDerivatives;
     const unsigned derivativeComponentCount = rAnsatzDerivatives.size();
     const unsigned ansatzCount = derivativeComponentCount / Dimension;
     rAnsatzDerivatives.evaluate(in, {_buffer.data(), _buffer.data() + _pAnsatzDerivatives->size()});

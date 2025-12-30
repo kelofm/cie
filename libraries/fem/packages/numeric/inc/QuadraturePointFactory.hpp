@@ -7,6 +7,8 @@
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
+
+// --- STL Includes ---
 #include <type_traits>
 
 
@@ -52,13 +54,13 @@ private:
 template <unsigned Dim, concepts::Numeric TValue>
 class CachedQuadraturePointFactory {
 public:
-    static constexpr inline unsigned Dimension = Dimension;
+    static constexpr inline unsigned Dimension = Dim;
 
     using Value = TValue;
 
     CachedQuadraturePointFactory() noexcept;
 
-    CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,Value>> cache) noexcept;
+    explicit CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,Value>> cache) noexcept;
 
     template <CellLike TCell>
     unsigned generate(Ref<const TCell>,

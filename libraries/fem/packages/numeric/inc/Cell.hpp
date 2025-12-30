@@ -31,7 +31,7 @@ concept CellLike =
     {rConstInstance.transform(constGlobalSpan, localSpan)}  -> std::same_as<void>;      // <== transform from global to local space
     {rConstInstance.makeJacobian()}                         -> maths::JacobianExpression;
     {rConstInstance.id()}                                   -> std::same_as<VertexID>;
-    {rConstInstance.ansatzSpaceID()}                        -> ::cie::concepts::UnsignedInteger;
+    {rConstInstance.ansatzID()}                        -> ::cie::concepts::UnsignedInteger;
 }; // concept Cell
 
 
@@ -62,13 +62,13 @@ public:
     CellBase() noexcept;
 
     CellBase(VertexID id,
-             AnsatzSpaceID ansatzSpaceID,
+             AnsatzSpaceID ansatzID,
              OrientedAxes<Dimension> axes,
              RightRef<SpatialTransform> rSpatialTransform) noexcept
     requires std::is_same_v<TData,void>;
 
     CellBase(VertexID id,
-             AnsatzSpaceID ansatzSpaceID,
+             AnsatzSpaceID ansatzID,
              OrientedAxes<Dimension> axes,
              RightRef<SpatialTransform> rSpatialTransform,
              typename VoidSafe<TData,int>::RightRef rData) noexcept
@@ -80,7 +80,7 @@ public:
 
     typename SpatialTransform::Derivative makeJacobian() const;
 
-    [[nodiscard]] constexpr AnsatzSpaceID ansatzSpaceID() const noexcept {
+    [[nodiscard]] constexpr AnsatzSpaceID ansatzID() const noexcept {
         return std::get<0>(_impl);
     }
 
@@ -107,7 +107,7 @@ private:
 
     friend struct io::GraphML::Deserializer<CellBase>;
 
-    [[nodiscard]] constexpr Ref<AnsatzSpaceID> ansatzSpaceID() noexcept {
+    [[nodiscard]] constexpr Ref<AnsatzSpaceID> ansatzID() noexcept {
         return std::get<0>(_impl);
     }
 

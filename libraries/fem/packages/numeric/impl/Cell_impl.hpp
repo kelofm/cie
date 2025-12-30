@@ -15,7 +15,7 @@ template <unsigned Dim,
 CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase() noexcept
     : _impl()
 {
-    this->ansatzSpaceID() = 0u;
+    this->ansatzID() = 0u;
     this->id() = 0ul;
 }
 
@@ -25,11 +25,11 @@ template <unsigned Dim,
           maths::SpatialTransform TSpatialTransform,
           class TData>
 CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase(VertexID id,
-                                                       AnsatzSpaceID ansatzSpaceID,
+                                                       AnsatzSpaceID ansatzID,
                                                        OrientedAxes<Dimension> axes,
                                                        RightRef<SpatialTransform> rSpatialTransform) noexcept
 requires std::is_same_v<TData,void>
-    : _impl(ansatzSpaceID, id, axes, std::move(rSpatialTransform), {})
+    : _impl(ansatzID, id, axes, std::move(rSpatialTransform), {})
 {
     this->inverseSpatialTransform() = rSpatialTransform.makeInverse();
 }
@@ -40,12 +40,12 @@ template <unsigned Dim,
           maths::SpatialTransform TSpatialTransform,
           class TData>
 CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase(VertexID id,
-                                                       AnsatzSpaceID ansatzSpaceID,
+                                                       AnsatzSpaceID ansatzID,
                                                        OrientedAxes<Dimension> axes,
                                                        RightRef<SpatialTransform> rSpatialTransform,
                                                        typename VoidSafe<TData,int>::RightRef rData) noexcept
 requires (!std::is_same_v<TData,void>)
-    : _impl(ansatzSpaceID, id, axes, std::move(rSpatialTransform), {}, std::move(rData))
+    : _impl(ansatzID, id, axes, std::move(rSpatialTransform), {}, std::move(rData))
 {
     this->inverseSpatialTransform() = rSpatialTransform.makeInverse();
 }
@@ -104,7 +104,7 @@ void io::GraphML::Serializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>
                                                                                              Ref<const Value> rInstance) const {
     // Serialize trivial (integral / floating point) members.
     rElement.addAttribute("id", std::to_string(rInstance.id()));
-    rElement.addAttribute("iAnsatz", std::to_string(rInstance.ansatzSpaceID()));
+    rElement.addAttribute("iAnsatz", std::to_string(rInstance.ansatzID()));
 
     // Serialize custom trivial members.
     {
@@ -170,7 +170,7 @@ void io::GraphML::Deserializer<CellBase<Dimension,TValue,TSpatialTransform,TData
                 return pair.first == "iAnsatz";
             });
         char* pEnd;
-        rThis.instance().ansatzSpaceID() = std::strtoul(it->second.data(), &pEnd, 10);
+        rThis.instance().ansatzID() = std::strtoul(it->second.data(), &pEnd, 10);
     }
 
     // Deserialize the cell's orientation in topological space.
