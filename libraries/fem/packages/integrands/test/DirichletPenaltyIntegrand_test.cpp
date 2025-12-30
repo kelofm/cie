@@ -4,7 +4,7 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
-#include "packages/maths/inc/IndentityTransform.hpp"
+#include "packages/maths/inc/IdentityTransform.hpp"
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
 
 
