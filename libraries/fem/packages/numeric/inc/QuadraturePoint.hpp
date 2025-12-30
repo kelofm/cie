@@ -2,6 +2,7 @@
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
+#include "packages/maths/inc/Expression.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
@@ -37,16 +38,30 @@ public:
         _data.back() = weight;
     }
 
-    constexpr std::span<const TValue,Dim> position() const noexcept {
-        return std::span<const TValue,Dim>(_data.data(), Dim);
+    constexpr QuadraturePoint(Value position, Value weight) noexcept
+    requires (Dim == 1u) {
+        _data.front() = position;
+        _data.back() = weight;
+    }
+
+    template <maths::Expression TExpression>
+    requires std::is_same_v<typename TExpression::Value,TValue>
+    void evaluate(Ref<const TExpression> rExpression,
+                  std::span<TValue> out) const noexcept {
+        rExpression.evaluate(Kernel<Dimension,TValue>::decay(this->position()), out);
+        for (TValue& rComponent : out) rComponent *= this->weight();
+    }
+
+    constexpr std::span<const Value,Dim> position() const noexcept {
+        return std::span<const Value,Dim>(_data.data(), Dim);
     }
 
     constexpr Ref<const TValue> weight() const noexcept {
         return _data.back();
     }
 
-    constexpr std::span<TValue,Dim> position() noexcept {
-        return std::span<TValue,Dim>(_data.data(), Dim);
+    constexpr std::span<Value,Dim> position() noexcept {
+        return std::span<Value,Dim>(_data.data(), Dim);
     }
 
     constexpr Ref<TValue> weight() noexcept {
@@ -54,7 +69,7 @@ public:
     }
 
 private:
-    StaticArray<TValue,Dim+1> _data;
+    StaticArray<Value,Dim+1> _data;
 };
 
 
