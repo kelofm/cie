@@ -32,12 +32,6 @@ public:
     void evaluate(Ref<const TExpression> rExpression,
                   typename TExpression::Span out) const;
 
-    template <class TOutputIt>
-    void getIntegrationPoints(TOutputIt itOutput) const;
-
-    template <class TOutputIt>
-    void getIntegrationWeights(TOutputIt itOutput) const;
-
 private:
     DynamicArray<StaticArray<TValue,Dimension+1>> _nodesAndWeights;
 }; // class Quadrature
