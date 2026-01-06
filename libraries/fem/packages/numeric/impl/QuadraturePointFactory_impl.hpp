@@ -65,7 +65,7 @@ OuterProductQuadraturePointFactory<Dim,TValue>::generate(Ref<const TCell>,
 
 template <unsigned Dim, concepts::Numeric TValue>
 CachedQuadraturePointFactory<Dim,TValue>::CachedQuadraturePointFactory() noexcept
-    : CachedQuadraturePointFactory({})
+    : CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,TValue>>())
 {}
 
 

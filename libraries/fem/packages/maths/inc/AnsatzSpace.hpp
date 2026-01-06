@@ -18,8 +18,7 @@ class AnsatzSpace;
 
 
 template <class TScalarExpression, unsigned Dim>
-class BufferedAnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value>
-{
+class BufferedAnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
     static constexpr unsigned Dimension = Dim;
 
@@ -33,10 +32,10 @@ public:
     BufferedAnsatzSpaceDerivative() noexcept = default;
 
     BufferedAnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet,
-                                  std::span<typename TScalarExpression::Derivative> derivativeSet);
+                                  std::span<const typename TScalarExpression::Derivative> derivativeSet);
 
     BufferedAnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet,
-                                  std::span<typename TScalarExpression::Derivative> derivativeSet,
+                                  std::span<const typename TScalarExpression::Derivative> derivativeSet,
                                   Span buffer);
 
     void evaluate(ConstSpan in, Span out) const;
@@ -58,15 +57,14 @@ private:
 
     std::span<const TScalarExpression> _ansatzSet;
 
-    std::span<typename TScalarExpression::Derivative> _derivativeSet;
+    std::span<const typename TScalarExpression::Derivative> _derivativeSet;
 
     Span _buffer;
 }; // class BufferedAnsatzSpaceDerivative
 
 
 template <class TScalarExpression, unsigned Dim>
-class AnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value>
-{
+class AnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
     static constexpr unsigned Dimension = Dim;
 
@@ -75,6 +73,8 @@ public:
     using typename ExpressionTraits<Value>::ConstSpan;
 
     using typename ExpressionTraits<Value>::Span;
+
+    using Buffered = BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>;
 
 public:
     AnsatzSpaceDerivative() noexcept = default;
@@ -93,6 +93,8 @@ public:
 
     unsigned size() const noexcept;
 
+    Buffered makeBuffered() const noexcept;
+
 private:
     friend class AnsatzSpace<TScalarExpression,Dim>;
 
@@ -110,8 +112,7 @@ private:
 /** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
  */
 template <class TScalarExpression, unsigned Dim>
-class BufferedAnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value>
-{
+class BufferedAnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value> {
 private:
     using Base = ExpressionTraits<typename TScalarExpression::Value>;
 
@@ -156,8 +157,7 @@ private:
 /** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
  */
 template <class TScalarExpression, unsigned Dim>
-class AnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value>
-{
+class AnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value> {
 private:
     using Base = ExpressionTraits<typename TScalarExpression::Value>;
 
@@ -173,6 +173,8 @@ public:
     using AnsatzSet = DynamicArray<TScalarExpression>;
 
     using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim>;
+
+    using Buffered = BufferedAnsatzSpace<TScalarExpression,Dim>;
 
 public:
     AnsatzSpace() noexcept;
@@ -196,6 +198,8 @@ public:
     unsigned size() const noexcept;
 
     std::span<const TScalarExpression> ansatzSet() const noexcept;
+
+    Buffered makeBuffered() const noexcept;
 
 private:
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;

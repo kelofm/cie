@@ -8,8 +8,7 @@ namespace cie::fem {
 
 
 template <maths::Expression TIntegrand, maths::JacobianExpression TJacobian>
-class TransformedIntegrand : public maths::ExpressionTraits<typename TIntegrand::Value>
-{
+class TransformedIntegrand : public maths::ExpressionTraits<typename TIntegrand::Value> {
 public:
     using typename maths::ExpressionTraits<typename TIntegrand::Value>::Value;
 
@@ -25,17 +24,16 @@ public:
     TransformedIntegrand() noexcept {}
 
     TransformedIntegrand(RightRef<TIntegrand> rIntegrand,
-                         Ref<const TJacobian> rInverseJacobian) noexcept
+                         RightRef<TJacobian> rInverseJacobian) noexcept
         : _integrand(std::move(rIntegrand)),
-          _pInverseJacobian(&rInverseJacobian)
+          _inverseJacobian(std::move(rInverseJacobian))
     {}
 
-    unsigned size() const noexcept
-    {return _integrand.size();}
+    unsigned size() const noexcept {
+        return _integrand.size();}
 
-    void evaluate(ConstSpan in, Span out) const
-    {
-        const Value determinant = std::abs(_pInverseJacobian->evaluateDeterminant(in));
+    void evaluate(ConstSpan in, Span out) const {
+        const Value determinant = std::abs(_inverseJacobian.evaluateDeterminant(in));
         CIE_DIVISION_BY_ZERO_CHECK(determinant != static_cast<Value>(0));
         const Value scale = static_cast<Value>(1) / determinant;
 
@@ -46,19 +44,41 @@ public:
         }
     }
 
+    unsigned getMinBufferSize() const noexcept
+    requires (maths::BufferedExpression<TIntegrand> || maths::BufferedExpression<TJacobian>) {
+        unsigned out = 0u;
+        if constexpr (maths::BufferedExpression<TIntegrand>) out += _integrand.getMinBufferSize();
+        if constexpr (maths::BufferedExpression<TJacobian>) out += _inverseJacobian.getMinBufferSize();
+        return out;
+    }
+
+    void setBuffer(typename TIntegrand::Span buffer)
+    requires (maths::BufferedExpression<TIntegrand> || maths::BufferedExpression<TJacobian>) {
+        std::size_t offset = 0ul;
+
+        if constexpr (maths::BufferedExpression<TIntegrand>) {
+            if constexpr (maths::BufferedExpression<TJacobian>) offset = _integrand.getMinBufferSize();
+            else offset = buffer.size();
+            _integrand.setBuffer({buffer.data(), offset});
+        }
+
+        if constexpr (maths::BufferedExpression<TJacobian>) {
+            _inverseJacobian.setBuffer({buffer.data() + offset, buffer.data() + buffer.size()});
+        }
+    }
+
 private:
     TIntegrand _integrand;
 
-    Ptr<const TJacobian> _pInverseJacobian;
+    TJacobian _inverseJacobian;
 }; // class TransformedIntegrand
 
 
 template <maths::Expression TIntegrand, maths::JacobianExpression TJacobian>
 TransformedIntegrand<TIntegrand,TJacobian>
 makeTransformedIntegrand(RightRef<TIntegrand> rIntegrand,
-                         Ref<const TJacobian> rJacobian)
-{
-    return TransformedIntegrand(std::move(rIntegrand), rJacobian);
+                         RightRef<TJacobian> rJacobian) {
+    return TransformedIntegrand(std::move(rIntegrand), std::move(rJacobian));
 }
 
 

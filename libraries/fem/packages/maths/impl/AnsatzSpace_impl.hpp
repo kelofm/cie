@@ -18,7 +18,7 @@ namespace cie::fem::maths {
 
 template <class TScalarExpression, unsigned Dim>
 BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::BufferedAnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet,
-                                                                                    std::span<typename TScalarExpression::Derivative> derivativeSet)
+                                                                                    std::span<const typename TScalarExpression::Derivative> derivativeSet)
     : _ansatzSet(ansatzSet),
       _derivativeSet(derivativeSet),
       _buffer()
@@ -30,19 +30,12 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::BufferedAnsatzSpaceDerivat
             << "does not match the number of ansatz functions (" << _ansatzSet.size() << ")"
         )
     }
-
-    std::transform(_ansatzSet.begin(),
-                   _ansatzSet.end(),
-                   _derivativeSet.begin(),
-                   [](Ref<const TScalarExpression> rAnsatzFunction){
-                        return rAnsatzFunction.makeDerivative();
-                   });
 }
 
 
 template <class TScalarExpression, unsigned Dim>
 BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::BufferedAnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet,
-                                                                                    std::span<typename TScalarExpression::Derivative> derivativeSet,
+                                                                                    std::span<const typename TScalarExpression::Derivative> derivativeSet,
                                                                                     Span buffer)
     : BufferedAnsatzSpaceDerivative(ansatzSet, derivativeSet)
 {
@@ -51,8 +44,7 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::BufferedAnsatzSpaceDerivat
 
 
 template <class TScalarExpression, unsigned Dim>
-void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
-{
+void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     const unsigned setSize = _ansatzSet.size();
     CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
     CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
@@ -109,15 +101,13 @@ void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in
 
 
 template <class TScalarExpression, unsigned Dim>
-unsigned BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
-{
+unsigned BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept {
     return intPow(_ansatzSet.size(), Dim) * Dim;
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-unsigned BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getMinBufferSize() const noexcept
-{
+unsigned BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getMinBufferSize() const noexcept {
     // Size of the index buffer in bytes.
     constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
 
@@ -132,8 +122,7 @@ unsigned BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getMinBufferSize(
 
 
 template <class TScalarExpression, unsigned Dim>
-void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::setBuffer(Span buffer)
-{
+void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::setBuffer(Span buffer) {
     if (buffer.size() < this->getMinBufferSize()) {
         CIE_THROW(
             OutOfRangeException ,
@@ -150,8 +139,7 @@ void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::setBuffer(Span buffer
 
 
 template <class TScalarExpression, unsigned Dim>
-std::span<unsigned,Dim> BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getIndexBuffer() const noexcept
-{
+std::span<unsigned,Dim> BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getIndexBuffer() const noexcept {
     return std::span<unsigned,Dim> {
         static_cast<unsigned*>(static_cast<void*>(_buffer.data())),
         Dim
@@ -161,8 +149,7 @@ std::span<unsigned,Dim> BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::ge
 
 template <class TScalarExpression, unsigned Dim>
 typename BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::Span
-BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getAnsatzBuffer() const noexcept
-{
+BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getAnsatzBuffer() const noexcept {
     // Size of the index buffer in bytes.
     constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
 
@@ -178,8 +165,7 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getAnsatzBuffer() const no
 
 template <class TScalarExpression, unsigned Dim>
 typename BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::Span
-BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getDerivativeBuffer() const noexcept
-{
+BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getDerivativeBuffer() const noexcept {
     // Size of the index buffer in bytes.
     constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
 
@@ -196,8 +182,7 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getDerivativeBuffer() cons
 
 template <class TScalarExpression, unsigned Dim>
 std::span<const TScalarExpression>
-BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::ansatzSet() const noexcept
-{
+BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::ansatzSet() const noexcept {
     return _ansatzSet;
 }
 
@@ -209,6 +194,13 @@ AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(std::span<co
       _buffer(),
       _wrapped()
 {
+    std::transform(
+        _ansatzSet.begin(),
+        _ansatzSet.end(),
+        _derivativeSet.begin(),
+        [](Ref<const TScalarExpression> rAnsatzFunction){
+             return rAnsatzFunction.makeDerivative();
+        });
     _wrapped = BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>(
         {_ansatzSet.data(), _ansatzSet.size()},
         {_derivativeSet.data(), _derivativeSet.size()}
@@ -227,23 +219,29 @@ AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(const Ansatz
 
 template <class TScalarExpression, unsigned Dim>
 AnsatzSpaceDerivative<TScalarExpression,Dim>&
-AnsatzSpaceDerivative<TScalarExpression,Dim>::operator=(const AnsatzSpaceDerivative& rRhs)
-{
+AnsatzSpaceDerivative<TScalarExpression,Dim>::operator=(const AnsatzSpaceDerivative& rRhs) {
     (*this) = AnsatzSpaceDerivative(rRhs);
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
-{
+void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     _wrapped.evaluate(in, out);
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-unsigned AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept
-{
+unsigned AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept {
     return _wrapped.size();
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+typename AnsatzSpaceDerivative<TScalarExpression,Dim>::Buffered
+AnsatzSpaceDerivative<TScalarExpression,Dim>::makeBuffered() const noexcept {
+    return BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>(
+        _ansatzSet,
+        _derivativeSet);
 }
 
 
@@ -267,15 +265,13 @@ template <class TScalarExpression, unsigned Dim>
 BufferedAnsatzSpace<TScalarExpression,Dim>::BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet,
                                                                 Span buffer)
     : _set(ansatzSet),
-      _buffer()
-{
+      _buffer() {
     this->setBuffer(buffer);
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-void BufferedAnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
-{
+void BufferedAnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     // Sanity checks
     CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
     CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
@@ -309,15 +305,13 @@ void BufferedAnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out
 
 
 template <class TScalarExpression, unsigned Dim>
-unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::size() const noexcept
-{
+unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::size() const noexcept {
     return intPow(_set.size(), Dim);
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::getMinBufferSize() const noexcept
-{
+unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::getMinBufferSize() const noexcept {
     // Size of the index buffer in bytes.
     constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
 
@@ -332,8 +326,7 @@ unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::getMinBufferSize() const no
 
 
 template <class TScalarExpression, unsigned Dim>
-void BufferedAnsatzSpace<TScalarExpression,Dim>::setBuffer(Span buffer)
-{
+void BufferedAnsatzSpace<TScalarExpression,Dim>::setBuffer(Span buffer) {
     if (buffer.size() < this->getMinBufferSize()) {
         CIE_THROW(
             OutOfRangeException ,
@@ -350,8 +343,7 @@ void BufferedAnsatzSpace<TScalarExpression,Dim>::setBuffer(Span buffer)
 
 
 template <class TScalarExpression, unsigned Dim>
-std::span<unsigned,Dim> BufferedAnsatzSpace<TScalarExpression,Dim>::getIndexBuffer() const noexcept
-{
+std::span<unsigned,Dim> BufferedAnsatzSpace<TScalarExpression,Dim>::getIndexBuffer() const noexcept {
     return std::span<unsigned,Dim> {
         static_cast<unsigned*>(static_cast<void*>(_buffer.data())),
         Dim
@@ -361,8 +353,7 @@ std::span<unsigned,Dim> BufferedAnsatzSpace<TScalarExpression,Dim>::getIndexBuff
 
 template <class TScalarExpression, unsigned Dim>
 typename BufferedAnsatzSpace<TScalarExpression,Dim>::Span
-BufferedAnsatzSpace<TScalarExpression,Dim>::getValueBuffer() const noexcept
-{
+BufferedAnsatzSpace<TScalarExpression,Dim>::getValueBuffer() const noexcept {
     // Size of the index buffer in bytes.
     constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
 
@@ -377,9 +368,15 @@ BufferedAnsatzSpace<TScalarExpression,Dim>::getValueBuffer() const noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
-std::span<const TScalarExpression> BufferedAnsatzSpace<TScalarExpression,Dim>::ansatzSet() const noexcept
-{
+std::span<const TScalarExpression> BufferedAnsatzSpace<TScalarExpression,Dim>::ansatzSet() const noexcept {
     return _set;
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+typename AnsatzSpace<TScalarExpression,Dim>::Buffered
+AnsatzSpace<TScalarExpression,Dim>::makeBuffered() const noexcept {
+    return BufferedAnsatzSpace<TScalarExpression,Dim>(_set);
 }
 
 
@@ -418,38 +415,33 @@ AnsatzSpace<TScalarExpression,Dim>::AnsatzSpace(const AnsatzSpace& rRhs)
 
 template <class TScalarExpression, unsigned Dim>
 AnsatzSpace<TScalarExpression,Dim>&
-AnsatzSpace<TScalarExpression,Dim>::operator=(const AnsatzSpace& rRhs)
-{
+AnsatzSpace<TScalarExpression,Dim>::operator=(const AnsatzSpace& rRhs) {
     (*this) = AnsatzSpace(rRhs._set);
     return *this;
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const
-{
+void AnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     _wrapped.evaluate(in, out);
 }
 
 
 template <class TScalarExpression, unsigned Dim>
 typename AnsatzSpace<TScalarExpression,Dim>::Derivative
-AnsatzSpace<TScalarExpression,Dim>::makeDerivative() const
-{
+AnsatzSpace<TScalarExpression,Dim>::makeDerivative() const {
     return Derivative(this->ansatzSet());
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-unsigned AnsatzSpace<TScalarExpression,Dim>::size() const noexcept
-{
+unsigned AnsatzSpace<TScalarExpression,Dim>::size() const noexcept {
     return _wrapped.size();
 }
 
 
 template <class TScalarExpression, unsigned Dim>
-std::span<const TScalarExpression> AnsatzSpace<TScalarExpression,Dim>::ansatzSet() const noexcept
-{
+std::span<const TScalarExpression> AnsatzSpace<TScalarExpression,Dim>::ansatzSet() const noexcept {
     return {_set.data(), _set.size()};
 }
 

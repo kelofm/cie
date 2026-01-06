@@ -12,8 +12,7 @@ namespace cie::fem {
 
 template <maths::Expression TAnsatzDerivatives>
 class LinearIsotropicStiffnessIntegrand
-    : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value>
-{
+    : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value> {
 public:
     static constexpr unsigned Dimension = TAnsatzDerivatives::Dimension;
 
@@ -27,11 +26,22 @@ public:
     LinearIsotropicStiffnessIntegrand();
 
     LinearIsotropicStiffnessIntegrand(const Value modulus,
-                                      Ref<const TAnsatzDerivatives> rAnsatzDerivatives);
+                                      RightRef<TAnsatzDerivatives> rAnsatzDerivatives)
+    requires maths::BufferedExpression<TAnsatzDerivatives>;
+
+    LinearIsotropicStiffnessIntegrand(const Value modulus,
+                                      RightRef<TAnsatzDerivatives> rAnsatzDerivatives,
+                                      std::span<Value> buffer)
+    requires maths::BufferedExpression<TAnsatzDerivatives>;
+
+    LinearIsotropicStiffnessIntegrand(const Value modulus,
+                                      Ref<const TAnsatzDerivatives> rAnsatzDerivatives)
+    requires (!maths::BufferedExpression<TAnsatzDerivatives>);
 
     LinearIsotropicStiffnessIntegrand(const Value modulus,
                                       Ref<const TAnsatzDerivatives> rAnsatzDerivatives,
-                                      std::span<Value> buffer);
+                                      std::span<Value> buffer)
+    requires (!maths::BufferedExpression<TAnsatzDerivatives>);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -44,7 +54,11 @@ public:
 private:
     Value _modulus;
 
-    Ptr<const TAnsatzDerivatives> _pAnsatzDerivatives;
+    std::conditional_t<
+        maths::BufferedExpression<TAnsatzDerivatives>,
+        TAnsatzDerivatives,
+        Ptr<const TAnsatzDerivatives>
+    > _ansatzDerivatives;
 
     std::span<Value> _buffer;
 }; // class LinearIsotropicStiffnessIntegrand
