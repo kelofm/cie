@@ -63,6 +63,52 @@ cmakeCxxFlags=""                        # <== value to set for CMAKE_CXX_FLAGS
 enableSYCL="OFF"                        # <== set to true if the requested compiler is acpp
 jobCount=""                             # <== number of processes to launch the compilation with
 
+case "$(uname -s)" in
+    Linux*)
+        jobCount=$(grep "^cpu\\scores" /proc/cpuinfo | uniq |  awk '{print $4}')
+        ;;
+    Darwin*)
+        jobCount=$(sysctl -n machdep.cpu.thread_count)
+
+        # Set clang from homebrew
+        if ! command -v brew &> /dev/null; then
+            echo "Error: $scriptName requires Homebrew"
+            exit 1
+        fi
+
+        foundPackage=""
+        get_homebrew_package() {
+            foundPackage=""
+            packageVersions="$(brew search --formula "/$1(@[0-9]+)?/")"
+            for packageVersion in $(echo $packageVersions | tr ' ' '\n' | sort -r | tr '\n' ' '); do
+                if brew list "$packageVersion" >/dev/null 2>&1; then
+                    foundPackage="$packageVersion"
+                    echo "using '$packageVersion' for dependency '$1'"
+                    return 0
+                fi
+            done
+
+            echo "Error: no installed version of '$1' was found."
+            echo "Consider running 'brew install $1'."
+            exit 1
+        }
+
+        get_homebrew_package llvm
+        toolchainRoot="$(brew --prefix $foundPackage)"
+        toolchainBin="${toolchainRoot}/bin"
+        toolchainLib="${toolchainRoot}/lib"
+        toolchainInclude="${toolchainRoot}/include"
+        cxx="$toolchainBin/clang++"
+
+        get_homebrew_package libomp
+        export OpenMP_ROOT=$(brew --prefix $foundPackage)
+        ;;
+    \?)
+        echo "Error: unsupported OS $(uname -s)"
+        exit 1
+esac
+
+# Parse command line arguments.
 while getopts ":a: h p t: b: c: i: j: o:" arg; do
     case "$arg" in
         a)  # Add a project to the list of compiled ones.
@@ -137,57 +183,6 @@ while getopts ":a: h p t: b: c: i: j: o:" arg; do
             ;;
     esac
 done
-
-case "$(uname -s)" in
-    Linux*)
-        if [ "$jobCount" = "" ]; then
-            jobCount=$(grep "^cpu\\scores" /proc/cpuinfo | uniq |  awk '{print $4}')
-        fi
-        #export ACPP_TARGETS="hip:gfx1030"
-        #toolchainRoot="/opt/hipSYCL/ROCm"
-        #toolchainBin="$toolchainRoot/bin"
-        #export cc="$toolchainBin/acpp"
-        #export cxx="$toolchainBin/acpp"
-        ;;
-    Darwin*)
-        if [ "$jobCount" = "" ]; then
-            jobCount=$(sysctl -n machdep.cpu.thread_count)
-        fi
-
-        # Set clang from homebrew
-        if ! command -v brew &> /dev/null; then
-            echo "Error: $scriptName requires Homebrew"
-            exit 1
-        fi
-
-        foundPackage=""
-        get_homebrew_package() {
-            foundPackage=""
-            package_versions="$(brew search --formula "/$1@[0-9]+/")"
-            for package_version in $(echo $package_versions | tr ' ' '\n' | sort -r | tr '\n' ' '); do
-                if brew list "$package_version" >/dev/null 2>&1; then
-                    foundPackage="$package_version"
-                    echo "using '$package_version' for dependency '$1'"
-                    return 0
-                fi
-            done
-
-            echo "Error: no installed version of '$1' was found."
-            echo "Consider running 'brew install $1'."
-            exit 1
-        }
-
-        get_homebrew_package llvm
-        toolchainRoot="$(brew --prefix $foundPackage)"
-        toolchainBin="${toolchainRoot}/bin"
-        toolchainLib="${toolchainRoot}/lib"
-        toolchainInclude="${toolchainRoot}/include"
-        cxx="$toolchainBin/clang++"
-        ;;
-    \?)
-        echo "Error: unsupported OS $(uname -s)"
-        exit 1
-esac
 
 # Create or clear the build directory
 if ! [ -d "$buildDir" ]; then
