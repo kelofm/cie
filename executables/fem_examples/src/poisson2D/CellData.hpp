@@ -120,6 +120,9 @@ protected:
 }; // struct CellData
 
 
+static_assert(::cie::concepts::SamplableGeometry<CellData>);
+
+
 template <>
 struct io::GraphML::Serializer<CellData>
     : io::GraphML::Serializer<CellData::CellBase>

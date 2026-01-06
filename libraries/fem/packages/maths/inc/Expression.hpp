@@ -44,8 +44,7 @@ namespace cie::fem::maths {
 /// @ingroup fem
 template <class T>
 concept Expression
-= requires (T instance, const T constInstance)
-{
+= requires (T instance, const T constInstance) {
     /// @brief Value type to perform numerical operations on (eg: @a double).
     typename T::Value;
 
@@ -89,8 +88,7 @@ concept Expression
 /// @ingroup fem
 template <class T>
 concept JacobianExpression
-= Expression<T> && requires (const T constInstance)
-{
+= Expression<T> && requires (const T constInstance) {
     {
         constInstance.evaluateDeterminant(typename T::ConstSpan())
     } -> std::same_as<typename T::Value>;
@@ -129,8 +127,7 @@ concept JacobianExpression
 /// @ingroup fem
 template <class T>
 concept SpatialTransform
-= Expression<T> && requires (const T constInstance)
-{
+= Expression<T> && requires (const T constInstance) {
     /// @details Require a derivative factory. The derivative type need not be a @p SpatialTransform,
     ///          but it must satisfy @ref JacobianExpression that is used for computing
     ///          @ref IntegrandTransform "transformed integrals" (they require the Jacobian's determinant).
@@ -168,8 +165,7 @@ concept SpatialTransform
 /// @ingroup fem
 template <class T>
 concept BufferedExpression
-= Expression<T> && requires(T instance, const T constInstance)
-{
+= Expression<T> && requires(T instance, const T constInstance) {
     /// @brief Require a query for the minimum required buffer size.
     {constInstance.getMinBufferSize()} -> concepts::UnsignedInteger;
 
@@ -181,8 +177,7 @@ concept BufferedExpression
 /// @brief Trait class exposing type aliases required by @ref Expression.
 /// @ingroup fem
 template <class TValue>
-struct ExpressionTraits
-{
+struct ExpressionTraits {
     using Value = TValue;
 
     using Span = std::span<TValue>;
@@ -194,8 +189,7 @@ struct ExpressionTraits
 /// @brief Base class for expressions with dynamic polymorphism.
 /// @ingroup fem
 template <class TValue>
-struct DynamicExpression : ExpressionTraits<TValue>
-{
+struct DynamicExpression : ExpressionTraits<TValue> {
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
@@ -213,8 +207,7 @@ struct DynamicExpression : ExpressionTraits<TValue>
 /// @brief Wrapper class embedding the functionality of an @ref Expression with static polymorphism into @ref DynamicExpression.
 /// @ingroup fem
 template <Expression TExpression>
-class WrappedExpression : public DynamicExpression<typename TExpression::Value>
-{
+class WrappedExpression : public DynamicExpression<typename TExpression::Value> {
 private:
     using Base = DynamicExpression<typename TExpression::Value>;
 

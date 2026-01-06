@@ -82,11 +82,11 @@ public:
         } // for iSet in range(integrationOrders.size())
     }
 
-    std::span<const Ansatz> ansatzSpaces() noexcept {
+    std::span<const Ansatz> ansatzSpaces() const noexcept {
         return _ansatzSpaces;
     }
 
-    std::span<const Ansatz::Derivative> ansatzDerivatives() noexcept {
+    std::span<const Ansatz::Derivative> ansatzDerivatives() const noexcept {
         return _ansatzDerivatives;
     }
 

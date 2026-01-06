@@ -21,18 +21,14 @@
 namespace cie::fem {
 
 
-class Assembler
-{
+class Assembler {
 private:
-    using DefaultMesh = Graph<void,void>;
-
     using DoFMap = tsl::robin_map<
         VertexID,                                   // <== ID of the cell
         DynamicArray<std::optional<std::size_t>>    // <== DoF indices of its basis functions
     >;
 
-    static auto makeIndexView(Ref<const DoFMap::mapped_type> rIndices)
-    {
+    static auto makeIndexView(Ref<const DoFMap::mapped_type> rIndices) {
         return std::ranges::transform_view(
             rIndices,
             [](DoFMap::mapped_type::value_type maybeIndex){return maybeIndex.value();}
@@ -67,32 +63,29 @@ public:
                        Ref<DynamicArray<TValue>> rNonzeros,
                        OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
 
-    auto keys() const
-    {
+    auto keys() const {
         return std::ranges::views::keys(_dofMap);
     }
 
-    auto values() const
-    {
+    auto values() const {
         return std::ranges::transform_view(
             _dofMap,
             [](const auto& rPair) {return Assembler::makeIndexView(rPair.second);}
         );
     }
 
-    auto items() const
-    {
+    auto items() const {
         return std::ranges::transform_view(
             _dofMap,
             [](const auto& rPair) {
-                return std::make_pair(rPair.first,
-                                      Assembler::makeIndexView(rPair.second));
+                return std::make_pair(
+                    rPair.first,
+                    Assembler::makeIndexView(rPair.second));
             }
         );
     }
 
-    auto operator[](VertexID vertexID) const
-    {
+    auto operator[](VertexID vertexID) const {
         const auto it = _dofMap.find(vertexID);
         CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end())
         return this->makeIndexView(it->second);
