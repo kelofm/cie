@@ -965,13 +965,12 @@ CIE_TEST_CASE("2D", "[systemTests]")
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives[rCell.data().iAnsatz];
-            const auto jacobian = rCell.data().spatialTransform.makeDerivative();
 
             const auto localIntegrand = makeTransformedIntegrand(
                 LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(rCell.data().diffusivity,
                                                                       rAnsatzDerivatives,
                                                                       {derivativeBuffer.data(), derivativeBuffer.size()}),
-                jacobian
+                rCell.data().spatialTransform.makeDerivative()
             );
             quadrature.evaluate(localIntegrand, integrandBuffer);
 
