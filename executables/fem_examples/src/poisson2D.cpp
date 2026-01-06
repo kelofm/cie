@@ -1,6 +1,7 @@
 // --- External Includes ---
 #include "Eigen/Sparse"
 #include "Eigen/IterativeLinearSolvers"
+#include "Eigen/src/SparseCholesky/SimplicialCholesky.h"
 
 // --- Internal Includes ---
 #include "packages/numeric/inc/QuadraturePointFactory.hpp"
@@ -9,6 +10,7 @@
 #include "poisson2D/CellData.hpp"
 #include "poisson2D/BoundaryData.hpp"
 #include "poisson2D/mesh.hpp"
+#include "poisson2D/integration.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/connectivity.hpp"
@@ -16,17 +18,15 @@
 #include "packages/maths/inc/AffineEmbedding.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
-#include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
-#include "packages/integrands/inc/TransformedIntegrand.hpp"
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
 #include "packages/trees/inc//ContiguousSpaceTree.hpp"
+#include "packages/partitioning/inc/BoxBoundable.hpp"
+#include "packages/primitives/inc/Object.hpp"
 
 // --- STL Includes ---
-#include <packages/partitioning/inc/BoxBoundable.hpp>
-#include <packages/primitives/inc/Object.hpp>
 #include <ranges> // ranges::iota
 #include <numbers> // std::numbers::pi
 
@@ -34,7 +34,6 @@
 namespace cie::fem {
 
 
-static_assert(::cie::concepts::SamplableGeometry<CellData>);
 using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
 
 
@@ -54,8 +53,7 @@ using BoundaryMesh = Graph<
 >;
 
 
-BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
-{
+BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
 
     constexpr int targetLeafWidth = 5;
@@ -83,8 +81,7 @@ BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh)
 }
 
 
-BoundaryMesh generateBoundaryMesh(const unsigned resolution)
-{
+BoundaryMesh generateBoundaryMesh(const unsigned resolution) {
     using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
 
     if (resolution < 3) CIE_THROW(Exception, "boundary resolution must be 3 or greater")
@@ -126,8 +123,7 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution)
 
 
 Ptr<const CellData> findContainingCell(Ref<const geo::AABBoxNode<CellData>> rBVH,
-                                       Ref<const geo::AABBoxNode<CellData>::Point> rPoint)
-{
+                                       Ref<const geo::AABBoxNode<CellData>::Point> rPoint) {
     const auto pBVHNode = rBVH.find(rPoint);
     if (!pBVHNode) return nullptr;
 
@@ -146,49 +142,11 @@ Ptr<const CellData> findContainingCell(Ref<const geo::AABBoxNode<CellData>> rBVH
 }
 
 
-template <class TDofMap>
-void addLHSContribution(std::span<const Scalar> contribution,
-                        TDofMap dofMap,
-                        std::span<const int> rowExtents,
-                        std::span<const int> columnIndices,
-                        std::span<Scalar> entries)
-{
-    const unsigned localSystemSize = dofMap.size();
-    for (unsigned iLocalRow=0u; iLocalRow<localSystemSize; ++iLocalRow) {
-        for (unsigned iLocalColumn=0u; iLocalColumn<localSystemSize; ++iLocalColumn) {
-            const auto iRowBegin = rowExtents[dofMap[iLocalRow]];
-            const auto iRowEnd = rowExtents[dofMap[iLocalRow] + 1];
-            const auto itColumnIndex = std::lower_bound(columnIndices.begin() + iRowBegin,
-                                                        columnIndices.begin() + iRowEnd,
-                                                        dofMap[iLocalColumn]);
-            CIE_OUT_OF_RANGE_CHECK(itColumnIndex != columnIndices.begin() + iRowEnd
-                                && *itColumnIndex == dofMap[iLocalColumn]);
-            const auto iEntry = std::distance(columnIndices.begin(),
-                                            itColumnIndex);
-            entries[iEntry] += contribution[iLocalRow * localSystemSize + iLocalColumn];
-        } // for iLocalColumn in range(ansatzBuffer.size)
-    } // for iLocalRow in range(ansatzBuffer.size)
-}
-
-
-template <class TDofMap>
-void addRHSContribution(std::span<const Scalar> contribution,
-                        TDofMap dofMap,
-                        std::span<Scalar> rhs)
-{
-    for (unsigned iComponent=0u; iComponent<contribution.size(); ++iComponent) {
-        const auto iRow = dofMap[iComponent];
-        rhs[iRow] += contribution[iComponent];
-    }
-}
-
-
-struct DirichletBoundary : public maths::ExpressionTraits<Scalar>
-{
+struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     using maths::ExpressionTraits<Scalar>::Span;
     using maths::ExpressionTraits<Scalar>::ConstSpan;
 
-    void evaluate([[maybe_unused]] ConstSpan position, Span state) const noexcept {
+    void evaluate(ConstSpan position, Span state) const noexcept {
         state[0] = position[0] + position[1];
     }
 
@@ -203,12 +161,9 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const Assembler> rAssembler,
                          BVH::View bvh,
                          std::span<const CellData> contiguousCellData,
-                         std::span<const int> rowExtents,
-                         std::span<const int> columnIndices,
-                         std::span<Scalar> entries,
+                         CSRWrapper lhs,
                          std::span<Scalar> rhs,
-                         Ref<const utils::ArgParse::Results> rArguments)
-{
+                         Ref<const utils::ArgParse::Results> rArguments) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
 
     DynamicArray<StaticArray<Scalar,2*Dimension+1>> boundarySegments; // {p0x, p0y, p1x, p1y, level}
@@ -237,7 +192,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         // Define a functor detecting cell boundaries.
         const auto boundaryVisitor = [bvh, &tree, &rBoundaryCell,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
-                                      &rowExtents, &columnIndices, &entries, &rAssembler,
+                                      lhs, &rAssembler,
                                       &rhs, &dirichletBoundary, &boundaryLength,
                                       &boundarySegments, &contiguousCellData, &rArguments] (
             Ref<const Tree::Node> rNode,
@@ -298,9 +253,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                     addLHSContribution({quadratureBuffer.data(),
                                            static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
                                        rGlobalDofIndices,
-                                       rowExtents,
-                                       columnIndices,
-                                       entries);
+                                       lhs);
 
                     addRHSContribution({quadratureBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
                                            quadratureBuffer.data() + quadratureBuffer.size()},
@@ -382,69 +335,20 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, entries);
     }
     DynamicArray<Scalar> rhs(rowCount, 0.0);
+    CSRWrapper lhs {
+        .rowCount = rowCount,
+        .columnCount = columnCount,
+        .rowExtents = rowExtents,
+        .columnIndices = columnIndices,
+        .entries = entries
+    };
 
     // Compute element contributions and assemble them into the matrix
-    {
-        auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
-
-        DynamicArray<Scalar> derivativeBuffer(mesh.data().ansatzDerivatives().front().size());
-
-        constexpr std::size_t quadratureBatchSize = 0x100ul;
-        DynamicArray<QuadraturePoint<Dimension,Scalar>> quadraturePoints(quadratureBatchSize);
-        DynamicArray<DynamicArray<Scalar>> integrandBuffers(
-            quadratureBatchSize,
-            DynamicArray<Scalar>(std::pow(mesh.data().ansatzSpaces().front().size(), Dimension)));
-
-        for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
-            // Define integrand.
-            auto& rAnsatzDerivatives  = mesh.data().ansatzDerivatives()[rCell.data().ansatzID()];
-            const auto jacobian = rCell.data().makeJacobian();
-            const auto localIntegrand = makeTransformedIntegrand(
-                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
-                    rCell.data().diffusivity(),
-                    rAnsatzDerivatives,
-                    derivativeBuffer),
-                jacobian
-            );
-
-            const auto& rGlobalDofIndices = assembler[rCell.id()];
-
-            // Integrate in batches.
-            auto generator = mesh.data().makeQuadratureRule(rCell.data().ansatzID());
-            while (true) {
-                // Generate integration points.
-                const auto pointCount = generator.generate(rCell.data(), quadraturePoints);
-
-                // Check whether all quadrature points were visited.
-                if (!pointCount) break;
-
-                // Evaluate the integrand at the collected quadrature points.
-                for (std::size_t iPoint=0ul; iPoint<pointCount; ++iPoint) {
-                    quadraturePoints[iPoint].evaluate(localIntegrand, integrandBuffers[iPoint]);
-                } // for iPoint in range(pointCount)
-
-                // Reduce the integrands.
-                if (pointCount) {
-                    std::for_each(
-                        integrandBuffers.begin() + 1,
-                        integrandBuffers.end(),
-                        [&integrandBuffers](const auto& rBuffer){
-                            for (std::size_t iComponent=0ul; iComponent<rBuffer.size(); ++iComponent) {
-                                integrandBuffers.front()[iComponent] += rBuffer[iComponent];
-                            }
-                        });
-                }
-
-                // Assemble integrated values.
-                addLHSContribution(
-                    integrandBuffers.front(),
-                    rGlobalDofIndices,
-                    rowExtents,
-                    columnIndices,
-                    entries);
-            }
-        } // for rCell in mesh.vertices
-    } // integrate
+    integrateStiffness(
+        mesh,
+        assembler,
+        lhs,
+        threads);
 
     // Construct a bounding volume hierarchy over the cells to accelerate
     // point membership tests. Running on accelerator devices also requires
@@ -463,9 +367,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         assembler,
         bvhView,
         contiguousCellData,
-        rowExtents,
-        columnIndices,
-        entries,
+        lhs,
         rhs,
         rArguments);
 
@@ -491,6 +393,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         > solver;
         solver.setMaxIterations(int(5e3));
         solver.setTolerance(1e-6);
+        //Eigen::SimplicialLLT<EigenSparseMatrix> solver;
 
         solver.compute(lhsAdaptor);
         solutionAdaptor = solver.solve(rhsAdaptor);
