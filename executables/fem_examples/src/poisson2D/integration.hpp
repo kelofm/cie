@@ -59,7 +59,7 @@ void addRHSContribution(std::span<const Scalar> contribution,
 
 
 using StiffnessIntegrand = TransformedIntegrand<
-    LinearIsotropicStiffnessIntegrand<Ansatz::Derivative::Buffered>,
+    LinearIsotropicStiffnessIntegrand<AnsatzDerivative>,
     SpatialTransform::Derivative
 >;
 
@@ -139,9 +139,9 @@ public:
                        std::size_t iIntegrand,
                        std::size_t integrandBufferSize) {
         _integrands[iIntegrand] = makeTransformedIntegrand(
-            LinearIsotropicStiffnessIntegrand<Ansatz::Derivative::Buffered>(
+            LinearIsotropicStiffnessIntegrand<AnsatzDerivative>(
                 rCell.diffusivity(),
-                rMesh.data().ansatzDerivatives()[rCell.ansatzID()].makeBuffered(),
+                AnsatzDerivative(rMesh.data().ansatzDerivatives()[rCell.ansatzID()]),
                 {_integrandBuffer.data() + iIntegrand * integrandBufferSize, integrandBufferSize}),
             rCell.makeJacobian());
     }
@@ -220,9 +220,9 @@ void integrateStiffness(Ref<const Mesh> rMesh,
     if (!rMesh.vertices().empty()) {
         Ref<const CellData> rCell = rMesh.vertices().front().data();
         const StiffnessIntegrand integrand = makeTransformedIntegrand(
-            LinearIsotropicStiffnessIntegrand<Ansatz::Derivative::Buffered>(
+            LinearIsotropicStiffnessIntegrand<AnsatzDerivative>(
                 rCell.diffusivity(),
-                rMesh.data().ansatzDerivatives()[rCell.ansatzID()].makeBuffered()),
+                AnsatzDerivative(rMesh.data().ansatzDerivatives()[rCell.ansatzID()])),
             rCell.makeJacobian());
         integrandOutputSize = integrand.size();
         integrandBufferSize = integrand.getMinBufferSize();

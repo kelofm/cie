@@ -11,17 +11,15 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue>
-PolynomialView<TValue>::PolynomialView(Span coefficients) noexcept
+PolynomialView<TValue>::PolynomialView(ConstSpan coefficients) noexcept
     : _coefficients(coefficients)
-{
-}
+{}
 
 
 template <concepts::Numeric TValue>
 typename PolynomialView<TValue>::Derivative
-PolynomialView<TValue>::makeDerivative(Span buffer) const
-{
-    if (!_coefficients.empty() && buffer.size() != _coefficients.size() - 1) {
+PolynomialView<TValue>::makeDerivative(Span buffer) const {
+    if (!_coefficients.empty() && buffer.size() != (_coefficients.empty() ? 0ul : _coefficients.size() - 1)) {
         CIE_THROW(OutOfRangeException,
                   "required buffer size is " << _coefficients.size() - 1 << " "
                     << "but got " << buffer.size());
@@ -45,6 +43,13 @@ PolynomialView<TValue>::makeDerivative(Span buffer) const
 }
 
 
+template <concepts::Numeric TValue>
+typename PolynomialView<TValue>::ConstSpan
+PolynomialView<TValue>::coefficients() const noexcept {
+    return _coefficients;
+}
+
+
 template <class TValue>
 Polynomial<TValue>::Polynomial(const Polynomial& rRight)
     : _coefficients(rRight._coefficients),
@@ -63,8 +68,7 @@ Polynomial<TValue>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
 
 
 template <class TValue>
-Polynomial<TValue>& Polynomial<TValue>::operator=(const Polynomial& rRight)
-{
+Polynomial<TValue>& Polynomial<TValue>::operator=(const Polynomial& rRight) {
     _coefficients = rRight._coefficients;
     _wrapped = PolynomialView<TValue>(_coefficients);
     return *this;
@@ -80,8 +84,7 @@ Polynomial<TValue>::Polynomial(ConstSpan coefficients)
 
 
 template <class TValue>
-Polynomial<TValue> Polynomial<TValue>::makeDerivative() const
-{
+Polynomial<TValue> Polynomial<TValue>::makeDerivative() const {
     Polynomial derivative;
     derivative._coefficients.resize(_coefficients.empty() ? 0 : _coefficients.size() - 1);
     derivative._wrapped = _wrapped.makeDerivative(derivative._coefficients);
@@ -90,8 +93,7 @@ Polynomial<TValue> Polynomial<TValue>::makeDerivative() const
 
 
 template <class TValue>
-std::span<const TValue> Polynomial<TValue>::coefficients() const noexcept
-{
+std::span<const TValue> Polynomial<TValue>::coefficients() const noexcept {
     return {_coefficients.data(), _coefficients.size()};
 }
 
@@ -107,8 +109,28 @@ namespace cie::fem::io {
 
 
 template <class TValue>
-void GraphML::Serializer<maths::Polynomial<TValue>>::header(Ref<GraphML::XMLElement> rElement)
-{
+void GraphML::Serializer<maths::PolynomialView<TValue>>::header(Ref<GraphML::XMLElement> rElement) {
+    CIE_BEGIN_EXCEPTION_TRACING
+    GraphML::XMLElement defaultData = rElement.addChild("default");
+    defaultData.addAttribute("type", "polynomial");
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TValue>
+void GraphML::Serializer<maths::PolynomialView<TValue>>::operator()(Ref<GraphML::XMLElement> rElement,
+                                                                    Ref<const maths::PolynomialView<TValue>> rInstance) {
+    CIE_BEGIN_EXCEPTION_TRACING
+    using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
+    SubSerializer subSerializer;
+    GraphML::XMLElement child = rElement.addChild("polynomial");
+    subSerializer(child, rInstance.coefficients());
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TValue>
+void GraphML::Serializer<maths::Polynomial<TValue>>::header(Ref<GraphML::XMLElement> rElement) {
     CIE_BEGIN_EXCEPTION_TRACING
     GraphML::XMLElement defaultData = rElement.addChild("default");
     defaultData.addAttribute("type", "polynomial");
@@ -118,14 +140,12 @@ void GraphML::Serializer<maths::Polynomial<TValue>>::header(Ref<GraphML::XMLElem
 
 template <class TValue>
 void GraphML::Serializer<maths::Polynomial<TValue>>::operator()(Ref<GraphML::XMLElement> rElement,
-                                                                Ref<const maths::Polynomial<TValue>> rInstance)
-{
+                                                                Ref<const maths::Polynomial<TValue>> rInstance) {
     CIE_BEGIN_EXCEPTION_TRACING
     using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
     SubSerializer subSerializer;
     GraphML::XMLElement child = rElement.addChild("polynomial");
     subSerializer(child, rInstance.coefficients());
-    //subSerializer(rElement, rInstance.coefficients());
     CIE_END_EXCEPTION_TRACING
 }
 
@@ -133,8 +153,7 @@ void GraphML::Serializer<maths::Polynomial<TValue>>::operator()(Ref<GraphML::XML
 template <class TValue>
 void GraphML::Deserializer<maths::Polynomial<TValue>>::onElementBegin(Ptr<void> pThis,
                                                                       std::string_view elementName,
-                                                                      [[maybe_unused]] std::span<GraphML::AttributePair> attributes)
-{
+                                                                      [[maybe_unused]] std::span<GraphML::AttributePair> attributes) {
     CIE_BEGIN_EXCEPTION_TRACING
 
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
@@ -155,8 +174,7 @@ void GraphML::Deserializer<maths::Polynomial<TValue>>::onElementBegin(Ptr<void> 
 
 template <class TValue>
 void GraphML::Deserializer<maths::Polynomial<TValue>>::onText(Ptr<void>,
-                                                              std::string_view elementName)
-{
+                                                              std::string_view elementName) {
     CIE_THROW(
         Exception,
         "Unexpected text block while parsing a polynomial from <" << elementName << ">."
@@ -166,14 +184,15 @@ void GraphML::Deserializer<maths::Polynomial<TValue>>::onText(Ptr<void>,
 
 template <class TValue>
 void GraphML::Deserializer<maths::Polynomial<TValue>>::onElementEnd(Ptr<void> pThis,
-                                                                    std::string_view elementName)
-{
+                                                                    std::string_view elementName) {
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
     rThis.instance() = maths::Polynomial<TValue>(std::move(rThis._coefficients));
     rThis.template release<Deserializer>(&rThis, elementName);
 }
 
 
+template struct GraphML::Serializer<maths::PolynomialView<float>>;
+template struct GraphML::Serializer<maths::PolynomialView<double>>;
 template struct GraphML::Serializer<maths::Polynomial<float>>;
 template struct GraphML::Serializer<maths::Polynomial<double>>;
 template struct GraphML::Deserializer<maths::Polynomial<float>>;

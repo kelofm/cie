@@ -5,6 +5,9 @@
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 
+// --- Utility Includes ---
+//#include "packages/concurrency/inc/sycl.hpp"
+
 
 namespace cie::fem {
 
@@ -33,11 +36,12 @@ using Scalar = double;
 using SpatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>;
 
 /// @brief Cells' basis functions' type.
-using Basis = maths::Polynomial<Scalar>;
+using Basis = maths::PolynomialView<Scalar>;
 
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
-using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
+using Ansatz = maths::BufferedAnsatzSpace<Basis,Dimension>;
+using AnsatzDerivative = maths::BufferedAnsatzSpaceDerivative<Basis,Dimension>;
 
 
 } // namespace cie::fem

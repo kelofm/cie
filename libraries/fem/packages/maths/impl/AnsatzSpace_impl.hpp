@@ -188,6 +188,13 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::ansatzSet() const noexcept
 
 
 template <class TScalarExpression, unsigned Dim>
+std::span<const typename TScalarExpression::Derivative>
+BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::derivativeSet() const noexcept {
+    return _derivativeSet;
+}
+
+
+template <class TScalarExpression, unsigned Dim>
 AnsatzSpaceDerivative<TScalarExpression,Dim>::AnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet)
     : _ansatzSet(ansatzSet.begin(), ansatzSet.end()),
       _derivativeSet(ansatzSet.size()),
@@ -233,6 +240,20 @@ void AnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span o
 template <class TScalarExpression, unsigned Dim>
 unsigned AnsatzSpaceDerivative<TScalarExpression,Dim>::size() const noexcept {
     return _wrapped.size();
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+std::span<const TScalarExpression>
+AnsatzSpaceDerivative<TScalarExpression,Dim>::ansatzSet() const noexcept {
+    return _ansatzSet;
+}
+
+
+template <class TScalarExpression, unsigned Dim>
+std::span<const typename TScalarExpression::Derivative>
+AnsatzSpaceDerivative<TScalarExpression,Dim>::derivativeSet() const noexcept {
+    return _derivativeSet;
 }
 
 

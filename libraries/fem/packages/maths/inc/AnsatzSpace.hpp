@@ -6,7 +6,6 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
 
 
 namespace cie::fem::maths {
@@ -14,7 +13,6 @@ namespace cie::fem::maths {
 
 template <class TScalarExpression, unsigned Dim>
 class AnsatzSpace;
-
 
 
 template <class TScalarExpression, unsigned Dim>
@@ -47,6 +45,8 @@ public:
     void setBuffer(Span buffer);
 
     std::span<const TScalarExpression> ansatzSet() const noexcept;
+
+    std::span<const typename TScalarExpression::Derivative> derivativeSet() const noexcept;
 
 private:
     std::span<unsigned,Dim> getIndexBuffer() const noexcept;
@@ -94,6 +94,10 @@ public:
     unsigned size() const noexcept;
 
     Buffered makeBuffered() const noexcept;
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept;
+
+    std::span<const typename TScalarExpression::Derivative> derivativeSet() const noexcept;
 
 private:
     friend class AnsatzSpace<TScalarExpression,Dim>;
@@ -149,7 +153,7 @@ private:
 
     std::span<const TScalarExpression> _set;
 
-    mutable Span _buffer;
+    Span _buffer;
 }; // class AnsatzSpace
 
 

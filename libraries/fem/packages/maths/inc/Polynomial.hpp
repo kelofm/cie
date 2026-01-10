@@ -31,7 +31,7 @@ public:
 
     PolynomialView() noexcept = default;
 
-    PolynomialView(Span coefficients) noexcept;
+    PolynomialView(ConstSpan coefficients) noexcept;
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -39,8 +39,10 @@ public:
 
     Derivative makeDerivative(Span buffer) const;
 
+    ConstSpan coefficients() const noexcept;
+
 private:
-    Span _coefficients;
+    ConstSpan _coefficients;
 }; // class PolynomialView
 
 
@@ -56,6 +58,8 @@ public:
     using Derivative = Polynomial;
 
     using Coefficients = DynamicArray<TValue>;
+
+    using View = PolynomialView<TValue>;
 
 public:
     /// @brief Uninitialized by default.
@@ -102,6 +106,15 @@ private:
 
 
 namespace cie::fem::io {
+
+
+template <class TValue>
+struct io::GraphML::Serializer<maths::PolynomialView<TValue>> {
+    void header(Ref<XMLElement> rElement);
+
+    void operator()(Ref<XMLElement> rElement,
+                    Ref<const maths::PolynomialView<TValue>> rInstance);
+}; // struct GraphML::Serializer<PolynomialView>
 
 
 template <class TValue>

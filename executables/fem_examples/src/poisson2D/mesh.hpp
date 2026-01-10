@@ -54,23 +54,94 @@ void generateMesh(Ref<Mesh> rMesh,
     {
         // Define an ansatz space and its derivatives.
         // In this example, every cell will use the same ansatz space.
+        DynamicArray<Scalar> polynomialCoefficients;
+        DynamicArray<Basis> basisFunctions;
+        DynamicArray<Basis::Derivative> basisDerivatives;
         DynamicArray<Ansatz> ansatzSpaces;
+        DynamicArray<AnsatzDerivative> ansatzDerivatives;
+
         {
-            Ansatz::AnsatzSet ansatzSet;
-            for (unsigned iBasis=0; iBasis<polynomialOrder + 1; ++iBasis) {
-                Basis::Coefficients coefficients;
+            auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");
+
+            // Construct basis functions.
+            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+                // Generate a 1D polynomial serving as one of the basis functions.
                 maths::IntegratedLegendrePolynomial<Scalar> legendre(iBasis);
-                std::ranges::copy(legendre.coefficients(), std::back_inserter(coefficients));
-                ansatzSet.emplace_back(coefficients);
-            }
-            ansatzSpaces.emplace_back(std::move(ansatzSet));
+
+                // Copy its coefficients to the array of all polynomial coefficients.
+                const std::size_t iCoefficientBegin = polynomialCoefficients.size();
+                polynomialCoefficients.resize(polynomialCoefficients.size() + legendre.coefficients().size());
+                std::copy_n(
+                    legendre.coefficients().data(),
+                    legendre.coefficients().size(),
+                    polynomialCoefficients.data() + iCoefficientBegin);
+
+                // Construct a new polynomial view over the copied coefficients.
+                // The array of coefficients is not stable, so these views must
+                // be reassigned after basis generation is done.
+                basisFunctions.emplace_back(std::span<const Scalar>(
+                    polynomialCoefficients.data() + iCoefficientBegin,
+                    legendre.coefficients().size()));
+            } // for iBasis in range(polynomialOrder + 1)
+
+            // Construct the derivatives of all basis functions.
+            // Each derivative will need 1 less coefficient.
+            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+                Ref<Basis> rBasis = basisFunctions[iBasis];
+                const std::size_t coefficientCount = rBasis.coefficients().empty()
+                    ? 0ul
+                    : rBasis.coefficients().size() - 1;
+
+                // Extend the array of coefficients.
+                const std::size_t iCoefficientBegin = polynomialCoefficients.size();
+                polynomialCoefficients.resize(polynomialCoefficients.size() + coefficientCount);
+
+                // Extend basis derivatives.
+                basisDerivatives.emplace_back(rBasis.makeDerivative({
+                    polynomialCoefficients.data() + iCoefficientBegin,
+                    coefficientCount}));
+            } // for iBasis in range(polynomialOrder + 1)
+
+            // Reassign the coefficient ranges of all basis functions
+            // and their derivatives, now that the list of polynomial
+            // coefficients is stable.
+            std::size_t iBegin = 0ul;
+            for (auto& rFunction : basisFunctions) {
+                const std::size_t coefficientCount = rFunction.coefficients().size();
+                rFunction = Basis({
+                    polynomialCoefficients.data() + iBegin,
+                    coefficientCount});
+                iBegin += coefficientCount;
+            } // for rFunction : basisFunctions
+
+            iBegin = 0ul;
+            for (auto& rFunction : basisDerivatives) {
+                const std::size_t coefficientCount = rFunction.coefficients().size();
+                rFunction = Basis({
+                    polynomialCoefficients.data() + iBegin,
+                    coefficientCount});
+                iBegin += coefficientCount;
+            } // for rFunction : basisDerivatives
+
+            ansatzSpaces.emplace_back(basisFunctions);
         }
+
+        // Construct the derivatives of ansatz spaces.
+        ansatzDerivatives.emplace_back(
+            basisFunctions,
+            basisDerivatives);
 
         // Define integration orders.
         StaticArray<unsigned,1> integrationOrders;
         integrationOrders.front() = rArguments.get<std::size_t>("i");
 
-        rMesh.data() = MeshData(std::move(ansatzSpaces), integrationOrders);
+        rMesh.data() = MeshData(
+            integrationOrders,
+            std::move(polynomialCoefficients),
+            std::move(basisFunctions),
+            std::move(basisDerivatives),
+            std::move(ansatzSpaces),
+            std::move(ansatzDerivatives));
     }
 
     // Insert cells into the adjacency graph

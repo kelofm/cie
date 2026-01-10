@@ -19,20 +19,19 @@ class MeshData {
 public:
     MeshData() noexcept = default;
 
-    MeshData(RightRef<DynamicArray<Ansatz>> rAnsatzSpaces,
-             std::span<unsigned> integrationOrders)
-        : _ansatzSpaces(std::move(rAnsatzSpaces)),
-          _ansatzDerivatives(),
+    MeshData(std::span<unsigned> integrationOrders,
+             RightRef<DynamicArray<Scalar>> rPolynomialCoefficients,
+             RightRef<DynamicArray<Basis>> rBasisFunctions,
+             RightRef<DynamicArray<Basis::Derivative>> rBasisDerivatives,
+             RightRef<DynamicArray<Ansatz>> rAnsatzSpaces,
+             RightRef<DynamicArray<AnsatzDerivative>> rAnsatzDerivatives)
+        : _polynomialCoefficients(std::move(rPolynomialCoefficients)),
+          _basisFunctions(std::move(rBasisFunctions)),
+          _basisDerivatives(std::move(rBasisDerivatives)),
+          _ansatzSpaces(std::move(rAnsatzSpaces)),
+          _ansatzDerivatives(std::move(rAnsatzDerivatives)),
           _quadraturePointSets()
     {
-        // Cache the derivatives of ansatz spaces.
-        _ansatzDerivatives.reserve(_ansatzSpaces.size());
-        std::transform(
-            _ansatzSpaces.begin(),
-            _ansatzSpaces.end(),
-            std::back_inserter(_ansatzDerivatives),
-            [](Ref<const Ansatz> rAnsatz){return rAnsatz.makeDerivative();});
-
         // Cache quadrature points.
         _quadraturePointSets.resize(integrationOrders.size());
         CellData dummyElement;
@@ -80,13 +79,15 @@ public:
 
             rSet.resize(pointCount);
         } // for iSet in range(integrationOrders.size())
+
+        this->fitBuffer();
     }
 
     std::span<const Ansatz> ansatzSpaces() const noexcept {
         return _ansatzSpaces;
     }
 
-    std::span<const Ansatz::Derivative> ansatzDerivatives() const noexcept {
+    std::span<const AnsatzDerivative> ansatzDerivatives() const noexcept {
         return _ansatzDerivatives;
     }
 
@@ -99,24 +100,60 @@ public:
     }
 
 private:
+    void fitBuffer() {
+        std::size_t bufferSize = 0ul;
+        for (Ref<const Ansatz> rAnsatz : _ansatzSpaces)
+            bufferSize += rAnsatz.getMinBufferSize();
+        for (Ref<const AnsatzDerivative> rDerivative : _ansatzDerivatives)
+            bufferSize += rDerivative.getMinBufferSize();
+
+        _buffer.resize(bufferSize);
+
+        bufferSize = 0ul;
+        for (Ref<Ansatz> rAnsatz : _ansatzSpaces) {
+            const std::size_t partialSize = rAnsatz.getMinBufferSize();
+            rAnsatz.setBuffer({
+                _buffer.data() + bufferSize,
+                partialSize});
+            bufferSize += partialSize;
+        }
+        for (Ref<AnsatzDerivative> rDerivative : _ansatzDerivatives) {
+            const std::size_t partialSize = rDerivative.getMinBufferSize();
+            rDerivative.setBuffer({
+                _buffer.data() + bufferSize,
+                partialSize});
+            bufferSize += partialSize;
+        }
+    }
+
     friend struct io::GraphML::Serializer<MeshData>;
 
     friend struct io::GraphML::Deserializer<MeshData>;
+
+    DynamicArray<Scalar> _polynomialCoefficients;
+
+    DynamicArray<Basis> _basisFunctions;
+
+    DynamicArray<Basis::Derivative> _basisDerivatives;
 
     /// @brief Collection of all ansatz spaces the contained cells can refer to.
     DynamicArray<Ansatz> _ansatzSpaces;
 
     /// @brief Collection of all ansatz spaces' derivatives the contained cells can refer to.
-    DynamicArray<Ansatz::Derivative> _ansatzDerivatives;
+    DynamicArray<AnsatzDerivative> _ansatzDerivatives;
 
+    /// @brief Sets of quadrature points for a default local hypercube.
+    /// @details These quadrature points are used while constructing
+    ///          cell-specific quadrature rules.
     DynamicArray<DynamicArray<QuadraturePoint<Dimension,Scalar>>> _quadraturePointSets;
+
+    DynamicArray<Scalar> _buffer;
 }; // class MeshData
 
 
 /// @brief Serializer for @ref MeshData in @p GraphML format.
 template <>
-struct io::GraphML::Serializer<MeshData>
-{
+struct io::GraphML::Serializer<MeshData> {
     void header(Ref<io::GraphML::XMLElement> rElement) const {
         // Add default value to the header.
         io::GraphML::XMLElement defaultElement = rElement.addChild("default");
@@ -135,10 +172,38 @@ struct io::GraphML::Serializer<MeshData>
 
     void operator()(Ref<io::GraphML::XMLElement> rElement,
                     Ref<const MeshData> rInstance) const {
-        io::GraphML::Serializer<DynamicArray<Ansatz>> subSerializer;
-        subSerializer(rElement, rInstance._ansatzSpaces);
+        // Serialize ansatz spaces.
+        {
+            GraphML::XMLElement containerElement = rElement.addChild("ansatzSpaces");
+            for (Ref<const Ansatz> rAnsatz : rInstance._ansatzSpaces) {
+                GraphML::XMLElement ansatzElement = containerElement.addChild("ansatzSpace");
+                using SubSerializer = io::GraphML::Serializer<std::span<const Basis>>;
+                SubSerializer subSerializer;
+                subSerializer(ansatzElement, rAnsatz.ansatzSet());
+            } // for rAnsatz in rInstance._ansatzSpaces
+        }
+
+        // Serialize ansatz derivatives.
+        {
+            GraphML::XMLElement containerElement = rElement.addChild("ansatzDerivatives");
+            for (Ref<const Ansatz> rAnsatz : rInstance._ansatzSpaces) {
+                {
+                    GraphML::XMLElement element = containerElement.addChild("basisFunctions");
+                    using SubSerializer = io::GraphML::Serializer<std::span<const Basis>>;
+                    SubSerializer subSerializer;
+                    subSerializer(element, rAnsatz.ansatzSet());
+                }
+                {
+                    GraphML::XMLElement element = containerElement.addChild("basisDerivatives");
+                    using SubSerializer = io::GraphML::Serializer<std::span<const Basis>>;
+                    SubSerializer subSerializer;
+                    subSerializer(element, rAnsatz.ansatzSet());
+                }
+            } // for rAnsatz in rInstance._ansatzSpaces
+        }
     }
 }; // struct GraphML::Serializer<MeshData>
+
 
 /// @brief Deserializer for @ref MeshData in @p GraphML format.
 template <>
@@ -151,16 +216,19 @@ struct io::GraphML::Deserializer<MeshData>
     static void onElementBegin(void* pThis,
                                std::string_view elementName,
                                std::span<io::GraphML::AttributePair>) {
-        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-
-        // Defer parsing to the array of ansatz spaces.
-        using SubDeserializer = io::GraphML::Deserializer<DynamicArray<Ansatz>>;
-        rThis.sax().push({
-            SubDeserializer::make(rThis._buffer, rThis.sax(), elementName),
-            SubDeserializer::onElementBegin,
-            SubDeserializer::onText,
-            SubDeserializer::onElementEnd
-        });
+        // TODO
+        (void)(pThis);
+        CIE_THROW(NotImplementedException, elementName)
+//        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+//
+//        // Defer parsing to the array of ansatz spaces.
+//        using SubDeserializer = io::GraphML::Deserializer<DynamicArray<Ansatz>>;
+//        rThis.sax().push({
+//            SubDeserializer::make(rThis._buffer, rThis.sax(), elementName),
+//            SubDeserializer::onElementBegin,
+//            SubDeserializer::onText,
+//            SubDeserializer::onElementEnd
+//        });
     }
 
     /// @brief This function is called when text block is parsed in the XML document.
@@ -173,21 +241,24 @@ struct io::GraphML::Deserializer<MeshData>
     /// @brief This function is called when an element closing tag is parsed in the XML document.
     static void onElementEnd(void* pThis,
                              std::string_view elementName) {
-        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-
-        // Move the parsed ansatz spaces from the buffer to the mesh data instance.
-        rThis.instance()._ansatzSpaces = std::move(rThis._buffer);
-
-        // Build derivatives from the parsed ansatz spaces.
-        std::transform(rThis.instance()._ansatzSpaces.begin(),
-                       rThis.instance()._ansatzSpaces.end(),
-                       std::back_inserter(rThis.instance()._ansatzDerivatives),
-                       [] (Ref<const Ansatz> rAnsatz) -> Ansatz::Derivative {
-                            return rAnsatz.makeDerivative();
-                       });
-
-        // The parser's job is done => destroy it.
-        rThis.template release<Deserializer>(&rThis, elementName);
+        // TODO
+        (void)(pThis);
+        CIE_THROW(NotImplementedException, elementName)
+//        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+//
+//        // Move the parsed ansatz spaces from the buffer to the mesh data instance.
+//        rThis.instance()._ansatzSpaces = std::move(rThis._buffer);
+//
+//        // Build derivatives from the parsed ansatz spaces.
+//        std::transform(rThis.instance()._ansatzSpaces.begin(),
+//                       rThis.instance()._ansatzSpaces.end(),
+//                       std::back_inserter(rThis.instance()._ansatzDerivatives),
+//                       [] (Ref<const Ansatz> rAnsatz) -> AnsatzDerivative {
+//                            return rAnsatz.makeDerivative();
+//                       });
+//
+//        // The parser's job is done => destroy it.
+//        rThis.template release<Deserializer>(&rThis, elementName);
     }
 
 private:
