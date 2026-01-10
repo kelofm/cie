@@ -17,29 +17,25 @@
 // --- STL Includes ---
 #include <algorithm>
 #include <iterator>
-#include <numeric> // iota
 
 
 namespace std {
 
 
 inline bool operator==(pair<cie::fem::BoundaryID,cie::Size> left,
-                       pair<cie::fem::BoundaryID,cie::Size> right) noexcept
-{
+                       pair<cie::fem::BoundaryID,cie::Size> right) noexcept {
     return (left.first == right.first) && (left.second == right.second);
 }
 
 
 inline bool operator!=(pair<cie::fem::BoundaryID,cie::Size> left,
-                       pair<cie::fem::BoundaryID,cie::Size> right) noexcept
-{
+                       pair<cie::fem::BoundaryID,cie::Size> right) noexcept {
     return left.first != right.first && left.second != right.second;
 }
 
 
 template <>
-struct hash<pair<cie::fem::BoundaryID,cie::Size>>
-{
+struct hash<pair<cie::fem::BoundaryID,cie::Size>> {
     auto operator()(pair<cie::fem::BoundaryID,cie::Size> item) const
     {
         const auto tmp = hash<cie::fem::BoundaryID>()(item.first);
@@ -59,8 +55,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
                         TFunctor&& rFunctor,
                         Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
                         Ptr<const typename TAnsatzSpace::Value> pSampleEnd,
-                        typename TAnsatzSpace::Value tolerance)
-{
+                        typename TAnsatzSpace::Value tolerance) {
     CIE_BEGIN_EXCEPTION_TRACING
     using Value = typename TAnsatzSpace::Value;
     constexpr unsigned Dimension = TAnsatzSpace::Dimension;
@@ -330,8 +325,7 @@ template <unsigned Dimension, class TValue>
 template <cie::concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
 void AnsatzMap<Dimension, TValue>::getPairs(const OrientedBoundary<Dimension> first,
                                             const OrientedBoundary<Dimension> second,
-                                            TOutputIt itOutput) const
-{
+                                            TOutputIt itOutput) const {
     const auto it = _connectivityMap.find(std::make_pair(first, second));
     if (it != _connectivityMap.end()) {
         if (first == it->first.first) {
@@ -355,8 +349,7 @@ void AnsatzMap<Dimension, TValue>::getPairs(const OrientedBoundary<Dimension> fi
 
 template <unsigned Dimension, class TValue>
 Size AnsatzMap<Dimension,TValue>::getPairCount(OrientedBoundary<Dimension> first,
-                                               OrientedBoundary<Dimension> second) const noexcept
-{
+                                               OrientedBoundary<Dimension> second) const noexcept {
     const auto it = _connectivityMap.find(std::make_pair(first, second));
     if (it != _connectivityMap.end()) {
         return it->second.size();
@@ -370,8 +363,7 @@ template <maths::Expression TAnsatzSpace>
 AnsatzMap<TAnsatzSpace::Dimension, typename TAnsatzSpace::Value>
 makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
               std::span<const typename TAnsatzSpace::Value> samples,
-              utils::Comparison<typename TAnsatzSpace::Value> comparison)
-{
+              utils::Comparison<typename TAnsatzSpace::Value> comparison) {
     return AnsatzMap<TAnsatzSpace::Dimension, typename TAnsatzSpace::Value>(rAnsatzSpace, samples, comparison);
 }
 

@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_LOGGER_HPP
-#define CIE_CIEUTILS_LOGGER_HPP
+#pragma once
 
 // --- Internal Includes ---
 #include "packages/logging/inc/FileOutputStream.hpp"
@@ -19,8 +18,7 @@ namespace cie::utils {
 
 
 // Clock definition
-namespace detail
-{
+namespace detail {
 using Time = std::chrono::steady_clock::time_point;
 
 Time getTime();
@@ -46,7 +44,7 @@ public:
 
     virtual void write(const char* p_message, std::streamsize messageSize) override;
 
-    LogBlock newBlock( const std::string& r_name );
+    [[nodiscard]] LogBlock newBlock( const std::string& r_name );
 
     Logger& addStream(OutputStream::SharedPointer p_stream);
     Logger& removeStream(OutputStream::SharedPointer p_stream);
@@ -108,5 +106,3 @@ using LoggerPtr = std::shared_ptr<Logger>;
 
 
 #include "packages/logging/impl/Logger_impl.hpp"
-
-#endif

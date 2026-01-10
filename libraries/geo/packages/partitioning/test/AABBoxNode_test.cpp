@@ -9,7 +9,6 @@
 
 // --- STL Inlcudes ---
 #include <cmath>
-#include <iostream>
 
 
 namespace cie::geo {
