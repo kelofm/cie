@@ -75,8 +75,7 @@ private:
 /// @brief Class representing independent scaling along orthogonal coordinate axes, followed by a translation.
 /// @details Uniquely defines a mapping between axis-aligned hyperrectangles in D-dimensional space.
 template <concepts::Numeric TValue, unsigned Dimension>
-class ScaleTranslateTransform : private ExpressionTraits<TValue>
-{
+class ScaleTranslateTransform : private ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(ScaleTranslateTransform)
 

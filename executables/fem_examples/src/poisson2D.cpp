@@ -4,286 +4,26 @@
 #include "Eigen/src/SparseCholesky/SimplicialCholesky.h"
 
 // --- Internal Includes ---
-#include "packages/numeric/inc/QuadraturePointFactory.hpp"
 #include "poisson2D/definitions.hpp"
 #include "poisson2D/MeshData.hpp"
 #include "poisson2D/CellData.hpp"
 #include "poisson2D/BoundaryData.hpp"
 #include "poisson2D/mesh.hpp"
 #include "poisson2D/integration.hpp"
+#include "poisson2D/constraints.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/connectivity.hpp"
 #include "packages/graph/inc/Assembler.hpp"
-#include "packages/maths/inc/AffineEmbedding.hpp"
-#include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
-#include "packages/numeric/inc/Quadrature.hpp"
-#include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
-
-// --- GEO Includes ---
-#include "packages/partitioning/inc/AABBoxNode.hpp"
-#include "packages/trees/inc//ContiguousSpaceTree.hpp"
-#include "packages/partitioning/inc/BoxBoundable.hpp"
-#include "packages/primitives/inc/Object.hpp"
 
 // --- STL Includes ---
 #include <ranges> // ranges::iota
-#include <numbers> // std::numbers::pi
 
 
 namespace cie::fem {
 
 
-using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
 
-
-/// @brief Data structure unique to the triangulated, immersed boundary cells.
-using BoundaryCellData = maths::AffineEmbedding<Scalar,1u,Dimension>;
-
-
-/// @brief Data structure unqiue to the triangulated, immersed boundary cell corners.
-using BoundaryCornerData = Scalar;
-
-
-/// @brief Mesh type of the immersed, triangulated boundary.
-/// @details Cell data consists of
-using BoundaryMesh = Graph<
-    BoundaryCellData,
-    BoundaryCornerData
->;
-
-
-BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh) {
-    auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
-
-    constexpr int targetLeafWidth = 5;
-    constexpr int maxTreeDepth = 5;
-    constexpr Scalar epsilon = 1e-3;
-
-    geo::AABBoxNode<CellData> root;
-
-    geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
-    std::fill(rootBase.begin(), rootBase.end(), -epsilon);
-    std::fill(rootLengths.begin(), rootLengths.end(), 1.0 + 3.0 * epsilon);
-    root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
-
-    for (auto& rCell : rMesh.vertices()) {
-        root.insert(&rCell.data());
-    }
-
-    root.partition(targetLeafWidth, maxTreeDepth);
-    root.shrink();
-
-    return BVH::flatten(
-        root,
-        [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id();},
-        std::allocator<std::byte>());
-}
-
-
-BoundaryMesh generateBoundaryMesh(const unsigned resolution) {
-    using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
-
-    if (resolution < 3) CIE_THROW(Exception, "boundary resolution must be 3 or greater")
-
-    BoundaryMesh boundary;
-
-    DynamicArray<Point> corners;
-    for (unsigned iSegment=0u; iSegment<resolution + 1; ++iSegment) {
-        const Scalar arcParameter = iSegment * 2 * std::numbers::pi / resolution;
-        corners.push_back(Point {
-            boundaryRadius * std::cos(arcParameter) + 0.5,
-            boundaryRadius * std::sin(arcParameter) + 0.5
-        });
-    } // for iSegment in range(resolution)
-
-    for (unsigned iCorner=0u; iCorner<corners.size(); ++iCorner) {
-        const StaticArray<Point,2> transformed {
-            corners[iCorner],
-            corners[(iCorner + 1) % corners.size()]
-        };
-
-        boundary.insert(BoundaryMesh::Vertex(
-            boundary.vertices().size(),
-            {},
-            maths::AffineEmbedding<Scalar,1u,Dimension>(transformed)
-        ));
-    } // for iCorner in range(1, corners.size())
-
-    for (unsigned iCorner=0; iCorner<corners.size(); ++iCorner) {
-        boundary.insert(BoundaryMesh::Edge(
-            iCorner,
-            {iCorner, (iCorner + 1) % boundary.vertices().size()},
-            static_cast<Scalar>(iCorner)
-        ));
-    } // for iCorner in range(corners.size())
-
-    return boundary;
-}
-
-
-Ptr<const CellData> findContainingCell(Ref<const geo::AABBoxNode<CellData>> rBVH,
-                                       Ref<const geo::AABBoxNode<CellData>::Point> rPoint) {
-    const auto pBVHNode = rBVH.find(rPoint);
-    if (!pBVHNode) return nullptr;
-
-    for (const auto pCellData : pBVHNode->contained()) {
-        if (pCellData->at(rPoint)) {
-            return pCellData;
-        }
-    }
-
-    for (const auto pCellData : pBVHNode->intersected()) {
-        if (pCellData->at(rPoint)) {
-            return pCellData;
-        }
-    }
-    return nullptr;
-}
-
-
-struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
-    using maths::ExpressionTraits<Scalar>::Span;
-    using maths::ExpressionTraits<Scalar>::ConstSpan;
-
-    void evaluate(ConstSpan position, Span state) const noexcept {
-        state[0] = position[0] + position[1];
-    }
-
-    unsigned size() const noexcept {
-        return 1;
-    }
-}; // class DirichletBoundary
-
-
-[[nodiscard]] DynamicArray<StaticArray<Scalar,2*Dimension+1>>
-imposeBoundaryConditions(Ref<Mesh> rMesh,
-                         Ref<const Assembler> rAssembler,
-                         BVH::View bvh,
-                         std::span<const CellData> contiguousCellData,
-                         CSRWrapper lhs,
-                         std::span<Scalar> rhs,
-                         Ref<const utils::ArgParse::Results> rArguments) {
-    auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
-
-    DynamicArray<StaticArray<Scalar,2*Dimension+1>> boundarySegments; // {p0x, p0y, p1x, p1y, level}
-    const unsigned boundaryResolution = rArguments.get<std::size_t>("boundary-resolution");
-    const unsigned boundaryIntegrationOrder = rArguments.get<std::size_t>("boundary-integration-order");
-
-    // Load the boundary mesh.
-    const auto boundary = generateBoundaryMesh(boundaryResolution);
-
-    using TreePrimitive = geo::Cube<1,Scalar>;
-    using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
-
-    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(boundaryIntegrationOrder)));
-    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces().front().size(),Dimension)
-                                          + rMesh.data().ansatzSpaces().front().size());
-    DynamicArray<Scalar> integrandBuffer(  rMesh.data().ansatzSpaces().front().size()
-                                         + Dimension
-                                         + 1);
-
-    DirichletBoundary dirichletBoundary;
-    Scalar boundaryLength = 0.0;
-
-    for (const auto& rBoundaryCell : boundary.vertices()) {
-        Tree tree(Tree::Point {-1.0}, 2.0);
-
-        // Define a functor detecting cell boundaries.
-        const auto boundaryVisitor = [bvh, &tree, &rBoundaryCell,
-                                      &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
-                                      lhs, &rAssembler,
-                                      &rhs, &dirichletBoundary, &boundaryLength,
-                                      &boundarySegments, &contiguousCellData, &rArguments] (
-            Ref<const Tree::Node> rNode,
-            unsigned level) -> bool {
-
-            if (level < minBoundaryTreeDepth) return true;
-            if (maxBoundaryTreeDepth < level) return false;
-
-            Scalar base, edgeLength;
-            tree.getNodeGeometry(rNode, &base, &edgeLength);
-
-            // Define sample points in the boundary cell's local space.
-            const StaticArray<Scalar,1>
-                localBase {base},
-                localOpposite {base + edgeLength};
-
-            // Transform sample points to the global coordinate space.
-            geo::Traits<Dimension,Scalar>::Point globalBase, globalOpposite;
-            rBoundaryCell.data().evaluate(localBase, globalBase);
-            rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
-
-            // Check whether the two endpoints are in different cells.
-            const auto iMaybeBaseCell = bvh.find(
-                std::span<const Scalar,Dimension>(globalBase.data(), Dimension),
-                contiguousCellData
-            );
-            const auto iMaybeOppositeCell = bvh.find(
-                std::span<const Scalar,Dimension>(globalOpposite.data(), Dimension),
-                contiguousCellData
-            );
-
-            // Integrate if both endpoints lie in the same cell.
-            if (iMaybeBaseCell != contiguousCellData.size() && iMaybeOppositeCell != contiguousCellData.size() && iMaybeBaseCell == iMaybeOppositeCell) {
-                const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
-                                           + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
-
-                if (minBoundarySegmentNorm < segmentNorm) {
-                    Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
-                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces()[rCell.ansatzID()];
-
-                    StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
-                    globalCorners[0][0] = globalBase[0];
-                    globalCorners[0][1] = globalBase[1];
-                    globalCorners[1][0] = globalOpposite[0];
-                    globalCorners[1][1] = globalOpposite[1];
-                    const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(globalCorners);
-
-                    const auto integrand = makeTransformedIntegrand(
-                        makeDirichletPenaltyIntegrand(dirichletBoundary,
-                                                      /*penalty=*/rArguments.get<double>("penalty-factor"),
-                                                      rAnsatzSpace,
-                                                      segmentTransform,
-                                                      std::span<Scalar>(integrandBuffer)),
-                        segmentTransform.makeDerivative());
-                    lineQuadrature.evaluate(integrand, quadratureBuffer);
-                    const auto& rGlobalDofIndices = rAssembler[rCell.id()];
-
-                    addLHSContribution({quadratureBuffer.data(),
-                                           static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension))},
-                                       rGlobalDofIndices,
-                                       lhs);
-
-                    addRHSContribution({quadratureBuffer.data() + static_cast<std::size_t>(std::pow(rAnsatzSpace.size(),Dimension)),
-                                           quadratureBuffer.data() + quadratureBuffer.size()},
-                                       rGlobalDofIndices,
-                                       rhs);
-
-                    // Log debug and output info.
-                    boundaryLength += std::sqrt(segmentNorm);
-                    decltype(boundarySegments)::value_type segment;
-                    std::copy_n(globalCorners[0].data(), Dimension, segment.data());
-                    std::copy_n(globalCorners[1].data(), Dimension, segment.data() + Dimension);
-                    segment.back() = level;
-                    boundarySegments.push_back(segment);
-                }
-            } // if both endpoints lie in the same cell
-
-            return iMaybeBaseCell != iMaybeOppositeCell &&
-                   (iMaybeBaseCell != contiguousCellData.size() || iMaybeOppositeCell != contiguousCellData.size());
-        }; // boundaryVisitor
-
-        // Construct a binary tree that detects intersections between
-        // Cell boundaries and the current boundary cell.
-        tree.scan(boundaryVisitor);
-    } // for rBoundaryCell in boundary.vertices()
-
-    return boundarySegments;
-}
-
-
-/// @brief 2D system test.
 int main(Ref<const utils::ArgParse::Results> rArguments) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
@@ -320,9 +60,10 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             [&ansatzMap, &mesh = std::as_const(mesh)](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
                 const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes();
                 const auto targetAxes = mesh.find(rEdge.target()).value().data().axes();
-                ansatzMap.getPairs(OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
-                                    OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
-                                    it);
+                ansatzMap.getPairs(
+                    OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
+                    OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
+                    it);
             });
     } // parse mesh topology
 
@@ -334,7 +75,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("compute sparsity pattern");
         assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, entries);
     }
-    DynamicArray<Scalar> rhs(rowCount, 0.0);
+    DynamicArray<Scalar> rhs(rowCount, 0.0), constraintRHS(rowCount, 0.0);
     CSRWrapper lhs {
         .rowCount = rowCount,
         .columnCount = columnCount,
@@ -368,8 +109,15 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         bvhView,
         contiguousCellData,
         lhs,
-        rhs,
+        constraintRHS,
         rArguments);
+
+    std::transform(
+        rhs.begin(),
+        rhs.end(),
+        constraintRHS.begin(),
+        rhs.begin(),
+        std::plus<Scalar>());
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
@@ -386,20 +134,20 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
 
-        Eigen::ConjugateGradient<
-            EigenSparseMatrix,
-            Eigen::Lower | Eigen::Upper,
-            Eigen::DiagonalPreconditioner<Scalar>
-        > solver;
-        solver.setMaxIterations(int(5e3));
-        solver.setTolerance(1e-6);
-        //Eigen::SimplicialLLT<EigenSparseMatrix> solver;
+        //Eigen::ConjugateGradient<
+        //    EigenSparseMatrix,
+        //    Eigen::Lower | Eigen::Upper,
+        //    Eigen::DiagonalPreconditioner<Scalar>
+        //> solver;
+        //solver.setMaxIterations(int(5e3));
+        //solver.setTolerance(1e-6);
+        Eigen::SimplicialLLT<EigenSparseMatrix> solver;
 
         solver.compute(lhsAdaptor);
         solutionAdaptor = solver.solve(rhsAdaptor);
 
-        std::cout << solver.iterations() << " iterations "
-                  << solver.error()      << " residual\n";
+        //std::cout << solver.iterations() << " iterations "
+        //          << solver.error()      << " residual\n";
     } // solve
 
     // XDMF output.
@@ -727,7 +475,7 @@ int main(int argc, const char** argv) {
     cie::utils::ArgParse::Results arguments;
     try {
         arguments = parser.parseArguments(argc - 1, argv + 1);
-    } catch (cie::Exception rException) {
+    } catch (cie::Exception& rException) {
         std::cerr << rException.what() << std::endl;
         return 1;
     }

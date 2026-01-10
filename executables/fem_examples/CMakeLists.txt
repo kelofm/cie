@@ -32,6 +32,10 @@ foreach(driver ${drivers})
                                -Wpedantic
                                -Wextra
                                -Wno-dangling-reference
+                               -Wno-maybe-uninitialized
+                               -Wno-uninitialized
+                               -Wno-array-bounds           #< spurious warning for 1-item copies
+                               -Wno-stringop-overflow      #< spurious warning for 1-item copies
                                -Werror)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         target_compile_options(${driver_name} PRIVATE

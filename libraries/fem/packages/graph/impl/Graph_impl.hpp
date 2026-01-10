@@ -23,8 +23,7 @@ template <class TID, class TContainer>
 OptionalRef<typename CopyConstQualifier<
     TContainer,
     typename std::remove_reference_t<TContainer>::mapped_type
->::Type> findGraphItem(TID id, TContainer&& rContainer) noexcept
-{
+>::Type> findGraphItem(TID id, TContainer&& rContainer) noexcept {
     const auto it = rContainer.find(id);
     if (it == rContainer.end()) {
         return {};
@@ -36,15 +35,16 @@ OptionalRef<typename CopyConstQualifier<
 
 template <class TSecond, class TFirst>
 std::conditional_t<
-    std::is_same_v<std::remove_const_t<TSecond>,void>,
+    std::is_same_v<std::remove_cvref_t<TSecond>,void>,
     std::tuple<TFirst>,
     std::tuple<TFirst,TSecond>
-> makePartiallyInitializedTuple(TFirst&& rFirst)
-{
-    if constexpr (std::is_same_v<std::remove_const_t<TSecond>,void>) {
+> makePartiallyInitializedTuple(TFirst&& rFirst) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<TSecond>,void>) {
         return std::tuple<TFirst>(std::forward<TFirst>(rFirst));
     } else {
-        return std::tuple<TFirst,TSecond>(std::forward<TFirst>(rFirst), TSecond());
+        return std::tuple<TFirst,TSecond>(
+            std::forward<TFirst>(rFirst),
+            TSecond());
     }
 }
 

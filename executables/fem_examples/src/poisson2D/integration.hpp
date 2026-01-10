@@ -1,14 +1,18 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "packages/exceptions/inc/exception.hpp"
-#include "packages/macros/inc/checks.hpp"
 #include "poisson2D/mesh.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/integrands/inc/TransformedIntegrand.hpp"
+#include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
+#include "packages/numeric/inc/Quadrature.hpp"
+#include "packages/numeric/inc/QuadraturePointFactory.hpp"
+
+// --- Utility Includes ---
+#include "packages/macros/inc/checks.hpp"
 
 // --- STL Includes ---
 #include <ranges>

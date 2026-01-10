@@ -4,26 +4,23 @@
 #include <Eigen/Dense> // Eigen::Map
 
 // help the language server
-#include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
+#include "packages/integrands/inc/DirichletIntegrand.hpp"
 
 
 namespace cie::fem {
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand()
-    : DirichletPenaltyIntegrand(TDirichlet(), 0, nullptr)
-{
-}
+DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletIntegrand()
+    : DirichletIntegrand(TDirichlet(), {}, {})
+{}
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                                                                                    const Value penalty,
-                                                                                    Ref<const TAnsatz> rAnsatzSpace,
-                                                                                    Ref<const TTransform> rSpatialTransform)
-    : _penalty(penalty),
-      _pDirichletFunctor(&rDirichletFunctor),
+DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                                                                      Ref<const TAnsatz> rAnsatzSpace,
+                                                                      Ref<const TTransform> rSpatialTransform)
+    : _pDirichletFunctor(&rDirichletFunctor),
       _pAnsatzSpace(&rAnsatzSpace),
       _pSpatialTransform(&rSpatialTransform),
       _buffer()
@@ -32,19 +29,18 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegr
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                                                                         const Value penalty,
-                                                                         Ref<const TAnsatz> rAnsatzSpace,
-                                                                         Ref<const TTransform> rSpatialTransform,
-                                                                         std::span<Value> buffer)
-    : DirichletPenaltyIntegrand(rDirichletFunctor, penalty, rAnsatzSpace, rSpatialTransform)
+DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                                                                      Ref<const TAnsatz> rAnsatzSpace,
+                                                                      Ref<const TTransform> rSpatialTransform,
+                                                                      std::span<Value> buffer)
+    : DirichletIntegrand(rDirichletFunctor, rAnsatzSpace, rSpatialTransform)
 {
     this->setBuffer(buffer);
 }
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::evaluate(ConstSpan in, Span out) const {
+void DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
 
     Ref<const TAnsatz> rAnsatzSpace = *_pAnsatzSpace;
@@ -91,7 +87,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::evaluate(ConstSpa
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::size() const {
+unsigned DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::size() const {
     const auto ansatzCount = _pAnsatzSpace->size();
     return
           ansatzCount * ansatzCount     // <= LHS contribution
@@ -100,14 +96,14 @@ unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::size() const 
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::setBuffer(std::span<Value> buffer) {
+void DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::setBuffer(std::span<Value> buffer) {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= buffer.size())
     _buffer = buffer;
 }
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::getMinBufferSize() const noexcept {
+unsigned DirichletIntegrand<TDirichlet,TAnsatz,TTransform>::getMinBufferSize() const noexcept {
     return _pAnsatzSpace->size() + _pSpatialTransform->size() + _pDirichletFunctor->size();
 }
 
