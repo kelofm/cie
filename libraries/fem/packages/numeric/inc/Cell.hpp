@@ -78,7 +78,7 @@ public:
 
     void transform(Ref<const ConstGlobalSpan> in, Ref<const LocalSpan> out) const noexcept;
 
-    typename SpatialTransform::Derivative makeJacobian() const;
+    typename TSpatialTransform::Derivative makeJacobian() const;
 
     [[nodiscard]] constexpr AnsatzSpaceID ansatzID() const noexcept {
         return std::get<0>(_impl);

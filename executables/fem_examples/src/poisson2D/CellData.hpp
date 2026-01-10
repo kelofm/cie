@@ -14,6 +14,7 @@
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/BoxBoundable.hpp"
+#include "packages/primitives/inc/Object.hpp"
 
 // --- Utility Includes ---
 #include "packages/maths/inc/Comparison.hpp"

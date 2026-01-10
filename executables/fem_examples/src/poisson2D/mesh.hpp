@@ -8,6 +8,10 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/LegendrePolynomial.hpp"
 
+// ---- GEO Includes ---
+#include "packages/partitioning/inc/AABBoxNode.hpp"
+#include "packages/trees/inc//ContiguousSpaceTree.hpp"
+
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
@@ -15,6 +19,9 @@
 
 
 namespace cie::fem {
+
+
+using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
 
 
 /// @brief Mesh type.

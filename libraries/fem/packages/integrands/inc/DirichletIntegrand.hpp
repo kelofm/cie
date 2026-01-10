@@ -12,14 +12,13 @@ namespace cie::fem{
 
 /// @details Computes
 ///          @f[
-///              N_i \left( \xi \right) p N_j \left(\xi \right)
+///              N_i \left( \xi \right)
 ///          @f]
 ///          and
 ///          @f[
-///              p N_i \left( \xi \right) u_d \left( x(\xi) \right)
+///              N_i \left( \xi \right) u_d \left( x(\xi) \right)
 ///          @f]
 ///          where
-///          - @f$ p @f$ is the penalty factor,
 ///          - @f$ u_d @f$ is the desired state at global position @f$ x @f$,
 ///          - @f$ N_i @f$ is the ansatz function related to degree of freedom @f$ i @f$,
 ///          - @f$ \xi @f$ is the local coordinate within the cell to evaluate at,
@@ -27,9 +26,8 @@ namespace cie::fem{
 template <maths::Expression TDirichlet,
           maths::Expression TAnsatzSpace,
           maths::Expression TTransform>
-class DirichletPenaltyIntegrand
-    : public maths::ExpressionTraits<typename TAnsatzSpace::Value>
-{
+class DirichletIntegrand
+    : public maths::ExpressionTraits<typename TAnsatzSpace::Value> {
 public:
     static constexpr unsigned Dimension = TAnsatzSpace::Dimension;
 
@@ -40,18 +38,16 @@ public:
     using typename maths::ExpressionTraits<Value>::Span;
 
 public:
-    DirichletPenaltyIntegrand();
+    DirichletIntegrand();
 
-    DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                              const Value penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace,
-                              Ref<const TTransform> rSpatialTransform);
+    DirichletIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                       Ref<const TAnsatzSpace> rAnsatzSpace,
+                       Ref<const TTransform> rSpatialTransform);
 
-    DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                              const Value penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace,
-                              Ref<const TTransform> rSpatialTransform,
-                              std::span<Value> buffer);
+    DirichletIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                       Ref<const TAnsatzSpace> rAnsatzSpace,
+                       Ref<const TTransform> rSpatialTransform,
+                       std::span<Value> buffer);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -62,8 +58,6 @@ public:
     void setBuffer(std::span<Value> buffer);
 
 private:
-    Value _penalty;
-
     Ptr<const TDirichlet> _pDirichletFunctor;
 
     Ptr<const TAnsatzSpace> _pAnsatzSpace;
@@ -71,21 +65,20 @@ private:
     Ptr<const TTransform> _pSpatialTransform;
 
     std::span<Value> _buffer;
-}; // class DirichletPenaltyIntegrand
+}; // class DirichletIntegrand
 
 
 template <maths::Expression TDirichlet,
           maths::Expression TAnsatzSpace,
           maths::Expression TTransform,
           concepts::Numeric TValue>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TTransform>
-makeDirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                              const TValue penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace,
-                              Ref<const TTransform> rSpatialTransform,
-                              std::span<TValue> buffer)
-{
-    return DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TTransform>(
+DirichletIntegrand<TDirichlet,TAnsatzSpace,TTransform>
+makeDirichletIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                       const TValue penalty,
+                       Ref<const TAnsatzSpace> rAnsatzSpace,
+                       Ref<const TTransform> rSpatialTransform,
+                       std::span<TValue> buffer) {
+    return DirichletIntegrand<TDirichlet,TAnsatzSpace,TTransform>(
         rDirichletFunctor,
         penalty,
         rAnsatzSpace,
@@ -97,4 +90,4 @@ makeDirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
 
 } // namespace cie::fem
 
-#include "packages/integrands/impl/DirichletPenaltyIntegrand_impl.hpp"
+#include "packages/integrands/impl/DirichletIntegrand_impl.hpp"

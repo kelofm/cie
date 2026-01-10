@@ -79,7 +79,7 @@ template <unsigned Dim,
           cie::concepts::Numeric TValue,
           maths::SpatialTransform TSpatialTransform,
           class TData>
-typename CellBase<Dim,TValue,TSpatialTransform,TData>::SpatialTransform::Derivative
+typename TSpatialTransform::Derivative
 CellBase<Dim,TValue,TSpatialTransform,TData>::makeJacobian() const {
     return this->spatialTransform().makeDerivative();
 }
