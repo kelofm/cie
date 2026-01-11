@@ -67,6 +67,18 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             });
     } // parse mesh topology
 
+    // Construct a bounding volume hierarchy over the cells to accelerate
+    // point membership tests. Running on accelerator devices also requires
+    // - the cell data to be available in a contiguous array
+    // - the cell data to be self contained (no pointers and heap storage)
+    auto bvh = makeBoundingVolumeHierarchy(mesh);
+    const auto bvhView = bvh.makeView();
+    DynamicArray<CellData> contiguousCellData(mesh.vertices().size());
+    std::ranges::transform(
+        mesh.vertices(),
+        contiguousCellData.data(),
+        [](Ref<const Mesh::Vertex> rCell){return rCell.data();});
+
     // Create empty CSR matrix
     int rowCount, columnCount;
     DynamicArray<int> rowExtents, columnIndices;
@@ -84,6 +96,15 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         .entries = entries
     };
 
+    const auto boundarySegments = imposeBoundaryConditions(
+        mesh,
+        assembler,
+        bvhView,
+        contiguousCellData,
+        lhs,
+        rhs,
+        rArguments);
+
     // Compute element contributions and assemble them into the matrix
     integrateStiffness(
         mesh,
@@ -91,33 +112,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         lhs,
         threads);
 
-    // Construct a bounding volume hierarchy over the cells to accelerate
-    // point membership tests. Running on accelerator devices also requires
-    // - the cell data to be available in a contiguous array
-    // - the cell data to be self contained (no pointers and heap storage)
-    auto bvh = makeBoundingVolumeHierarchy(mesh);
-    const auto bvhView = bvh.makeView();
-    DynamicArray<CellData> contiguousCellData(mesh.vertices().size());
-    std::ranges::transform(
-        mesh.vertices(),
-        contiguousCellData.data(),
-        [](Ref<const Mesh::Vertex> rCell){return rCell.data();});
-
-    const auto boundarySegments = imposeBoundaryConditions(
-        mesh,
-        assembler,
-        bvhView,
-        contiguousCellData,
-        lhs,
-        constraintRHS,
-        rArguments);
-
-    std::transform(
-        rhs.begin(),
-        rhs.end(),
-        constraintRHS.begin(),
-        rhs.begin(),
-        std::plus<Scalar>());
+    //std::transform(
+    //    rhs.begin(),
+    //    rhs.end(),
+    //    constraintRHS.begin(),
+    //    rhs.begin(),
+    //    std::plus<Scalar>());
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
@@ -179,12 +179,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             const Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
             DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces().front().size());
 
-            mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>(), mesh.data().ansatzSpaces())(
+            mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>())(
                 intPow(postprocessResolution, 2),
-                [&samples, &solution, &assembler, bvhView, &contiguousCellData, postprocessResolution, postprocessDelta](
+                [&samples, &solution, &assembler, bvhView, &mesh, &contiguousCellData, postprocessResolution, postprocessDelta](
                         const unsigned iSample,
-                        Ref<DynamicArray<Scalar>> rAnsatzBuffer,
-                        Ref<const DynamicArray<Ansatz>> rAnsatzSpaces) -> void {
+                        Ref<DynamicArray<Scalar>> rAnsatzBuffer) -> void {
                     const unsigned iSampleY = iSample / postprocessResolution;
                     const unsigned iSampleX = iSample % postprocessResolution;
                     auto& rSample = samples[iSample];
@@ -208,9 +207,15 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                             Kernel<Dimension,Scalar>::view(localSamplePoint));
 
                         // Evaluate the cell's ansatz functions at the local sample point.
-                        const auto& rAnsatzSpace = rAnsatzSpaces[rCellData.ansatzID()];
-                        rAnsatzBuffer.resize(rAnsatzSpace.size());
-                        rAnsatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(localSamplePoint), rAnsatzBuffer);
+                        auto ansatzSpace = mesh.data().ansatzSpaces()[rCellData.ansatzID()];
+                        const unsigned ansatzSpaceSize = ansatzSpace.size();
+                        rAnsatzBuffer.resize(ansatzSpace.getMinBufferSize() + ansatzSpaceSize);
+                        ansatzSpace.setBuffer({
+                            rAnsatzBuffer.data() + ansatzSpaceSize,
+                            rAnsatzBuffer.data() + rAnsatzBuffer.size()});
+                        ansatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(
+                            localSamplePoint),
+                            {rAnsatzBuffer.data(), ansatzSpaceSize});
 
                         // Find the entries of the cell's DoFs in the global state vector.
                         const auto& rGlobalIndices = assembler[rCellData.id()];

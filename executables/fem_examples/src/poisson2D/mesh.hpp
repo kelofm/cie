@@ -91,27 +91,12 @@ void generateMesh(Ref<Mesh> rMesh,
                     legendre.coefficients().size()));
             } // for iBasis in range(polynomialOrder + 1)
 
-            // Construct the derivatives of all basis functions.
-            // Each derivative will need 1 less coefficient.
-            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
-                Ref<Basis> rBasis = basisFunctions[iBasis];
-                const std::size_t coefficientCount = rBasis.coefficients().empty()
-                    ? 0ul
-                    : rBasis.coefficients().size() - 1;
+            if (basisFunctions.size() < 2 * polynomialCoefficients.size()) {
+                polynomialCoefficients.resize(2 * polynomialCoefficients.size() - basisFunctions.size());
+            }
 
-                // Extend the array of coefficients.
-                const std::size_t iCoefficientBegin = polynomialCoefficients.size();
-                polynomialCoefficients.resize(polynomialCoefficients.size() + coefficientCount);
-
-                // Extend basis derivatives.
-                basisDerivatives.emplace_back(rBasis.makeDerivative({
-                    polynomialCoefficients.data() + iCoefficientBegin,
-                    coefficientCount}));
-            } // for iBasis in range(polynomialOrder + 1)
-
-            // Reassign the coefficient ranges of all basis functions
-            // and their derivatives, now that the list of polynomial
-            // coefficients is stable.
+            // Reassign the coefficient ranges of all basis functions,
+            // now that the list of polynomial coefficients is stable.
             std::size_t iBegin = 0ul;
             for (auto& rFunction : basisFunctions) {
                 const std::size_t coefficientCount = rFunction.coefficients().size();
@@ -121,14 +106,21 @@ void generateMesh(Ref<Mesh> rMesh,
                 iBegin += coefficientCount;
             } // for rFunction : basisFunctions
 
-            iBegin = 0ul;
-            for (auto& rFunction : basisDerivatives) {
-                const std::size_t coefficientCount = rFunction.coefficients().size();
-                rFunction = Basis({
+            // Construct the derivatives of all basis functions.
+            // Each derivative will need 1 less coefficient.
+            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+                Ref<Basis> rBasis = basisFunctions[iBasis];
+                const std::size_t coefficientCount = rBasis.coefficients().empty()
+                    ? 0ul
+                    : rBasis.coefficients().size() - 1;
+
+                // Extend basis derivatives.
+                basisDerivatives.emplace_back(rBasis.makeDerivative({
                     polynomialCoefficients.data() + iBegin,
-                    coefficientCount});
+                    coefficientCount}));
+
                 iBegin += coefficientCount;
-            } // for rFunction : basisDerivatives
+            } // for iBasis in range(polynomialOrder + 1)
 
             ansatzSpaces.emplace_back(basisFunctions);
         }

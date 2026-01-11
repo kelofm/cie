@@ -138,12 +138,9 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
     const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(boundaryIntegrationOrder)));
     DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces().front().size(),Dimension)
                                           + rMesh.data().ansatzSpaces().front().size());
-    DynamicArray<Scalar> integrandBuffer(  rMesh.data().ansatzSpaces().front().size()
-                                         + Dimension
-                                         + 1);
+    DynamicArray<Scalar> integrandBuffer;
 
     DirichletBoundary dirichletBoundary;
-    Scalar boundaryLength = 0.0;
     const Scalar penaltyFactor = rArguments.get<double>("penalty-factor");
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
@@ -153,7 +150,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         const auto boundaryVisitor = [bvh, &tree, &rBoundaryCell,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                       lhs, &rAssembler,
-                                      &rhs, &dirichletBoundary, &boundaryLength,
+                                      &rhs, &dirichletBoundary,
                                       &boundarySegments, &contiguousCellData, penaltyFactor] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
@@ -191,7 +188,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
                 if (minBoundarySegmentNorm < segmentNorm) {
                     Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
-                    const auto& rAnsatzSpace = rMesh.data().ansatzSpaces()[rCell.ansatzID()];
+                    const auto ansatzSpace = rMesh.data().ansatzSpaces()[rCell.ansatzID()];
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
                     globalCorners[0][0] = globalBase[0];
@@ -200,27 +197,31 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                     globalCorners[1][1] = globalOpposite[1];
                     const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(globalCorners);
 
-                    const auto integrand = makeTransformedIntegrand(
-                        makeDirichletPenaltyIntegrand(dirichletBoundary,
-                                                      penaltyFactor,
-                                                      rAnsatzSpace,
-                                                      segmentTransform,
-                                                      std::span<Scalar>(integrandBuffer)),
+                    auto integrand = makeTransformedIntegrand(
+                        makeDirichletPenaltyIntegrand(
+                            dirichletBoundary,
+                            penaltyFactor,
+                            ansatzSpace,
+                            segmentTransform,
+                            std::span<Scalar>(integrandBuffer)),
                         segmentTransform.makeDerivative());
+                    integrandBuffer.resize(integrand.getMinBufferSize());
+                    integrand.setBuffer(integrandBuffer);
                     lineQuadrature.evaluate(integrand, quadratureBuffer);
                     const auto& rGlobalDofIndices = rAssembler[rCell.id()];
 
-                    const std::size_t lhsEntryCount = std::pow(rAnsatzSpace.size(),Dimension);
-                    addLHSContribution({quadratureBuffer.data(), lhsEntryCount},
-                                       rGlobalDofIndices,
-                                       lhs);
+                    const std::size_t lhsEntryCount = std::pow(ansatzSpace.size(), Dimension);
+                    addLHSContribution(
+                        {quadratureBuffer.data(), lhsEntryCount},
+                        rGlobalDofIndices,
+                        lhs);
 
-                    addRHSContribution({quadratureBuffer.data() + lhsEntryCount, quadratureBuffer.size() - lhsEntryCount},
-                                       rGlobalDofIndices,
-                                       rhs);
+                    addRHSContribution(
+                        {quadratureBuffer.data() + lhsEntryCount, quadratureBuffer.size() - lhsEntryCount},
+                        rGlobalDofIndices,
+                        rhs);
 
                     // Log debug and output info.
-                    boundaryLength += std::sqrt(segmentNorm);
                     decltype(boundarySegments)::value_type segment;
                     std::copy_n(globalCorners[0].data(), Dimension, segment.data());
                     std::copy_n(globalCorners[1].data(), Dimension, segment.data() + Dimension);

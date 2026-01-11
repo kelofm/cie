@@ -33,10 +33,10 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegr
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
 DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                                                                         const Value penalty,
-                                                                         Ref<const TAnsatz> rAnsatzSpace,
-                                                                         Ref<const TTransform> rSpatialTransform,
-                                                                         std::span<Value> buffer)
+                                                                                    const Value penalty,
+                                                                                    Ref<const TAnsatz> rAnsatzSpace,
+                                                                                    Ref<const TTransform> rSpatialTransform,
+                                                                                    std::span<Value> buffer)
     : DirichletPenaltyIntegrand(rDirichletFunctor, penalty, rAnsatzSpace, rSpatialTransform)
 {
     this->setBuffer(buffer);
