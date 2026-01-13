@@ -102,6 +102,7 @@ case "$(uname -s)" in
 
         get_homebrew_package libomp
         export OpenMP_ROOT=$(brew --prefix $foundPackage)
+        export LDFLAGS="$LDFLAGS -L${OpenMP_ROOT}/lib"
         ;;
     \?)
         echo "Error: unsupported OS $(uname -s)"

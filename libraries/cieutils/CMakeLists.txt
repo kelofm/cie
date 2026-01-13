@@ -186,6 +186,8 @@ endif()
 # SYCL extension.
 if (${CIE_ENABLE_SYCL})
     target_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_SYCL)
+    find_package(OpenMP COMPONENTS CXX REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
 # Package
