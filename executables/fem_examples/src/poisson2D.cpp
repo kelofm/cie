@@ -4,6 +4,7 @@
 #include "Eigen/src/SparseCholesky/SimplicialCholesky.h"
 
 // --- Internal Includes ---
+#include "packages/commandline/inc/ArgParse.hpp"
 #include "poisson2D/definitions.hpp"
 #include "poisson2D/MeshData.hpp"
 #include "poisson2D/CellData.hpp"
@@ -108,12 +109,18 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         rArguments);
 
     // Compute element contributions and assemble them into the matrix
+    OptionalRef<mp::ThreadPoolBase> rMaybeThreads;
+    #ifdef CIE_ENABLE_SYCL
+        if (!rArguments.get<bool>("gpu"))
+            rMaybeThreads = threads;
+    #endif
+
     integrateStiffness(
         mesh,
         assembler,
         lhs,
-        0x10000,
-        threads);
+        rArguments.get<std::size_t>("integrand-batch-size"),
+        rMaybeThreads);
 
     //std::transform(
     //    rhs.begin(),
@@ -137,20 +144,20 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
 
-        //Eigen::ConjugateGradient<
-        //    EigenSparseMatrix,
-        //    Eigen::Lower | Eigen::Upper,
-        //    Eigen::DiagonalPreconditioner<Scalar>
-        //> solver;
-        //solver.setMaxIterations(int(5e3));
-        //solver.setTolerance(1e-6);
-        Eigen::SimplicialLLT<EigenSparseMatrix> solver;
+        Eigen::ConjugateGradient<
+            EigenSparseMatrix,
+            Eigen::Lower | Eigen::Upper,
+            Eigen::DiagonalPreconditioner<Scalar>
+        > solver;
+        solver.setMaxIterations(int(5e3));
+        solver.setTolerance(1e-6);
+        //Eigen::SimplicialLLT<EigenSparseMatrix> solver;
 
         solver.compute(lhsAdaptor);
         solutionAdaptor = solver.solve(rhsAdaptor);
 
-        //std::cout << solver.iterations() << " iterations "
-        //          << solver.error()      << " residual\n";
+        std::cout << solver.iterations() << " iterations "
+                  << solver.error()      << " residual\n";
     } // solve
 
     // XDMF output.
@@ -475,6 +482,14 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::DefaultValue {"1e-2"},
             cie::utils::ArgParse::validatorFactory<double>(),
             "Penalty value for the weak imposition of Dirichlet boundary conditions.")
+        .addKeyword(
+            {"--integrand-batch-size"},
+            cie::utils::ArgParse::DefaultValue {"0x8000"},
+            cie::utils::ArgParse::validatorFactory<std::size_t>(),
+            "Number of quadrature points to evaluate at once.")
+        .addFlag(
+            {"--gpu"},
+            "Use the GPU for integration and postprocessing.")
         .addFlag(
             {"-h", "--help"},
             "Print this help and exit.")

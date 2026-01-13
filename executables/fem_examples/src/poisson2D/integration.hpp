@@ -173,39 +173,42 @@ public:
 
 
         // Evaluate integrands at quadrature points.
-        const auto job = [this, integrandOutputSize] (std::size_t iQuadraturePoint) -> void {
-            Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = _quadraturePoints[iQuadraturePoint];
-            Ref<const StiffnessIntegrand> rIntegrand = _integrands[iQuadraturePoint];
-            std::span<Scalar> output(
-                _integrandOutput.data() + iQuadraturePoint * integrandOutputSize,
-                integrandOutputSize);
-            rQuadraturePoint.evaluate(rIntegrand, output);
-        };
+        const auto job = [
+            pQuadraturePointBegin = _quadraturePoints.data(),
+             pIntegrandBegin = _integrands.data(),
+             pIntegrandOutputBegin = _integrandOutput.data(),
+             integrandOutputSize]
+                (auto index) -> void {
+                    std::size_t iQuadraturePoint = 0ul;
+                    if constexpr (concepts::UnsignedInteger<decltype(index)>) {
+                        iQuadraturePoint = index;
+                    } else {
+                        iQuadraturePoint = index.get_linear_id();
+                    }
+                    Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
+                    Ref<const StiffnessIntegrand> rIntegrand = pIntegrandBegin[iQuadraturePoint];
+                    std::span<Scalar> output(
+                        pIntegrandOutputBegin + iQuadraturePoint * integrandOutputSize,
+                        integrandOutputSize);
+                    rQuadraturePoint.evaluate(rIntegrand, output);
+                };
 
         if (rMaybeThreads.has_value()) {
             mp::ParallelFor<>(rMaybeThreads.value())(
                 _quadraturePoints.size(),
                 job);
         } else {
-            std::ranges::for_each(
-                std::views::iota(0ul) | std::views::take(_quadraturePoints.size()),
-                job);
+            #ifdef CIE_ENABLE_SYCL
+                SYCLSingleton::getQueue().parallel_for(
+                    sycl::range(_quadraturePoints.size()),
+                    job
+                ).wait();
+            #else
+                std::ranges::for_each(
+                    std::views::iota(0ul) | std::views::take(_quadraturePoints.size()),
+                    job);
+            #endif
         }
-//        SYCLSingleton::getQueue().parallel_for(
-//            sycl::range(_quadraturePoints.size()),
-//            [pQuadraturePointBegin = _quadraturePoints.data(),
-//             pIntegrandBegin = _integrands.data(),
-//             pIntegrandOutputBegin = _integrandOutput.data(),
-//             integrandOutputSize]
-//                (sycl::id<1> index) -> void {
-//                    const std::size_t iQuadraturePoint = index.get(0);
-//                    Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
-//                    Ref<const StiffnessIntegrand> rIntegrand = pIntegrandBegin[iQuadraturePoint];
-//                    std::span<Scalar> output(
-//                        pIntegrandOutputBegin + iQuadraturePoint * integrandOutputSize,
-//                        integrandOutputSize);
-//                    rQuadraturePoint.evaluate(rIntegrand, output);
-//                }).wait();
 
         // Reduce the results and map them to the LHS matrix.
         for (std::size_t iCell=0ul; iCell<cellExtents.size()-1; ++iCell) {

@@ -21,12 +21,12 @@ class SYCLSingleton {
 public:
     static Ref<sycl::device> getDevice() {
         SYCLSingleton::init();
-        return _maybeDevice.value();
+        return *_maybeImpl.value().pDevice;
     }
 
     static Ref<sycl::queue> getQueue() {
         SYCLSingleton::init();
-        return _maybeQueue.value();
+        return *_maybeImpl.value().pQueue;
     }
 
     template <class T>
@@ -34,24 +34,34 @@ public:
         return sycl::usm_allocator<T,sycl::usm::alloc::shared>(SYCLSingleton::getQueue());
     }
 
-private:
-    static void init() {
-        if (!_maybeDevice.has_value())
-            _maybeDevice.emplace(sycl::default_selector_v);
-
-        if (!_maybeQueue.has_value())
-            _maybeQueue.emplace(_maybeDevice.value());
+    template <class T>
+    static sycl::usm_allocator<T,sycl::usm::alloc::device> makeDeviceAllocator() {
+        return sycl::usm_allocator<T,sycl::usm::alloc::device>(SYCLSingleton::getQueue());
     }
 
-    static std::optional<sycl::device> _maybeDevice;
+private:
+    static void init() {
+        if (!_maybeImpl.has_value()) {
+            auto pDevice = std::make_unique<sycl::device>(sycl::default_selector_v);
+            auto pQueue = std::make_unique<sycl::queue>(*pDevice);
+            _maybeImpl.emplace(std::move(pDevice), std::move(pQueue));
+        }
+    }
 
-    static std::optional<sycl::queue> _maybeQueue;
+    struct Impl {
+        ~Impl() {
+            pQueue.reset();
+            pDevice.reset();
+        }
+        std::unique_ptr<sycl::device> pDevice;
+        std::unique_ptr<sycl::queue> pQueue;
+    };
+
+    static std::optional<Impl> _maybeImpl;
 }; // class SYCLSingleton
 
 
-std::optional<sycl::device> SYCLSingleton::_maybeDevice = {};
-
-std::optional<sycl::queue> SYCLSingleton::_maybeQueue = {};
+std::optional<SYCLSingleton::Impl> SYCLSingleton::_maybeImpl = {};
 
 
 /// @brief Data structure common to the entire @ref Graph "mesh".
