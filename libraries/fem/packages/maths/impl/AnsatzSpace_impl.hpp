@@ -46,9 +46,9 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::BufferedAnsatzSpaceDerivat
 template <class TScalarExpression, unsigned Dim>
 void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     const unsigned setSize = _ansatzSet.size();
-    //CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
-    //CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
-    //CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
+    CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
+    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
 
     auto indexBuffer        = this->getIndexBuffer();
     auto ansatzBuffer       = this->getAnsatzBuffer();
@@ -286,8 +286,8 @@ BufferedAnsatzSpace<TScalarExpression,Dim>::BufferedAnsatzSpace(std::span<const 
 template <class TScalarExpression, unsigned Dim>
 void BufferedAnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     // Sanity checks
-    //CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
-    //CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
+    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
+    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
 
     auto valueBuffer = this->getValueBuffer();
     auto indexBuffer = this->getIndexBuffer();
