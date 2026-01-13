@@ -51,8 +51,7 @@ using Mesh = Graph<CellData,BoundaryData,MeshData>;
 ///            [u(0,0)=0]                                     [u(1,0)=1]
 ///          @endcode
 void generateMesh(Ref<Mesh> rMesh,
-                  Ref<const utils::ArgParse::Results> rArguments)
-{
+                  Ref<const utils::ArgParse::Results> rArguments) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("generate mesh");
 
     const unsigned polynomialOrder = rArguments.get<std::size_t>("p");
@@ -61,11 +60,11 @@ void generateMesh(Ref<Mesh> rMesh,
     {
         // Define an ansatz space and its derivatives.
         // In this example, every cell will use the same ansatz space.
-        DynamicArray<Scalar> polynomialCoefficients;
-        DynamicArray<Basis> basisFunctions;
-        DynamicArray<Basis::Derivative> basisDerivatives;
-        DynamicArray<Ansatz> ansatzSpaces;
-        DynamicArray<AnsatzDerivative> ansatzDerivatives;
+        DynamicSharedArray<Scalar> polynomialCoefficients(SYCLSingleton::makeSharedAllocator<Scalar>());
+        DynamicSharedArray<Basis> basisFunctions(SYCLSingleton::makeSharedAllocator<Basis>());
+        DynamicSharedArray<Basis::Derivative> basisDerivatives(SYCLSingleton::makeSharedAllocator<Basis::Derivative>());
+        DynamicSharedArray<Ansatz> ansatzSpaces(SYCLSingleton::makeSharedAllocator<Ansatz>());
+        DynamicSharedArray<AnsatzDerivative> ansatzDerivatives(SYCLSingleton::makeSharedAllocator<AnsatzDerivative>());
 
         {
             auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");

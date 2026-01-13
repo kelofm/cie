@@ -16,9 +16,7 @@ namespace cie::utils {
 template <class T>
 requires concepts::Pointer<T>
 inline typename std::pointer_traits<typename std::decay<T>::type>::element_type&
-getRef(T& r_p)
-{
-    CIE_CHECK_POINTER(r_p)
+getRef(T& r_p) {
     return *r_p;
 }
 
@@ -27,9 +25,7 @@ getRef(T& r_p)
 template <class T>
 requires concepts::Pointer<T>
 inline const typename std::pointer_traits<typename std::decay<T>::type>::element_type&
-getRef(const T& r_p)
-{
-    CIE_CHECK_POINTER(r_p)
+getRef(const T& r_p) {
     return *r_p;
 }
 
@@ -38,8 +34,7 @@ getRef(const T& r_p)
 template <class T>
 requires concepts::NonPointer<T>
 inline T&
-getRef(T& r)
-{
+getRef(T& r) {
     return r;
 }
 
@@ -48,8 +43,7 @@ getRef(T& r)
 template <class T>
 requires concepts::NonPointer<T>
 inline const T&
-getRef(const T& r)
-{
+getRef(const T& r) {
     return r;
 }
 

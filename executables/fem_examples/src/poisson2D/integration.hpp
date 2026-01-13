@@ -122,6 +122,13 @@ private:
 
 class IntegrandRange {
 public:
+    IntegrandRange()
+        : _quadraturePoints(SYCLSingleton::makeSharedAllocator<QuadraturePoint<Dimension,Scalar>>()),
+          _integrands(SYCLSingleton::makeSharedAllocator<StiffnessIntegrand>()),
+          _integrandOutput(SYCLSingleton::makeSharedAllocator<Scalar>()),
+          _integrandBuffer(SYCLSingleton::makeSharedAllocator<Scalar>())
+    {}
+
     void setQuadraturePointCount(std::size_t count,
                                  std::size_t integrandOutputSize,
                                  std::size_t integrandBufferSize) {
@@ -154,9 +161,16 @@ public:
                   Ref<const Assembler> rAssembler,
                   [[maybe_unused]] OptionalRef<mp::ThreadPoolBase> rMaybeThreads,
                   CSRWrapper lhs) {
+        if (cellExtents.empty()) return;
+        auto logBlock = utils::LoggerSingleton::get().newBlock(
+            "evaluate integrand at "
+            + std::to_string(cellExtents.back().second)
+            + " quadrature points");
+
         const std::size_t integrandOutputSize = _integrands.empty()
             ? 0ul
             : _integrands.front().size();
+
 
         // Evaluate integrands at quadrature points.
         const auto job = [this, integrandOutputSize] (std::size_t iQuadraturePoint) -> void {
@@ -177,6 +191,21 @@ public:
                 std::views::iota(0ul) | std::views::take(_quadraturePoints.size()),
                 job);
         }
+//        SYCLSingleton::getQueue().parallel_for(
+//            sycl::range(_quadraturePoints.size()),
+//            [pQuadraturePointBegin = _quadraturePoints.data(),
+//             pIntegrandBegin = _integrands.data(),
+//             pIntegrandOutputBegin = _integrandOutput.data(),
+//             integrandOutputSize]
+//                (sycl::id<1> index) -> void {
+//                    const std::size_t iQuadraturePoint = index.get(0);
+//                    Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
+//                    Ref<const StiffnessIntegrand> rIntegrand = pIntegrandBegin[iQuadraturePoint];
+//                    std::span<Scalar> output(
+//                        pIntegrandOutputBegin + iQuadraturePoint * integrandOutputSize,
+//                        integrandOutputSize);
+//                    rQuadraturePoint.evaluate(rIntegrand, output);
+//                }).wait();
 
         // Reduce the results and map them to the LHS matrix.
         for (std::size_t iCell=0ul; iCell<cellExtents.size()-1; ++iCell) {
@@ -205,19 +234,19 @@ public:
     }
 
 private:
-    DynamicArray<QuadraturePoint<Dimension,Scalar>> _quadraturePoints;
-    DynamicArray<StiffnessIntegrand> _integrands;
-    DynamicArray<Scalar> _integrandOutput;
-    DynamicArray<Scalar> _integrandBuffer;
+    DynamicSharedArray<QuadraturePoint<Dimension,Scalar>> _quadraturePoints;
+    DynamicSharedArray<StiffnessIntegrand> _integrands;
+    DynamicSharedArray<Scalar> _integrandOutput;
+    DynamicSharedArray<Scalar> _integrandBuffer;
 }; // struct IntegrandDataRange
 
 
 void integrateStiffness(Ref<const Mesh> rMesh,
                         Ref<const Assembler> rAssembler,
                         CSRWrapper lhs,
+                        std::size_t quadratureBatchSize,
                         OptionalRef<mp::ThreadPoolBase> rMaybeThreads) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
-    constexpr std::size_t quadratureBatchSize = 0x1000;
 
     // Query integrand memory requirements.
     std::size_t integrandOutputSize, integrandBufferSize;
