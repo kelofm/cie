@@ -62,16 +62,16 @@ ArgParse::Results::Results(const Map& r_map)
 const ArgParse::Validator ArgParse::defaultValidator = [](const auto&){return true;};
 
 
-const ArgParse::Validator ArgParse::pathValidator = [](const auto& r_value)
-{return std::filesystem::exists(std::filesystem::path(r_value.begin(), r_value.end()));};
+const ArgParse::Validator ArgParse::pathValidator = [](const auto& rValue)
+{return std::filesystem::exists(std::filesystem::path(rValue.begin(), rValue.end()));};
 
 
-const ArgParse::Validator ArgParse::directoryPathValidator = [](const auto& r_value)
-{return std::filesystem::is_directory(std::filesystem::path(r_value.begin(), r_value.end()));};
+const ArgParse::Validator ArgParse::directoryPathValidator = [](const auto& rValue)
+{return std::filesystem::is_directory(std::filesystem::path(rValue.begin(), rValue.end()));};
 
 
-const ArgParse::Validator ArgParse::filePathValidator = [](const auto& r_value)
-{return std::filesystem::is_regular_file(std::filesystem::path(r_value.begin(), r_value.end()));};
+const ArgParse::Validator ArgParse::filePathValidator = [](const auto& rValue)
+{return std::filesystem::is_regular_file(std::filesystem::path(rValue.begin(), rValue.end()));};
 
 
 class ArgParse::Impl
@@ -356,8 +356,7 @@ consumeValues(int& argc,
 }
 
 
-ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
-{
+ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const {
     CIE_BEGIN_EXCEPTION_TRACING
 
     ArgParse::Results::Map outputMap;
@@ -374,17 +373,13 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
         int expectedPositionalCount = 0;
 
         for (const auto& rpArgument : _pImpl->_arguments)
-            if (rpArgument->tag() == detail::AbsArgument::Tag::Positional)
-            {
+            if (rpArgument->tag() == detail::AbsArgument::Tag::Positional) {
                 positionals.emplace_back(rpArgument);
                 const auto nArgs = rpArgument->nArgs();
-                if (nArgs == ArgumentCount::Any || nArgs == ArgumentCount::NonZero)
-                {
+                if (nArgs == ArgumentCount::Any || nArgs == ArgumentCount::NonZero) {
                     expectedPositionalCount = argc;
                     break;
-                } // variable argument count
-                else
-                {
+                } /* variable argument count */ else {
                     expectedPositionalCount += int(nArgs);
                 } // Exact argument count
             } // if positional argument
@@ -392,15 +387,13 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
         // Check whether the expected number of positional values is valid
         CIE_CHECK(
             expectedPositionalCount <= argc,
-            "Expecting " << expectedPositionalCount << " positional argument" << (1 < expectedPositionalCount ? "s" : "") << ", but " << argc << " were given"
-        )
+            "Expecting " << expectedPositionalCount << " positional argument" << (1 < expectedPositionalCount ? "s" : "") << ", but " << argc << " were given")
     } // construct separators
 
     // Assign values to positional arguments
     ValueViewContainer views;
 
-    for (const auto& rpPositional : positionals)
-    {
+    for (const auto& rpPositional : positionals) {
         const auto nArgs = rpPositional->nArgs();
         views.clear();
 
@@ -411,8 +404,7 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
             argv,
             _pImpl->_arguments,
             views,
-            nArgs != ArgumentCount::Any && nArgs != ArgumentCount::NonZero ? int(nArgs) : argc
-        );
+            nArgs != ArgumentCount::Any && nArgs != ArgumentCount::NonZero ? int(nArgs) : argc);
 
         // A value matched an argument => end of positionals or error
         if (pMatched)
@@ -421,8 +413,9 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
         // Pass the collected views to the positional argument
         // which will validate them. Then push the validated
         // values to the output map.
-        try {rpPositional->parseValues(views, outputMap);}
-        catch (Exception& rException) {
+        try {
+            rpPositional->parseValues(views, outputMap);
+        } catch (Exception& rException) {
             std::stringstream stream;
             this->help(stream);
             CIE_RETHROW(rException, stream.str())
@@ -431,8 +424,7 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
     }
 
     // Assign values to keyword and flag arguments
-    while (0 < argc)
-    {
+    while (0 < argc) {
         // Assume the current value is a key
 
         // Get argument matching the key.
@@ -457,19 +449,18 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
             argc
         );
 
-        if (!views.empty())
-        {
+        if (!views.empty()) {
             std::stringstream stream;
             stream << "Unexpected arguments or unrecognized keys: ";
             for (const auto& r_view : views)
                 stream << "'" << std::string(r_view.begin(), r_view.end()) << "' ";
+            this->help(std::cerr);
             CIE_THROW(Exception, stream.str())
         }
 
         CIE_CHECK(
             pMatched,
-            "Expecting a key but found none"
-        )
+            "Expecting a key but found none")
 
         // From here on, 'pMatched' is valid and 'views' is empty.
         // => move on to the values (if any)
@@ -504,10 +495,8 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
 
     // Check whether all required arguments were found
     // and assign default values to arguments that were not found.
-    for (const auto& rPair : argumentFoundMap)
-    {
-        if (!rPair.second)
-        {
+    for (const auto& rPair : argumentFoundMap) {
+        if (!rPair.second) {
             if (!rPair.first->isOptional())
                 CIE_THROW(Exception, "Required argument '" + rPair.first->name() +"' was not found")
             else if (rPair.first->tag() == detail::AbsArgument::Tag::Flag)
@@ -527,8 +516,7 @@ ArgParse::Results ArgParse::parseArguments(int argc, const char* argv[]) const
 
 
 template <class TStream, class TArguments>
-TStream& helpImpl(TStream& rStream, const std::string& rHeader, const TArguments& rArguments)
-{
+TStream& helpImpl(TStream& rStream, const std::string& rHeader, const TArguments& rArguments) {
     CIE_BEGIN_EXCEPTION_TRACING
 
     rStream << rHeader;
@@ -541,8 +529,7 @@ TStream& helpImpl(TStream& rStream, const std::string& rHeader, const TArguments
 }
 
 
-OutputStream& ArgParse::help(OutputStream& rStream) const
-{
+OutputStream& ArgParse::help(OutputStream& rStream) const {
     return helpImpl(
         rStream,
         this->name().empty() ? "" : (this->name() + "\n"),
@@ -550,8 +537,7 @@ OutputStream& ArgParse::help(OutputStream& rStream) const
 }
 
 
-std::ostream& ArgParse::help(std::ostream& rStream) const
-{
+std::ostream& ArgParse::help(std::ostream& rStream) const {
     return helpImpl(
         rStream,
         this->name().empty() ? "" : (this->name() + "\n"),
@@ -559,50 +545,50 @@ std::ostream& ArgParse::help(std::ostream& rStream) const
 }
 
 
-struct RegexBasedValidator
-{
-    inline static bool isValid(const ArgParse::ValueView& r_value, const std::regex& r_regex)
-    {
+struct RegexBasedValidator {
+    inline static bool isValid(const ArgParse::ValueView& rValue, const std::regex& r_regex) {
         CIE_BEGIN_EXCEPTION_TRACING
         std::match_results<ArgParse::KeyView::const_iterator> match;
-        return std::regex_match(r_value.begin(), r_value.end(), match, r_regex);
+        return std::regex_match(rValue.begin(), rValue.end(), match, r_regex);
         CIE_END_EXCEPTION_TRACING
     }
 }; // class RegexBasedValidator
 
 
-const std::regex integerRegex(R"(^0|(?:-?[1-9]+[0-9]*)$)");
+const std::regex integerRegex(R"(^0|(?:0|0[xX])?(?:-?[1-9]+[0-9]*)$)");
 
 
-const std::regex unsignedIntegerRegex(R"(^0|(?:[1-9]+[0-9]*)$)");
+const std::regex unsignedIntegerRegex(R"(^0|(?:0|0[xX])?(?:[1-9]+[0-9]*)$)");
 
 
 const std::regex floatingPointRegex(R"(^-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?$)");
 
 
 template <>
-ArgParse::Validator ArgParse::validatorFactory<int>()
-{
-    return [](const auto& r_value) {return RegexBasedValidator::isValid(r_value, integerRegex);};
+ArgParse::Validator ArgParse::validatorFactory<int>() {
+    return [](const auto& rValue) {
+        return RegexBasedValidator::isValid(rValue, integerRegex);
+    };
 }
 
 
 template <>
-ArgParse::Validator ArgParse::validatorFactory<Size>()
-{
-    return [](const auto& r_value) {return RegexBasedValidator::isValid(r_value, unsignedIntegerRegex);};
+ArgParse::Validator ArgParse::validatorFactory<Size>() {
+    return [](const auto& rValue) {
+        return RegexBasedValidator::isValid(rValue, unsignedIntegerRegex);
+    };
 }
 
 
 template <>
-ArgParse::Validator ArgParse::validatorFactory<Double>()
-{
-    return [](const auto& r_value) {return RegexBasedValidator::isValid(r_value, floatingPointRegex);};
+ArgParse::Validator ArgParse::validatorFactory<Double>() {
+    return [](const auto& rValue) {
+        return RegexBasedValidator::isValid(rValue, floatingPointRegex);
+    };
 }
 
 
-OutputStream& ArgParse::Results::serialize(OutputStream& rStream) const
-{
+OutputStream& ArgParse::Results::serialize(OutputStream& rStream) const {
     CIE_BEGIN_EXCEPTION_TRACING
 
     constexpr const auto indent = "    ";
@@ -640,14 +626,12 @@ OutputStream& ArgParse::Results::serialize(OutputStream& rStream) const
 }
 
 
-OutputStream& operator<<(OutputStream& rStream, const ArgParse::Results& r_parsedResults)
-{
+OutputStream& operator<<(OutputStream& rStream, const ArgParse::Results& r_parsedResults) {
     return r_parsedResults.serialize(rStream);
 }
 
 
-std::ostream& operator<<(std::ostream& rStream, const ArgParse::Results& r_parsedResults)
-{
+std::ostream& operator<<(std::ostream& rStream, const ArgParse::Results& r_parsedResults) {
     CIE_BEGIN_EXCEPTION_TRACING
 
     OutputStream::SharedPointer p_wrapper(new OutputStream(&rStream));

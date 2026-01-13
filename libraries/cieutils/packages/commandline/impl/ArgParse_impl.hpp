@@ -13,7 +13,7 @@
 // --- STL Includes ---
 #include <string>
 #include <utility>
-
+#include <iostream>
 
 namespace cie::utils {
 
@@ -110,8 +110,7 @@ inline bool ArgParse::Results::has(const Key& r_key) const
 
 
 template <class T>
-T ArgParse::Results::get(const Key& r_key) const
-{
+T ArgParse::Results::get(const Key& r_key) const {
     CIE_BEGIN_EXCEPTION_TRACING
 
     const auto pair = _map.equal_range(r_key);
@@ -120,74 +119,97 @@ T ArgParse::Results::get(const Key& r_key) const
         *this << std::endl << "No results for key '" << r_key << "'"
     )
 
-    return ArgParse::Results::ValueConverter<T>::convert(pair.first, pair.second);
-
+    return ArgParse::Results::ValueConverter<T>::convert(pair.first, pair.second).value();
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <>
-struct ArgParse::Results::ValueConverter<Bool>
-{
-    static Bool convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<Bool> {
+    static std::optional<Bool> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
-        Bool output = false;
-        std::stringstream(begin->second) >> std::boolalpha >> output;
+        std::optional<Bool> output;
+        try {
+            bool dummy = false;
+            std::stringstream(begin->second) >> std::boolalpha >> dummy;
+            output.emplace(dummy);
+        } catch (std::exception& rException) {
+            std::cerr << "argument '-" << begin->first
+                      << "' value '" << begin->second << "' "
+                      << "cannot be converted to 'bool'\n";
+        }
         return output;
     }
 }; // struct ArgParse::Results::ValueConverter<Bool>
 
 
 template <>
-struct ArgParse::Results::ValueConverter<int>
-{
-    static int convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<int> {
+    static std::optional<int> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
-        return std::stoi(begin->second);
+        try {
+            return std::stoi(begin->second, nullptr, 0);
+        } catch (std::exception& rException) {
+            std::cerr << "argument '-" << begin->first
+                      << "' value '" << begin->second << "' "
+                      << "cannot be converted to 'int'\n";
+            return {};
+        }
     }
 }; // struct ArgParse::Results::ValueConverter<int>
 
 
 template <>
-struct ArgParse::Results::ValueConverter<Size>
-{
-    static Size convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<Size> {
+    static std::optional<Size> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
-        return std::stoul(begin->second);
+        try {
+            return std::stoul(begin->second, nullptr, 0);
+        } catch (std::exception& rException) {
+            std::cerr << "argument '-" << begin->first
+                      << "' value '" << begin->second << "' "
+                      << "cannot be converted to 'std::size_t'\n";
+            return {};
+        }
     }
 }; // struct ArgParse::Results::ValueConverter<Size>
 
 
 template <>
-struct ArgParse::Results::ValueConverter<Float>
-{
-    static Float convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<Float> {
+    static std::optional<Float> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
-        return std::stof(begin->second);
+        try {
+            return std::stof(begin->second);
+        } catch (std::exception& rException) {
+            std::cerr << "argument '-" << begin->first
+                      << "' value '" << begin->second << "' "
+                      << "cannot be converted to 'float'\n";
+            return {};
+        }
     }
 }; // struct ArgParse::Results::ValueConverter<Float>
 
 
 template <>
-struct ArgParse::Results::ValueConverter<Double>
-{
-    static Double convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<Double> {
+    static std::optional<Double> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
-        return std::stod(begin->second);
+        try {
+            return std::stod(begin->second);
+        } catch (std::exception& rException) {
+            std::cerr << "argument '-" << begin->first
+                      << "' value '" << begin->second << "' "
+                      << "cannot be converted to 'double'\n";
+            return {};
+        }
     }
 }; // struct ArgParse::Results::ValueConverter<Double>
 
 
 template <>
-struct ArgParse::Results::ValueConverter<std::string>
-{
-    static std::string convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<std::string> {
+    static std::optional<std::string> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
         return begin->second;
     }
@@ -195,36 +217,40 @@ struct ArgParse::Results::ValueConverter<std::string>
 
 
 template <>
-struct ArgParse::Results::ValueConverter<std::filesystem::path>
-{
-    static std::filesystem::path convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end)
-    {
+struct ArgParse::Results::ValueConverter<std::filesystem::path> {
+    static std::optional<std::filesystem::path> convert(ArgParse::Results::ValueIterator begin, ArgParse::Results::ValueIterator end) {
         CIE_CHECK(std::distance(begin, end) == 1, "Expecting exactly 1 string, but got " << std::distance(begin, end))
-        return begin->second;
+        try {
+            return begin->second;
+        } catch (std::exception& rException) {
+            std::cerr << "argument '-" << begin->first
+                      << "' value '" << begin->second << "' "
+                      << "cannot be converted to 'std::filesystem::path'\n";
+            return {};
+        }
     }
 }; // struct ArgParse::Results::ValueConverter<std::filesystem::path>
 
 
 template <class ...TArgs>
-ArgParse& ArgParse::addPositional(std::string&& r_name, TArgs&&... r_optionals)
-{
+ArgParse& ArgParse::addPositional(std::string&& r_name, TArgs&&... r_optionals) {
     CIE_BEGIN_EXCEPTION_TRACING
 
     using OptionalTuple = typename detail::ArgParseOptionalTupleConverter<ct::PackSize<TArgs...>,TArgs...>::Tuple;
     OptionalTuple optionals(std::forward<TArgs>(r_optionals)...);
 
     auto add = [this, r_name = std::move(r_name)](ArgumentCount argumentCount,
-                                                  Validator r_validator,
-                                                  DefaultValue r_defaultValue,
-                                                  std::string r_docString) mutable -> ArgParse&
+                                                  Validator rValidator,
+                                                  DefaultValue rDefaultValue,
+                                                  std::string rDocString) mutable -> ArgParse&
     {
         return this->addArgument(std::move(r_name),
                                  {""},
                                  false,
                                  argumentCount,
-                                 r_validator,
-                                 std::move(r_defaultValue),
-                                 std::move(r_docString));
+                                 rValidator,
+                                 std::move(rDefaultValue),
+                                 std::move(rDocString));
     };
 
     return ct::ArgumentMapper<ArgumentCount,Validator,DefaultValue,std::string>(
@@ -232,15 +258,16 @@ ArgParse& ArgParse::addPositional(std::string&& r_name, TArgs&&... r_optionals)
         defaultValidator,
         DefaultValue {},
         std::string("")
-    ).mapTuple<ArgParse&>(add, std::move(optionals));
+    ).mapTuple<ArgParse&>(
+        add,
+        std::move(optionals));
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <class ...TArgs>
-ArgParse& ArgParse::addKeyword(KeyContainer&& r_keys, TArgs&&... r_optionals)
-{
+ArgParse& ArgParse::addKeyword(KeyContainer&& r_keys, TArgs&&... r_optionals) {
     CIE_BEGIN_EXCEPTION_TRACING
 
     using OptionalTuple = typename detail::ArgParseOptionalTupleConverter<ct::PackSize<TArgs...>,TArgs...>::Tuple;
@@ -248,9 +275,9 @@ ArgParse& ArgParse::addKeyword(KeyContainer&& r_keys, TArgs&&... r_optionals)
 
     auto add = [this, r_keys = std::move(r_keys)](bool isOptional,
                                                   ArgumentCount argumentCount,
-                                                  Validator r_validator,
-                                                  DefaultValue r_defaultValue,
-                                                  std::string r_docString) mutable -> ArgParse&
+                                                  Validator rValidator,
+                                                  DefaultValue rDefaultValue,
+                                                  std::string rDocString) mutable -> ArgParse&
     {
         std::string name;
         if (!r_keys.empty())
@@ -262,9 +289,9 @@ ArgParse& ArgParse::addKeyword(KeyContainer&& r_keys, TArgs&&... r_optionals)
                                  std::move(r_keys),
                                  isOptional,
                                  argumentCount,
-                                 r_validator,
-                                 std::move(r_defaultValue),
-                                 std::move(r_docString));
+                                 rValidator,
+                                 std::move(rDefaultValue),
+                                 std::move(rDocString));
     };
 
     return ct::ArgumentMapper<bool,ArgumentCount,Validator,DefaultValue,std::string>(
@@ -280,14 +307,13 @@ ArgParse& ArgParse::addKeyword(KeyContainer&& r_keys, TArgs&&... r_optionals)
 
 
 template <class ...TArgs>
-ArgParse& ArgParse::addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals)
-{
+ArgParse& ArgParse::addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals) {
     CIE_BEGIN_EXCEPTION_TRACING
 
     using OptionalTuple = typename detail::ArgParseOptionalTupleConverter<ct::PackSize<TArgs...>,TArgs...>::Tuple;
     OptionalTuple optionals(std::forward<TArgs>(r_optionals)...);
 
-    auto add = [this, r_keys = std::move(r_keys)](std::string r_docString) mutable -> ArgParse& {
+    auto add = [this, r_keys = std::move(r_keys)](std::string rDocString) mutable -> ArgParse& {
         std::string name;
         if (!r_keys.empty())
             name = detail::KeywordParser::strip(r_keys.front());
@@ -300,7 +326,7 @@ ArgParse& ArgParse::addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals)
                                  ArgumentCount::None,
                                  this->defaultValidator,
                                  {},
-                                 std::move(r_docString));
+                                 std::move(rDocString));
     };
 
     return ct::ArgumentMapper<std::string>(std::string("")).mapTuple<ArgParse&>(add, std::move(optionals));

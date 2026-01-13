@@ -47,8 +47,7 @@ public:
 
     using Validator = std::function<bool(const ValueView&)>;
 
-    class ArgumentCount
-    {
+    class ArgumentCount {
     public:
         static const ArgumentCount None;
 
@@ -172,9 +171,8 @@ public:
         *  - std::string
         */
         template <class T>
-        struct ValueConverter
-        {
-            static T convert(ValueIterator begin, ValueIterator end);
+        struct ValueConverter {
+            static std::optional<T> convert(ValueIterator begin, ValueIterator end);
         }; // struct ValueConverter
 
         OutputStream& serialize(OutputStream& r_stream) const;
