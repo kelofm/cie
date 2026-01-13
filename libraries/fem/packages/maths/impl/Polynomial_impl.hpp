@@ -12,13 +12,11 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue>
-void PolynomialView<TValue>::evaluate(ConstSpan in, Span out) const
-{
-    CIE_OUT_OF_RANGE_CHECK(in.size() == 1u)
-    CIE_OUT_OF_RANGE_CHECK(out.size() == 1u)
-    out.front() = utils::evaluatePolynomialHorner(in.front(),
-                                                  _coefficients.begin(),
-                                                  _coefficients.end());
+void PolynomialView<TValue>::evaluate(ConstSpan in, Span out) const {
+    out.front() = utils::evaluatePolynomialHorner(
+        in.front(),
+        _coefficients.begin(),
+        _coefficients.end());
 }
 
 

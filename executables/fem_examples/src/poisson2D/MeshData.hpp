@@ -10,21 +10,69 @@
 #include "packages/io/inc/GraphML.hpp"
 #include "packages/io/inc/GraphML_specializations.hpp"
 
+// --- Utility Includes ---
+#include "packages/concurrency/inc/sycl.hpp"
+
 
 namespace cie::fem {
+
+
+class SYCLSingleton {
+public:
+    static Ref<sycl::device> getDevice() {
+        SYCLSingleton::init();
+        return _maybeDevice.value();
+    }
+
+    static Ref<sycl::queue> getQueue() {
+        SYCLSingleton::init();
+        return _maybeQueue.value();
+    }
+
+    template <class T>
+    static sycl::usm_allocator<T,sycl::usm::alloc::shared> makeSharedAllocator() {
+        return sycl::usm_allocator<T,sycl::usm::alloc::shared>(SYCLSingleton::getQueue());
+    }
+
+private:
+    static void init() {
+        if (!_maybeDevice.has_value())
+            _maybeDevice.emplace(sycl::default_selector_v);
+
+        if (!_maybeQueue.has_value())
+            _maybeQueue.emplace(_maybeDevice.value());
+    }
+
+    static std::optional<sycl::device> _maybeDevice;
+
+    static std::optional<sycl::queue> _maybeQueue;
+}; // class SYCLSingleton
+
+
+std::optional<sycl::device> SYCLSingleton::_maybeDevice = {};
+
+std::optional<sycl::queue> SYCLSingleton::_maybeQueue = {};
 
 
 /// @brief Data structure common to the entire @ref Graph "mesh".
 class MeshData {
 public:
-    MeshData() noexcept = default;
+    MeshData()
+        : _polynomialCoefficients(SYCLSingleton::makeSharedAllocator<Scalar>()),
+          _basisFunctions(SYCLSingleton::makeSharedAllocator<Basis>()),
+          _basisDerivatives(SYCLSingleton::makeSharedAllocator<Basis::Derivative>()),
+          _ansatzSpaces(SYCLSingleton::makeSharedAllocator<Ansatz>()),
+          _ansatzDerivatives(SYCLSingleton::makeSharedAllocator<AnsatzDerivative>()),
+          _quadraturePointSets(),
+          _buffer()
+    {}
 
     MeshData(std::span<unsigned> integrationOrders,
-             RightRef<DynamicArray<Scalar>> rPolynomialCoefficients,
-             RightRef<DynamicArray<Basis>> rBasisFunctions,
-             RightRef<DynamicArray<Basis::Derivative>> rBasisDerivatives,
-             RightRef<DynamicArray<Ansatz>> rAnsatzSpaces,
-             RightRef<DynamicArray<AnsatzDerivative>> rAnsatzDerivatives)
+             RightRef<DynamicSharedArray<Scalar>> rPolynomialCoefficients,
+             RightRef<DynamicSharedArray<Basis>> rBasisFunctions,
+             RightRef<DynamicSharedArray<Basis::Derivative>> rBasisDerivatives,
+             RightRef<DynamicSharedArray<Ansatz>> rAnsatzSpaces,
+             RightRef<DynamicSharedArray<AnsatzDerivative>> rAnsatzDerivatives)
         : _polynomialCoefficients(std::move(rPolynomialCoefficients)),
           _basisFunctions(std::move(rBasisFunctions)),
           _basisDerivatives(std::move(rBasisDerivatives)),
@@ -130,17 +178,17 @@ private:
 
     friend struct io::GraphML::Deserializer<MeshData>;
 
-    DynamicArray<Scalar> _polynomialCoefficients;
+    DynamicSharedArray<Scalar> _polynomialCoefficients;
 
-    DynamicArray<Basis> _basisFunctions;
+    DynamicSharedArray<Basis> _basisFunctions;
 
-    DynamicArray<Basis::Derivative> _basisDerivatives;
+    DynamicSharedArray<Basis::Derivative> _basisDerivatives;
 
     /// @brief Collection of all ansatz spaces the contained cells can refer to.
-    DynamicArray<Ansatz> _ansatzSpaces;
+    DynamicSharedArray<Ansatz> _ansatzSpaces;
 
     /// @brief Collection of all ansatz spaces' derivatives the contained cells can refer to.
-    DynamicArray<AnsatzDerivative> _ansatzDerivatives;
+    DynamicSharedArray<AnsatzDerivative> _ansatzDerivatives;
 
     /// @brief Sets of quadrature points for a default local hypercube.
     /// @details These quadrature points are used while constructing

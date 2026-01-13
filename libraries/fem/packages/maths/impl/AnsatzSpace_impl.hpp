@@ -46,9 +46,9 @@ BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::BufferedAnsatzSpaceDerivat
 template <class TScalarExpression, unsigned Dim>
 void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     const unsigned setSize = _ansatzSet.size();
-    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
-    CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
-    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
+    //CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
+    //CIE_OUT_OF_RANGE_CHECK(setSize == _derivativeSet.size())
+    //CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
 
     auto indexBuffer        = this->getIndexBuffer();
     auto ansatzBuffer       = this->getAnsatzBuffer();
@@ -62,11 +62,11 @@ void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::evaluate(ConstSpan in
         for (auto c : in) {
             ConstSpan scalarIn {&c, 1};
             for (auto& rScalarExpression : _ansatzSet) {
-                rScalarExpression.evaluate(scalarIn, {pValue, pValue + 1});
+                rScalarExpression.evaluate(scalarIn, {pValue, 1});
                 ++pValue;
             } // for scalarExpression in ansatzSet
             for (auto& rScalarExpression : _derivativeSet) {
-                rScalarExpression.evaluate(scalarIn, {pDerivative, pDerivative + 1});
+                rScalarExpression.evaluate(scalarIn, {pDerivative, 1});
                 ++pDerivative;
             } // for scalarExpression in derivativeSet
         } // for component in arguments
@@ -123,16 +123,8 @@ unsigned BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::getMinBufferSize(
 
 template <class TScalarExpression, unsigned Dim>
 void BufferedAnsatzSpaceDerivative<TScalarExpression,Dim>::setBuffer(Span buffer) {
-    if (buffer.size() < this->getMinBufferSize()) {
-        CIE_THROW(
-            OutOfRangeException ,
-               "provided buffer size (" << buffer.size() << ") "
-            << "does not meet the minimum requirement (" << this->getMinBufferSize() << ")"
-        )
-    }
-
+    CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= buffer.size())
     _buffer = buffer;
-
     auto indexBuffer = this->getIndexBuffer();
     std::fill_n(indexBuffer.data(), indexBuffer.size(), 0u);
 }
@@ -294,8 +286,8 @@ BufferedAnsatzSpace<TScalarExpression,Dim>::BufferedAnsatzSpace(std::span<const 
 template <class TScalarExpression, unsigned Dim>
 void BufferedAnsatzSpace<TScalarExpression,Dim>::evaluate(ConstSpan in, Span out) const {
     // Sanity checks
-    CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
-    CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
+    //CIE_OUT_OF_RANGE_CHECK(in.size() == Dim)
+    //CIE_OUT_OF_RANGE_CHECK(out.size() == this->size())
 
     auto valueBuffer = this->getValueBuffer();
     auto indexBuffer = this->getIndexBuffer();
@@ -348,16 +340,8 @@ unsigned BufferedAnsatzSpace<TScalarExpression,Dim>::getMinBufferSize() const no
 
 template <class TScalarExpression, unsigned Dim>
 void BufferedAnsatzSpace<TScalarExpression,Dim>::setBuffer(Span buffer) {
-    if (buffer.size() < this->getMinBufferSize()) {
-        CIE_THROW(
-            OutOfRangeException ,
-               "provided buffer size (" << buffer.size() << ") "
-            << "does not meet the minimum requirement (" << this->getMinBufferSize() << ")"
-        )
-    }
-
+    CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= buffer.size())
     _buffer = buffer;
-
     auto indexBuffer = this->getIndexBuffer();
     std::fill_n(indexBuffer.data(), indexBuffer.size(), 0u);
 }

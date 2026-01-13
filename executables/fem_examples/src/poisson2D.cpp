@@ -41,10 +41,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // In adjacent cells, these ansatz functions will have to map
     // to the same DoF in the assembled system.
     const StaticArray<Scalar,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
-    const auto ansatzMap = makeAnsatzMap(mesh.data().ansatzSpaces().front(),
-                                         samples,
-                                         utils::Comparison<Scalar>(/*absoluteTolerance =*/ 1e-8,
-                                                                   /*relativeTolerance =*/ 1e-6));
+    const auto ansatzMap = makeAnsatzMap(
+        mesh.data().ansatzSpaces().front(),
+        samples,
+        utils::Comparison<Scalar>(
+            /*absoluteTolerance =*/ 1e-8,
+            /*relativeTolerance =*/ 1e-6));
 
     // Build a factory detects the topology of the mesh and issues indices to DoFs.
     Assembler assembler;
@@ -110,6 +112,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         mesh,
         assembler,
         lhs,
+        0x10000,
         threads);
 
     //std::transform(

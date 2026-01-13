@@ -34,11 +34,8 @@ public:
 
     void evaluate(ConstSpan in, Span out) const {
         const Value determinant = std::abs(_inverseJacobian.evaluateDeterminant(in));
-        CIE_DIVISION_BY_ZERO_CHECK(determinant != static_cast<Value>(0));
         const Value scale = static_cast<Value>(1) / determinant;
-
         _integrand.evaluate(in, out);
-
         for (Value& rComponent : out) {
             rComponent *= scale;
         }

@@ -71,24 +71,25 @@ requires (!maths::BufferedExpression<TAnsatzDerivatives>)
 
 template <maths::Expression TAnsatzDerivatives>
 void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstSpan in, Span out) const {
-    CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
-
-    if constexpr (!maths::BufferedExpression<TAnsatzDerivatives>) {
-        CIE_CHECK_POINTER(_ansatzDerivatives)
-    }
-
     Ref<const TAnsatzDerivatives> rAnsatzDerivatives = utils::getRef(_ansatzDerivatives);
     const unsigned derivativeComponentCount = rAnsatzDerivatives.size();
     const unsigned ansatzCount = derivativeComponentCount / Dimension;
-    rAnsatzDerivatives.evaluate(in, {_buffer.data(), _buffer.data() + rAnsatzDerivatives.size()});
+    rAnsatzDerivatives.evaluate(in, {_buffer.data(), derivativeComponentCount});
 
     using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
     using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
 
-    EigenAdaptor derivativeAdaptor(_buffer.data(), Dimension, ansatzCount);
-    EigenAdaptor outputAdaptor(out.data(), ansatzCount, ansatzCount);
+    EigenAdaptor derivativeAdaptor(
+        _buffer.data(),
+        Dimension,
+        ansatzCount);
+    EigenAdaptor outputAdaptor(
+        out.data(),
+        ansatzCount,
+        ansatzCount);
 
-    outputAdaptor = derivativeAdaptor.transpose() * _modulus * derivativeAdaptor;
+    //derivativeTransposeAdaptor.transposeInPlace();
+    outputAdaptor.noalias() = _modulus * derivativeAdaptor.transpose().lazyProduct(derivativeAdaptor);
 }
 
 
