@@ -59,10 +59,10 @@ public:
     OptionalRef& operator=(const OptionalRef& rRhs) noexcept = default;
 
     /// @brief Assign the provided instance to the optional.
-    OptionalRef& operator=(TElement& rElement) noexcept
-    {
+    OptionalRef& operator=(TElement& rElement) noexcept {
         PointerInteger p = reinterpret_cast<PointerInteger>(&rElement);
         mpElement.integer = p | static_cast<PointerInteger>(1);
+        return *this;
     }
 
     /// @brief Check whether the optional is valid.
