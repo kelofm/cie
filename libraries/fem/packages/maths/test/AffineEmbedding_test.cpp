@@ -71,10 +71,11 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
                 transformed[1][0] - transformed[0][0],
                 transformed[1][1] - transformed[0][1]
             };
-            const double segmentNorm = std::sqrt(std::inner_product(segment.begin(),
-                                                                    segment.end(),
-                                                                    segment.begin(),
-                                                                    0.0));
+            const double segmentNorm = std::sqrt(std::inner_product(
+                segment.begin(),
+                segment.end(),
+                segment.begin(),
+                0.0));
 
             CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
             StaticArray<double,1> reference, perturbed;

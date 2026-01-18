@@ -171,13 +171,12 @@ public:
             ? 0ul
             : _integrands.front().size();
 
-
         // Evaluate integrands at quadrature points.
         const auto job = [
             pQuadraturePointBegin = _quadraturePoints.data(),
-             pIntegrandBegin = _integrands.data(),
-             pIntegrandOutputBegin = _integrandOutput.data(),
-             integrandOutputSize]
+            pIntegrandBegin = _integrands.data(),
+            pIntegrandOutputBegin = _integrandOutput.data(),
+            integrandOutputSize]
                 (auto index) -> void {
                     std::size_t iQuadraturePoint = 0ul;
                     if constexpr (concepts::UnsignedInteger<decltype(index)>) {
