@@ -141,6 +141,14 @@ public:
         this->fitBuffer();
     }
 
+    std::span<const Scalar> polynomialCoefficients() const noexcept {
+        return _polynomialCoefficients;
+    }
+
+    std::span<Scalar> polynomialCoefficients() noexcept {
+        return _polynomialCoefficients;
+    }
+
     std::span<const Ansatz> ansatzSpaces() const noexcept {
         return _ansatzSpaces;
     }
