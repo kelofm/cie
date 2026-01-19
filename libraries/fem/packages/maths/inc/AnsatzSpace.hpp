@@ -15,8 +15,12 @@
 namespace cie::fem::maths {
 
 
-template <class TScalarExpression, unsigned Dim>
+template <class, unsigned, std::size_t>
 class AnsatzSpace;
+
+
+template <class, unsigned, std::size_t>
+class AnsatzSpaceDerivative;
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
@@ -91,8 +95,7 @@ public:
     constexpr std::span<const typename TScalarExpression::Derivative> derivativeSet() const noexcept;
 
 private:
-    template <class, unsigned, std::size_t>
-    friend class AnsatzSpaceDerivative;
+    friend class AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;
 
     constexpr std::span<unsigned,Dim> getIndexBuffer() const noexcept;
 
@@ -192,7 +195,7 @@ public:
     requires hasStaticBasis;
 
 private:
-    friend class AnsatzSpace<TScalarExpression,Dim>;
+    friend class AnsatzSpace<TScalarExpression,Dim,SetSize>;
 
     std::conditional_t<
         hasStaticBasis,
@@ -218,12 +221,15 @@ private:
 
 /** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
  */
-template <class TScalarExpression, unsigned Dim>
-class BufferedAnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value> {
-private:
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
+class AnsatzSpaceView : public ExpressionTraits<typename TScalarExpression::Value> {
+public:
     using Base = ExpressionTraits<typename TScalarExpression::Value>;
 
-public:
+    constexpr static inline bool hasStaticBasis = (SetSize != 0ul);
+
+    constexpr static inline std::size_t BasisCount = SetSize;
+
     static constexpr unsigned Dimension = Dim;
 
     using typename Base::Value;
@@ -232,43 +238,95 @@ public:
 
     using typename Base::ConstSpan;
 
-    BufferedAnsatzSpace() noexcept;
+private:
+    static inline constexpr std::size_t indexBufferSize = Dim * sizeof(unsigned);
 
-    BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet) noexcept;
+    static inline constexpr std::size_t ansatzBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
 
-    BufferedAnsatzSpace(std::span<const TScalarExpression> ansatzSet,
-                        Span buffer);
+    static inline constexpr std::size_t valueBufferSize = intPow(BasisCount, Dim) * sizeof(Value);
+
+public:
+    static inline constexpr std::size_t staticBufferSize = valueBufferSize / sizeof(Value);
+
+    constexpr AnsatzSpaceView() noexcept;
+
+    constexpr AnsatzSpaceView(std::span<const TScalarExpression> ansatzSet) noexcept
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpaceView(std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
+    requires hasStaticBasis;
+
+    AnsatzSpaceView(std::span<const TScalarExpression> ansatzSet,
+                    Span buffer)
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpaceView(std::span<const TScalarExpression,SetSize> ansatzSet,
+                              std::span<Value,staticBufferSize> buffer) noexcept
+    requires hasStaticBasis;
 
     void evaluate(ConstSpan in, Span out) const;
 
-    unsigned size() const noexcept;
+    unsigned size() const noexcept
+    requires (!hasStaticBasis);
 
-    unsigned getMinBufferSize() const noexcept;
+    unsigned getMinBufferSize() const noexcept
+    requires (!hasStaticBasis);
 
-    void setBuffer(Span buffer);
+    void setBuffer(Span buffer)
+    requires (!hasStaticBasis);
 
-    std::span<const TScalarExpression> ansatzSet() const noexcept;
+    std::span<const TScalarExpression> ansatzSet() const noexcept
+    requires (!hasStaticBasis);
+
+    static constexpr unsigned size() noexcept
+    requires hasStaticBasis;
+
+    static constexpr unsigned getMinBufferSize() noexcept
+    requires hasStaticBasis;
+
+    constexpr void setBuffer(std::span<Value,staticBufferSize> buffer) noexcept
+    requires hasStaticBasis;
+
+    constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
+    requires hasStaticBasis;
 
 private:
-    std::span<unsigned,Dim> getIndexBuffer() const noexcept;
+    constexpr std::span<unsigned,Dim> getIndexBuffer() const noexcept;
 
-    Span getValueBuffer() const noexcept;
+    Span getValueBuffer() const noexcept
+    requires (!hasStaticBasis);
 
-    std::span<const TScalarExpression> _set;
+    constexpr std::span<Value,valueBufferSize> getValueBuffer() const noexcept
+    requires hasStaticBasis;
 
-    Span _buffer;
-}; // class AnsatzSpace
+    std::conditional_t<
+        hasStaticBasis,
+        std::span<const TScalarExpression,SetSize>,
+        std::span<const TScalarExpression>
+    > _set;
+
+    std::conditional_t<
+        hasStaticBasis,
+        std::span<Value,staticBufferSize>,
+        Span
+    > _buffer;
+}; // class AnsatzSpaceView
 
 
 
 /** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
  */
-template <class TScalarExpression, unsigned Dim>
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
 class AnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value> {
-private:
+public:
     using Base = ExpressionTraits<typename TScalarExpression::Value>;
 
-public:
+    using View = AnsatzSpaceView<TScalarExpression,Dim,SetSize>;
+
+    static inline constexpr std::size_t BasisCount = View::BasisCount;
+
+    static inline constexpr bool hasStaticBasis = View::hasStaticBasis;
+
     static constexpr unsigned Dimension = Dim;
 
     using typename Base::Value;
@@ -277,45 +335,86 @@ public:
 
     using typename Base::ConstSpan;
 
-    using AnsatzSet = DynamicArray<TScalarExpression>;
+    using AnsatzSet = std::conditional_t<
+        hasStaticBasis,
+        std::array<TScalarExpression,BasisCount>,
+        DynamicArray<TScalarExpression>>;
 
-    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim>;
-
-    using Buffered = BufferedAnsatzSpace<TScalarExpression,Dim>;
+    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;
 
 public:
-    AnsatzSpace() noexcept;
+    constexpr AnsatzSpace() noexcept;
 
-    AnsatzSpace(AnsatzSet&& rSet) noexcept;
+    AnsatzSpace(AnsatzSet&& rSet)
+    requires (!hasStaticBasis);
 
-    AnsatzSpace(const AnsatzSet& rSet);
+    constexpr AnsatzSpace(AnsatzSet&& rSet) noexcept
+    requires hasStaticBasis;
 
-    AnsatzSpace(AnsatzSpace&&) noexcept = default;
+    AnsatzSpace(const AnsatzSet& rSet)
+    requires (!hasStaticBasis);
 
-    AnsatzSpace(const AnsatzSpace& rRhs);
+    constexpr AnsatzSpace(const AnsatzSet& rSet) noexcept
+    requires hasStaticBasis;
+
+    AnsatzSpace(AnsatzSpace&&) noexcept
+    requires (!hasStaticBasis) = default;
+
+    constexpr AnsatzSpace(AnsatzSpace&&) noexcept
+    requires hasStaticBasis = default;
+
+    AnsatzSpace(const AnsatzSpace& rRhs)
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpace(const AnsatzSpace& rRhs) noexcept
+    requires hasStaticBasis;
 
     AnsatzSpace& operator=(AnsatzSpace&&) noexcept = default;
 
-    AnsatzSpace& operator=(const AnsatzSpace& rRhs);
+    AnsatzSpace& operator=(const AnsatzSpace& rRhs)
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpace& operator=(const AnsatzSpace& rRhs) noexcept
+    requires hasStaticBasis;
 
     void evaluate(ConstSpan in, Span out) const;
 
-    Derivative makeDerivative() const;
+    Derivative makeDerivative() const
+    requires (!hasStaticBasis);
 
-    unsigned size() const noexcept;
+    constexpr Derivative makeDerivative() const noexcept
+    requires hasStaticBasis;
 
-    std::span<const TScalarExpression> ansatzSet() const noexcept;
+    unsigned size() const noexcept
+    requires (!hasStaticBasis);
 
-    Buffered makeBuffered() const noexcept;
+    constexpr static unsigned size() noexcept
+    requires hasStaticBasis;
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept
+    requires (!hasStaticBasis);
+
+    constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
+    requires hasStaticBasis;
+
+    View makeView() const noexcept
+    requires (!hasStaticBasis);
+
+    constexpr View makeView() const noexcept
+    requires hasStaticBasis;
 
 private:
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;
 
     AnsatzSet _set;
 
-    DynamicArray<Value> _buffer;
+    std::conditional_t<
+        hasStaticBasis,
+        std::array<Value,View::staticBufferSize>,
+        DynamicArray<Value>
+    > _buffer;
 
-    BufferedAnsatzSpace<TScalarExpression,Dim> _wrapped;
+    AnsatzSpaceView<TScalarExpression,Dim,SetSize> _wrapped;
 }; // class AnsatzSpace
 
 
@@ -330,23 +429,23 @@ private:
 namespace cie::fem::io {
 
 
-template <class TScalarExpression, unsigned Dimension>
-struct io::GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dimension>>
+template <class TScalarExpression, unsigned Dimension, std::size_t SetSize>
+struct io::GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>>
 {
-    using Value = maths::AnsatzSpace<TScalarExpression,Dimension>;
+    using Value = maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>;
 
     void header(Ref<XMLElement> rElement);
 
     void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::AnsatzSpace<TScalarExpression,Dimension>> rInstance);
+                    Ref<const maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>> rInstance);
 }; // struct GraphML::Serializer<AnsatzSpace>
 
 
-template <class TScalarExpression, unsigned Dimension>
-struct io::GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dimension>>
-    : public io::GraphML::DeserializerBase<maths::AnsatzSpace<TScalarExpression,Dimension>>
+template <class TScalarExpression, unsigned Dimension, std::size_t SetSize>
+struct io::GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>>
+    : public io::GraphML::DeserializerBase<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>>
 {
-    using Value = maths::AnsatzSpace<TScalarExpression,Dimension>;
+    using Value = maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>;
 
     using io::GraphML::DeserializerBase<Value>::DeserializerBase;
 

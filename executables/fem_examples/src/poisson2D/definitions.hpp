@@ -40,8 +40,8 @@ using Basis = maths::PolynomialView<Scalar>;
 
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
-using Ansatz = maths::BufferedAnsatzSpace<Basis,Dimension>;
-using AnsatzDerivative = maths::BufferedAnsatzSpaceDerivative<Basis,Dimension>;
+using Ansatz = maths::AnsatzSpaceView<Basis,Dimension>;
+using AnsatzDerivative = maths::AnsatzSpaceDerivativeView<Basis,Dimension>;
 
 
 } // namespace cie::fem

@@ -18,31 +18,71 @@ namespace cie::fem::maths {
 
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
-template <concepts::Numeric TValue>
+template <concepts::Numeric TValue, int PolynomialOrder = -1>
 class PolynomialView : public ExpressionTraits<TValue> {
+private:
+    constexpr static inline int Order = PolynomialOrder;
+
+    constexpr static inline bool hasStaticCoefficients = (0<= Order);
+
+    constexpr static inline unsigned coefficientCount = hasStaticCoefficients
+        ? static_cast<unsigned>(PolynomialOrder) + 1u
+        : 0u;
+
 public:
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
-    using Derivative = PolynomialView;
+    using Derivative = std::conditional_t<
+        hasStaticCoefficients,
+        PolynomialView<TValue,std::max(0,PolynomialOrder-1)>,
+        PolynomialView<TValue,-1>
+    >;
 
-    using Coefficients = DynamicArray<TValue>;
+    using Coefficients = std::conditional_t<
+        hasStaticCoefficients,
+        std::array<TValue,coefficientCount>,
+        DynamicArray<TValue>>;
 
-    PolynomialView() noexcept = default;
+    constexpr PolynomialView() noexcept = default;
 
-    PolynomialView(ConstSpan coefficients) noexcept;
+    PolynomialView(ConstSpan coefficients) noexcept
+    requires (!hasStaticCoefficients);
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(ConstSpan in, Span out) const
+    requires (!hasStaticCoefficients);
 
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept
+    requires (!hasStaticCoefficients);
 
-    Derivative makeDerivative(Span buffer) const;
+    Derivative makeDerivative(Span buffer) const
+    requires (!hasStaticCoefficients);
 
-    ConstSpan coefficients() const noexcept;
+    ConstSpan coefficients() const noexcept
+    requires (!hasStaticCoefficients);
+
+    constexpr PolynomialView(std::span<const TValue,coefficientCount> coefficients) noexcept
+    requires hasStaticCoefficients;
+
+    constexpr void evaluate(ConstSpan in, Span out) const
+    requires hasStaticCoefficients;
+
+    static constexpr unsigned size() noexcept
+    requires hasStaticCoefficients;
+
+    constexpr Derivative makeDerivative(std::span<TValue,Derivative::coefficientCount> buffer) const noexcept
+    requires hasStaticCoefficients;
+
+    std::span<const TValue,coefficientCount> coefficients() const noexcept
+    requires hasStaticCoefficients;
 
 private:
-    ConstSpan _coefficients;
+    std::conditional_t<
+        hasStaticCoefficients,
+        std::span<const TValue,coefficientCount>,
+        ConstSpan
+    > _coefficients;
 }; // class PolynomialView
 
 
