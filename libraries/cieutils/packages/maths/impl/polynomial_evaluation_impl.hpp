@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_MATHS_POLYNOMIAL_IMPL_HPP
-#define CIE_UTILS_MATHS_POLYNOMIAL_IMPL_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/maths/inc/polynomial_evaluation.hpp"
@@ -12,89 +11,192 @@
 namespace cie::utils {
 
 
-template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-inline TValue evaluatePolynomialNaive(const TValue argument, TItBegin it_begin, const TItEnd it_end) noexcept
-{
-    TValue result = static_cast<TValue>(0);
-    TValue power = static_cast<TValue>(1);
-    for (; it_begin!=it_end; ++it_begin) {
-        result += power * (*it_begin);
-        power *= argument;
+template <
+    PolynomialEvaluation TEvaluation,
+    concepts::Numeric TValue,
+    concepts::Numeric TCoefficient,
+    std::size_t CoefficientCount>
+requires (CoefficientCount == std::dynamic_extent)
+[[nodiscard]] TValue evaluatePolynomial(TValue argument, std::span<const TCoefficient,CoefficientCount> coefficients) noexcept {
+    const TCoefficient* it = coefficients.data();
+    const TCoefficient* pEnd = it + coefficients.size();
+
+    if constexpr (TEvaluation == PolynomialEvaluation::Naive) {
+        TValue result = static_cast<TValue>(0);
+        TValue power = static_cast<TValue>(1);
+        for (; it!=pEnd; ++it) {
+            result += power * (*it);
+            power *= argument;
+        }
+        return result;
     }
-    return result;
+
+
+    else if constexpr (TEvaluation == PolynomialEvaluation::Horner) {
+        TValue result = static_cast<TValue>(0);
+
+        // Reverse loop
+        if (it != pEnd) [[likely]] {
+            --pEnd;
+            do {
+                result *= argument;
+                result += *pEnd;
+            } while (pEnd-- != it);
+        }
+
+        return result;
+    }
+
+
+    else if constexpr (TEvaluation == PolynomialEvaluation::HornerStabilized) {
+        constexpr const TValue threshold = std::numeric_limits<TValue>::is_integer
+            ? static_cast<TValue>(1)
+            : std::numeric_limits<TValue>::epsilon();
+        if (threshold < std::abs(argument)) [[likely]] {
+            const TValue argumentInverse = static_cast<TValue>(1) / argument;
+            TValue result = static_cast<TValue>(0);
+
+            for (; it!=pEnd; ++it) {
+                result *= argumentInverse;
+                result += *it;
+            }
+
+            const unsigned polynomialOrder = std::distance(it, pEnd);
+            if (polynomialOrder) [[likely]]
+                result *= std::pow(argument, polynomialOrder - 1);
+
+            return result;
+        } else {
+            return 0;
+        }
+    }
+
+
+    else if constexpr (TEvaluation == PolynomialEvaluation::HornerCompound) {
+        if (static_cast<TValue>(1) < std::abs(argument)) {
+            const TValue argumentInverse = static_cast<TValue>(1) / argument;
+            TValue result = static_cast<TValue>(0);
+
+            for (; it!=pEnd; ++it) {
+                result *= argumentInverse;
+                result += *it;
+            }
+
+            const unsigned polynomialOrder = std::distance(it, pEnd);
+            if (polynomialOrder) [[likely]]
+                result *= std::pow(argument, polynomialOrder - 1);
+
+            return result;
+        } else {
+            TValue result = static_cast<TValue>(0);
+
+            // Reverse loop
+            if (it != pEnd) [[likely]] {
+                --pEnd;
+                do {
+                    result *= argument;
+                    result += *pEnd;
+                } while (pEnd-- != it);
+            }
+
+            return result;
+        }
+    }
 }
 
 
-template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-inline TValue evaluatePolynomialHorner(const TValue argument, const TItBegin it_begin, TItEnd it_end) noexcept
-{
-    TValue result = static_cast<TValue>(0);
+template <
+    PolynomialEvaluation TEvaluation,
+    concepts::Numeric TValue,
+    concepts::Numeric TCoefficient,
+    std::size_t CoefficientCount>
+requires (CoefficientCount != std::dynamic_extent)
+[[nodiscard]] constexpr TValue evaluatePolynomial(TValue argument, std::span<const TCoefficient,CoefficientCount> coefficients) noexcept {
+    const TCoefficient* it = coefficients.data();
+    const TCoefficient* pEnd = it + coefficients.size();
 
-    // Reverse loop
-    if (it_begin != it_end) [[likely]] {
-        --it_end;
-        do {
-            result *= argument;
-            result += *it_end;
-        } while (it_end-- != it_begin);
+    if constexpr (TEvaluation == PolynomialEvaluation::Naive) {
+        TValue result = static_cast<TValue>(0);
+        TValue power = static_cast<TValue>(1);
+        for (; it!=pEnd; ++it) {
+            result += power * (*it);
+            power *= argument;
+        }
+        return result;
     }
 
-    return result;
-}
 
+    else if constexpr (TEvaluation == PolynomialEvaluation::Horner) {
+        TValue result = static_cast<TValue>(0);
 
-namespace detail {
-template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-inline TValue evaluatePolynomialHornerStabilizedNoCheck(TValue argument, TValue argumentInverse, TItBegin it_begin, const TItEnd it_end) noexcept
-{
-    TValue result = static_cast<TValue>(0);
+        // Reverse loop
+        if (it != pEnd) [[likely]] {
+            --pEnd;
+            do {
+                result *= argument;
+                result += *pEnd;
+            } while (pEnd-- != it);
+        }
 
-    for (; it_begin!=it_end; ++it_begin) {
-        result *= argumentInverse;
-        result += *it_begin;
+        return result;
     }
 
-    const unsigned polynomialOrder = std::distance(it_begin, it_end);
-    if (polynomialOrder) [[likely]]
-        result *= std::pow(argument, polynomialOrder - 1);
 
-    return result;
-}
-} // namespace detail
+    else if constexpr (TEvaluation == PolynomialEvaluation::HornerStabilized) {
+        constexpr const TValue threshold = std::numeric_limits<TValue>::is_integer
+            ? static_cast<TValue>(1)
+            : std::numeric_limits<TValue>::epsilon();
+        if (threshold < std::abs(argument)) [[likely]] {
+            const TValue argumentInverse = static_cast<TValue>(1) / argument;
+            TValue result = static_cast<TValue>(0);
 
+            for (; it!=pEnd; ++it) {
+                result *= argumentInverse;
+                result += *it;
+            }
 
-template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-inline TValue evaluatePolynomialHornerStabilized(TValue argument, TItBegin it_begin, const TItEnd it_end) noexcept
-{
-    TValue result;
-    constexpr const TValue threshold = std::numeric_limits<TValue>::is_integer ? static_cast<TValue>(1) : std::numeric_limits<TValue>::epsilon();
-    if (threshold < std::abs(argument)) [[likely]] {
-        const TValue argumentInverse = static_cast<TValue>(1) / argument;
-        result = detail::evaluatePolynomialHornerStabilizedNoCheck(argument, argumentInverse, it_begin, it_end);
-    } else {
-        result = static_cast<TValue>(0);
+            const unsigned polynomialOrder = std::distance(it, pEnd);
+            if (polynomialOrder) [[likely]]
+                result *= std::pow(argument, polynomialOrder - 1);
+
+            return result;
+        } else {
+            return 0;
+        }
     }
 
-    return result;
-}
 
+    else if constexpr (TEvaluation == PolynomialEvaluation::HornerCompound) {
+        if (static_cast<TValue>(1) < std::abs(argument)) {
+            const TValue argumentInverse = static_cast<TValue>(1) / argument;
+            TValue result = static_cast<TValue>(0);
 
-template <concepts::Numeric TValue, concepts::WeakIterator<TValue> TItBegin, concepts::WeakIterator<TValue> TItEnd>
-inline TValue evaluatePolynomialHornerCompound(TValue argument, TItBegin it_begin, TItEnd it_end) noexcept
-{
-    TValue result;
-    if (static_cast<TValue>(1) < std::abs(argument)) {
-        const TValue argumentInverse = static_cast<TValue>(1) / argument;
-        result = detail::evaluatePolynomialHornerStabilizedNoCheck(argument, argumentInverse, it_begin, it_end);
-    } else {
-        result = evaluatePolynomialHorner(argument, it_begin, it_end);
+            for (; it!=pEnd; ++it) {
+                result *= argumentInverse;
+                result += *it;
+            }
+
+            const unsigned polynomialOrder = std::distance(it, pEnd);
+            if (polynomialOrder) [[likely]]
+                result *= std::pow(argument, polynomialOrder - 1);
+
+            return result;
+        } else {
+            TValue result = static_cast<TValue>(0);
+
+            // Reverse loop
+            if (it != pEnd) [[likely]] {
+                --pEnd;
+                do {
+                    result *= argument;
+                    result += *pEnd;
+                } while (pEnd-- != it);
+            }
+
+            return result;
+        }
     }
-
-    return result;
 }
 
 
 } // namespace cie::utils
-
-
-#endif

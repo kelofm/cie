@@ -16,6 +16,10 @@
 namespace cie::fem::maths {
 
 
+template <concepts::Numeric TValue, int PolynomialOrder>
+class Polynomial;
+
+
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
 template <concepts::Numeric TValue, int PolynomialOrder = -1>
@@ -25,11 +29,11 @@ private:
 
     constexpr static inline bool hasStaticCoefficients = (0<= Order);
 
+public:
     constexpr static inline unsigned coefficientCount = hasStaticCoefficients
         ? static_cast<unsigned>(PolynomialOrder) + 1u
         : 0u;
 
-public:
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
@@ -45,7 +49,7 @@ public:
         std::array<TValue,coefficientCount>,
         DynamicArray<TValue>>;
 
-    constexpr PolynomialView() noexcept = default;
+    constexpr PolynomialView() noexcept;
 
     PolynomialView(ConstSpan coefficients) noexcept
     requires (!hasStaticCoefficients);
@@ -53,8 +57,7 @@ public:
     void evaluate(ConstSpan in, Span out) const
     requires (!hasStaticCoefficients);
 
-    static constexpr unsigned size() noexcept
-    requires (!hasStaticCoefficients);
+    static constexpr unsigned size() noexcept;
 
     Derivative makeDerivative(Span buffer) const
     requires (!hasStaticCoefficients);
@@ -68,16 +71,17 @@ public:
     constexpr void evaluate(ConstSpan in, Span out) const
     requires hasStaticCoefficients;
 
-    static constexpr unsigned size() noexcept
-    requires hasStaticCoefficients;
-
     constexpr Derivative makeDerivative(std::span<TValue,Derivative::coefficientCount> buffer) const noexcept
     requires hasStaticCoefficients;
 
-    std::span<const TValue,coefficientCount> coefficients() const noexcept
+    constexpr std::span<const TValue,coefficientCount> coefficients() const noexcept
     requires hasStaticCoefficients;
 
 private:
+    friend class Polynomial<TValue,PolynomialOrder>;
+
+    friend class Polynomial<TValue,PolynomialOrder+1>;
+
     std::conditional_t<
         hasStaticCoefficients,
         std::span<const TValue,coefficientCount>,
@@ -88,57 +92,100 @@ private:
 
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
-template <class TValue>
+template <concepts::Numeric TValue, int PolynomialOrder = -1>
 class Polynomial : public ExpressionTraits<TValue> {
 public:
+    using View = PolynomialView<TValue,PolynomialOrder>;
+
+    static inline constexpr bool hasStaticCoefficients = View::hasStaticCoefficients;
+
+    static inline constexpr unsigned coefficientCount = View::coefficientCount;
+
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
-    using Derivative = Polynomial;
+    using Derivative = std::conditional_t<
+        hasStaticCoefficients,
+        Polynomial<TValue,std::max(0,PolynomialOrder-1)>,
+        Polynomial<TValue,-1>>;
 
-    using Coefficients = DynamicArray<TValue>;
-
-    using View = PolynomialView<TValue>;
+    using Coefficients = std::conditional_t<
+        hasStaticCoefficients,
+        std::array<TValue,coefficientCount>,
+        DynamicArray<TValue>>;
 
 public:
     /// @brief Uninitialized by default.
-    Polynomial() noexcept = default;
+    constexpr Polynomial() noexcept = default;
 
-    Polynomial(Polynomial&&) noexcept = default;
+    constexpr Polynomial(Polynomial&&) noexcept = default;
 
-    Polynomial(const Polynomial& rRight);
+    Polynomial(const Polynomial& rRight)
+    requires (!hasStaticCoefficients);
+
+    constexpr Polynomial(const Polynomial& rRight)
+    requires hasStaticCoefficients;
 
     /// @brief Construct from a container of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    Polynomial(RightRef<Coefficients> rCoefficients) noexcept;
+    constexpr Polynomial(RightRef<Coefficients> rCoefficients) noexcept;
 
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    Polynomial(ConstSpan coefficients);
+    Polynomial(ConstSpan coefficients)
+    requires (!hasStaticCoefficients);
 
-    Polynomial& operator=(Polynomial&&) noexcept = default;
+    /// @brief Construct from a range of coefficients.
+    /// @details The input coefficients are expected to be sorted
+    ///          in the order of their corresponding monomials.
+    constexpr Polynomial(std::span<const TValue,coefficientCount> coefficients)
+    requires hasStaticCoefficients;
 
-    Polynomial& operator=(const Polynomial& rRight);
+    constexpr Polynomial& operator=(Polynomial&&) noexcept = default;
 
-    void evaluate(ConstSpan in, Span out) const;
+    Polynomial& operator=(const Polynomial& rRight)
+    requires (!hasStaticCoefficients);
+
+    constexpr Polynomial& operator=(const Polynomial& rRight) noexcept
+    requires hasStaticCoefficients;
+
+    void evaluate(ConstSpan in, Span out) const
+    requires (!hasStaticCoefficients);
+
+    constexpr void evaluate(ConstSpan in, Span out) const noexcept
+    requires hasStaticCoefficients;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
-    unsigned size() const noexcept;
+    constexpr static unsigned size() noexcept;
 
     /// @brief Construct the derivative of the @ref Polynomial.
     /// @details The returned object is also a @ref Polynomial,
     ///          irrespective of the current polynomial order.
-    Polynomial makeDerivative() const;
+    Derivative makeDerivative() const
+    requires (!hasStaticCoefficients);
 
-    std::span<const TValue> coefficients() const noexcept;
+    /// @brief Construct the derivative of the @ref Polynomial.
+    /// @details The returned object is also a @ref Polynomial,
+    ///          irrespective of the current polynomial order.
+    constexpr Derivative makeDerivative() const noexcept
+    requires hasStaticCoefficients;
+
+    std::span<const TValue> coefficients() const noexcept
+    requires (!hasStaticCoefficients);
+
+    constexpr std::span<const TValue,coefficientCount> coefficients() const noexcept
+    requires hasStaticCoefficients;
 
 private:
+    template <concepts::Numeric T, int O>
+    friend class Polynomial;
+
     Coefficients _coefficients;
 
-    PolynomialView<TValue> _wrapped;
+    PolynomialView<TValue,PolynomialOrder> _wrapped;
 }; // class Polynomial
 
 
