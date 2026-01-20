@@ -136,8 +136,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
 
     const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(boundaryIntegrationOrder)));
-    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpaces().front().size(),Dimension)
-                                          + rMesh.data().ansatzSpaces().front().size());
+    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpace().size(), Dimension)
+                                          + rMesh.data().ansatzSpace().size());
     DynamicArray<Scalar> integrandBuffer;
 
     DirichletBoundary dirichletBoundary;
@@ -188,7 +188,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
                 if (minBoundarySegmentNorm < segmentNorm) {
                     Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
-                    const auto ansatzSpace = rMesh.data().ansatzSpaces()[rCell.ansatzID()];
+                    const auto ansatzSpace = rMesh.data().ansatzSpace();
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
                     globalCorners[0][0] = globalBase[0];

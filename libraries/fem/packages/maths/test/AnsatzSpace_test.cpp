@@ -80,6 +80,75 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
         CIE_TEST_CHECK(results[7] == Approx( 486.0));
         CIE_TEST_CHECK(results[8] == Approx(9801.0));
     }
+
+    {
+        CIE_TEST_CASE_INIT("static")
+        using Basis = Polynomial<double,2>;
+        using Ansatz = AnsatzSpace<Basis,2,3>;
+
+        Ansatz::AnsatzSet basisFunctions {
+            Basis(Basis::Coefficients { 0.5, -0.5, 0.0}),
+            Basis(Basis::Coefficients { 0.5,  0.5, 0.0}),
+            Basis(Basis::Coefficients { 0.0,  0.0, 1.0})};
+
+        CIE_TEST_REQUIRE_NOTHROW(Ansatz(basisFunctions));
+        Ansatz ansatzSpace(basisFunctions);
+        CIE_TEST_REQUIRE(ansatzSpace.size() == 9);
+
+        using Point = Kernel<2,double>::Point;
+        double x = 11.0;
+        double y = 9.0;
+        Point p0 {-x, -y};
+        Point p1 {-x,  y};
+        Point p2 { x, -y};
+        Point p3 { x,  y};
+
+        StaticArray<double,9> results;
+
+        CIE_TEST_CHECK_NOTHROW(ansatzSpace.evaluate(p0, results));
+        CIE_TEST_CHECK(results[0] == Approx(  30.0));
+        CIE_TEST_CHECK(results[1] == Approx( -25.0));
+        CIE_TEST_CHECK(results[2] == Approx( 605.0));
+        CIE_TEST_CHECK(results[3] == Approx( -24.0));
+        CIE_TEST_CHECK(results[4] == Approx(  20.0));
+        CIE_TEST_CHECK(results[5] == Approx(-484.0));
+        CIE_TEST_CHECK(results[6] == Approx( 486.0));
+        CIE_TEST_CHECK(results[7] == Approx(-405.0));
+        CIE_TEST_CHECK(results[8] == Approx(9801.0));
+
+        CIE_TEST_CHECK_NOTHROW(ansatzSpace.evaluate(p1, results));
+        CIE_TEST_CHECK(results[0] == Approx( -24.0));
+        CIE_TEST_CHECK(results[1] == Approx(  20.0));
+        CIE_TEST_CHECK(results[2] == Approx(-484.0));
+        CIE_TEST_CHECK(results[3] == Approx(  30.0));
+        CIE_TEST_CHECK(results[4] == Approx( -25.0));
+        CIE_TEST_CHECK(results[5] == Approx( 605.0));
+        CIE_TEST_CHECK(results[6] == Approx( 486.0));
+        CIE_TEST_CHECK(results[7] == Approx(-405.0));
+        CIE_TEST_CHECK(results[8] == Approx(9801.0));
+
+        CIE_TEST_CHECK_NOTHROW(ansatzSpace.evaluate(p2, results));
+        CIE_TEST_CHECK(results[0] == Approx( -25.0));
+        CIE_TEST_CHECK(results[1] == Approx(  30.0));
+        CIE_TEST_CHECK(results[2] == Approx( 605.0));
+        CIE_TEST_CHECK(results[3] == Approx(  20.0));
+        CIE_TEST_CHECK(results[4] == Approx( -24.0));
+        CIE_TEST_CHECK(results[5] == Approx(-484.0));
+        CIE_TEST_CHECK(results[6] == Approx(-405.0));
+        CIE_TEST_CHECK(results[7] == Approx( 486.0));
+        CIE_TEST_CHECK(results[8] == Approx(9801.0));
+
+        CIE_TEST_CHECK_NOTHROW(ansatzSpace.evaluate(p3, results));
+        CIE_TEST_CHECK(results[0] == Approx(  20.0));
+        CIE_TEST_CHECK(results[1] == Approx( -24.0));
+        CIE_TEST_CHECK(results[2] == Approx(-484.0));
+        CIE_TEST_CHECK(results[3] == Approx( -25.0));
+        CIE_TEST_CHECK(results[4] == Approx(  30.0));
+        CIE_TEST_CHECK(results[5] == Approx( 605.0));
+        CIE_TEST_CHECK(results[6] == Approx(-405.0));
+        CIE_TEST_CHECK(results[7] == Approx( 486.0));
+        CIE_TEST_CHECK(results[8] == Approx(9801.0));
+    }
 }
 
 

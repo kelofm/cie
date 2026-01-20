@@ -12,6 +12,8 @@
 namespace cie::fem {
 
 
+constexpr unsigned polynomialOrder = 5;
+
 /// @brief Radius of the circle Dirichlet conditions are imposed on.
 constexpr double boundaryRadius             = 2.5e-1;
 
@@ -36,12 +38,16 @@ using Scalar = double;
 using SpatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>;
 
 /// @brief Cells' basis functions' type.
-using Basis = maths::PolynomialView<Scalar>;
+using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
-using Ansatz = maths::AnsatzSpaceView<Basis,Dimension>;
-using AnsatzDerivative = maths::AnsatzSpaceDerivativeView<Basis,Dimension>;
+using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder>;
+
+
+
+
+constexpr unsigned integrationOrder = polynomialOrder + 1;
 
 
 } // namespace cie::fem

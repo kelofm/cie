@@ -50,16 +50,16 @@ private:
 public:
     static inline constexpr std::size_t staticBufferSize = (derivativeBufferOffset + valueBufferSize) / sizeof(Value);
 
-    constexpr AnsatzSpaceDerivativeView() noexcept = default;
+    constexpr AnsatzSpaceDerivativeView() noexcept;
 
     constexpr AnsatzSpaceDerivativeView(std::span<const TScalarExpression,SetSize> ansatzSet,
                                         std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr AnsatzSpaceDerivativeView(std::span<const TScalarExpression,SetSize> ansatzSet,
                                         std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet,
                                         std::span<Value,staticBufferSize> buffer) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpaceDerivativeView(std::span<const TScalarExpression> ansatzSet,
                               std::span<const typename TScalarExpression::Derivative> derivativeSet)
@@ -82,13 +82,13 @@ public:
     requires (!hasStaticBasis);
 
     static constexpr unsigned size() noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     static constexpr unsigned getMinBufferSize() noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr void setBuffer(std::span<Value,staticBufferSize> buffer) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr std::span<const TScalarExpression> ansatzSet() const noexcept;
 
@@ -106,10 +106,10 @@ private:
     requires (!hasStaticBasis);
 
     constexpr std::span<Value,valueBufferSize> getAnsatzBuffer() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr std::span<Value,valueBufferSize> getDerivativeBuffer() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     std::conditional_t<
         hasStaticBasis,
@@ -154,19 +154,31 @@ public:
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpaceDerivative(std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpaceDerivative(AnsatzSpaceDerivative&&) noexcept
-    requires (!hasStaticBasis) = default;
+    requires (!hasStaticBasis);
 
     constexpr AnsatzSpaceDerivative(AnsatzSpaceDerivative&&) noexcept
-    requires hasStaticBasis = default;
+    requires (hasStaticBasis);
 
     AnsatzSpaceDerivative(const AnsatzSpaceDerivative&)
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpaceDerivative(const AnsatzSpaceDerivative&) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
+
+    AnsatzSpaceDerivative& operator=(AnsatzSpaceDerivative&&) noexcept
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpaceDerivative& operator=(AnsatzSpaceDerivative&&) noexcept
+    requires (hasStaticBasis);
+
+    AnsatzSpaceDerivative& operator=(const AnsatzSpaceDerivative&)
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpaceDerivative& operator=(const AnsatzSpaceDerivative&) noexcept
+    requires (hasStaticBasis);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -183,16 +195,16 @@ public:
     requires (!hasStaticBasis);
 
     constexpr static unsigned size() noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr View makeView() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
 private:
     friend class AnsatzSpace<TScalarExpression,Dim,SetSize>;
@@ -215,7 +227,7 @@ private:
         DynamicArray<Value>
     > _buffer;
 
-    AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize> _wrapped;
+    View _wrapped;
 }; // class AnsatzSpaceDerivative
 
 
@@ -254,7 +266,7 @@ public:
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpaceView(std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpaceView(std::span<const TScalarExpression> ansatzSet,
                     Span buffer)
@@ -262,7 +274,7 @@ public:
 
     constexpr AnsatzSpaceView(std::span<const TScalarExpression,SetSize> ansatzSet,
                               std::span<Value,staticBufferSize> buffer) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -279,16 +291,16 @@ public:
     requires (!hasStaticBasis);
 
     static constexpr unsigned size() noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     static constexpr unsigned getMinBufferSize() noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr void setBuffer(std::span<Value,staticBufferSize> buffer) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
 private:
     constexpr std::span<unsigned,Dim> getIndexBuffer() const noexcept;
@@ -297,7 +309,7 @@ private:
     requires (!hasStaticBasis);
 
     constexpr std::span<Value,valueBufferSize> getValueBuffer() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     std::conditional_t<
         hasStaticBasis,
@@ -349,33 +361,37 @@ public:
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpace(AnsatzSet&& rSet) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpace(const AnsatzSet& rSet)
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpace(const AnsatzSet& rSet) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpace(AnsatzSpace&&) noexcept
-    requires (!hasStaticBasis) = default;
+    requires (!hasStaticBasis);
 
     constexpr AnsatzSpace(AnsatzSpace&&) noexcept
-    requires hasStaticBasis = default;
+    requires (hasStaticBasis);
 
     AnsatzSpace(const AnsatzSpace& rRhs)
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpace(const AnsatzSpace& rRhs) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
-    AnsatzSpace& operator=(AnsatzSpace&&) noexcept = default;
+    AnsatzSpace& operator=(AnsatzSpace&&) noexcept
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpace& operator=(AnsatzSpace&&) noexcept
+    requires (hasStaticBasis);
 
     AnsatzSpace& operator=(const AnsatzSpace& rRhs)
     requires (!hasStaticBasis);
 
     constexpr AnsatzSpace& operator=(const AnsatzSpace& rRhs) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -383,25 +399,25 @@ public:
     requires (!hasStaticBasis);
 
     constexpr Derivative makeDerivative() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     unsigned size() const noexcept
     requires (!hasStaticBasis);
 
     constexpr static unsigned size() noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     std::span<const TScalarExpression> ansatzSet() const noexcept
     requires (!hasStaticBasis);
 
     constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     View makeView() const noexcept
     requires (!hasStaticBasis);
 
     constexpr View makeView() const noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
 private:
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;

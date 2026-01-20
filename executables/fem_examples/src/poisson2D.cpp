@@ -43,7 +43,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // to the same DoF in the assembled system.
     const StaticArray<Scalar,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
     const auto ansatzMap = makeAnsatzMap(
-        mesh.data().ansatzSpaces().front(),
+        mesh.data().ansatzSpace(),
         samples,
         utils::Comparison<Scalar>(
             /*absoluteTolerance =*/ 1e-8,
@@ -57,7 +57,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         assembler.addGraph(
             mesh,
             [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
-                const Ansatz& rAnsatz = mesh.data().ansatzSpaces()[rVertex.data().ansatzID()];
+                const Ansatz& rAnsatz = mesh.data().ansatzSpace();
                 return rAnsatz.size();
             },
             [&ansatzMap, &mesh = std::as_const(mesh)](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
@@ -187,13 +187,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             auto logBlock = utils::LoggerSingleton::get().newBlock("scatter postprocess");
             constexpr Scalar epsilon = 1e-10;
             const Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
-            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces().front().size());
 
-            mp::ParallelFor<unsigned>(threads).firstPrivate(DynamicArray<Scalar>())(
+            mp::ParallelFor<unsigned>(threads).operator()(
                 intPow(postprocessResolution, 2),
                 [&samples, &solution, &assembler, bvhView, &mesh, &contiguousCellData, postprocessResolution, postprocessDelta](
-                        const unsigned iSample,
-                        Ref<DynamicArray<Scalar>> rAnsatzBuffer) -> void {
+                        const unsigned iSample) -> void {
                     const unsigned iSampleY = iSample / postprocessResolution;
                     const unsigned iSampleX = iSample % postprocessResolution;
                     auto& rSample = samples[iSample];
@@ -217,15 +215,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                             Kernel<Dimension,Scalar>::view(localSamplePoint));
 
                         // Evaluate the cell's ansatz functions at the local sample point.
-                        auto ansatzSpace = mesh.data().ansatzSpaces()[rCellData.ansatzID()];
-                        const unsigned ansatzSpaceSize = ansatzSpace.size();
-                        rAnsatzBuffer.resize(ansatzSpace.getMinBufferSize() + ansatzSpaceSize);
-                        ansatzSpace.setBuffer({
-                            rAnsatzBuffer.data() + ansatzSpaceSize,
-                            rAnsatzBuffer.data() + rAnsatzBuffer.size()});
+                        auto ansatzSpace = mesh.data().ansatzSpace();
+                        std::array<Scalar,Ansatz::size()> ansatzBuffer;
                         ansatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(
                             localSamplePoint),
-                            {rAnsatzBuffer.data(), ansatzSpaceSize});
+                            ansatzBuffer);
 
                         // Find the entries of the cell's DoFs in the global state vector.
                         const auto& rGlobalIndices = assembler[rCellData.id()];
@@ -234,7 +228,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                         // and the ansatz function values at the local corner coordinates.
                         rSample.state = 0;
                         for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
-                            rSample.state += solution[rGlobalIndices[iFunction]] * rAnsatzBuffer[iFunction];
+                            rSample.state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
                         } // for iFunction in range(rGlobalIndices.size())
                     } else {
                         // Could not find the cell that contains the current sample point.
@@ -360,11 +354,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
                                 {-1.0,  1.0},
                                 { 1.0,  1.0}
                             };
-                            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpaces().front().size());
+                            DynamicArray<Scalar> ansatzBuffer(mesh.data().ansatzSpace().size());
 
                             for (const auto& rCell : mesh.vertices()) {
                                 const auto& rGlobalIndices = assembler[rCell.id()];
-                                const auto& rAnsatzSpace = mesh.data().ansatzSpaces()[rCell.data().ansatzID()];
+                                const auto& rAnsatzSpace = mesh.data().ansatzSpace();
                                 ansatzBuffer.resize(rAnsatzSpace.size());
 
                                 for (const auto& rLocalPoint : localCorners) {

@@ -66,16 +66,16 @@ public:
     requires (!hasStaticCoefficients);
 
     constexpr PolynomialView(std::span<const TValue,coefficientCount> coefficients) noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     constexpr void evaluate(ConstSpan in, Span out) const
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     constexpr Derivative makeDerivative(std::span<TValue,Derivative::coefficientCount> buffer) const noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     constexpr std::span<const TValue,coefficientCount> coefficients() const noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
 private:
     friend class Polynomial<TValue,PolynomialOrder>;
@@ -119,13 +119,13 @@ public:
     /// @brief Uninitialized by default.
     constexpr Polynomial() noexcept = default;
 
-    constexpr Polynomial(Polynomial&&) noexcept = default;
+    constexpr Polynomial(Polynomial&&) noexcept;
 
     Polynomial(const Polynomial& rRight)
     requires (!hasStaticCoefficients);
 
     constexpr Polynomial(const Polynomial& rRight)
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     /// @brief Construct from a container of coefficients.
     /// @details The input coefficients are expected to be sorted
@@ -142,7 +142,7 @@ public:
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
     constexpr Polynomial(std::span<const TValue,coefficientCount> coefficients)
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     constexpr Polynomial& operator=(Polynomial&&) noexcept = default;
 
@@ -150,13 +150,13 @@ public:
     requires (!hasStaticCoefficients);
 
     constexpr Polynomial& operator=(const Polynomial& rRight) noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     void evaluate(ConstSpan in, Span out) const
     requires (!hasStaticCoefficients);
 
     constexpr void evaluate(ConstSpan in, Span out) const noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     constexpr static unsigned size() noexcept;
@@ -171,13 +171,13 @@ public:
     /// @details The returned object is also a @ref Polynomial,
     ///          irrespective of the current polynomial order.
     constexpr Derivative makeDerivative() const noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
     std::span<const TValue> coefficients() const noexcept
     requires (!hasStaticCoefficients);
 
     constexpr std::span<const TValue,coefficientCount> coefficients() const noexcept
-    requires hasStaticCoefficients;
+    requires (hasStaticCoefficients);
 
 private:
     template <concepts::Numeric T, int O>
@@ -195,29 +195,29 @@ private:
 namespace cie::fem::io {
 
 
-template <class TValue>
-struct io::GraphML::Serializer<maths::PolynomialView<TValue>> {
+template <class TValue, int PolynomialOrder>
+struct io::GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>> {
     void header(Ref<XMLElement> rElement);
 
     void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::PolynomialView<TValue>> rInstance);
+                    Ref<const maths::PolynomialView<TValue,PolynomialOrder>> rInstance);
 }; // struct GraphML::Serializer<PolynomialView>
 
 
-template <class TValue>
-struct io::GraphML::Serializer<maths::Polynomial<TValue>> {
+template <class TValue, int PolynomialOrder>
+struct io::GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>> {
     void header(Ref<XMLElement> rElement);
 
     void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::Polynomial<TValue>> rInstance);
+                    Ref<const maths::Polynomial<TValue,PolynomialOrder>> rInstance);
 }; // struct GraphML::Serializer<Polynomial>
 
 
-template <class TValue>
-struct io::GraphML::Deserializer<maths::Polynomial<TValue>>
-    : public io::GraphML::DeserializerBase<maths::Polynomial<TValue>>
+template <class TValue, int PolynomialOrder>
+struct io::GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>
+    : public io::GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>
 {
-    using io::GraphML::DeserializerBase<maths::Polynomial<TValue>>::DeserializerBase;
+    using io::GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>::DeserializerBase;
 
     static void onElementBegin(Ptr<void> pThis,
                                std::string_view elementName,
@@ -230,7 +230,7 @@ struct io::GraphML::Deserializer<maths::Polynomial<TValue>>
                              std::string_view elementName);
 
 private:
-    typename maths::Polynomial<TValue>::Coefficients _coefficients;
+    typename maths::Polynomial<TValue,PolynomialOrder>::Coefficients _coefficients;
 }; // struct GraphML::Deserializer<Polynomial>
 
 

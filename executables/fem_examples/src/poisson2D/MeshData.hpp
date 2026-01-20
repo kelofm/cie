@@ -68,150 +68,93 @@ std::optional<SYCLSingleton::Impl> SYCLSingleton::_maybeImpl = {};
 class MeshData {
 public:
     MeshData()
-        : _polynomialCoefficients(SYCLSingleton::makeSharedAllocator<Scalar>()),
-          _basisFunctions(SYCLSingleton::makeSharedAllocator<Basis>()),
-          _basisDerivatives(SYCLSingleton::makeSharedAllocator<Basis::Derivative>()),
-          _ansatzSpaces(SYCLSingleton::makeSharedAllocator<Ansatz>()),
-          _ansatzDerivatives(SYCLSingleton::makeSharedAllocator<AnsatzDerivative>()),
-          _quadraturePointSets(),
+        : _ansatzSpace(),
+          _ansatzDerivative(),
+          _quadraturePointSet(),
           _buffer()
     {}
 
-    MeshData(std::span<unsigned> integrationOrders,
-             RightRef<DynamicSharedArray<Scalar>> rPolynomialCoefficients,
-             RightRef<DynamicSharedArray<Basis>> rBasisFunctions,
-             RightRef<DynamicSharedArray<Basis::Derivative>> rBasisDerivatives,
-             RightRef<DynamicSharedArray<Ansatz>> rAnsatzSpaces,
-             RightRef<DynamicSharedArray<AnsatzDerivative>> rAnsatzDerivatives)
-        : _polynomialCoefficients(std::move(rPolynomialCoefficients)),
-          _basisFunctions(std::move(rBasisFunctions)),
-          _basisDerivatives(std::move(rBasisDerivatives)),
-          _ansatzSpaces(std::move(rAnsatzSpaces)),
-          _ansatzDerivatives(std::move(rAnsatzDerivatives)),
-          _quadraturePointSets()
+    MeshData(RightRef<Ansatz> rAnsatzSpace,
+             RightRef<Ansatz::Derivative> rAnsatzDerivative)
+        : _ansatzSpace(std::move(rAnsatzSpace)),
+          _ansatzDerivative(std::move(rAnsatzDerivative)),
+          _quadraturePointSet()
     {
         // Cache quadrature points.
-        _quadraturePointSets.resize(integrationOrders.size());
         CellData dummyElement;
-        for (std::size_t iSet=0u; iSet<integrationOrders.size(); ++iSet) {
-            const std::size_t integrationOrder = integrationOrders[iSet];
 
-            // Generate 1D quadrature points.
-            DynamicArray<QuadraturePoint<1,Scalar>> basePoints;
-            OuterProductQuadraturePointFactory<Dimension,Scalar> generator;
+        // Generate 1D quadrature points.
+        DynamicArray<QuadraturePoint<1,Scalar>> basePoints;
+        OuterProductQuadraturePointFactory<Dimension,Scalar> generator;
 
-            {
-                GaussLegendreQuadrature<Scalar> quadrature(integrationOrder);
-                basePoints.reserve(quadrature.numberOfNodes());
-                for (std::size_t iNode=0ul; iNode<quadrature.numberOfNodes(); ++iNode) {
-                    basePoints.emplace_back(
-                        quadrature.nodes()[iNode],
-                        quadrature.weights()[iNode]);
-                }
-                generator = OuterProductQuadraturePointFactory<Dimension,Scalar>(basePoints);
+        {
+            GaussLegendreQuadrature<Scalar> quadrature(integrationOrder);
+            basePoints.reserve(quadrature.numberOfNodes());
+            for (std::size_t iNode=0ul; iNode<quadrature.numberOfNodes(); ++iNode) {
+                basePoints.emplace_back(
+                    quadrature.nodes()[iNode],
+                    quadrature.weights()[iNode]);
+            }
+            generator = OuterProductQuadraturePointFactory<Dimension,Scalar>(basePoints);
+        }
+
+        // Generate nD quadrature points.
+        constexpr std::size_t initialSize = 0x10;
+        constexpr double growFactor = 2.0;
+        std::size_t pointCount = 0ul;
+        _quadraturePointSet.resize(initialSize);
+
+        while (true) {
+            // Extend the container if necessary.
+            if (!(pointCount < _quadraturePointSet.size())) {
+                _quadraturePointSet.resize(growFactor * _quadraturePointSet.size());
             }
 
-            // Generate nD quadrature points.
-            constexpr std::size_t initialSize = 0x10;
-            constexpr double growFactor = 2.0;
-            std::size_t pointCount = 0ul;
-            auto& rSet = _quadraturePointSets[iSet];
-            rSet.resize(initialSize);
+            std::span<QuadraturePoint<Dimension,Scalar>> targetSpan(
+                _quadraturePointSet.data() + pointCount,
+                _quadraturePointSet.data() + _quadraturePointSet.size());
 
-            while (true) {
-                // Extend the container if necessary.
-                if (!(pointCount < rSet.size())) {
-                    rSet.resize(growFactor * rSet.size());
-                }
+            // Request a new batch of quadrature points.
+            const auto newPointCount = generator.generate(dummyElement, targetSpan);
+            pointCount += newPointCount;
 
-                std::span<QuadraturePoint<Dimension,Scalar>> targetSpan(
-                    rSet.data() + pointCount,
-                    rSet.data() + rSet.size());
+            if (!newPointCount) break;
+        }
 
-                // Request a new batch of quadrature points.
-                const auto newPointCount = generator.generate(dummyElement, targetSpan);
-                pointCount += newPointCount;
-
-                if (!newPointCount) break;
-            }
-
-            rSet.resize(pointCount);
-        } // for iSet in range(integrationOrders.size())
-
-        this->fitBuffer();
+        _quadraturePointSet.resize(pointCount);
     }
 
-    std::span<const Scalar> polynomialCoefficients() const noexcept {
-        return _polynomialCoefficients;
+    Ref<const Ansatz> ansatzSpace() const noexcept {
+        return _ansatzSpace;
     }
 
-    std::span<Scalar> polynomialCoefficients() noexcept {
-        return _polynomialCoefficients;
+    Ref<const Ansatz::Derivative> ansatzDerivative() const noexcept {
+        return _ansatzDerivative;
     }
 
-    std::span<const Ansatz> ansatzSpaces() const noexcept {
-        return _ansatzSpaces;
-    }
-
-    std::span<const AnsatzDerivative> ansatzDerivatives() const noexcept {
-        return _ansatzDerivatives;
-    }
-
-    CachedQuadraturePointFactory<Dimension,Scalar> makeQuadratureRule(std::size_t iAnsatz) const {
+    CachedQuadraturePointFactory<Dimension,Scalar> makeQuadratureRule() const {
         return CachedQuadraturePointFactory<Dimension,Scalar>(
             std::span<const QuadraturePoint<Dimension,Scalar>>(
-                _quadraturePointSets[iAnsatz].data(),
-                _quadraturePointSets[iAnsatz].size())
+                _quadraturePointSet.data(),
+                _quadraturePointSet.size())
         );
     }
 
 private:
-    void fitBuffer() {
-        std::size_t bufferSize = 0ul;
-        for (Ref<const Ansatz> rAnsatz : _ansatzSpaces)
-            bufferSize += rAnsatz.getMinBufferSize();
-        for (Ref<const AnsatzDerivative> rDerivative : _ansatzDerivatives)
-            bufferSize += rDerivative.getMinBufferSize();
-
-        _buffer.resize(bufferSize);
-
-        bufferSize = 0ul;
-        for (Ref<Ansatz> rAnsatz : _ansatzSpaces) {
-            const std::size_t partialSize = rAnsatz.getMinBufferSize();
-            rAnsatz.setBuffer({
-                _buffer.data() + bufferSize,
-                partialSize});
-            bufferSize += partialSize;
-        }
-        for (Ref<AnsatzDerivative> rDerivative : _ansatzDerivatives) {
-            const std::size_t partialSize = rDerivative.getMinBufferSize();
-            rDerivative.setBuffer({
-                _buffer.data() + bufferSize,
-                partialSize});
-            bufferSize += partialSize;
-        }
-    }
-
     friend struct io::GraphML::Serializer<MeshData>;
 
     friend struct io::GraphML::Deserializer<MeshData>;
 
-    DynamicSharedArray<Scalar> _polynomialCoefficients;
-
-    DynamicSharedArray<Basis> _basisFunctions;
-
-    DynamicSharedArray<Basis::Derivative> _basisDerivatives;
-
     /// @brief Collection of all ansatz spaces the contained cells can refer to.
-    DynamicSharedArray<Ansatz> _ansatzSpaces;
+    Ansatz _ansatzSpace;
 
     /// @brief Collection of all ansatz spaces' derivatives the contained cells can refer to.
-    DynamicSharedArray<AnsatzDerivative> _ansatzDerivatives;
+    Ansatz::Derivative _ansatzDerivative;
 
-    /// @brief Sets of quadrature points for a default local hypercube.
+    /// @brief Set of quadrature points for a default local hypercube.
     /// @details These quadrature points are used while constructing
     ///          cell-specific quadrature rules.
-    DynamicArray<DynamicArray<QuadraturePoint<Dimension,Scalar>>> _quadraturePointSets;
+    DynamicArray<QuadraturePoint<Dimension,Scalar>> _quadraturePointSet;
 
     DynamicArray<Scalar> _buffer;
 }; // class MeshData
@@ -238,34 +181,12 @@ struct io::GraphML::Serializer<MeshData> {
 
     void operator()(Ref<io::GraphML::XMLElement> rElement,
                     Ref<const MeshData> rInstance) const {
-        // Serialize ansatz spaces.
+        // Serialize basis functions.
         {
-            GraphML::XMLElement containerElement = rElement.addChild("ansatzSpaces");
-            for (Ref<const Ansatz> rAnsatz : rInstance._ansatzSpaces) {
-                GraphML::XMLElement ansatzElement = containerElement.addChild("ansatzSpace");
-                using SubSerializer = io::GraphML::Serializer<std::span<const Basis>>;
-                SubSerializer subSerializer;
-                subSerializer(ansatzElement, rAnsatz.ansatzSet());
-            } // for rAnsatz in rInstance._ansatzSpaces
-        }
-
-        // Serialize ansatz derivatives.
-        {
-            GraphML::XMLElement containerElement = rElement.addChild("ansatzDerivatives");
-            for (Ref<const Ansatz> rAnsatz : rInstance._ansatzSpaces) {
-                {
-                    GraphML::XMLElement element = containerElement.addChild("basisFunctions");
-                    using SubSerializer = io::GraphML::Serializer<std::span<const Basis>>;
-                    SubSerializer subSerializer;
-                    subSerializer(element, rAnsatz.ansatzSet());
-                }
-                {
-                    GraphML::XMLElement element = containerElement.addChild("basisDerivatives");
-                    using SubSerializer = io::GraphML::Serializer<std::span<const Basis>>;
-                    SubSerializer subSerializer;
-                    subSerializer(element, rAnsatz.ansatzSet());
-                }
-            } // for rAnsatz in rInstance._ansatzSpaces
+            GraphML::XMLElement element = rElement.addChild("basisFunctions");
+            using SubSerializer = io::GraphML::Serializer<std::span<const Basis,polynomialOrder>>;
+            SubSerializer subSerializer;
+            subSerializer(element, rInstance.ansatzSpace().ansatzSet());
         }
     }
 }; // struct GraphML::Serializer<MeshData>

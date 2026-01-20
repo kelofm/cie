@@ -174,6 +174,27 @@ concept BufferedExpression
 }; // concept BufferedExpression
 
 
+/// @brief Static interface for @ref Expression "expressions" with static memory requirements.
+/// @details A static expression must know its output size at compile time.
+template <class T>
+concept StaticExpression
+= Expression<T> && requires () {
+    {T::size()} -> std::same_as<unsigned>;
+};
+
+
+template <class T>
+struct StaticExpressionSize {
+    static inline constexpr unsigned value = 0u;
+};
+
+
+template <StaticExpression T>
+struct StaticExpressionSize<T> {
+    static inline constexpr unsigned value = T::size();
+};
+
+
 /// @brief Trait class exposing type aliases required by @ref Expression.
 /// @ingroup fem
 template <class TValue>

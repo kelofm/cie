@@ -16,13 +16,21 @@ namespace cie::fem::maths {
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivativeView() noexcept
+    : _ansatzSet(static_cast<const TScalarExpression*>(nullptr), SetSize),
+      _derivativeSet(static_cast<const typename TScalarExpression::Derivative*>(nullptr), SetSize),
+      _buffer(static_cast<Value*>(nullptr), staticBufferSize)
+{}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivativeView(
     std::span<const TScalarExpression,SetSize> ansatzSet,
     std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : _ansatzSet(ansatzSet),
       _derivativeSet(derivativeSet),
-      _buffer()
+      _buffer(static_cast<Value*>(nullptr), staticBufferSize)
 {}
 
 
@@ -31,7 +39,7 @@ constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceD
     std::span<const TScalarExpression,SetSize> ansatzSet,
     std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet,
     std::span<Value,staticBufferSize> buffer) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : AnsatzSpaceDerivativeView(ansatzSet, derivativeSet)
 {
     this->setBuffer(buffer);
@@ -135,7 +143,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr unsigned AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::size() noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return intPow(SetSize, Dim) * Dim;
 }
 
@@ -151,7 +159,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr unsigned AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getMinBufferSize() noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return staticBufferSize;
 }
 
@@ -168,7 +176,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr void AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::setBuffer(std::span<Value,staticBufferSize> buffer) noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     _buffer = buffer;
     auto indexBuffer = this->getIndexBuffer();
     std::fill_n(indexBuffer.data(), indexBuffer.size(), 0u);
@@ -206,8 +214,8 @@ std::span<
     typename AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::Value,
     AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::valueBufferSize>
 constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getAnsatzBuffer() const noexcept
-requires hasStaticBasis {
-    return Span(
+requires (hasStaticBasis) {
+    return std::span<Value,valueBufferSize>(
         _buffer.data() + ansatzBufferOffset / sizeof(Value),
         intPow(SetSize, Dim)
     );
@@ -237,8 +245,8 @@ std::span<
     typename AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::Value,
     AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::valueBufferSize>
 constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getDerivativeBuffer() const noexcept
-requires hasStaticBasis {
-    return Span(
+requires (hasStaticBasis) {
+    return std::span<Value,valueBufferSize>(
         _buffer.data() + (ansatzBufferOffset + valueBufferSize) / sizeof(Value),
         intPow(SetSize, Dim)
     );
@@ -262,7 +270,7 @@ constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::derivativeSe
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(
     std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     std::copy_n(
         ansatzSet.data(),
         SetSize,
@@ -274,10 +282,61 @@ requires hasStaticBasis {
         [](Ref<const TScalarExpression> rAnsatzFunction){
              return rAnsatzFunction.makeDerivative();
         });
-    _wrapped = AnsatzSpaceDerivativeView<TScalarExpression,Dim>(
-        {_ansatzSet.data(), _ansatzSet.size()},
-        {_derivativeSet.data(), _derivativeSet.size()});
-    _wrapped.setBuffer({_buffer.data(), _buffer.size()});
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(
+    AnsatzSpaceDerivative&& rRhs) noexcept
+requires (!hasStaticBasis)
+    : _ansatzSet(std::move(rRhs._ansatzSet)),
+      _derivativeSet(std::move(rRhs._derivativeSet)),
+      _buffer(std::move(rRhs._buffer)),
+      _wrapped()
+{
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value>(
+        _buffer.data(),
+        _buffer.size()));
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(
+    AnsatzSpaceDerivative&& rRhs) noexcept
+requires (hasStaticBasis)
+    : _ansatzSet(std::move(rRhs._ansatzSet)),
+      _derivativeSet(std::move(rRhs._derivativeSet)),
+      _buffer(),
+      _wrapped()
+{
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
 }
 
 
@@ -310,21 +369,121 @@ requires (!hasStaticBasis)
     : _ansatzSet(rRhs._ansatzSet),
       _derivativeSet(rRhs._derivativeSet),
       _buffer(rRhs._buffer.size()),
-      _wrapped(rRhs._wrapped)
+      _wrapped()
 {
-    _wrapped.setBuffer({_buffer.data(), _buffer.size()});
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value>(
+        _buffer.data(),
+        _buffer.size()));
 }
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : _ansatzSet(rRhs._ansatzSet),
       _derivativeSet(rRhs._derivativeSet),
       _buffer(),
-      _wrapped(rRhs._wrapped)
+      _wrapped()
 {
-    _wrapped.setBuffer({_buffer.data(), _buffer.size()});
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            SetSize),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            SetSize));
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpaceDerivative&& rRhs) noexcept
+requires (!hasStaticBasis) {
+    _ansatzSet = std::move(rRhs._ansatzSet);
+    _derivativeSet = std::move(rRhs._derivativeSet);
+    _buffer = std::move(rRhs._buffer);
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
+    return *this;
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpaceDerivative&& rRhs) noexcept
+requires (hasStaticBasis) {
+    _ansatzSet = std::move(rRhs._ansatzSet);
+    _derivativeSet = std::move(rRhs._derivativeSet);
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
+    return *this;
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpaceDerivative& rRhs)
+requires (!hasStaticBasis) {
+    _ansatzSet = rRhs._ansatzSet;
+    _derivativeSet = rRhs._derivativeSet;
+    _buffer.resize(rRhs._buffer.size());
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
+    return *this;
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpaceDerivative& rRhs) noexcept
+requires (hasStaticBasis) {
+    _ansatzSet = std::move(rRhs._ansatzSet);
+    _derivativeSet = std::move(rRhs._derivativeSet);
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(
+            _ansatzSet.data(),
+            _ansatzSet.size()),
+        std::span<const typename TScalarExpression::Derivative,SetSize>(
+            _derivativeSet.data(),
+            _derivativeSet.size()));
+    _wrapped.setBuffer(std::span<Value,View::staticBufferSize>(
+        _buffer.data(),
+        _buffer.size()));
+    return *this;
 }
 
 
@@ -343,7 +502,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::size() noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return View::size();
 }
 
@@ -367,16 +526,20 @@ requires (!hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 std::span<const TScalarExpression,SetSize>
 constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
-requires hasStaticBasis {
-    return {_ansatzSet.data(), _ansatzSet.size()};
+requires (hasStaticBasis) {
+    return std::span<const TScalarExpression,SetSize>(
+        _ansatzSet.data(),
+        _ansatzSet.size());
 }
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 std::span<const typename TScalarExpression::Derivative,SetSize>
 constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::derivativeSet() const noexcept
-requires hasStaticBasis {
-    return {_derivativeSet.data(), _derivativeSet.size()};
+requires (hasStaticBasis) {
+    return std::span<const typename TScalarExpression::Derivative,SetSize>(
+        _derivativeSet.data(),
+        _derivativeSet.size());
 }
 
 
@@ -393,7 +556,7 @@ requires (!hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 typename AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::View
 constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::makeView() const noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>(
         _ansatzSet,
         _derivativeSet);
@@ -402,8 +565,8 @@ requires hasStaticBasis {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceView<TScalarExpression,Dim,SetSize>::AnsatzSpaceView() noexcept
-    : _set(),
-      _buffer()
+    : _set(static_cast<const TScalarExpression*>(nullptr), SetSize),
+      _buffer(static_cast<Value*>(nullptr), staticBufferSize)
 {
 }
 
@@ -419,7 +582,7 @@ requires (!hasStaticBasis)
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceView<TScalarExpression,Dim,SetSize>::AnsatzSpaceView(std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : _set(ansatzSet),
       _buffer()
 {
@@ -441,9 +604,9 @@ template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceView<TScalarExpression,Dim,SetSize>::AnsatzSpaceView(
     std::span<const TScalarExpression,SetSize> ansatzSet,
     std::span<Value,staticBufferSize> buffer) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : _set(ansatzSet),
-      _buffer() {
+      _buffer(static_cast<Value*>(nullptr), staticBufferSize) {
     this->setBuffer(buffer);
 }
 
@@ -491,7 +654,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr unsigned AnsatzSpaceView<TScalarExpression,Dim,SetSize>::size() noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return intPow(SetSize, Dim);
 }
 
@@ -514,7 +677,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr unsigned AnsatzSpaceView<TScalarExpression,Dim,SetSize>::getMinBufferSize() noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return staticBufferSize;
 }
 
@@ -531,7 +694,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr void AnsatzSpaceView<TScalarExpression,Dim,SetSize>::setBuffer(std::span<Value,staticBufferSize> buffer) noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     _buffer = buffer;
     auto indexBuffer = this->getIndexBuffer();
     std::fill_n(indexBuffer.data(), indexBuffer.size(), 0u);
@@ -561,10 +724,10 @@ std::span<
     typename AnsatzSpaceView<TScalarExpression,Dim,SetSize>::Value,
     AnsatzSpaceView<TScalarExpression,Dim,SetSize>::valueBufferSize>
 constexpr AnsatzSpaceView<TScalarExpression,Dim,SetSize>::getValueBuffer() const noexcept
-requires hasStaticBasis {
-    return {
+requires (hasStaticBasis) {
+    return std::span<Value,valueBufferSize>(
         _buffer.data() + ansatzBufferOffset / sizeof(Value),
-        intPow(SetSize, Dim)};
+        valueBufferSize);
 }
 
 
@@ -577,7 +740,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr std::span<const TScalarExpression,SetSize> AnsatzSpaceView<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return {_set.data(), SetSize};
 }
 
@@ -606,14 +769,14 @@ requires (!hasStaticBasis)
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSet&& rSet) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : _set(std::move(rSet)),
       _buffer(),
       _wrapped()
 {
-    _wrapped = AnsatzSpaceView<TScalarExpression,Dim,SetSize>(
-        {_set.data(), _set.size()},
-        {_buffer.data(), _buffer.size()});
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize>(_set.data(), SetSize),
+        std::span<Value,View::staticBufferSize>(_buffer.data(), View::staticBufferSize));
 }
 
 
@@ -627,14 +790,30 @@ requires (!hasStaticBasis)
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSet& rSet) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : _set(std::move(rSet)),
       _buffer(),
       _wrapped()
 {
-    _wrapped = AnsatzSpaceView<TScalarExpression,Dim,SetSize>(
-        {_set.data(), _set.size()},
-        {_buffer.data(), _buffer.size()});
+    _wrapped = View(
+        std::span<const TScalarExpression,SetSize> (_set.data(), _set.size()),
+        std::span<Value,View::staticBufferSize>(_buffer.data(), _buffer.size()));
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSpace&& rRhs) noexcept
+requires (!hasStaticBasis)
+    : AnsatzSpace(std::move(rRhs._set))
+{
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSpace&& rRhs) noexcept
+requires (hasStaticBasis)
+    : AnsatzSpace(std::move(rRhs._set))
+{
 }
 
 
@@ -648,9 +827,38 @@ requires (!hasStaticBasis)
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSpace& rRhs) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : AnsatzSpace(rRhs._set)
 {
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+AnsatzSpace<TScalarExpression,Dim,SetSize>&
+AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpace&& rRhs) noexcept
+requires (!hasStaticBasis) {
+    _set = std::move(rRhs._set);
+    _buffer = std::move(rRhs._buffer);
+    _wrapped = AnsatzSpaceView<TScalarExpression,Dim,SetSize>(
+        {_set.data(), _set.size()},
+        {_buffer.data(), _buffer.size()});
+    return *this;
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>&
+AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpace&& rRhs) noexcept
+requires (hasStaticBasis) {
+    _set = std::move(rRhs._set);
+    _wrapped = AnsatzSpaceView<TScalarExpression,Dim,SetSize>(
+        std::span<const TScalarExpression,SetSize>(
+            _set.data(),
+            _set.size()),
+        std::span<Value,View::staticBufferSize>(
+            _buffer.data(),
+            _buffer.size()));
+    return *this;
 }
 
 
@@ -666,7 +874,7 @@ requires (!hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>&
 AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpace& rRhs) noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     (*this) = AnsatzSpace(rRhs._set);
     return *this;
 }
@@ -689,7 +897,7 @@ requires (!hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize>::Derivative
 AnsatzSpace<TScalarExpression,Dim,SetSize>::makeDerivative() const noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return Derivative(this->ansatzSet());
 }
 
@@ -703,7 +911,7 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr unsigned AnsatzSpace<TScalarExpression,Dim,SetSize>::size() noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return View::size();
 }
 
@@ -717,8 +925,8 @@ requires (!hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr std::span<const TScalarExpression,SetSize> AnsatzSpace<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
-requires hasStaticBasis {
-    return {_set.data(), _set.size()};
+requires (hasStaticBasis) {
+    return std::span<const TScalarExpression,SetSize>(_set.data(), _set.size());
 }
 
 
@@ -733,7 +941,7 @@ requires (!hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize>::View
 AnsatzSpace<TScalarExpression,Dim,SetSize>::makeView() const noexcept
-requires hasStaticBasis {
+requires (hasStaticBasis) {
     return AnsatzSpaceView<TScalarExpression,Dim,SetSize>(_set);
 }
 

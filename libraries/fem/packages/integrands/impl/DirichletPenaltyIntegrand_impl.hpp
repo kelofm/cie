@@ -70,7 +70,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::evaluate(ConstSpa
     EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
     EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
 
-    lhsAdaptor = ansatzAdaptor * _penalty * ansatzAdaptor.transpose();
+    lhsAdaptor.noalias() = ansatzAdaptor * _penalty * ansatzAdaptor.transpose();
 
     // Compute the prescribed state at the given input.
     _pSpatialTransform->evaluate(in, transformedBuffer);

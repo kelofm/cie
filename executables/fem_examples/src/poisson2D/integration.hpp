@@ -63,7 +63,7 @@ void addRHSContribution(std::span<const Scalar> contribution,
 
 
 using StiffnessIntegrand = TransformedIntegrand<
-    LinearIsotropicStiffnessIntegrand<AnsatzDerivative>,
+    LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>,
     SpatialTransform::Derivative
 >;
 
@@ -120,40 +120,34 @@ private:
 }; // class CellExtents
 
 
+struct QuadraturePointData {
+    QuadraturePoint<Dimension,Scalar> point;
+    StiffnessIntegrand integrand;
+    std::array<Scalar,StiffnessIntegrand::size()> output;
+};
+
+
 class IntegrandRange {
 public:
     IntegrandRange()
-        : _quadraturePoints(SYCLSingleton::makeSharedAllocator<QuadraturePoint<Dimension,Scalar>>()),
-          _integrands(SYCLSingleton::makeSharedAllocator<StiffnessIntegrand>()),
-          _integrandOutput(SYCLSingleton::makeSharedAllocator<Scalar>()),
-          _integrandBuffer(SYCLSingleton::makeSharedAllocator<Scalar>())
+        : _quadraturePointData(SYCLSingleton::makeSharedAllocator<QuadraturePointData>())
     {}
 
-    void setQuadraturePointCount(std::size_t count,
-                                 std::size_t integrandOutputSize,
-                                 std::size_t integrandBufferSize) {
-        _quadraturePoints.resize(count);
-        _integrands.resize(count);
-        _integrandOutput.resize(count * integrandOutputSize);
-        _integrandBuffer.resize(count * integrandBufferSize);
+    void setQuadraturePointCount(std::size_t count) {
+        _quadraturePointData.resize(count);
     }
 
-    std::span<QuadraturePoint<Dimension,Scalar>> getQuadraturePoints(std::size_t iBegin) {
-        CIE_OUT_OF_RANGE_CHECK(iBegin < _quadraturePoints.size())
-        return {
-            _quadraturePoints.data() + iBegin,
-            _quadraturePoints.data() + _quadraturePoints.size()};
+    Ref<QuadraturePoint<Dimension,Scalar>> getQuadraturePoint(std::size_t iPoint) {
+        return _quadraturePointData[iPoint].point;
     }
 
     void makeIntegrand(Ref<const CellData> rCell,
                        Ref<const Mesh> rMesh,
-                       std::size_t iIntegrand,
-                       std::size_t integrandBufferSize) {
-        _integrands[iIntegrand] = makeTransformedIntegrand(
-            LinearIsotropicStiffnessIntegrand<AnsatzDerivative>(
+                       std::size_t iIntegrand) {
+        _quadraturePointData[iIntegrand].integrand = makeTransformedIntegrand(
+            LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
                 rCell.diffusivity(),
-                AnsatzDerivative(rMesh.data().ansatzDerivatives()[rCell.ansatzID()]),
-                {_integrandBuffer.data() + iIntegrand * integrandBufferSize, integrandBufferSize}),
+                Ansatz::Derivative(rMesh.data().ansatzDerivative())),
             rCell.makeJacobian());
     }
 
@@ -167,16 +161,8 @@ public:
             + std::to_string(cellExtents.back().second)
             + " quadrature points");
 
-        const std::size_t integrandOutputSize = _integrands.empty()
-            ? 0ul
-            : _integrands.front().size();
-
         // Evaluate integrands at quadrature points.
-        const auto job = [
-            pQuadraturePointBegin = _quadraturePoints.data(),
-            pIntegrandBegin = _integrands.data(),
-            pIntegrandOutputBegin = _integrandOutput.data(),
-            integrandOutputSize]
+        const auto job = [pBegin = _quadraturePointData.data()]
                 (auto index) -> void {
                     std::size_t iQuadraturePoint = 0ul;
                     if constexpr (concepts::UnsignedInteger<decltype(index)>) {
@@ -184,40 +170,41 @@ public:
                     } else {
                         iQuadraturePoint = index.get_linear_id();
                     }
-                    Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
-                    Ref<const StiffnessIntegrand> rIntegrand = pIntegrandBegin[iQuadraturePoint];
+                    Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pBegin[iQuadraturePoint].point;
+                    Ref<const StiffnessIntegrand> rIntegrand = pBegin[iQuadraturePoint].integrand;
                     std::span<Scalar> output(
-                        pIntegrandOutputBegin + iQuadraturePoint * integrandOutputSize,
-                        integrandOutputSize);
+                        pBegin[iQuadraturePoint].output.data(),
+                        StiffnessIntegrand::size());
                     rQuadraturePoint.evaluate(rIntegrand, output);
                 };
 
         if (rMaybeThreads.has_value()) {
             mp::ParallelFor<>(rMaybeThreads.value())(
-                _quadraturePoints.size(),
+                _quadraturePointData.size(),
                 job);
         } else {
             #ifdef CIE_ENABLE_SYCL
                 SYCLSingleton::getQueue().parallel_for(
-                    sycl::range(_quadraturePoints.size()),
+                    sycl::range(_quadraturePointData.size()),
                     job
                 ).wait();
             #else
                 std::ranges::for_each(
-                    std::views::iota(0ul) | std::views::take(_quadraturePoints.size()),
+                    std::views::iota(0ul) | std::views::take(_quadraturePointData.size()),
                     job);
             #endif
         }
 
         // Reduce the results and map them to the LHS matrix.
+        constexpr unsigned integrandOutputSize = StiffnessIntegrand::size();
         for (std::size_t iCell=0ul; iCell<cellExtents.size()-1; ++iCell) {
             const VertexID cellID = cellExtents[iCell].first;
             const std::size_t iBegin = cellExtents[iCell].second,
                               iEnd   = cellExtents[iCell + 1].second;
-            const auto itTargetBegin = _integrandOutput.data() + iBegin * integrandOutputSize;
+            const auto itTargetBegin = _quadraturePointData[iBegin].output.data();
 
             for (std::size_t iSample=iBegin+1; iSample<iEnd; ++iSample) {
-                const auto itSourceBegin = _integrandOutput.data() + iSample * integrandOutputSize;
+                const auto itSourceBegin = _quadraturePointData[iSample].output.data();
                 const auto itSourceEnd = itSourceBegin + integrandOutputSize;
                 std::transform(
                     itSourceBegin,
@@ -236,10 +223,7 @@ public:
     }
 
 private:
-    DynamicSharedArray<QuadraturePoint<Dimension,Scalar>> _quadraturePoints;
-    DynamicSharedArray<StiffnessIntegrand> _integrands;
-    DynamicSharedArray<Scalar> _integrandOutput;
-    DynamicSharedArray<Scalar> _integrandBuffer;
+    DynamicSharedArray<QuadraturePointData> _quadraturePointData;
 }; // struct IntegrandDataRange
 
 
@@ -250,25 +234,9 @@ void integrateStiffness(Ref<const Mesh> rMesh,
                         OptionalRef<mp::ThreadPoolBase> rMaybeThreads) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
 
-    // Query integrand memory requirements.
-    std::size_t integrandOutputSize, integrandBufferSize;
-    if (!rMesh.vertices().empty()) {
-        Ref<const CellData> rCell = rMesh.vertices().front().data();
-        const StiffnessIntegrand integrand = makeTransformedIntegrand(
-            LinearIsotropicStiffnessIntegrand<AnsatzDerivative>(
-                rCell.diffusivity(),
-                AnsatzDerivative(rMesh.data().ansatzDerivatives()[rCell.ansatzID()])),
-            rCell.makeJacobian());
-        integrandOutputSize = integrand.size();
-        integrandBufferSize = integrand.getMinBufferSize();
-    } else return;
-
     // Allocate buffers.
     IntegrandRange integrandRange;
-    integrandRange.setQuadraturePointCount(
-        quadratureBatchSize,
-        integrandOutputSize,
-        integrandBufferSize);
+    integrandRange.setQuadraturePointCount(quadratureBatchSize);
 
     // Perform integration and assembly.
     // 0) Generate quadrature points.
@@ -276,29 +244,32 @@ void integrateStiffness(Ref<const Mesh> rMesh,
 
     CachedQuadraturePointFactory<Dimension,Scalar> quadraturePointFactory;
     CellExtents extents;
+    DynamicArray<QuadraturePoint<Dimension,Scalar>> quadraturePoints(quadratureBatchSize);
 
     for (const auto& rCell : rMesh.vertices()) {
         extents.push(rCell.id());
-        quadraturePointFactory = rMesh.data().makeQuadratureRule(rCell.data().ansatzID());
+        quadraturePointFactory = rMesh.data().makeQuadratureRule();
         while (true) {
             if (extents.empty())
                 extents.push(rCell.id());
 
             // Fetch the range of remaining quadrature point slots.
-            auto quadraturePoints = integrandRange.getQuadraturePoints(extents.size());
             const std::size_t iIntegrandBegin = extents.size();
+            std::span<QuadraturePoint<Dimension,Scalar>> quadraturePointSpan(
+                quadraturePoints.data() + iIntegrandBegin,
+                quadraturePoints.data() + quadraturePoints.size());
 
             // Generate new quadrature points.
-            const std::size_t quadraturePointCount = quadraturePointFactory.generate(rCell.data(), quadraturePoints);
+            const std::size_t quadraturePointCount = quadraturePointFactory.generate(rCell.data(), quadraturePointSpan);
             const std::size_t iIntegrandEnd = iIntegrandBegin + quadraturePointCount;
             extents.extend(quadraturePointCount);
 
             for (std::size_t iIntegrand=iIntegrandBegin; iIntegrand<iIntegrandEnd; ++iIntegrand) {
+                integrandRange.getQuadraturePoint(iIntegrand) = quadraturePoints[iIntegrand];
                 integrandRange.makeIntegrand(
                     rCell.data(),
                     rMesh,
-                    iIntegrand,
-                    integrandBufferSize);
+                    iIntegrand);
             } // for iIntegrand in range(iIntegrandBegin, iIntegrandEnd)
 
             if (quadraturePointCount == 0ul) {
@@ -315,10 +286,7 @@ void integrateStiffness(Ref<const Mesh> rMesh,
     } // for rCell in rMesh.vertices()
 
     if (!extents.empty()) {
-        integrandRange.setQuadraturePointCount(
-            extents.size(),
-            integrandOutputSize,
-            integrandBufferSize);
+        integrandRange.setQuadraturePointCount(extents.size());
         integrandRange.evaluate(
             extents.get(),
             rAssembler,

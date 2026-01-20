@@ -34,16 +34,10 @@ requires (CoefficientCount == std::dynamic_extent)
 
     else if constexpr (TEvaluation == PolynomialEvaluation::Horner) {
         TValue result = static_cast<TValue>(0);
-
-        // Reverse loop
-        if (it != pEnd) [[likely]] {
-            --pEnd;
-            do {
-                result *= argument;
-                result += *pEnd;
-            } while (pEnd-- != it);
+        for (auto it=coefficients.rbegin(); it!=coefficients.rend(); ++it) {
+            result *= argument;
+            result += *it;
         }
-
         return result;
     }
 
@@ -89,16 +83,10 @@ requires (CoefficientCount == std::dynamic_extent)
             return result;
         } else {
             TValue result = static_cast<TValue>(0);
-
-            // Reverse loop
-            if (it != pEnd) [[likely]] {
-                --pEnd;
-                do {
-                    result *= argument;
-                    result += *pEnd;
-                } while (pEnd-- != it);
+            for (auto it=coefficients.rbegin(); it!=coefficients.rend(); ++it) {
+                result *= argument;
+                result += *it;
             }
-
             return result;
         }
     }
@@ -112,8 +100,8 @@ template <
     std::size_t CoefficientCount>
 requires (CoefficientCount != std::dynamic_extent)
 [[nodiscard]] constexpr TValue evaluatePolynomial(TValue argument, std::span<const TCoefficient,CoefficientCount> coefficients) noexcept {
-    const TCoefficient* it = coefficients.data();
-    const TCoefficient* pEnd = it + coefficients.size();
+    [[maybe_unused]] const TCoefficient* it = coefficients.data();
+    [[maybe_unused]] const TCoefficient* pEnd = it + coefficients.size();
 
     if constexpr (TEvaluation == PolynomialEvaluation::Naive) {
         TValue result = static_cast<TValue>(0);
@@ -128,16 +116,10 @@ requires (CoefficientCount != std::dynamic_extent)
 
     else if constexpr (TEvaluation == PolynomialEvaluation::Horner) {
         TValue result = static_cast<TValue>(0);
-
-        // Reverse loop
-        if (it != pEnd) [[likely]] {
-            --pEnd;
-            do {
-                result *= argument;
-                result += *pEnd;
-            } while (pEnd-- != it);
+        for (auto it=coefficients.rbegin(); it!=coefficients.rend(); ++it) {
+            result *= argument;
+            result += *it;
         }
-
         return result;
     }
 
@@ -183,16 +165,10 @@ requires (CoefficientCount != std::dynamic_extent)
             return result;
         } else {
             TValue result = static_cast<TValue>(0);
-
-            // Reverse loop
-            if (it != pEnd) [[likely]] {
-                --pEnd;
-                do {
-                    result *= argument;
-                    result += *pEnd;
-                } while (pEnd-- != it);
+            for (auto it=coefficients.rbegin(); it!=coefficients.rend(); ++it) {
+                result *= argument;
+                result += *it;
             }
-
             return result;
         }
     }

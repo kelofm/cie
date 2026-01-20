@@ -21,6 +21,10 @@ public:
     using Jacobian = TJacobian;
 
 public:
+    constexpr static inline bool isBuffered =
+        maths::BufferedExpression<TIntegrand>
+        || maths::BufferedExpression<TJacobian>;
+
     TransformedIntegrand() noexcept {}
 
     TransformedIntegrand(RightRef<TIntegrand> rIntegrand,
@@ -29,8 +33,13 @@ public:
           _inverseJacobian(std::move(rInverseJacobian))
     {}
 
-    unsigned size() const noexcept {
+    unsigned size() const noexcept
+    requires (!maths::StaticExpression<TIntegrand>) {
         return _integrand.size();}
+
+    static constexpr unsigned size() noexcept
+    requires (maths::StaticExpression<TIntegrand>) {
+        return TIntegrand::size();}
 
     void evaluate(ConstSpan in, Span out) const {
         const Value determinant = std::abs(_inverseJacobian.evaluateDeterminant(in));
@@ -42,7 +51,7 @@ public:
     }
 
     unsigned getMinBufferSize() const noexcept
-    requires (maths::BufferedExpression<TIntegrand> || maths::BufferedExpression<TJacobian>) {
+    requires (isBuffered) {
         unsigned out = 0u;
         if constexpr (maths::BufferedExpression<TIntegrand>) out += _integrand.getMinBufferSize();
         if constexpr (maths::BufferedExpression<TJacobian>) out += _inverseJacobian.getMinBufferSize();
@@ -50,7 +59,7 @@ public:
     }
 
     void setBuffer(typename TIntegrand::Span buffer)
-    requires (maths::BufferedExpression<TIntegrand> || maths::BufferedExpression<TJacobian>) {
+    requires (isBuffered) {
         std::size_t offset = 0ul;
 
         if constexpr (maths::BufferedExpression<TIntegrand>) {
