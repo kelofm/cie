@@ -42,7 +42,7 @@ using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
-using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder>;
+using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
 
 
 

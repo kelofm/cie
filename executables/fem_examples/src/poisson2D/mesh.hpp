@@ -61,8 +61,8 @@ void generateMesh(Ref<Mesh> rMesh,
         Ansatz ansatzSpace;
         Ansatz::Derivative ansatzDerivative;
 
-        std::array<Basis,polynomialOrder> basisFunctions;
-        std::array<Basis::Derivative,polynomialOrder> basisDerivatives;
+        std::array<Basis,polynomialOrder+1> basisFunctions;
+        std::array<Basis::Derivative,polynomialOrder+1> basisDerivatives;
 
         {
             auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");
@@ -97,7 +97,7 @@ void generateMesh(Ref<Mesh> rMesh,
             // Construct the derivatives of all basis functions.
             for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
                 Ref<Basis> rBasis = basisFunctions[iBasis];
-                basisDerivatives[iBasis] = Basis::Derivative(rBasis.makeDerivative());
+                basisDerivatives[iBasis] = rBasis.makeDerivative();
             } // for iBasis in range(polynomialOrder + 1)
 
             ansatzSpace = Ansatz(basisFunctions);

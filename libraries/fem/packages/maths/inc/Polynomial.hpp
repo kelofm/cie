@@ -121,6 +121,12 @@ public:
 
     constexpr Polynomial(Polynomial&&) noexcept;
 
+    Polynomial(Polynomial&& rRight)
+    requires (!hasStaticCoefficients);
+
+    constexpr Polynomial(Polynomial&& rRight)
+    requires (hasStaticCoefficients);
+
     Polynomial(const Polynomial& rRight)
     requires (!hasStaticCoefficients);
 
@@ -144,7 +150,11 @@ public:
     constexpr Polynomial(std::span<const TValue,coefficientCount> coefficients)
     requires (hasStaticCoefficients);
 
-    constexpr Polynomial& operator=(Polynomial&&) noexcept = default;
+    Polynomial& operator=(Polynomial&&) noexcept
+    requires (!hasStaticCoefficients);
+
+    constexpr Polynomial& operator=(Polynomial&&) noexcept
+    requires (hasStaticCoefficients);
 
     Polynomial& operator=(const Polynomial& rRight)
     requires (!hasStaticCoefficients);

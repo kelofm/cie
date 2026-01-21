@@ -52,22 +52,26 @@ public:
 
     constexpr AnsatzSpaceDerivativeView() noexcept;
 
-    constexpr AnsatzSpaceDerivativeView(std::span<const TScalarExpression,SetSize> ansatzSet,
-                                        std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet) noexcept
+    constexpr AnsatzSpaceDerivativeView(
+        std::span<const TScalarExpression,SetSize> ansatzSet,
+        std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet) noexcept
     requires (hasStaticBasis);
 
-    constexpr AnsatzSpaceDerivativeView(std::span<const TScalarExpression,SetSize> ansatzSet,
-                                        std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet,
-                                        std::span<Value,staticBufferSize> buffer) noexcept
+    constexpr AnsatzSpaceDerivativeView(
+        std::span<const TScalarExpression,SetSize> ansatzSet,
+        std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet,
+        std::span<Value,staticBufferSize> buffer) noexcept
     requires (hasStaticBasis);
 
-    AnsatzSpaceDerivativeView(std::span<const TScalarExpression> ansatzSet,
-                              std::span<const typename TScalarExpression::Derivative> derivativeSet)
+    AnsatzSpaceDerivativeView(
+        std::span<const TScalarExpression> ansatzSet,
+        std::span<const typename TScalarExpression::Derivative> derivativeSet)
     requires (!hasStaticBasis);
 
-    AnsatzSpaceDerivativeView(std::span<const TScalarExpression> ansatzSet,
-                              std::span<const typename TScalarExpression::Derivative> derivativeSet,
-                              Span buffer)
+    AnsatzSpaceDerivativeView(
+        std::span<const TScalarExpression> ansatzSet,
+        std::span<const typename TScalarExpression::Derivative> derivativeSet,
+        Span buffer)
     requires (!hasStaticBasis);
 
     void evaluate(ConstSpan in, Span out) const;

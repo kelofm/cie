@@ -63,10 +63,10 @@ template <concepts::Numeric TValue, int PolynomialOrder>
 constexpr typename PolynomialView<TValue,PolynomialOrder>::Derivative
 PolynomialView<TValue,PolynomialOrder>::makeDerivative(std::span<TValue,Derivative::coefficientCount> buffer) const noexcept
 requires (hasStaticCoefficients) {
-    if constexpr (0 < PolynomialOrder) {
+    if constexpr (1 < coefficientCount) {
         // Push first coefficient (no multiplication required)
         buffer.front() = _coefficients[1];
-        if constexpr (1 < PolynomialOrder) {
+        if constexpr (2 < coefficientCount) {
             const auto itCoefficientEnd = _coefficients.end();
             TValue power = static_cast<TValue>(2);
             auto itBuffer = buffer.begin() + 1;
@@ -138,6 +138,26 @@ constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(Polynomial&& rRight) no
 
 
 template <concepts::Numeric TValue, int PolynomialOrder>
+Polynomial<TValue,PolynomialOrder>::Polynomial(Polynomial&& rRight)
+requires (!hasStaticCoefficients)
+    : _coefficients(std::move(rRight._coefficients)),
+      _wrapped()
+{
+    _wrapped = PolynomialView<TValue,PolynomialOrder>(_coefficients);
+}
+
+
+template <concepts::Numeric TValue, int PolynomialOrder>
+constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(Polynomial&& rRight)
+requires (hasStaticCoefficients)
+    : _coefficients(rRight._coefficients),
+      _wrapped()
+{
+    _wrapped = PolynomialView<TValue,PolynomialOrder>(_coefficients);
+}
+
+
+template <concepts::Numeric TValue, int PolynomialOrder>
 Polynomial<TValue,PolynomialOrder>::Polynomial(const Polynomial& rRight)
 requires (!hasStaticCoefficients)
     : _coefficients(rRight._coefficients),
@@ -176,6 +196,26 @@ requires (hasStaticCoefficients)
         coefficientCount,
         _coefficients.data());
     _wrapped = PolynomialView<TValue,PolynomialOrder>(_coefficients);
+}
+
+
+template <concepts::Numeric TValue, int PolynomialOrder>
+Polynomial<TValue,PolynomialOrder>&
+Polynomial<TValue,PolynomialOrder>::operator=(Polynomial&& rRight) noexcept
+requires (!hasStaticCoefficients) {
+    _coefficients = std::move(rRight._coefficients);
+    _wrapped = View(_coefficients);
+    return *this;
+}
+
+
+template <concepts::Numeric TValue, int PolynomialOrder>
+constexpr Polynomial<TValue,PolynomialOrder>&
+Polynomial<TValue,PolynomialOrder>::operator=(Polynomial&& rRight) noexcept
+requires (hasStaticCoefficients) {
+    _coefficients = rRight._coefficients;
+    _wrapped = View(_coefficients);
+    return *this;
 }
 
 
