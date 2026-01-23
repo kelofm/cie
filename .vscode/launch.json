@@ -8,7 +8,7 @@
             "name": "2D system test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/libraries/fem/build/bin/fem_testrunner",
+            "program": "${workspaceRoot}/build/bin/fem_testrunner",
             "externalConsole": false,
             "args" : ["2D"],
             "environment" : [
@@ -20,9 +20,21 @@
             "name": "geo testrunner",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/libraries/geo/build/bin/geo_testrunner",
+            "program": "${workspaceRoot}/build/bin/geo_testrunner",
             "externalConsole": false,
             "args" : [],
+            "environment" : [
+                {"name" : "OMP_NUM_THREADS", "value" : "1"}
+            ],
+            "cwd" : "${workspaceRoot}"
+        },
+        {
+            "name": "poisson2D",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/bin/poisson2D",
+            "externalConsole": false,
+            "args" : ["-r", "12"],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],
