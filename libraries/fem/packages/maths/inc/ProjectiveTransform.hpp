@@ -35,8 +35,7 @@ class ProjectiveTransform;
  *           where @f$ i, j \in \{0 \ldots d-1\} @f$ and @f$ k \in \{0 \ldots d\} @f$.
  */
 template <concepts::Numeric TValue, unsigned Dimension>
-class ProjectiveTransformDerivative : public ExpressionTraits<TValue>
-{
+class ProjectiveTransformDerivative : public ExpressionTraits<TValue> {
 private:
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
 
@@ -55,7 +54,7 @@ public:
     void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     /// @brief Compute the determinant of the projective transform's jacobian.
     TValue evaluateDeterminant(ConstSpan in) const;
@@ -82,8 +81,7 @@ private:
  *        will have to do for now.
  */
 template <concepts::Numeric TValue, unsigned Dimension>
-class ProjectiveTransform : private ExpressionTraits<TValue>
-{
+class ProjectiveTransform : private ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransform)
 
@@ -127,7 +125,7 @@ public:
     void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     /// @brief Construct the inverse transform.
     Inverse makeInverse() const;

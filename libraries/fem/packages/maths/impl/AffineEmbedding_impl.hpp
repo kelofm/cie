@@ -11,8 +11,7 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue>
-void AffineEmbedding<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const
-{
+void AffineEmbedding<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == AffineEmbedding::InDimension)
     CIE_OUT_OF_RANGE_CHECK(out.size() == AffineEmbedding::OutDimension)
 
@@ -24,15 +23,13 @@ void AffineEmbedding<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const
 
 
 template <concepts::Numeric TValue>
-unsigned AffineEmbedding<TValue,1u,2u>::size() const noexcept
-{
+constexpr unsigned AffineEmbedding<TValue,1u,2u>::size() noexcept {
     return AffineEmbedding::OutDimension;
 }
 
 
 template <concepts::Numeric TValue>
-void AffineEmbeddingDerivative<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const
-{
+void AffineEmbeddingDerivative<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const {
     StaticArray<TValue,OutDimension> augmented;
     StaticArray<TValue,OutDimension*OutDimension> buffer;
 
@@ -52,8 +49,7 @@ void AffineEmbeddingDerivative<TValue,1u,2u>::evaluate(ConstSpan in, Span out) c
 
 
 template <concepts::Numeric TValue>
-unsigned AffineEmbeddingDerivative<TValue,1u,2u>::size() const noexcept
-{
+constexpr unsigned AffineEmbeddingDerivative<TValue,1u,2u>::size() noexcept {
     return OutDimension * InDimension;
 }
 
@@ -85,15 +81,13 @@ void AffineEmbeddingInverse<TValue,2u,1u>::evaluate(ConstSpan in, Span out) cons
 
 
 template <concepts::Numeric TValue>
-unsigned AffineEmbeddingInverse<TValue,2u,1u>::size() const noexcept
-{
+constexpr unsigned AffineEmbeddingInverse<TValue,2u,1u>::size() noexcept {
     return AffineEmbeddingInverse::OutDimension;
 }
 
 
 template <concepts::Numeric TValue>
-void AffineEmbeddingInverseDerivative<TValue,2u,1u>::evaluate(ConstSpan in, Span out) const
-{
+void AffineEmbeddingInverseDerivative<TValue,2u,1u>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == InDimension)
     CIE_OUT_OF_RANGE_CHECK(out.size() == InDimension * OutDimension)
 
@@ -102,16 +96,22 @@ void AffineEmbeddingInverseDerivative<TValue,2u,1u>::evaluate(ConstSpan in, Span
 
     // Copy the top left (InDimension x OutDimension) submatrix of the wrapped derivative.
     for (unsigned iRow=0u; iRow<InDimension; ++iRow) {
-        std::copy_n(buffer.begin() + iRow * InDimension,
-                    OutDimension,
-                    out.begin() + iRow * OutDimension);
+        std::copy_n(
+            buffer.begin() + iRow * InDimension,
+            OutDimension,
+            out.begin() + iRow * OutDimension);
     }
 }
 
 
 template <concepts::Numeric TValue>
-TValue AffineEmbeddingInverseDerivative<TValue,2u,1u>::evaluateDeterminant(ConstSpan in) const
-{
+constexpr unsigned AffineEmbeddingInverseDerivative<TValue,2u,1u>::size() noexcept {
+    return InDimension * OutDimension;
+}
+
+
+template <concepts::Numeric TValue>
+TValue AffineEmbeddingInverseDerivative<TValue,2u,1u>::evaluateDeterminant(ConstSpan in) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == InDimension)
     return _transformDerivative.evaluateDeterminant(in);
 }

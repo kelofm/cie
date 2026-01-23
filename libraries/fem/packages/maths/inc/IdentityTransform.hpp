@@ -31,7 +31,7 @@ public:
     void evaluate(ConstSpan in, Span out) const noexcept
     {std::copy(in.begin(), in.end(), out.begin());}
 
-    constexpr unsigned size() const noexcept
+    static constexpr unsigned size() noexcept
     {return Dimension;}
 
     constexpr Inverse makeInverse() const noexcept

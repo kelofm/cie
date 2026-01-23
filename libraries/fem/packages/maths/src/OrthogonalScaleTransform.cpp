@@ -42,25 +42,11 @@ TValue OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluateDeterminant
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-unsigned OrthogonalScaleTransformDerivative<TValue,Dimension>::size() const noexcept
-{
-    return Dimension * Dimension;
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
 OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform() noexcept
 {
     std::fill(this->_scales.begin(),
               this->_scales.end(),
               static_cast<TValue>(1));
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
-unsigned OrthogonalScaleTransform<TValue,Dimension>::size() const noexcept
-{
-    return Dimension;
 }
 
 

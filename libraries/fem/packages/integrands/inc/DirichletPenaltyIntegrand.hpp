@@ -39,19 +39,31 @@ public:
 
     using typename maths::ExpressionTraits<Value>::Span;
 
+    static inline constexpr bool isBuffered = (
+           maths::BufferedExpression<TDirichlet>
+        || maths::BufferedExpression<TAnsatzSpace>
+        || maths::BufferedExpression<TTransform>);
+
+    static inline constexpr bool isStatic = (
+           maths::StaticExpression<TDirichlet>
+        || maths::StaticExpression<TAnsatzSpace>
+        || maths::StaticExpression<TTransform>);
+
 public:
     DirichletPenaltyIntegrand();
 
-    DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                              const Value penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace,
-                              Ref<const TTransform> rSpatialTransform);
+    DirichletPenaltyIntegrand(
+        Ref<const TDirichlet> rDirichletFunctor,
+        const Value penalty,
+        Ref<const TAnsatzSpace> rAnsatzSpace,
+        Ref<const TTransform> rSpatialTransform);
 
-    DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                              const Value penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace,
-                              Ref<const TTransform> rSpatialTransform,
-                              std::span<Value> buffer);
+    DirichletPenaltyIntegrand(
+        Ref<const TDirichlet> rDirichletFunctor,
+        const Value penalty,
+        Ref<const TAnsatzSpace> rAnsatzSpace,
+        Ref<const TTransform> rSpatialTransform,
+        std::span<Value> buffer);
 
     void evaluate(ConstSpan in, Span out) const;
 
@@ -79,11 +91,12 @@ template <maths::Expression TDirichlet,
           maths::Expression TTransform,
           concepts::Numeric TValue>
 DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TTransform>
-makeDirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                              const TValue penalty,
-                              Ref<const TAnsatzSpace> rAnsatzSpace,
-                              Ref<const TTransform> rSpatialTransform,
-                              std::span<TValue> buffer)
+makeDirichletPenaltyIntegrand(
+    Ref<const TDirichlet> rDirichletFunctor,
+    const TValue penalty,
+    Ref<const TAnsatzSpace> rAnsatzSpace,
+    Ref<const TTransform> rSpatialTransform,
+    std::span<TValue> buffer)
 {
     return DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TTransform>(
         rDirichletFunctor,

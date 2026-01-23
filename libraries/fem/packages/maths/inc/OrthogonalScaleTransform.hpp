@@ -44,7 +44,7 @@ public:
     TValue evaluateDeterminant(ConstSpan in) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
 private:
     friend class OrthogonalScaleTransform<TValue,Dimension>;
@@ -93,7 +93,7 @@ public:
     void evaluate(ConstSpan in, Span out) const;
 
     /// @brief Get the number of components written by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     /// @brief Construct the derivative of the transform.
     Derivative makeDerivative() const noexcept;

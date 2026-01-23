@@ -37,13 +37,6 @@ AffineTransformDerivative<TValue,Dimension>::AffineTransformDerivative(Ref<const
 }
 
 
-template <concepts::Numeric TValue, unsigned Dimension>
-unsigned AffineTransformDerivative<TValue,Dimension>::size() const noexcept
-{
-    return Dimension * Dimension;
-}
-
-
 namespace detail {
 
 
@@ -171,13 +164,6 @@ template <concepts::Numeric TValue, unsigned Dimension>
 AffineTransform<TValue,Dimension>::AffineTransform(RightRef<TransformationMatrix> rMatrix) noexcept
     : _transformationMatrix(std::move(rMatrix))
 {
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
-unsigned AffineTransform<TValue,Dimension>::size() const noexcept
-{
-    return Dimension;
 }
 
 

@@ -42,7 +42,7 @@ public:
     void evaluate(ConstSpan input, Span output) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     /// @brief Compute the determinant of the affine transform's jacobian.
     TValue evaluateDeterminant(ConstSpan input) const;
@@ -115,7 +115,7 @@ public:
     void evaluate(ConstSpan input, Span output) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     /// @brief Construct the derivative of the affine transform.
     Derivative makeDerivative() const noexcept;

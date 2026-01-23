@@ -41,8 +41,7 @@ class AffineEmbeddingInverseDerivative {};
 
 
 template <concepts::Numeric TValue>
-class AffineEmbedding<TValue,1u,2u> : public ExpressionTraits<TValue>
-{
+class AffineEmbedding<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbedding)
 
@@ -68,7 +67,7 @@ public:
 
     void evaluate(ConstSpan in, Span out) const;
 
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     Inverse makeInverse() const;
 
@@ -84,8 +83,7 @@ private:
 
 
 template <concepts::Numeric TValue>
-class AffineEmbeddingDerivative<TValue,1u,2u> : public ExpressionTraits<TValue>
-{
+class AffineEmbeddingDerivative<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingDerivative)
 
@@ -101,7 +99,7 @@ public:
 
     void evaluate(ConstSpan in, Span out) const;
 
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     TValue evaluateDeterminant(ConstSpan in) const;
 
@@ -115,8 +113,7 @@ private:
 
 
 template <concepts::Numeric TValue>
-class AffineEmbeddingInverse<TValue,2u,1u> : public ExpressionTraits<TValue>
-{
+class AffineEmbeddingInverse<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverse)
 
@@ -136,7 +133,7 @@ public:
 
     void evaluate(ConstSpan in, Span out) const;
 
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     Inverse makeInverse() const;
 
@@ -152,8 +149,7 @@ private:
 
 
 template <concepts::Numeric TValue>
-class AffineEmbeddingInverseDerivative<TValue,2u,1u> : public ExpressionTraits<TValue>
-{
+class AffineEmbeddingInverseDerivative<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverseDerivative)
 
@@ -169,7 +165,7 @@ public:
 
     void evaluate(ConstSpan in, Span out) const;
 
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
 
     TValue evaluateDeterminant(ConstSpan in) const;
 

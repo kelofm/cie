@@ -14,8 +14,7 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, [[maybe_unused]] Span out) const noexcept
-{
+void OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, [[maybe_unused]] Span out) const noexcept {
     if constexpr (!Dimension) return;
 
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
@@ -29,10 +28,21 @@ void OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, [
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned OrthogonalScaleTransformDerivative<TValue,Dimension>::size() noexcept {
+    return Dimension * Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned OrthogonalScaleTransform<TValue,Dimension>::size() noexcept {
+    return Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
 OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(TPointIt itTransformedBegin,
-                                                                     [[maybe_unused]] TPointIt itTransformedEnd)
-{
+                                                                     [[maybe_unused]] TPointIt itTransformedEnd) {
     CIE_OUT_OF_RANGE_CHECK(std::distance(itTransformedBegin, itTransformedEnd) == 1)
     Ptr<const TValue> pBegin = &(*itTransformedBegin)[0];
     std::copy(pBegin,
@@ -42,8 +52,7 @@ OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(TPointIt it
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void OrthogonalScaleTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
-{
+void OrthogonalScaleTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
     std::transform(in.begin(),
                    in.end(),

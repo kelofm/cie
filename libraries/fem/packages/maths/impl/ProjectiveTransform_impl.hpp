@@ -58,6 +58,18 @@ TValue ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(Cons
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned ProjectiveTransformDerivative<TValue,Dimension>::size() noexcept {
+    return Dimension * Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned ProjectiveTransform<TValue,Dimension>::size() noexcept {
+    return Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 void ProjectiveTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const
 {
     CIE_OUT_OF_RANGE_CHECK(Dimension == in.size())
