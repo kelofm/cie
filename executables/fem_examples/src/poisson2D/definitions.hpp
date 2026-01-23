@@ -12,7 +12,7 @@
 namespace cie::fem {
 
 
-constexpr unsigned polynomialOrder = 5;
+constexpr int polynomialOrder = 1;
 
 /// @brief Radius of the circle Dirichlet conditions are imposed on.
 constexpr double boundaryRadius             = 2.5e-1;
@@ -45,9 +45,8 @@ using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
 
 
-
-
 constexpr unsigned integrationOrder = polynomialOrder + 1;
+constexpr unsigned boundaryIntegrationOrder = integrationOrder;
 
 
 } // namespace cie::fem

@@ -152,8 +152,8 @@ template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 unsigned AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getMinBufferSize() const noexcept
 requires (!hasStaticBasis) {
     const unsigned valueBufferSize = intPow(_ansatzSet.size(), Dim) * sizeof(Value);
-    const unsigned derivativeBufferOffset = ansatzBufferOffset + valueBufferSize;
-    return (derivativeBufferOffset + valueBufferSize) / sizeof(Value);
+    const unsigned derivativeBufferOffset = ansatzBufferOffset + valueBufferSize * sizeof(Value);
+    return derivativeBufferOffset / sizeof(Value) + valueBufferSize;
 }
 
 
@@ -196,12 +196,6 @@ template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 typename AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::Span
 AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getAnsatzBuffer() const noexcept
 requires (!hasStaticBasis) {
-    // Size of the index buffer in bytes.
-    constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
-
-    // Offset of the value buffer from the begin of the buffer, in bytes.
-    constexpr unsigned ansatzBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
-
     return Span(
         _buffer.data() + ansatzBufferOffset / sizeof(Value),
         intPow(_ansatzSet.size(), Dim)
@@ -226,15 +220,9 @@ template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 typename AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::Span
 AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getDerivativeBuffer() const noexcept
 requires (!hasStaticBasis) {
-    // Size of the index buffer in bytes.
-    constexpr unsigned indexBufferSize = Dim * sizeof(unsigned);
-
-    // Offset of the value buffer from the begin of the buffer, in bytes.
-    constexpr unsigned ansatzBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
-    const unsigned valueBufferSize = intPow(_ansatzSet.size(), Dim) * sizeof(Value);
-
+    const unsigned valueBufferSize = intPow(_ansatzSet.size(), Dim);
     return Span(
-        _buffer.data() + (ansatzBufferOffset + valueBufferSize) / sizeof(Value),
+        _buffer.data() + ansatzBufferOffset / sizeof(Value) + valueBufferSize,
         intPow(_ansatzSet.size(), Dim)
     );
 }
@@ -247,7 +235,7 @@ std::span<
 constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::getDerivativeBuffer() const noexcept
 requires (hasStaticBasis) {
     return std::span<Value,valueBufferSize>(
-        _buffer.data() + (ansatzBufferOffset + valueBufferSize) / sizeof(Value),
+        _buffer.data() + ansatzBufferOffset / sizeof(Value) + valueBufferSize,
         intPow(SetSize, Dim)
     );
 }
@@ -626,7 +614,7 @@ void AnsatzSpaceView<TScalarExpression,Dim,SetSize>::evaluate(ConstSpan in, Span
     // Fill the value buffer
     auto pValue = valueBuffer.data();
     for (unsigned iDim=0u; iDim<Dim; ++iDim) {
-        for (auto& rScalarExpression : _set) {
+        for (const auto& rScalarExpression : _set) {
             rScalarExpression.evaluate({in.data() + iDim, 1}, {pValue++, 1});
         } // for rScalarExpression in _set
     } // for iDim in range(Dim)
@@ -668,9 +656,9 @@ requires (!hasStaticBasis) {
     constexpr unsigned ansatzBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
 
     // Required size of the value buffer in bytes.
-    unsigned valueBufferSize = sizeof(Value) * intPow(_set.size(), Dim);
+    unsigned valueBufferSize = intPow(_set.size(), Dim);
 
-    return (ansatzBufferOffset + valueBufferSize) / sizeof(Value);
+    return ansatzBufferOffset / sizeof(Value) + valueBufferSize;
 }
 
 

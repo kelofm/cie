@@ -234,7 +234,7 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
                 DynamicArray<Value> valueBuffer(ansatzSize);
 
                 // Loop through all sample points and evaluate all basis functions at
-                // there. Then check which ones coincide and erase the pairs from the
+                // them. Then check which ones coincide and erase the pairs from the
                 // map that don't.
                 for (auto& rSamplePoint : samplePoints) {
                     // For practical reasons, we're not looping over boundaries, but
@@ -282,12 +282,13 @@ AnsatzMap<Dimension,TValue>::AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
 
                         DynamicArray<std::pair<Size,Size>> value;
                         value.reserve(it->second.size());
-                        std::transform(it->second.begin(),
-                                       it->second.end(),
-                                       std::back_inserter(value),
-                                       [iAnsatz](const Size iOtherAnsatz) -> std::pair<Size,Size> {
-                                            return std::make_pair(iAnsatz, iOtherAnsatz);
-                                       });
+                        std::transform(
+                            it->second.begin(),
+                            it->second.end(),
+                            std::back_inserter(value),
+                            [iAnsatz](const Size iOtherAnsatz) -> std::pair<Size,Size> {
+                                 return std::make_pair(iAnsatz, iOtherAnsatz);
+                            });
 
                         std::copy(value.begin(),
                                   value.end(),

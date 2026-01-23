@@ -439,6 +439,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 } // namespace cie::fem
 
 int main(int argc, const char** argv) {
+    const auto logBlock = cie::utils::LoggerSingleton::get().newBlock("main");
     cie::utils::ArgParse parser("2D Poisson Example");
     parser
         .addKeyword(
@@ -446,21 +447,6 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::DefaultValue {"31"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
             "Resolution (number of nodes per direction.)")
-        .addKeyword(
-            {"-p", "--polynomial-order"},
-            cie::utils::ArgParse::DefaultValue {"5"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Polynomial order of the ansatz space.")
-        .addKeyword(
-            {"-i", "--integration-order"},
-            cie::utils::ArgParse::DefaultValue {"6"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Integration order for volumetric integrands.")
-        .addKeyword(
-            {"--boundary-integration-order"},
-            cie::utils::ArgParse::DefaultValue {"6"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Integration order for boundary integrands.")
         .addKeyword(
             {"--boundary-resolution"},
             cie::utils::ArgParse::DefaultValue {"20"},

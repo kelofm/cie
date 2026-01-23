@@ -127,7 +127,6 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     DynamicArray<StaticArray<Scalar,2*Dimension+1>> boundarySegments; // {p0x, p0y, p1x, p1y, level}
     const unsigned boundaryResolution = rArguments.get<std::size_t>("boundary-resolution");
-    const unsigned boundaryIntegrationOrder = rArguments.get<std::size_t>("boundary-integration-order");
 
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh(boundaryResolution);

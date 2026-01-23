@@ -67,31 +67,36 @@ requires (isBuffered)
 
 template <maths::Expression TAnsatzDerivatives>
 void LinearIsotropicStiffnessIntegrand<TAnsatzDerivatives>::evaluate(ConstSpan in, Span out) const {
-
-    unsigned derivativeComponentCount = 0u;
     if constexpr (maths::StaticExpression<TAnsatzDerivatives>) {
-        derivativeComponentCount = TAnsatzDerivatives::size();
+        constexpr unsigned derivativeComponentCount = TAnsatzDerivatives::size();
+        constexpr unsigned ansatzCount = derivativeComponentCount / Dimension;
+        _ansatzDerivatives.evaluate(in, {_buffer.data(), derivativeComponentCount});
+
+        using DerivativeMatrix = Eigen::Matrix<Value,Dimension,ansatzCount,Eigen::RowMajor>;
+        using OutputMatrix = Eigen::Matrix<Value,ansatzCount,ansatzCount,Eigen::RowMajor>;
+        Eigen::Map<DerivativeMatrix> derivativeAdaptor(_buffer.data());
+        Eigen::Map<OutputMatrix> outputAdaptor(
+            out.data(),
+            ansatzCount,
+            ansatzCount);
+        outputAdaptor.noalias() = _modulus * derivativeAdaptor.transpose().lazyProduct(derivativeAdaptor);
     } else {
-        derivativeComponentCount = _ansatzDerivatives.size();
+        const unsigned derivativeComponentCount = _ansatzDerivatives.size();
+        const unsigned ansatzCount = derivativeComponentCount / Dimension;
+        _ansatzDerivatives.evaluate(in, {_buffer.data(), derivativeComponentCount});
+
+        using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
+        using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
+        EigenAdaptor derivativeAdaptor(
+            _buffer.data(),
+            Dimension,
+            ansatzCount);
+        EigenAdaptor outputAdaptor(
+            out.data(),
+            ansatzCount,
+            ansatzCount);
+        outputAdaptor.noalias() = _modulus * derivativeAdaptor.transpose().lazyProduct(derivativeAdaptor);
     }
-
-    const unsigned ansatzCount = derivativeComponentCount / Dimension;
-    _ansatzDerivatives.evaluate(in, {_buffer.data(), derivativeComponentCount});
-
-    using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
-    using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
-
-    EigenAdaptor derivativeAdaptor(
-        _buffer.data(),
-        Dimension,
-        ansatzCount);
-    EigenAdaptor outputAdaptor(
-        out.data(),
-        ansatzCount,
-        ansatzCount);
-
-    //derivativeTransposeAdaptor.transposeInPlace();
-    outputAdaptor.noalias() = _modulus * derivativeAdaptor.transpose().lazyProduct(derivativeAdaptor);
 }
 
 

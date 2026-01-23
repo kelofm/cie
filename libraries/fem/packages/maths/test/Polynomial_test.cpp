@@ -210,6 +210,90 @@ CIE_TEST_CASE("Polynomial", "[maths]")
                 CIE_TEST_CHECK(result == Approx(reference));
             }
         }
+
+        {
+            const Polynomial<double,1>::Coefficients coefficients { 0.0, -1.0};
+            const DynamicArray<std::pair<double,double>> argumentValuePairs {
+                { 0.0,  0.0},
+                { 1.0, -1.0},
+                { 2.0, -2.0},
+                {-1.0,  1.0},
+                {-2.0,  2.0}
+            };
+
+            #define CIE_TMP_CHECK(POLYNOMIAL)                                       \
+                for (const auto& [argument, reference] : argumentValuePairs) {      \
+                    CIE_TEST_CHECK_NOTHROW(POLYNOMIAL.evaluate(                     \
+                        {&argument, (&argument) + 1},                               \
+                        {&result, (&result) + 1}));                                 \
+                    CIE_TEST_CHECK(result == Approx(reference));                    \
+                }
+
+            // Check construction.
+            CIE_TEST_REQUIRE_NOTHROW(Polynomial<double,1>(coefficients));
+            Polynomial<double,1> polynomial(coefficients);
+
+            // Check evaluation.
+            CIE_TMP_CHECK(polynomial)
+
+            // Check move constructor.
+            {
+                auto pSwap = std::make_unique<Polynomial<double,1>>(coefficients);
+                Polynomial<double,1> other = std::move(*pSwap);
+                pSwap.reset();
+                CIE_TMP_CHECK(other)
+            }
+
+            // Check copy constructor.
+            {
+                auto pSwap = std::make_unique<Polynomial<double,1>>(coefficients);
+                Polynomial<double,1> other = *pSwap;
+                CIE_TMP_CHECK((*pSwap))
+                CIE_TMP_CHECK(other)
+                pSwap.reset();
+                CIE_TMP_CHECK(other)
+            }
+
+            // Check move assignment operator.
+            {
+                auto pSwap = std::make_unique<Polynomial<double,1>>(coefficients);
+                Polynomial<double,1> other;
+                other = std::move(*pSwap);
+                pSwap.reset();
+                CIE_TMP_CHECK(other)
+            }
+
+            // Check copy assignment operator.
+            {
+                auto pSwap = std::make_unique<Polynomial<double,1>>(coefficients);
+                Polynomial<double,1> other;
+                other = *pSwap;
+                CIE_TMP_CHECK((*pSwap))
+                pSwap.reset();
+                CIE_TMP_CHECK(other)
+            }
+
+            #undef CIE_TMP_CHECK
+
+            // Check derivative construction.
+            CIE_TEST_REQUIRE_NOTHROW(polynomial.makeDerivative());
+            const auto derivative = polynomial.makeDerivative();
+
+            // Check derivative evalutaion.
+            const DynamicArray<std::pair<double,double>> derivativeArgumentValuePairs {
+                { 0.0, -1.0},
+                { 1.0, -1.0},
+                { 2.0, -1.0},
+                {-1.0, -1.0},
+                {-2.0, -1.0}
+            };
+            for (const auto& [argument, reference] : derivativeArgumentValuePairs) {
+                CIE_TEST_CHECK_NOTHROW(derivative.evaluate(
+                    {&argument, (&argument) + 1},
+                    {&result, (&result) + 1}));
+                CIE_TEST_CHECK(result == Approx(reference));
+            }
+        }
     }
 }
 

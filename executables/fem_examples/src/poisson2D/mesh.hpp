@@ -109,7 +109,7 @@ void generateMesh(Ref<Mesh> rMesh,
         rMesh.data() = MeshData(
             std::move(ansatzSpace),
             std::move(ansatzDerivative));
-    }
+        }
 
     // Insert cells into the adjacency graph
     const Scalar edgeLength = 1.0 / (nodesPerDirection - 1);

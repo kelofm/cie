@@ -43,12 +43,12 @@ private:
 
     static inline constexpr std::size_t ansatzBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
 
-    static inline constexpr std::size_t valueBufferSize = intPow(BasisCount, Dim) * sizeof(Value);
+    static inline constexpr std::size_t valueBufferSize = intPow(BasisCount, Dim);
 
-    static inline constexpr std::size_t derivativeBufferOffset = ansatzBufferOffset + valueBufferSize;
+    static inline constexpr std::size_t derivativeBufferOffset = ansatzBufferOffset + valueBufferSize * sizeof(Value);
 
 public:
-    static inline constexpr std::size_t staticBufferSize = (derivativeBufferOffset + valueBufferSize) / sizeof(Value);
+    static inline constexpr std::size_t staticBufferSize = derivativeBufferOffset / sizeof(Value) + valueBufferSize;
 
     constexpr AnsatzSpaceDerivativeView() noexcept;
 
@@ -257,12 +257,12 @@ public:
 private:
     static inline constexpr std::size_t indexBufferSize = Dim * sizeof(unsigned);
 
-    static inline constexpr std::size_t ansatzBufferOffset = (indexBufferSize / sizeof(Value) + (indexBufferSize % sizeof(Value) != 0)) * sizeof(Value);
+    static inline constexpr std::size_t ansatzBufferOffset = (indexBufferSize / sizeof(Value) + ((indexBufferSize % sizeof(Value)) != 0)) * sizeof(Value);
 
-    static inline constexpr std::size_t valueBufferSize = intPow(BasisCount, Dim) * sizeof(Value);
+    static inline constexpr std::size_t valueBufferSize = intPow(BasisCount, Dim);
 
 public:
-    static inline constexpr std::size_t staticBufferSize = valueBufferSize / sizeof(Value);
+    static inline constexpr std::size_t staticBufferSize = ansatzBufferOffset / sizeof(Value) + valueBufferSize;
 
     constexpr AnsatzSpaceView() noexcept;
 

@@ -49,7 +49,13 @@ public:
     void evaluate(Ref<const TExpression> rExpression,
                   std::span<TValue> out) const noexcept {
         rExpression.evaluate(Kernel<Dimension,TValue>::decay(this->position()), out);
-        for (TValue& rComponent : out) rComponent *= this->weight();
+        std::transform(
+            out.begin(),
+            out.end(),
+            out.begin(),
+            [weight = this->weight()] (TValue value) -> TValue {
+                return value * weight;
+            });
     }
 
     constexpr std::span<const Value,Dim> position() const noexcept {
