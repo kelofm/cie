@@ -98,7 +98,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
                            -Wno-dangling-reference -Wno-maybe-uninitialized)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_compile_options(${PROJECT_NAME} PUBLIC
-                           -Wall -Wpedantic -Wextra -Werror)
+                           -Wall -Wpedantic -Wextra -Werror
+                           -Wno-unknown-cuda-version)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     target_compile_options(${PROJECT_NAME} PUBLIC
                            -Wall -Wpedantic -Wextra -Werror)

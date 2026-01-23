@@ -42,7 +42,8 @@ foreach(driver ${drivers})
                                -Wall
                                -Wpedantic
                                -Wextra
-                               -Werror)
+                               -Werror
+                               -Wno-unknown-cuda-version)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
         target_compile_options(${driver_name} PRIVATE
                                -Wall

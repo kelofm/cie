@@ -7,10 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
-set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
-set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
-set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
-set(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS                      OFF CACHE BOOL "Enable macros for checking division by zero errors.")
 set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY              ON CACHE BOOL "build shared libraries instead of static ones")
 set(${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE               ON CACHE BOOL "build python bindings for ${PROJECT_NAME}")
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
@@ -25,23 +21,6 @@ if (NOT TARGET geo)
     find_package(geo REQUIRED)
 endif()
 
-# Compile definitions
-if (${PROJECT_NAME_UPPER}_ENABLE_EXCEPTION_TRACING)
-    add_compile_definitions(CIE_ENABLE_EXCEPTION_TRACING=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
-    add_compile_definitions(CIE_ENABLE_PROFILING=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_OUT_OF_RANGE_CHECKS)
-    add_compile_definitions(CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    add_compile_definitions(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
-endif()
-
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_compile_options(-Wall -Wpedantic -Wextra
                         -Wno-dangling-reference
@@ -52,7 +31,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
                         -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror
-                        -Wno-dangling-field)
+                        -Wno-dangling-field
+                        -Wno-unknown-cuda-version)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
