@@ -134,48 +134,32 @@ struct QuadraturePointData {
 namespace cie::fem {
 
 
-class IntegrandRange {
-public:
-    IntegrandRange()
-        : _quadraturePointData(SYCLSingleton::makeSharedAllocator<QuadraturePointData>()),
-          _extents()
-    {}
+auto makeJob(std::span<QuadraturePointData> quadraturePointData,
+             std::span<const CellExtents::Value> cellExtents,
+             std::size_t integrandsPerItem = 1) {
+    return [
+        pQuadraturePointBegin   = quadraturePointData.data(),
+        pCellExtentBegin        = cellExtents.data(),
+        pCellExtentEnd          = cellExtents.data() + cellExtents.size(),
+        quadraturePointCount    = quadraturePointData.size(),
+        integrandsPerItem]
+            (auto index) -> void {
+                // Compute linear index.
+                using TIndex = std::remove_cvref_t<decltype(index)>;
+                std::size_t iItem = 0ul;
+                if constexpr (concepts::UnsignedInteger<TIndex>) {
+                    iItem = index;
+                } else {
+                    iItem = index.get_linear_id();
+                }
 
-    void setQuadraturePointCount(std::size_t count) {
-        _quadraturePointData.resize(count);
-    }
+                // Map to quadrature point range begin.
+                const std::size_t iQuadraturePointBegin = iItem * integrandsPerItem;
+                const std::size_t iQuadraturePointEnd = iQuadraturePointBegin + integrandsPerItem;
 
-    Ref<QuadraturePoint<Dimension,Scalar>> getQuadraturePoint(std::size_t iPoint) {
-        return _quadraturePointData[iPoint].point;
-    }
+                for (std::size_t iQuadraturePoint=iQuadraturePointBegin; iQuadraturePoint<iQuadraturePointEnd; ++iQuadraturePoint) {
+                    if (quadraturePointCount <= iQuadraturePoint) break;
 
-    void evaluate(Ref<const Assembler> rAssembler,
-                  [[maybe_unused]] OptionalRef<mp::ThreadPoolBase> rMaybeThreads,
-                  CSRWrapper lhs) {
-        const auto cellExtents = _extents.get();
-
-        if (cellExtents.empty()) return;
-        auto logBlock = utils::LoggerSingleton::get().newBlock(
-            "evaluate integrand at "
-            + std::to_string(std::get<std::size_t>(cellExtents.back()))
-            + " quadrature points");
-        std::cout << "device memory footprint "
-                  << std::get<std::size_t>(cellExtents.back()) * sizeof(QuadraturePointData)
-                     + cellExtents.size() * sizeof(decltype(cellExtents)::value_type)
-                  << "\n";
-
-        // Evaluate integrands at quadrature points.
-        const auto job = [
-            pQuadraturePointBegin = _quadraturePointData.data(),
-            pCellExtentBegin = cellExtents.data(),
-            pCellExtentEnd = cellExtents.data() + cellExtents.size()]
-                (auto index) -> void {
-                    std::size_t iQuadraturePoint = 0ul;
-                    if constexpr (concepts::UnsignedInteger<decltype(index)>) {
-                        iQuadraturePoint = index;
-                    } else {
-                        iQuadraturePoint = index.get_linear_id();
-                    }
                     Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint].point;
 
                     // Find which integrand the given quadrature point belongs to.
@@ -194,24 +178,100 @@ public:
                         pQuadraturePointBegin[iQuadraturePoint].output.data(),
                         StiffnessIntegrand::size());
                     rQuadraturePoint.evaluate(integrand, output);
-                };
+                }
+            };
+}
 
-        if (rMaybeThreads.has_value()) {
-            mp::ParallelFor<>(rMaybeThreads.value())(
-                _quadraturePointData.size(),
-                job);
-        } else {
-            #ifdef CIE_ENABLE_SYCL
+
+auto makeSingleJob(std::span<QuadraturePointData> quadraturePointData,
+                   std::span<const CellExtents::Value> cellExtents) {
+    return [
+        pQuadraturePointBegin = quadraturePointData.data(),
+        pCellExtentBegin = cellExtents.data(),
+        pCellExtentEnd = cellExtents.data() + cellExtents.size()]
+            (auto index) -> void {
+                using TIndex = std::remove_cvref_t<decltype(index)>;
+                std::size_t iQuadraturePoint = 0ul;
+                if constexpr (concepts::UnsignedInteger<TIndex>) {
+                    iQuadraturePoint = index;
+                } else {
+                    iQuadraturePoint = index.get_linear_id();
+                }
+                Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint].point;
+
+                // Find which integrand the given quadrature point belongs to.
+                auto pExtent = std::upper_bound(
+                    pCellExtentBegin,
+                    pCellExtentEnd,
+                    iQuadraturePoint,
+                    [](std::size_t iQuadraturePoint, Ref<const CellExtents::Value> rExtent) -> bool {
+                        return iQuadraturePoint < std::get<std::size_t>(rExtent);
+                    });
+                if (iQuadraturePoint < std::get<std::size_t>(*pExtent)) --pExtent;
+
+                // Evaluate the integrand.
+                const StiffnessIntegrand integrand = std::get<StiffnessIntegrand>(*pExtent);
+                std::span<Scalar> output(
+                    pQuadraturePointBegin[iQuadraturePoint].output.data(),
+                    StiffnessIntegrand::size());
+                rQuadraturePoint.evaluate(integrand, output);
+            };
+}
+
+
+class IntegrandRange {
+public:
+    IntegrandRange()
+        : _quadraturePointData(SYCLSingleton::makeSharedAllocator<QuadraturePointData>()),
+          _extents()
+    {}
+
+    void setQuadraturePointCount(std::size_t count) {
+        _quadraturePointData.resize(count);
+    }
+
+    Ref<QuadraturePoint<Dimension,Scalar>> getQuadraturePoint(std::size_t iPoint) {
+        return _quadraturePointData[iPoint].point;
+    }
+
+    void evaluate(Ref<const Assembler> rAssembler,
+                  Ref<mp::ThreadPoolBase> rThreads,
+                  bool useSYCL,
+                  CSRWrapper lhs) {
+        const auto cellExtents = _extents.get();
+
+        if (cellExtents.empty()) return;
+        auto logBlock = utils::LoggerSingleton::get().newBlock(
+            "evaluate integrand at "
+            + std::to_string(std::get<std::size_t>(cellExtents.back()))
+            + " quadrature points");
+        std::cout << "device memory footprint "
+                  << std::get<std::size_t>(cellExtents.back()) * sizeof(QuadraturePointData)
+                     + cellExtents.size() * sizeof(decltype(cellExtents)::value_type)
+                  << "\n";
+
+        #ifdef CIE_ENABLE_SYCL
+            if (useSYCL) {
+//                constexpr std::size_t integrandsPerItem = 0x10;
                 SYCLSingleton::getQueue().parallel_for(
+//                    sycl::range(_quadraturePointData.size() / integrandsPerItem + bool(_quadraturePointData.size() % integrandsPerItem)),
+//                    makeJob(
+//                        _quadraturePointData,
+//                        cellExtents,
+//                        integrandsPerItem)
                     sycl::range(_quadraturePointData.size()),
-                    job
+                    makeSingleJob(_quadraturePointData, cellExtents)
                 ).wait_and_throw();
-            #else
-                std::ranges::for_each(
-                    std::views::iota(0ul) | std::views::take(_quadraturePointData.size()),
-                    job);
-            #endif
-        }
+            } else {
+                mp::ParallelFor<>(rThreads).operator()(
+                    _quadraturePointData.size(),
+                    makeSingleJob(_quadraturePointData, cellExtents));
+            }
+        #else
+            mp::ParallelFor<>(rThreads).operator()(
+                _quadraturePointData.size(),
+                makeSingleJob(_quadraturePointData, cellExtents));
+        #endif
 
         // Reduce the results and map them to the LHS matrix.
         constexpr unsigned integrandOutputSize = StiffnessIntegrand::size();
@@ -258,9 +318,11 @@ private:
 void integrateStiffness(Ref<const Mesh> rMesh,
                         Ref<const Assembler> rAssembler,
                         CSRWrapper lhs,
-                        std::size_t quadratureBatchSize,
-                        OptionalRef<mp::ThreadPoolBase> rMaybeThreads) {
+                        Ref<const utils::ArgParse::Results> rArguments,
+                        Ref<mp::ThreadPoolBase> rThreads) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
+    const std::size_t quadratureBatchSize = rArguments.get<std::size_t>("integrand-batch-size");
+    const bool useSYCL = rArguments.get<bool>("gpu");
 
     // Allocate buffers.
     IntegrandRange integrandRange;
@@ -313,7 +375,8 @@ void integrateStiffness(Ref<const Mesh> rMesh,
                 if (integrandRange.extents().size() == quadratureBatchSize) {
                     integrandRange.evaluate(
                         rAssembler,
-                        rMaybeThreads,
+                        rThreads,
+                        useSYCL,
                         lhs);
                     integrandRange.extents().clear();
                 } else break;
@@ -325,7 +388,8 @@ void integrateStiffness(Ref<const Mesh> rMesh,
         integrandRange.setQuadraturePointCount(integrandRange.extents().size());
         integrandRange.evaluate(
             rAssembler,
-            rMaybeThreads,
+            rThreads,
+            useSYCL,
             lhs);
     }
 }

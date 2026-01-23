@@ -93,8 +93,11 @@ public:
         DynamicArray<QuadraturePoint<1,Scalar>> basePoints;
         OuterProductQuadraturePointFactory<Dimension,Scalar> generator;
 
-        {
-            GaussLegendreQuadrature<Scalar> quadrature(integrationOrder);
+        CIE_BEGIN_EXCEPTION_TRACING
+            GaussLegendreQuadrature<Scalar> quadrature(
+                integrationOrder,
+                utils::Comparison<Scalar>(1e-14, 1e-14),
+                /*maxNewtonIterations=*/200ul);
             basePoints.reserve(quadrature.numberOfNodes());
             for (std::size_t iNode=0ul; iNode<quadrature.numberOfNodes(); ++iNode) {
                 basePoints.emplace_back(
@@ -102,7 +105,7 @@ public:
                     quadrature.weights()[iNode]);
             }
             generator = OuterProductQuadraturePointFactory<Dimension,Scalar>(basePoints);
-        }
+        CIE_END_EXCEPTION_TRACING
 
         // Generate nD quadrature points.
         constexpr std::size_t initialSize = 0x10;

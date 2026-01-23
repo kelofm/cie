@@ -146,8 +146,10 @@ struct GaussLegendreInitializer
             }
 
             CIE_CHECK(converged,
-                      "Computation of Gauss-Legendre nodes failed to converge within "
-                      << maxIterations << " iterations for node " << index << "\n")
+                      "Calculation of Gauss-Legendre nodes failed to converge within "
+                      << maxIterations << " iterations for node " << index
+                      << "/" << integrationOrder
+                      << " (" << legendreValue << " residual).\n")
 
             T weight = 2 / legendreDerivative / legendreDerivative / oneMinusNode2;
             Size symmetricIndex       = integrationOrder - index - 1;
@@ -183,9 +185,10 @@ template <concepts::Numeric NT>
 GaussLegendreQuadrature<NT>::GaussLegendreQuadrature(Size integrationOrder,
                                                      utils::Comparison<NT> comparison,
                                                      Size maxNewtonIterations)
-    : QuadratureBase<NT>(GaussLegendreInitializer<NT>::getNodesAndWeights(integrationOrder,
-                                                                          comparison,
-                                                                          maxNewtonIterations))
+    : QuadratureBase<NT>(GaussLegendreInitializer<NT>::getNodesAndWeights(
+        integrationOrder,
+        comparison,
+        maxNewtonIterations))
 {
 }
 

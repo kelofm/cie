@@ -27,10 +27,12 @@ public:
 public:
     GaussLegendreQuadrature() noexcept = default;
 
-    GaussLegendreQuadrature(Size integrationOrder,
-                            utils::Comparison<NT> comparison = {0x100 * std::numeric_limits<NT>::epsilon(),
-                                                                0x100 * std::numeric_limits<NT>::epsilon()},
-                            Size maxNewtonIterations = 50ul);
+    GaussLegendreQuadrature(
+        Size integrationOrder,
+        utils::Comparison<NT> comparison = {
+            0x100 * std::numeric_limits<NT>::epsilon(),
+            0x100 * std::numeric_limits<NT>::epsilon()},
+        Size maxNewtonIterations = 50ul);
 }; // class GaussLegendreQuadrature
 
 ///@}

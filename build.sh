@@ -215,6 +215,7 @@ if ! cmake                                                  \
     "-DCMAKE_CXX_FLAGS=${cmakeCxxFlags}"                    \
     "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"                     \
     "-DCIE_ENABLE_SYCL=${enableSYCL}"                       \
+    "-DCIE_ENABLE_HDF5=ON"                                  \
     "$cCacheFlag"                                           \
     "${cmakeArguments[@]}"                                  \
     "${projects[@]}"                                        \

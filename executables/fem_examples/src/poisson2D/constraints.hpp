@@ -134,7 +134,10 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
     using TreePrimitive = geo::Cube<1,Scalar>;
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
 
-    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(boundaryIntegrationOrder)));
+    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(
+        boundaryIntegrationOrder,
+        utils::Comparison<Scalar>(1e-14, 1e-14),
+        /*maxNewtonIterations=*/200ul)));
     DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpace().size(), Dimension)
                                           + rMesh.data().ansatzSpace().size());
     DynamicArray<Scalar> integrandBuffer;

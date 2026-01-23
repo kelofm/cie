@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
+set(CIE_ENABLE_HDF5                                         OFF CACHE BOOL "build with HDF5 IO support")
 set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY              ON CACHE BOOL "build shared libraries instead of static ones")
 set(${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE               ON CACHE BOOL "build python bindings for ${PROJECT_NAME}")
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
@@ -19,6 +20,10 @@ list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
 find_package(LibXml2 REQUIRED)
 if (NOT TARGET geo)
     find_package(geo REQUIRED)
+endif()
+
+if (${CIE_ENABLE_HDF5} MATCHES ON)
+    find_package(HDF5 REQUIRED COMPONENTS CXX)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -52,6 +57,13 @@ add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
                       PUBLIC cie::cieutils cie::linalg cie::geo
                       PRIVATE LibXml2::LibXml2)
+
+if (${CIE_ENABLE_HDF5} MATCHES ON)
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PUBLIC hdf5::hdf5_cpp)
+endif()
+
 target_include_directories(${PROJECT_NAME}
                            PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
                            INTERFACE "$<INSTALL_INTERFACE:cie/include>"

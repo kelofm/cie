@@ -88,9 +88,14 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     DynamicArray<double> entries;
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("compute sparsity pattern");
-        assembler.makeCSRMatrix(rowCount, columnCount, rowExtents, columnIndices, entries);
+        assembler.makeCSRMatrix(
+            rowCount,
+            columnCount,
+            rowExtents,
+            columnIndices,
+            entries);
     }
-    DynamicArray<Scalar> rhs(rowCount, 0.0), constraintRHS(rowCount, 0.0);
+    DynamicArray<Scalar> rhs(rowCount, 0.0);
     CSRWrapper lhs {
         .rowCount = rowCount,
         .columnCount = columnCount,
@@ -109,25 +114,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         rArguments);
 
     // Compute element contributions and assemble them into the matrix
-    OptionalRef<mp::ThreadPoolBase> rMaybeThreads;
-    #ifdef CIE_ENABLE_SYCL
-        if (!rArguments.get<bool>("gpu"))
-            rMaybeThreads = threads;
-    #endif
-
     integrateStiffness(
         mesh,
         assembler,
         lhs,
-        rArguments.get<std::size_t>("integrand-batch-size"),
-        rMaybeThreads);
-
-    //std::transform(
-    //    rhs.begin(),
-    //    rhs.end(),
-    //    constraintRHS.begin(),
-    //    rhs.begin(),
-    //    std::plus<Scalar>());
+        rArguments,
+        threads);
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
