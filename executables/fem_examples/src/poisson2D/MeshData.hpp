@@ -52,10 +52,10 @@ private:
         }
 
         struct Impl {
-            ~Impl() {
-                pQueue.reset();
-                pDevice.reset();
-            }
+            //~Impl() {
+            //    pQueue.reset();
+            //    pDevice.reset();
+            //}
             std::unique_ptr<sycl::device> pDevice;
             std::unique_ptr<sycl::queue> pQueue;
         };

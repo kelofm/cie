@@ -81,7 +81,7 @@ namespace cie::fem::maths {
             CIE_TEST_CHECK_NOTHROW(transformDerivative = transform.makeDerivative());                                       \
                                                                                                                             \
             for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
-                StaticArray<double,4> jacobian {0.0, 0.0, 0.0, 0.0};                                                        \
+                std::array<double,4> jacobian {0.0, 0.0, 0.0, 0.0};                                                         \
                 CIE_TEST_REQUIRE(transformDerivative.size() == jacobian.size());                                            \
                 transformDerivative.evaluate(locals[iPoint], {jacobian.data(), jacobian.data() + jacobian.size()});         \
                 CIE_TEST_CHECK(jacobian[0] == Approx(-2.0));                                                                \

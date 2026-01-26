@@ -78,9 +78,7 @@ public:
         std::size_t,
         StiffnessIntegrand>;
 
-    CellExtents()
-        : _extents(SYCLSingleton::makeSharedAllocator<Value>())
-    {
+    CellExtents(){
         this->clear();
     }
 
@@ -113,19 +111,19 @@ public:
         std::get<VertexID>(_extents.back()) = std::numeric_limits<unsigned>::max();
     }
 
-    std::span<const Value> get() const noexcept {
+    std::span<Value> get() noexcept {
         return _extents;
     }
 
 private:
-    DynamicSharedArray<Value> _extents;
+    DynamicArray<Value> _extents;
 }; // class CellExtents
 
 
-struct QuadraturePointData {
-    QuadraturePoint<Dimension,Scalar> point;
-    std::array<Scalar,StiffnessIntegrand::size()> output;
-};
+//struct QuadraturePointData {
+//     point;
+//    //std::array<Scalar,StiffnessIntegrand::size()> output;
+//};
 
 
 } // namespace cie::fem
@@ -134,170 +132,31 @@ struct QuadraturePointData {
 namespace cie::fem {
 
 
-auto makeJob(std::span<QuadraturePointData> quadraturePointData,
-             std::span<const CellExtents::Value> cellExtents,
-             std::size_t integrandsPerItem = 1) {
-    return [
-        pQuadraturePointBegin   = quadraturePointData.data(),
-        pCellExtentBegin        = cellExtents.data(),
-        pCellExtentEnd          = cellExtents.data() + cellExtents.size(),
-        quadraturePointCount    = quadraturePointData.size(),
-        integrandsPerItem]
-            (auto index) -> void {
-                // Compute linear index.
-                using TIndex = std::remove_cvref_t<decltype(index)>;
-                std::size_t iItem = 0ul;
-                if constexpr (concepts::UnsignedInteger<TIndex>) {
-                    iItem = index;
-                } else {
-                    iItem = index.get_linear_id();
-                }
-
-                // Map to quadrature point range begin.
-                const std::size_t iQuadraturePointBegin = iItem * integrandsPerItem;
-                const std::size_t iQuadraturePointEnd = iQuadraturePointBegin + integrandsPerItem;
-
-                for (std::size_t iQuadraturePoint=iQuadraturePointBegin; iQuadraturePoint<iQuadraturePointEnd; ++iQuadraturePoint) {
-                    if (quadraturePointCount <= iQuadraturePoint) break;
-
-                    Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint].point;
-
-                    // Find which integrand the given quadrature point belongs to.
-                    auto pExtent = std::upper_bound(
-                        pCellExtentBegin,
-                        pCellExtentEnd,
-                        iQuadraturePoint,
-                        [](std::size_t iQuadraturePoint, Ref<const CellExtents::Value> rExtent) -> bool {
-                            return iQuadraturePoint < std::get<std::size_t>(rExtent);
-                        });
-                    if (iQuadraturePoint < std::get<std::size_t>(*pExtent)) --pExtent;
-
-                    // Evaluate the integrand.
-                    const StiffnessIntegrand integrand = std::get<StiffnessIntegrand>(*pExtent);
-                    std::span<Scalar> output(
-                        pQuadraturePointBegin[iQuadraturePoint].output.data(),
-                        StiffnessIntegrand::size());
-                    rQuadraturePoint.evaluate(integrand, output);
-                }
-            };
-}
-
-
-auto makeSingleJob(std::span<QuadraturePointData> quadraturePointData,
-                   std::span<const CellExtents::Value> cellExtents) {
-    return [
-        pQuadraturePointBegin = quadraturePointData.data(),
-        pCellExtentBegin = cellExtents.data(),
-        pCellExtentEnd = cellExtents.data() + cellExtents.size()]
-            (auto index) -> void {
-                using TIndex = std::remove_cvref_t<decltype(index)>;
-                std::size_t iQuadraturePoint = 0ul;
-                if constexpr (concepts::UnsignedInteger<TIndex>) {
-                    iQuadraturePoint = index;
-                } else {
-                    iQuadraturePoint = index.get_linear_id();
-                }
-                Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint].point;
-
-                // Find which integrand the given quadrature point belongs to.
-                auto pExtent = std::upper_bound(
-                    pCellExtentBegin,
-                    pCellExtentEnd,
-                    iQuadraturePoint,
-                    [](std::size_t iQuadraturePoint, Ref<const CellExtents::Value> rExtent) -> bool {
-                        return iQuadraturePoint < std::get<std::size_t>(rExtent);
-                    });
-                if (iQuadraturePoint < std::get<std::size_t>(*pExtent)) --pExtent;
-
-                // Evaluate the integrand.
-                const StiffnessIntegrand integrand = std::get<StiffnessIntegrand>(*pExtent);
-                std::span<Scalar> output(
-                    pQuadraturePointBegin[iQuadraturePoint].output.data(),
-                    StiffnessIntegrand::size());
-                rQuadraturePoint.evaluate(integrand, output);
-            };
-}
-
-
 class IntegrandRange {
 public:
-    IntegrandRange()
-        : _quadraturePointData(SYCLSingleton::makeSharedAllocator<QuadraturePointData>()),
-          _extents()
-    {}
-
     void setQuadraturePointCount(std::size_t count) {
-        _quadraturePointData.resize(count);
+        _quadraturePoints.resize(count);
     }
 
     Ref<QuadraturePoint<Dimension,Scalar>> getQuadraturePoint(std::size_t iPoint) {
-        return _quadraturePointData[iPoint].point;
+        return _quadraturePoints[iPoint];
     }
 
     void evaluate(Ref<const Assembler> rAssembler,
                   Ref<mp::ThreadPoolBase> rThreads,
                   bool useSYCL,
                   CSRWrapper lhs) {
-        const auto cellExtents = _extents.get();
-
-        if (cellExtents.empty()) return;
+        if (_extents.get().empty()) return;
         auto logBlock = utils::LoggerSingleton::get().newBlock(
             "evaluate integrand at "
-            + std::to_string(std::get<std::size_t>(cellExtents.back()))
+            + std::to_string(_quadraturePoints.size())
             + " quadrature points");
-        std::cout << "device memory footprint "
-                  << std::get<std::size_t>(cellExtents.back()) * sizeof(QuadraturePointData)
-                     + cellExtents.size() * sizeof(decltype(cellExtents)::value_type)
-                  << "\n";
 
-        #ifdef CIE_ENABLE_SYCL
-            if (useSYCL) {
-//                constexpr std::size_t integrandsPerItem = 0x10;
-                SYCLSingleton::getQueue().parallel_for(
-//                    sycl::range(_quadraturePointData.size() / integrandsPerItem + bool(_quadraturePointData.size() % integrandsPerItem)),
-//                    makeJob(
-//                        _quadraturePointData,
-//                        cellExtents,
-//                        integrandsPerItem)
-                    sycl::range(_quadraturePointData.size()),
-                    makeSingleJob(_quadraturePointData, cellExtents)
-                ).wait_and_throw();
-            } else {
-                mp::ParallelFor<>(rThreads).operator()(
-                    _quadraturePointData.size(),
-                    makeSingleJob(_quadraturePointData, cellExtents));
-            }
-        #else
-            mp::ParallelFor<>(rThreads).operator()(
-                _quadraturePointData.size(),
-                makeSingleJob(_quadraturePointData, cellExtents));
-        #endif
-
-        // Reduce the results and map them to the LHS matrix.
-        constexpr unsigned integrandOutputSize = StiffnessIntegrand::size();
-        for (std::size_t iCell=0ul; iCell<cellExtents.size()-1; ++iCell) {
-            const VertexID cellID = std::get<VertexID>(cellExtents[iCell]);
-            const std::size_t iBegin = std::get<std::size_t>(cellExtents[iCell]),
-                              iEnd   = std::get<std::size_t>(cellExtents[iCell + 1]);
-            const auto itTargetBegin = _quadraturePointData[iBegin].output.data();
-
-            for (std::size_t iSample=iBegin+1; iSample<iEnd; ++iSample) {
-                const auto itSourceBegin = _quadraturePointData[iSample].output.data();
-                const auto itSourceEnd = itSourceBegin + integrandOutputSize;
-                std::transform(
-                    itSourceBegin,
-                    itSourceEnd,
-                    itTargetBegin,
-                    itTargetBegin,
-                    std::plus<Scalar>());
-            } // for iSample in range(iBegin + 1, iEnd)
-
-            // Map the reduced results to the LHS matrix.
-            addLHSContribution(
-                {itTargetBegin, integrandOutputSize},
-                rAssembler[cellID],
-                lhs);
-        } // for iCell in range(extents.size())
+        if (useSYCL) {
+            this->evaluateSYCL(rAssembler, lhs);
+        } else {
+            this->evaluateHost(rAssembler, rThreads, lhs);
+        }
     }
 
     Ref<CellExtents> extents() noexcept {
@@ -309,7 +168,221 @@ public:
     }
 
 private:
-    DynamicSharedArray<QuadraturePointData> _quadraturePointData;
+    auto makeJob(std::span<QuadraturePoint<Dimension,Scalar>> quadraturePoints,
+                 std::span<const CellExtents::Value> cellExtents,
+                 std::span<Scalar> output) {
+            return [
+                pQuadraturePointBegin   = quadraturePoints.data(),
+                pCellExtentBegin        = cellExtents.data(),
+                pCellExtentEnd          = cellExtents.data() + cellExtents.size(),
+                pOutputBegin            = output.data(),
+                quadraturePointCount    = quadraturePoints.size()]
+                    (std::size_t iQuadraturePoint) -> void {
+                        // Find which integrand the given quadrature point belongs to.
+                        auto pExtent = std::upper_bound(
+                            pCellExtentBegin,
+                            pCellExtentEnd,
+                            iQuadraturePoint,
+                            [](std::size_t iQuadraturePoint, Ref<const CellExtents::Value> rExtent) -> bool {
+                                return iQuadraturePoint < std::get<std::size_t>(rExtent);
+                            });
+                        if (iQuadraturePoint < std::get<std::size_t>(*pExtent)) --pExtent;
+
+                        // Evaluate the integrand.
+                        Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
+                        const auto integrand = std::get<StiffnessIntegrand>(*pExtent);
+                        std::span<Scalar> output(
+                            pOutputBegin + iQuadraturePoint * StiffnessIntegrand::size(),
+                            StiffnessIntegrand::size());
+                        rQuadraturePoint.evaluate(integrand, output);
+                    };
+        }
+
+    void evaluateHost(Ref<const Assembler> rAssembler,
+                      Ref<mp::ThreadPoolBase> rThreads,
+                      CSRWrapper lhs) {
+        CIE_BEGIN_EXCEPTION_TRACING
+        const auto cellExtents = _extents.get();
+        Ptr<CellExtents::Value> pCellExtentBegin = cellExtents.data();
+        Ptr<QuadraturePoint<Dimension,Scalar>> pQuadraturePointBegin = _quadraturePoints.data();
+        DynamicArray<Scalar> output(_quadraturePoints.size() * StiffnessIntegrand::size());
+
+        // Compute integrands.
+        mp::ParallelFor<>(rThreads).operator()(
+            _quadraturePoints.size(),
+            makeJob(
+                {pQuadraturePointBegin, _quadraturePoints.size()},
+                {pCellExtentBegin, cellExtents.size()},
+                output));
+
+        // Reduce and assemble the results.
+        constexpr unsigned integrandOutputSize = StiffnessIntegrand::size();
+        for (std::size_t iCell=0ul; iCell<cellExtents.size()-1; ++iCell) {
+            const VertexID cellID = std::get<VertexID>(cellExtents[iCell]);
+            const std::size_t iBegin = std::get<std::size_t>(cellExtents[iCell]),
+                                iEnd   = std::get<std::size_t>(cellExtents[iCell + 1]);
+            const auto pTargetBegin = output.data() + iBegin * integrandOutputSize;
+
+            for (std::size_t iSample=iBegin+1; iSample<iEnd; ++iSample) {
+                const auto pSourceBegin = output.data() + iSample * integrandOutputSize;
+                const auto pSourceEnd = pSourceBegin + integrandOutputSize;
+                std::transform(
+                    pSourceBegin,
+                    pSourceEnd,
+                    pTargetBegin,
+                    pTargetBegin,
+                    std::plus<Scalar>());
+            } // for iSample in range(iBegin + 1, iEnd)
+
+            // Map the reduced results to the LHS matrix.
+            addLHSContribution(
+                {pTargetBegin, integrandOutputSize},
+                rAssembler[cellID],
+                lhs);
+        } // for iCell in range(extents.size())
+        CIE_END_EXCEPTION_TRACING
+    }
+
+    #ifdef CIE_ENABLE_SYCL
+        auto makeSYCLJob(std::span<QuadraturePoint<Dimension,Scalar>> quadraturePoints,
+                         std::span<const CellExtents::Value> cellExtents,
+                         std::span<Scalar> output,
+                         std::size_t integrandsPerItem = 1) {
+            return [
+                pQuadraturePointBegin   = quadraturePoints.data(),
+                pCellExtentBegin        = cellExtents.data(),
+                pCellExtentEnd          = cellExtents.data() + cellExtents.size(),
+                pOutputBegin            = output.data(),
+                quadraturePointCount    = quadraturePoints.size(),
+                integrandsPerItem]
+                    (auto index) -> void {
+                        // Compute linear index.
+                        const std::size_t iItem = index.get_linear_id();
+
+                        // Map to quadrature point range begin.
+                        const std::size_t iQuadraturePointBegin = iItem * integrandsPerItem;
+                        const std::size_t iQuadraturePointEnd = iQuadraturePointBegin + integrandsPerItem;
+                        std::size_t iLastQuadraturePoint = std::numeric_limits<std::size_t>::max();
+                        StiffnessIntegrand integrand;
+                        std::array<Scalar,StiffnessIntegrand::size()> result;
+
+                        for (std::size_t iQuadraturePoint=iQuadraturePointBegin; iQuadraturePoint<iQuadraturePointEnd; ++iQuadraturePoint) {
+                            if (quadraturePointCount <= iQuadraturePoint) break;
+
+                            Ref<const QuadraturePoint<Dimension,Scalar>> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
+
+                            // Find which integrand the given quadrature point belongs to.
+                            auto pExtent = std::upper_bound(
+                                pCellExtentBegin,
+                                pCellExtentEnd,
+                                iQuadraturePoint,
+                                [](std::size_t iQuadraturePoint, Ref<const CellExtents::Value> rExtent) -> bool {
+                                    return iQuadraturePoint < std::get<std::size_t>(rExtent);
+                                });
+                            if (iQuadraturePoint < std::get<std::size_t>(*pExtent)) --pExtent;
+
+                            if (iLastQuadraturePoint != iQuadraturePoint)
+                                integrand = std::get<StiffnessIntegrand>(*pExtent);
+
+                            // Evaluate the integrand.
+                            rQuadraturePoint.evaluate(integrand, result);
+
+                            std::span<Scalar> output(
+                                pOutputBegin + std::distance(pCellExtentBegin, pExtent) * StiffnessIntegrand::size(),
+                                StiffnessIntegrand::size());
+                            for (std::size_t iComponent=0ul; iComponent<StiffnessIntegrand::size(); ++iComponent) {
+                                sycl::atomic_ref<
+                                    Scalar,
+                                    sycl::memory_order::relaxed,
+                                    sycl::memory_scope::device
+                                >(output[iComponent]) += result[iComponent];
+                            }
+
+                            iLastQuadraturePoint = iQuadraturePoint;
+                        }
+                    };
+        }
+    #endif
+
+    void evaluateSYCL(Ref<const Assembler> rAssembler,
+                      CSRWrapper lhs) {
+        #ifdef CIE_ENABLE_SYCL
+            auto cellExtents = _extents.get();
+            std::cout << "device memory footprint "
+                  << cellExtents.size() * sizeof(CellExtents::Value)
+                     + _quadraturePoints.size() * sizeof(QuadraturePoint<Dimension,Scalar>)
+                     + _quadraturePoints.size() * StiffnessIntegrand::size() * sizeof(Scalar)
+                  << "\n";
+
+            // Allocate device memory.
+            Ref<sycl::queue> rQueue = SYCLSingleton::getQueue();
+            Ptr<CellExtents::Value> pCellExtentBegin = sycl::malloc_device<CellExtents::Value>(
+                    cellExtents.size(),
+                    rQueue);
+            Ptr<QuadraturePoint<Dimension,Scalar>> pQuadraturePointBegin = sycl::malloc_device<QuadraturePoint<Dimension,Scalar>>(
+                    _quadraturePoints.size(),
+                    rQueue);
+            Ptr<Scalar> pOutput = sycl::malloc_device<Scalar>(
+                    (cellExtents.size() - 1) * StiffnessIntegrand::size(),
+                    rQueue);
+
+            // Copy input data to the device.
+            const std::vector<sycl::event> copyEvents {
+                rQueue.submit([cellExtents, pCellExtentBegin](sycl::handler& rHandler) {
+                    rHandler.copy(
+                        cellExtents.data(),
+                        pCellExtentBegin,
+                        cellExtents.size());}),
+                rQueue.submit([this, pQuadraturePointBegin](sycl::handler& rHandler) {
+                    rHandler.copy(
+                        _quadraturePoints.data(),
+                        pQuadraturePointBegin,
+                        _quadraturePoints.size());})};
+
+            // Perform calculation on the device.
+            constexpr std::size_t integrandsPerItem = 0x8;
+            sycl::event computeEvent = rQueue.parallel_for(
+                sycl::range(_quadraturePoints.size() / integrandsPerItem + bool(_quadraturePoints.size() % integrandsPerItem)),
+                copyEvents,
+                makeSYCLJob(
+                    {pQuadraturePointBegin, _quadraturePoints.size()},
+                    {pCellExtentBegin, cellExtents.size()},
+                    {pOutput, (cellExtents.size() - 1) * StiffnessIntegrand::size()},
+                    integrandsPerItem)
+            );
+            computeEvent.wait_and_throw();
+
+            // Fetch results from the device.
+            DynamicArray<Scalar> output((cellExtents.size() - 1) * StiffnessIntegrand::size());
+            auto returnEvent = rQueue.submit([pOutput, &output, this](sycl::handler& rHandler){
+                rHandler.copy(
+                    pOutput,
+                    output.data(),
+                    (_extents.get().size() - 1) * StiffnessIntegrand::size());});
+
+            // Reduce and assemble the results.
+            constexpr unsigned integrandOutputSize = StiffnessIntegrand::size();
+            for (std::size_t iCell=0ul; iCell<cellExtents.size()-1; ++iCell) {
+                const VertexID cellID = std::get<VertexID>(cellExtents[iCell]);
+                const auto pTargetBegin = output.data() + iCell * integrandOutputSize;
+
+                // Map the reduced results to the LHS matrix.
+                addLHSContribution(
+                    {pTargetBegin, integrandOutputSize},
+                    rAssembler[cellID],
+                    lhs);
+            } // for iCell in range(extents.size())
+
+            // Release device memory.
+            sycl::free(pCellExtentBegin, rQueue);
+            sycl::free(pQuadraturePointBegin, rQueue);
+            sycl::free(pOutput, rQueue);
+        #else
+            CIE_THROW(Exception, "Requested SYCL evaluation, but CiE was compiled without SYCL support.")
+        #endif
+    }
+
+    DynamicArray<QuadraturePoint<Dimension,Scalar>> _quadraturePoints;
 
     CellExtents _extents;
 }; // struct IntegrandDataRange

@@ -5,12 +5,12 @@
 #include "packages/io/inc/GraphML.hpp" // io::GraphML::Serializer, io::GraphML::Deserializer
 
 // --- Utility Includes ---
-#include "packages/stl_extension/inc/StaticArray.hpp"
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/macros/inc/typedefs.hpp"
 
 // --- STL Includes ---
 #include <ostream> // std::ostream
+#include <array> // std::array
 
 
 namespace cie::fem::maths {
@@ -67,7 +67,7 @@ private:
     ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> rTransform) noexcept;
 
 private:
-    StaticArray<TValue,Dimension> _scales;
+    std::array<TValue,Dimension> _scales;
 }; // class ScaleTranslateTransformDerivative
 
 
@@ -119,17 +119,17 @@ public:
                                         Ref<const ScaleTranslateTransform<TTNumeric,Dim>> rObject);
 
 private:
-    ScaleTranslateTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
-                            RightRef<StaticArray<TValue,Dimension>> rOffsets) noexcept;
+    ScaleTranslateTransform(RightRef<std::array<TValue,Dimension>> rScales,
+                            RightRef<std::array<TValue,Dimension>> rOffsets) noexcept;
 
 private:
     friend class ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     friend class TranslateScaleTransform<TValue,Dimension>;
 
-    StaticArray<TValue,Dimension> _scales;
+    std::array<TValue,Dimension> _scales;
 
-    StaticArray<TValue,Dimension> _offset;
+    std::array<TValue,Dimension> _offset;
 }; // class ScaleTranslateTransform
 
 
@@ -182,17 +182,17 @@ public:
                                         Ref<const TranslateScaleTransform<TTNumeric,Dim>> rObject);
 
 private:
-    TranslateScaleTransform(RightRef<StaticArray<TValue,Dimension>> rScales,
-                            RightRef<StaticArray<TValue,Dimension>> rOffsets) noexcept;
+    TranslateScaleTransform(RightRef<std::array<TValue,Dimension>> rScales,
+                            RightRef<std::array<TValue,Dimension>> rOffsets) noexcept;
 
 private:
     friend class ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     friend class ScaleTranslateTransform<TValue,Dimension>;
 
-    StaticArray<TValue,Dimension> _scales;
+    std::array<TValue,Dimension> _scales;
 
-    StaticArray<TValue,Dimension> _offset;
+    std::array<TValue,Dimension> _offset;
 }; // class TranslateScaleTransform
 
 
@@ -246,7 +246,7 @@ struct GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
                              std::string_view elementName);
 
 private:
-    StaticArray<TValue,Dimension * 2> _buffer;
+    std::array<TValue,Dimension * 2> _buffer;
 }; // GraphML::Deserializer<ScaleTranslateTransform>
 
 

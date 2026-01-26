@@ -18,6 +18,30 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative() noexcept {
+    std::fill(this->_scales.begin(),
+              this->_scales.end(),
+              static_cast<TValue>(1));
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const ScaleTranslateTransform<TValue,Dimension>> rTransform) noexcept {
+    std::copy(rTransform._scales.begin(),
+              rTransform._scales.end(),
+              this->_scales.begin());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> rTransform) noexcept {
+    std::copy(rTransform._scales.begin(),
+              rTransform._scales.end(),
+              this->_scales.begin());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 void ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, Span out) const noexcept {
     // Return a Dimension x Dimension matrix with _scales on the main diagonal.
     static_assert(0 < Dimension);
@@ -135,7 +159,7 @@ unsigned TranslateScaleTransform<TValue,Dimension>::size() const noexcept {
 template <concepts::Numeric TValue, unsigned Dimension>
 Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
                              Ref<const ScaleTranslateTransform<TValue,Dimension>> rObject) {
-    StaticArray<TValue,Dimension> input, output;
+    std::array<TValue,Dimension> input, output;
 
     std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
     rObject.evaluate(input, output);
@@ -202,8 +226,8 @@ template <concepts::Numeric TValue, unsigned Dimension>
 void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
                                                                                        Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept
 {
-    StaticArray<TValue,Dimension>   input;
-    StaticArray<TValue,2*Dimension> output;
+    std::array<TValue,Dimension>   input;
+    std::array<TValue,2*Dimension> output;
 
     std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
     rObject.evaluate(input, {output.data(), output.data() + Dimension});
@@ -271,7 +295,7 @@ void io::GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
     }
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
-    StaticArray<std::span<TValue>,2> transformed {
+    std::array<std::span<TValue>,2> transformed {
         std::span<TValue>(rThis._buffer.data(),             rThis._buffer.data() + Dimension),
         std::span<TValue>(rThis._buffer.data() + Dimension, rThis._buffer.data() + 2 * Dimension)
     };

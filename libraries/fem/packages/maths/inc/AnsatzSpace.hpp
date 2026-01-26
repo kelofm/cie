@@ -225,13 +225,11 @@ private:
         DynamicArray<typename TScalarExpression::Derivative>
     > _derivativeSet;
 
-    std::conditional_t<
+    mutable std::conditional_t<
         hasStaticBasis,
         std::array<Value,View::staticBufferSize>,
         DynamicArray<Value>
     > _buffer;
-
-    View _wrapped;
 }; // class AnsatzSpaceDerivative
 
 
@@ -428,13 +426,11 @@ private:
 
     AnsatzSet _set;
 
-    std::conditional_t<
+    mutable std::conditional_t<
         hasStaticBasis,
         std::array<Value,View::staticBufferSize>,
         DynamicArray<Value>
     > _buffer;
-
-    AnsatzSpaceView<TScalarExpression,Dim,SetSize> _wrapped;
 }; // class AnsatzSpace
 
 

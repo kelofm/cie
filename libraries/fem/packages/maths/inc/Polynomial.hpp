@@ -189,13 +189,13 @@ public:
     constexpr std::span<const TValue,coefficientCount> coefficients() const noexcept
     requires (hasStaticCoefficients);
 
+    constexpr View makeView() const noexcept;
+
 private:
     template <concepts::Numeric T, int O>
     friend class Polynomial;
 
     Coefficients _coefficients;
-
-    PolynomialView<TValue,PolynomialOrder> _wrapped;
 }; // class Polynomial
 
 

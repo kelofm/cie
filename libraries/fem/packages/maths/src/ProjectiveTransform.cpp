@@ -74,13 +74,6 @@ ProjectiveTransformDerivative<TValue,Dimension>::ProjectiveTransformDerivative(R
 }
 
 
-template <concepts::Numeric TValue, unsigned Dimension>
-unsigned ProjectiveTransformDerivative<TValue,Dimension>::size() const noexcept
-{
-    return Dimension * Dimension;
-}
-
-
 namespace detail {
 
 
@@ -240,13 +233,6 @@ ProjectiveTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<TValue> p
     CIE_BEGIN_EXCEPTION_TRACING
     detail::ComputeProjectiveMatrix<TValue,Dimension>::compute(pTransformedBegin, rMatrix);
     CIE_END_EXCEPTION_TRACING
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
-unsigned ProjectiveTransform<TValue,Dimension>::size() const noexcept
-{
-    return Dimension;
 }
 
 
