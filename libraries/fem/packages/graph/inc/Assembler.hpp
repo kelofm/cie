@@ -11,6 +11,7 @@
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
 #include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
+#include "packages/types/inc/tags.hpp"
 #include "packages/macros/inc/checks.hpp"
 
 // --- STL Includes ---
@@ -44,24 +45,48 @@ public:
 
     explicit Assembler(std::size_t dofBegin) noexcept;
 
-    template <class TVertexData,
-              class TEdgeData,
-              class TGraphData,
-              concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex>> TDoFCounter,
-              concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Edge>,DoFPairIterator> TDoFPairFunctor>
-    void addGraph(Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
-                  TDoFCounter&& rDoFCounter,
-                  TDoFPairFunctor&& rDoFMatcher);
+    template <
+        class TVertexData,
+        class TEdgeData,
+        class TGraphData,
+        concepts::FunctionWithSignature<std::size_t,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex>> TDoFCounter,
+        concepts::FunctionWithSignature<void,Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Edge>,DoFPairIterator> TDoFPairFunctor>
+    void addGraph(
+        Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
+        TDoFCounter&& rDoFCounter,
+        TDoFPairFunctor&& rDoFMatcher);
 
     std::size_t dofCount() const noexcept;
 
     template <class TIndex, class TValue>
-    void makeCSRMatrix(Ref<TIndex> rRowCount,
-                       Ref<TIndex> rColumnCount,
-                       Ref<DynamicArray<TIndex>> rRowExtents,
-                       Ref<DynamicArray<TIndex>> rColumnIndices,
-                       Ref<DynamicArray<TValue>> rNonzeros,
-                       OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
+    void makeCSRMatrix(
+        Ref<TIndex> rRowCount,
+        Ref<TIndex> rColumnCount,
+        Ref<DynamicArray<TIndex>> rRowExtents,
+        Ref<DynamicArray<TIndex>> rColumnIndices,
+        Ref<DynamicArray<TValue>> rNonzeros,
+        OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
+
+    template <
+        TagLike TParallel = tags::SMP,
+        concepts::Integer TIndex,
+        concepts::Numeric TLocalScalar,
+        concepts::Numeric TGlobalScalar>
+    void addContribution(
+        std::span<const TLocalScalar> contribution,
+        VertexID cellID,
+        std::span<const TIndex> rowExtents,
+        std::span<const TIndex> columnIndices,
+        std::span<TGlobalScalar> entries) const;
+
+    template <
+        TagLike TParallel = tags::SMP,
+        concepts::Numeric TLocalScalar,
+        concepts::Numeric TGlobalScalar>
+    void addContribution(
+        std::span<const TLocalScalar> contribution,
+        VertexID cellID,
+        std::span<TGlobalScalar> entries) const;
 
     auto keys() const {
         return std::ranges::views::keys(_dofMap);

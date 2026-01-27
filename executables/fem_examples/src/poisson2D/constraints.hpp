@@ -210,18 +210,18 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                     integrandBuffer.resize(integrand.getMinBufferSize());
                     integrand.setBuffer(integrandBuffer);
                     lineQuadrature.evaluate(integrand, quadratureBuffer);
-                    const auto& rGlobalDofIndices = rAssembler[rCell.id()];
 
                     const std::size_t lhsEntryCount = std::pow(ansatzSpace.size(), Dimension);
-                    addLHSContribution(
-                        {quadratureBuffer.data(), lhsEntryCount},
-                        rGlobalDofIndices,
-                        lhs);
-
-                    addRHSContribution(
-                        {quadratureBuffer.data() + lhsEntryCount, quadratureBuffer.size() - lhsEntryCount},
-                        rGlobalDofIndices,
-                        rhs);
+                    rAssembler.addContribution(
+                        std::span<const Scalar>(quadratureBuffer.data(), lhsEntryCount),
+                        rCell.id(),
+                        lhs.rowExtents,
+                        lhs.columnIndices,
+                        lhs.entries);
+                    rAssembler.addContribution(
+                        std::span<const Scalar>(quadratureBuffer.data() + lhsEntryCount, quadratureBuffer.size() - lhsEntryCount),
+                        rCell.id(),
+                        std::span<Scalar>(rhs));
 
                     // Log debug and output info.
                     decltype(boundarySegments)::value_type segment;

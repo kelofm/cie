@@ -24,7 +24,6 @@
 namespace cie::fem {
 
 
-
 int main(Ref<const utils::ArgParse::Results> rArguments) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
@@ -104,6 +103,22 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         .entries = entries
     };
 
+    // Compute element contributions and assemble them into the matrix
+    {
+        SYCLWrapper syclWrapper;
+        #ifdef CIE_ENABLE_SYCL
+            sycl::device device(sycl::default_selector_v);
+            if (rArguments.get<bool>("gpu")) syclWrapper.maybeQueue.emplace(device);
+        #endif
+        integrateStiffness(
+            mesh,
+            assembler,
+            lhs,
+            rArguments,
+            threads,
+            syclWrapper);
+    }
+
     const auto boundarySegments = imposeBoundaryConditions(
         mesh,
         assembler,
@@ -112,14 +127,6 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         lhs,
         rhs,
         rArguments);
-
-    // Compute element contributions and assemble them into the matrix
-    integrateStiffness(
-        mesh,
-        assembler,
-        lhs,
-        rArguments,
-        threads);
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());

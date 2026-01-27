@@ -17,59 +17,6 @@
 namespace cie::fem {
 
 
-class SYCLSingleton {
-public:
-    #ifdef CIE_ENABLE_SYCL
-        static Ref<sycl::device> getDevice() {
-            SYCLSingleton::init();
-            return *_maybeImpl.value().pDevice;
-        }
-
-        static Ref<sycl::queue> getQueue() {
-            SYCLSingleton::init();
-            return *_maybeImpl.value().pQueue;
-        }
-
-        template <class T>
-        static sycl::usm_allocator<T,sycl::usm::alloc::shared> makeSharedAllocator() {
-            return sycl::usm_allocator<T,sycl::usm::alloc::shared>(SYCLSingleton::getQueue());
-        }
-    #else
-        template <class T>
-        static std::allocator<T> makeSharedAllocator() {
-            return std::allocator<T>();
-        }
-    #endif
-
-private:
-    #ifdef CIE_ENABLE_SYCL
-        static void init() {
-            if (!_maybeImpl.has_value()) {
-                auto pDevice = std::make_unique<sycl::device>(sycl::default_selector_v);
-                auto pQueue = std::make_unique<sycl::queue>(*pDevice);
-                _maybeImpl.emplace(std::move(pDevice), std::move(pQueue));
-            }
-        }
-
-        struct Impl {
-            //~Impl() {
-            //    pQueue.reset();
-            //    pDevice.reset();
-            //}
-            std::unique_ptr<sycl::device> pDevice;
-            std::unique_ptr<sycl::queue> pQueue;
-        };
-
-        static std::optional<Impl> _maybeImpl;
-    #endif
-}; // class SYCLSingleton
-
-
-#ifdef CIE_ENABLE_SYCL
-    std::optional<SYCLSingleton::Impl> SYCLSingleton::_maybeImpl = {};
-#endif
-
-
 /// @brief Data structure common to the entire @ref Graph "mesh".
 class MeshData {
 public:
@@ -131,6 +78,7 @@ public:
         }
 
         _quadraturePointSet.resize(pointCount);
+        _quadraturePointSet.shrink_to_fit();
     }
 
     Ref<const Ansatz> ansatzSpace() const noexcept {
@@ -163,7 +111,7 @@ private:
     /// @brief Set of quadrature points for a default local hypercube.
     /// @details These quadrature points are used while constructing
     ///          cell-specific quadrature rules.
-    DynamicArray<QuadraturePoint<Dimension,Scalar>> _quadraturePointSet;
+    std::vector<QuadraturePoint<Dimension,Scalar>> _quadraturePointSet;
 
     DynamicArray<Scalar> _buffer;
 }; // class MeshData

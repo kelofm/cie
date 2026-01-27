@@ -272,6 +272,74 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
 }
 
 
+template <
+    TagLike TParallelism,
+    concepts::Integer TIndex,
+    concepts::Numeric TLocalScalar,
+    concepts::Numeric TGlobalScalar>
+void Assembler::addContribution(
+    std::span<const TLocalScalar> contribution,
+    VertexID cellID,
+    std::span<const TIndex> rowExtents,
+    std::span<const TIndex> columnIndices,
+    std::span<TGlobalScalar> entries) const
+{
+    static_assert(TParallelism::id() == tags::Serial::id() || TParallelism::id() == tags::SMP::id());
+    const auto& rDofMap = this->operator[](cellID);
+    const unsigned localSystemSize = rDofMap.size();
+    for (unsigned iLocalRow=0u; iLocalRow<localSystemSize; ++iLocalRow) {
+        for (unsigned iLocalColumn=0u; iLocalColumn<localSystemSize; ++iLocalColumn) {
+            const auto iRowBegin = rowExtents[rDofMap[iLocalRow]];
+            const auto iRowEnd = rowExtents[rDofMap[iLocalRow] + 1];
+            const auto itColumnIndex = std::lower_bound(
+                columnIndices.begin() + iRowBegin,
+                columnIndices.begin() + iRowEnd,
+                rDofMap[iLocalColumn]);
+            CIE_OUT_OF_RANGE_CHECK(
+                itColumnIndex != columnIndices.begin() + iRowEnd
+                && *itColumnIndex == rDofMap[iLocalColumn]);
+            const auto iEntry = std::distance(columnIndices.begin(), itColumnIndex);
+
+            if constexpr (TParallelism::id() == tags::SMP::id()) {
+                std::atomic_ref<TGlobalScalar>(entries[iEntry]) += contribution[iLocalRow * localSystemSize + iLocalColumn];
+            } else if constexpr (TParallelism::id() == tags::Serial::id()) {
+                entries[iEntry] += contribution[iLocalRow * localSystemSize + iLocalColumn];
+            } else {
+                static_assert(
+                    std::is_same_v<TParallelism,void>,
+                    "unsupported parallelism");
+            }
+        } // for iLocalColumn in range(ansatzBuffer.size)
+    } // for iLocalRow in range(ansatzBuffer.size)
+}
+
+
+template <
+    TagLike TParallelism,
+    concepts::Numeric TLocalScalar,
+    concepts::Numeric TGlobalScalar>
+void Assembler::addContribution(
+    std::span<const TLocalScalar> contribution,
+    VertexID cellID,
+    std::span<TGlobalScalar> entries) const
+{
+    const auto& rDofMap = this->operator[](cellID);
+    for (unsigned iComponent=0u; iComponent<contribution.size(); ++iComponent) {
+        const auto iRow = rDofMap[iComponent];
+
+        if constexpr (TParallelism::id() == tags::SMP::id()) {
+            std::atomic_ref<TGlobalScalar>(entries[iRow]) += contribution[iComponent];
+        } else if constexpr (TParallelism::id() == tags::Serial::id()) {
+            entries[iRow] += contribution[iComponent];
+        } else {
+            static_assert(
+                std::is_same_v<TParallelism,void>,
+                "unsupported parallelism");
+        }
+    }
+}
+
+
 } // namespace cie::fem
 
 

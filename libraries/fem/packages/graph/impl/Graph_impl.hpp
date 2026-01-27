@@ -447,25 +447,24 @@ OptionalRef<typename Graph<TVD,TED,TGD>::Edge> Graph<TVD,TED,TGD>::find(EdgeID i
 
 template <class TVD, class TED, class TGD>
 typename VoidSafe<const TGD>::Ref
-Graph<TVD,TED,TGD>::data() const noexcept
-requires (!std::is_same_v<TGD,void>)
-{
-    return std::get<2>(_members);
+Graph<TVD,TED,TGD>::data() const noexcept {
+    if constexpr (!std::is_same_v<TGD,void>) {
+        return std::get<2>(_members);
+    }
 }
 
 
 template <class TVD, class TED, class TGD>
 typename VoidSafe<TGD>::Ref
-Graph<TVD,TED,TGD>::data() noexcept
-requires (!std::is_same_v<TGD,void>)
-{
-    return std::get<2>(_members);
+Graph<TVD,TED,TGD>::data() noexcept {
+    if constexpr (!std::is_same_v<TGD,void>) {
+        return std::get<2>(_members);
+    }
 }
 
 
 template <class TVD, class TED, class TGD>
-bool Graph<TVD,TED,TGD>::empty() const noexcept
-{
+bool Graph<TVD,TED,TGD>::empty() const noexcept {
     return _vertices().empty();
 }
 
