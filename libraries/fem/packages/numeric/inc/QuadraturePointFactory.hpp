@@ -16,20 +16,12 @@
 namespace cie::fem {
 
 
-template <
-    class T,
-    class TMesh = Graph<CellBase<1,float,maths::IdentityTransform<float,1>>,void,void>,
-    class TCell = typename TMesh::Vertex::Data>
-concept QuadraturePointFactoryLike =
-   GraphLike<TMesh>
-&& CellLike<TCell>
-&& std::is_same_v<std::remove_cvref_t<decltype(T::Dimension)>,unsigned>
-&& ::cie::concepts::Numeric<typename T::Value>
-&& requires(T& rInstance,
-            const TMesh& rMesh,
-            const TCell& rCell,
-            std::span<QuadraturePoint<T::Dimension,typename T::Value>> quadraturePoints) {
-    {rInstance.generate(rMesh, rCell, quadraturePoints)} -> cie::concepts::UnsignedInteger;
+template <class T>
+concept QuadraturePointFactoryLike
+=  cie::concepts::UnsignedInteger<std::remove_const_t<decltype(T::Dimension)>>
+&& cie::concepts::Numeric<typename T::Value>
+&& requires(T& rInstance, std::span<QuadraturePoint<T::Dimension,typename T::Value>> quadraturePoints) {
+    {rInstance(quadraturePoints)} -> cie::concepts::UnsignedInteger;
 }; // concept QuadraturePointFactoryLike
 
 
@@ -38,8 +30,10 @@ template <
     class TMesh = Graph<CellBase<1,float,maths::IdentityTransform<float,1>>,void,void>,
     class TCell = typename TMesh::Vertex::Data>
 concept QuadratureRuleFactoryLike
-= requires (const T& constInstance, const TMesh& rMesh, const TCell& rCell) {
-    {constInstance(rMesh, rCell)} -> QuadraturePointFactoryLike<TMesh,TCell>;
+=  GraphLike<TMesh>
+&& CellLike<TCell>
+&& requires (const T& constInstance, const TMesh& rMesh, const TCell& rCell) {
+    {constInstance(rMesh, rCell)} -> QuadraturePointFactoryLike;
 }; // concept QuadratureRuleFactoryLike
 
 
@@ -55,11 +49,7 @@ public:
 
     constexpr explicit OuterProductQuadraturePointFactory(std::span<const QuadraturePoint<1u,TValue>> base) noexcept;
 
-    template <GraphLike TMesh, CellLike TCell>
-    unsigned generate(
-        Ref<const TMesh>,
-        Ref<const TCell>,
-        std::span<QuadraturePoint<Dimension,TValue>> out) noexcept;
+    unsigned operator()(std::span<QuadraturePoint<Dimension,TValue>> out) noexcept;
 
 private:
     bool _done;
@@ -81,11 +71,7 @@ public:
 
     explicit CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,Value>> cache) noexcept;
 
-    template <GraphLike TMesh, CellLike TCell>
-    unsigned generate(
-        Ref<const TMesh>,
-        Ref<const TCell>,
-        std::span<QuadraturePoint<Dimension,TValue>> out) noexcept;
+    unsigned operator()(std::span<QuadraturePoint<Dimension,TValue>> out) noexcept;
 
 private:
     std::span<const QuadraturePoint<Dimension,Value>> _cache;

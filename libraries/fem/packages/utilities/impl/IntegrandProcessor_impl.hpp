@@ -163,10 +163,7 @@ template <
             std::span<typename Impl::QPoint> availableQuadraturePointSpan(
                 _pImpl->quadraturePoints.data() + iQuadraturePointBegin,
                 _pImpl->quadraturePoints.data() + _pImpl->quadraturePoints.size());
-            const std::size_t newQuadraturePointCount = quadraturePointFactory.generate(
-                rMesh,
-                rCell.data(),
-                availableQuadraturePointSpan);
+            const std::size_t newQuadraturePointCount = quadraturePointFactory(availableQuadraturePointSpan);
 
             // Update the internal structures to account for the newly
             // generated quadrature points.

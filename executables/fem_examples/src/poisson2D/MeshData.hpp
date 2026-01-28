@@ -72,10 +72,7 @@ public:
                 _quadraturePointSet.data() + _quadraturePointSet.size());
 
             // Request a new batch of quadrature points.
-            const auto newPointCount = generator.generate(
-                dummyMesh,
-                dummyElement,
-                targetSpan);
+            const unsigned newPointCount = generator(targetSpan);
             pointCount += newPointCount;
 
             if (!newPointCount) break;
