@@ -8,6 +8,7 @@
 #include "packages/graph/inc/Assembler.hpp"
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
+#include "packages/numeric/inc/Quadrature.hpp"
 
 // --- STL Includes ---
 #include <numbers> // std::numbers::pi

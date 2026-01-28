@@ -19,17 +19,11 @@
 namespace cie::fem {
 
 
-template <
-    maths::StaticExpression TIntegrand,
-    QuadraturePointFactoryLike TQuadraturePointFactory>
+template <unsigned Dim, maths::StaticExpression TIntegrand>
 class IntegrandProcessor {
-    static_assert(
-        std::is_same_v<
-            typename TIntegrand::Value,
-            typename TQuadraturePointFactory::Value>,
-        "mismatched integrand and quadrature point value types");
-
 public:
+    static inline constexpr unsigned Dimension = Dim;
+
     struct Properties {
         std::optional<std::size_t> integrandBatchSize;
         std::optional<std::size_t> integrandsPerItem;
@@ -37,22 +31,29 @@ public:
 
     IntegrandProcessor();
 
+    virtual ~IntegrandProcessor();
+
     template <
         GraphLike TMesh,
+        QuadratureRuleFactoryLike<TMesh,typename TMesh::Vertex::Data> TQuadratureRuleFactory,
         concepts::FunctionWithSignature<
             TIntegrand,
             Ref<const TMesh>,
-            Ref<const typename TMesh::Vertex>
+            Ref<const typename TMesh::Vertex::Data>
         > TIntegrandFactory,
         concepts::FunctionWithSignature<
             void,
-            std::span<typename TIntegrand::Value>
+            std::span<const VertexID>,
+            std::span<const typename TIntegrand::Value>
         > TIntegralSink
     > void integrate(
         Ref<const TMesh> rMesh,
+        Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
         TIntegrandFactory&& rIntegrandFactory,
         TIntegralSink&& rIntegralSink,
         Ref<const Properties> rExecutionProperties);
+
+    virtual std::unique_ptr<Properties> makeDefaultProperties() const;
 
 protected:
     virtual void execute(
@@ -64,15 +65,13 @@ protected:
 }; // class IntegrandProcessor
 
 
-template <
-    maths::StaticExpression TIntegrand,
-    QuadraturePointFactoryLike TQuadraturePointFactory>
-class ParallelIntegrandProcessor : public IntegrandProcessor<TIntegrand,TQuadraturePointFactory> {
+template <unsigned Dim, maths::StaticExpression TIntegrand>
+class ParallelIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand> {
 public:
     ParallelIntegrandProcessor(Ref<mp::ThreadPoolBase> rThreads);
 
 private:
-    using Base = IntegrandProcessor<TIntegrand,TQuadraturePointFactory>;
+    using Base = IntegrandProcessor<Dim,TIntegrand>;
 
     void execute(
         std::span<typename TIntegrand::Value> output,
@@ -83,23 +82,27 @@ private:
 
 
 #ifdef CIE_ENABLE_SYCL
-template <
-    maths::StaticExpression TIntegrand,
-    QuadraturePointFactoryLike TQuadraturePointFactory>
-class SYCLIntegrandProcessor : public IntegrandProcessor<TIntegrand,TQuadraturePointFactory> {
+template <unsigned Dim, maths::StaticExpression TIntegrand>
+class SYCLIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand> {
 public:
     SYCLIntegrandProcessor(std::shared_ptr<sycl::queue> pQueue);
 
+    ~SYCLIntegrandProcessor();
+
 protected:
-    using Base = IntegrandProcessor<TIntegrand,TQuadraturePointFactory>;
+    using Base = IntegrandProcessor<Dim,TIntegrand>;
 
     void execute(
         std::span<typename TIntegrand::Value> output,
         Ref<const typename Base::Properties> rExecutionProperties) override;
 
-    std::shared_ptr<sycl::queue> _pQueue;
+    struct Impl;
+    std::unique_ptr<Impl> _pSYCLImpl;
 }; // class SYCLIntegrandProcessor
-#endif
+#endif // CIE_ENABLE_SYCL
 
 
 } // namespace cie::fem
+
+
+#include "packages/utilities/impl/IntegrandProcessor_impl.hpp"

@@ -78,18 +78,16 @@ concept FunctionWithArguments
 
 
 template <class TFunction, class ...TArgs>
-concept CallableWith = requires (TFunction function, TArgs... arguments)
-{
-    {function(arguments...)};
+concept CallableWith = requires (TFunction function, TArgs... arguments) {
+    {function(std::forward<TArgs>(arguments)...)};
 };
 
 
-template <class TFunction, class TReturn, class ...TArguments>
+template <class TFunction, class TReturn, class ...TArgs>
 concept FunctionWithSignature
-= CallableWith<TFunction, TArguments...>
-  && requires (TFunction instance, TArguments ... arguments)
-{
-    {instance(arguments...)} -> std::same_as<TReturn>;
+= CallableWith<TFunction, TArgs...>
+  && requires (TFunction instance, TArgs ... arguments) {
+    {instance(std::forward<TArgs>(arguments)...)} -> std::same_as<TReturn>;
 };
 
 

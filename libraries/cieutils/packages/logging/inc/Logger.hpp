@@ -31,22 +31,27 @@ class LogBlock;
 
 
 /// @ingroup cieutils
-class Logger : public OutputStream
-{
+class Logger : public OutputStream {
 public:
     friend class LogBlock;
 
 public:
     Logger() = delete;
+
     Logger(const std::filesystem::path& r_filePath);
+
     Logger(const Logger& copy) = delete;
+
     virtual ~Logger();
 
-    virtual void write(const char* p_message, std::streamsize messageSize) override;
+    virtual void write(
+        const char* p_message,
+        std::streamsize messageSize) override;
 
     [[nodiscard]] LogBlock newBlock( const std::string& r_name );
 
     Logger& addStream(OutputStream::SharedPointer p_stream);
+
     Logger& removeStream(OutputStream::SharedPointer p_stream);
 
     Logger& forceFlush(bool use);
@@ -62,17 +67,24 @@ public:
     Logger& error(const std::string& r_message);
 
     Logger& logDate(const std::string& message);
-    [[nodiscard]] size_t startTimer();
-    size_t elapsed(size_t timeID,
-                   bool reset=true);
-    Logger& logElapsed(const std::string& message,
-                       size_t timeID,
-                       bool reset=true);
+
+    [[nodiscard]] std::size_t startTimer();
+
+    std::size_t elapsed(
+        std::size_t timeID,
+        bool reset=true);
+
+    Logger& logElapsed(
+        const std::string& message,
+        std::size_t timeID,
+        bool reset=true);
 
     Logger& separate();
 
     Logger& increaseIndent();
+
     Logger& decreaseIndent();
+
     Logger& noIndent();
 
 protected:
@@ -84,8 +96,9 @@ protected:
 
     void postWrite();
 
-    Logger& directWriteToAll(const char* p_message,
-                             std::streamsize messageSize);
+    Logger& directWriteToAll(
+        const char* p_message,
+        std::streamsize messageSize);
 
     std::deque<OutputStream::SharedPointer> _streams;
     std::deque<detail::Time>                _timeLog;

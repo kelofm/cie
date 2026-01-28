@@ -34,6 +34,7 @@ public:
           _quadraturePointSet()
     {
         // Cache quadrature points.
+        Graph<CellData,void,void> dummyMesh;
         CellData dummyElement;
 
         // Generate 1D quadrature points.
@@ -71,7 +72,10 @@ public:
                 _quadraturePointSet.data() + _quadraturePointSet.size());
 
             // Request a new batch of quadrature points.
-            const auto newPointCount = generator.generate(dummyElement, targetSpan);
+            const auto newPointCount = generator.generate(
+                dummyMesh,
+                dummyElement,
+                targetSpan);
             pointCount += newPointCount;
 
             if (!newPointCount) break;

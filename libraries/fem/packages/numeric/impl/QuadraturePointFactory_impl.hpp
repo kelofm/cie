@@ -33,10 +33,12 @@ constexpr inline OuterProductQuadraturePointFactory<Dim,TValue>::OuterProductQua
 
 
 template <unsigned Dim, concepts::Numeric TValue>
-template <CellLike TCell>
+template <GraphLike TMesh, CellLike TCell>
 inline unsigned
-OuterProductQuadraturePointFactory<Dim,TValue>::generate(Ref<const TCell>,
-                                                         std::span<QuadraturePoint<Dimension,TValue>> out) noexcept {
+OuterProductQuadraturePointFactory<Dim,TValue>::generate(
+    Ref<const TMesh>,
+    Ref<const TCell>,
+    std::span<QuadraturePoint<Dimension,TValue>> out) noexcept {
     auto itOut = out.begin();
 
     // Early exit if all quadrature points were already generated.
@@ -76,9 +78,11 @@ CachedQuadraturePointFactory<Dim,TValue>::CachedQuadraturePointFactory(std::span
 
 
 template <unsigned Dim, concepts::Numeric TValue>
-template <CellLike TCell>
-unsigned CachedQuadraturePointFactory<Dim,TValue>::generate(Ref<const TCell>,
-                                                            std::span<QuadraturePoint<Dimension,Value>> out) noexcept {
+template <GraphLike TMesh, CellLike TCell>
+unsigned CachedQuadraturePointFactory<Dim,TValue>::generate(
+    Ref<const TMesh>,
+    Ref<const TCell>,
+    std::span<QuadraturePoint<Dimension,Value>> out) noexcept {
     const std::size_t copyCount = std::min(_cache.size(), out.size());
     std::copy_n(
         _cache.data(),

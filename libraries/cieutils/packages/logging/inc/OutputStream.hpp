@@ -17,8 +17,7 @@ namespace cie {
 
 
 /// @ingroup cieutils
-class OutputStream
-{
+class OutputStream {
 private:
     template <class T>
     class FlaggedDeleter
@@ -114,8 +113,7 @@ protected:
     }
 
 private:
-    struct DummyBuffer : public std::streambuf
-    {
+    struct DummyBuffer : public std::streambuf {
         virtual int overflow(int dummy) override
         {return dummy;}
 

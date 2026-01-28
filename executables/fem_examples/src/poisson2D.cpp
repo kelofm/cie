@@ -105,18 +105,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
     // Compute element contributions and assemble them into the matrix
     {
-        SYCLWrapper syclWrapper;
-        #ifdef CIE_ENABLE_SYCL
-            sycl::device device(sycl::default_selector_v);
-            if (rArguments.get<bool>("gpu")) syclWrapper.maybeQueue.emplace(device);
-        #endif
         integrateStiffness(
             mesh,
             assembler,
             lhs,
             rArguments,
-            threads,
-            syclWrapper);
+            threads);
     }
 
     const auto boundarySegments = imposeBoundaryConditions(
