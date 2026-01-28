@@ -19,7 +19,10 @@
 namespace cie::fem {
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
+template <
+    unsigned Dim,
+    maths::StaticExpression TIntegrand,
+    class TQuadraturePointData = void>
 class IntegrandProcessor {
 public:
     static inline constexpr unsigned Dimension = Dim;
@@ -35,7 +38,11 @@ public:
 
     template <
         GraphLike TMesh,
-        QuadratureRuleFactoryLike<TMesh,typename TMesh::Vertex::Data> TQuadratureRuleFactory,
+        QuadratureRuleFactoryLike<
+            TMesh,
+            typename TMesh::Vertex::Data,
+            TQuadraturePointData
+        > TQuadratureRuleFactory,
         concepts::FunctionWithSignature<
             TIntegrand,
             Ref<const TMesh>,
@@ -65,13 +72,16 @@ protected:
 }; // class IntegrandProcessor
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-class ParallelIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand> {
+template <
+    unsigned Dim,
+    maths::StaticExpression TIntegrand,
+    class TQuadraturePointData = void>
+class ParallelIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
 public:
     ParallelIntegrandProcessor(Ref<mp::ThreadPoolBase> rThreads);
 
 private:
-    using Base = IntegrandProcessor<Dim,TIntegrand>;
+    using Base = IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData>;
 
     void execute(
         std::span<typename TIntegrand::Value> output,
@@ -82,15 +92,18 @@ private:
 
 
 #ifdef CIE_ENABLE_SYCL
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-class SYCLIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand> {
+template <
+    unsigned Dim,
+    maths::StaticExpression TIntegrand,
+    class TQuadraturePointData = void>
+class SYCLIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
 public:
     SYCLIntegrandProcessor(std::shared_ptr<sycl::queue> pQueue);
 
     ~SYCLIntegrandProcessor();
 
 protected:
-    using Base = IntegrandProcessor<Dim,TIntegrand>;
+    using Base = IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData>;
 
     void execute(
         std::span<typename TIntegrand::Value> output,

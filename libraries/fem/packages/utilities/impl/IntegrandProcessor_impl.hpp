@@ -17,9 +17,9 @@
 namespace cie::fem {
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-struct IntegrandProcessor<Dim,TIntegrand>::Impl {
-    using QPoint = QuadraturePoint<Dimension,typename TIntegrand::Value>;
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
+    using QPoint = QuadraturePoint<Dimension,typename TIntegrand::Value,TQD>;
 
     class Extents {
     public:
@@ -75,20 +75,24 @@ struct IntegrandProcessor<Dim,TIntegrand>::Impl {
 }; // struct IntegrandProcessor::Impl
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-IntegrandProcessor<Dim,TIntegrand>::IntegrandProcessor()
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+IntegrandProcessor<Dim,TIntegrand,TQD>::IntegrandProcessor()
     : _pImpl(new Impl)
 {}
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-IntegrandProcessor<Dim,TIntegrand>::~IntegrandProcessor() = default;
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+IntegrandProcessor<Dim,TIntegrand,TQD>::~IntegrandProcessor() = default;
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
 template <
     GraphLike TMesh,
-    QuadratureRuleFactoryLike<TMesh,typename TMesh::Vertex::Data> TQuadratureRuleFactory,
+    QuadratureRuleFactoryLike<
+        TMesh,
+        typename TMesh::Vertex::Data,
+        TQD
+    > TQuadratureRuleFactory,
     concepts::FunctionWithSignature<
         TIntegrand,
         Ref<const TMesh>,
@@ -99,7 +103,7 @@ template <
         std::span<const VertexID>,
         std::span<const typename TIntegrand::Value>
     > TIntegralSink
-> void  IntegrandProcessor<Dim,TIntegrand>::integrate(
+> void  IntegrandProcessor<Dim,TIntegrand,TQD>::integrate(
     Ref<const TMesh> rMesh,
     Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
     TIntegrandFactory&& rIntegrandFactory,
@@ -259,9 +263,9 @@ template <
 }
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand>::Properties>
-IntegrandProcessor<Dim,TIntegrand>::makeDefaultProperties() const {
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::Properties>
+IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
     return std::make_unique<Properties>(Properties {
         .integrandBatchSize = 0x8000,
         .integrandsPerItem = 0x8
@@ -269,9 +273,9 @@ IntegrandProcessor<Dim,TIntegrand>::makeDefaultProperties() const {
 }
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-void IntegrandProcessor<Dim,TIntegrand>::execute(std::span<typename TIntegrand::Value> output,
-                                                 Ref<const Properties>) {
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+void IntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TIntegrand::Value> output,
+                                                     Ref<const Properties>) {
     const auto& rQuadraturePoints = _pImpl->quadraturePoints;
     const auto extentView = _pImpl->extents.get();
     if (rQuadraturePoints.empty()) return;
@@ -304,15 +308,15 @@ void IntegrandProcessor<Dim,TIntegrand>::execute(std::span<typename TIntegrand::
 }
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-ParallelIntegrandProcessor<Dim,TIntegrand>::ParallelIntegrandProcessor(Ref<mp::ThreadPoolBase> rThreads)
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::ParallelIntegrandProcessor(Ref<mp::ThreadPoolBase> rThreads)
     : _pThreads(&rThreads)
 {}
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-void ParallelIntegrandProcessor<Dim,TIntegrand>::execute(std::span<typename TIntegrand::Value> output,
-                                                         Ref<const typename Base::Properties>) {
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+void ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TIntegrand::Value> output,
+                                                             Ref<const typename Base::Properties>) {
     std::fill_n(
         output.data(),
         output.size(),
@@ -357,16 +361,16 @@ void ParallelIntegrandProcessor<Dim,TIntegrand>::execute(std::span<typename TInt
 #ifdef CIE_ENABLE_SYCL
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-struct SYCLIntegrandProcessor<Dim,TIntegrand>::Impl {
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     std::shared_ptr<sycl::queue> pQueue;
 
     DeviceMemory<typename Base::Impl::QPoint> pDeviceQuadraturePoints;
 }; // struct SYCLIntegrandProcessor::Impl
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-SYCLIntegrandProcessor<Dim,TIntegrand>::SYCLIntegrandProcessor(
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::SYCLIntegrandProcessor(
     std::shared_ptr<sycl::queue> pQueue)
     : _pSYCLImpl(new Impl)
 {
@@ -374,13 +378,13 @@ SYCLIntegrandProcessor<Dim,TIntegrand>::SYCLIntegrandProcessor(
 }
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-SYCLIntegrandProcessor<Dim,TIntegrand>::~SYCLIntegrandProcessor() = default;
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::~SYCLIntegrandProcessor() = default;
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand>
-void SYCLIntegrandProcessor<Dim,TIntegrand>::execute(std::span<typename TIntegrand::Value> output,
-                                                     Ref<const typename Base::Properties> rExecutionProperties) {
+template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TIntegrand::Value> output,
+                                                         Ref<const typename Base::Properties> rExecutionProperties) {
     // Parse execution properties.
     auto pDefaultExecutionProperties = this->makeDefaultProperties();
     const std::size_t integrandsPerItem = rExecutionProperties.integrandsPerItem.has_value()

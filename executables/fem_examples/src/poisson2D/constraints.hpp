@@ -33,6 +33,9 @@ using BoundaryMesh = Graph<
 >;
 
 
+using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
+
+
 struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     using maths::ExpressionTraits<Scalar>::Span;
     using maths::ExpressionTraits<Scalar>::ConstSpan;
@@ -175,22 +178,20 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
 
             // Check whether the two endpoints are in different cells.
-            const auto iMaybeBaseCell = bvh.find(
+            const auto iBaseCell = bvh.find(
                 std::span<const Scalar,Dimension>(globalBase.data(), Dimension),
-                contiguousCellData
-            );
-            const auto iMaybeOppositeCell = bvh.find(
+                contiguousCellData);
+            const auto iOppositeCell = bvh.find(
                 std::span<const Scalar,Dimension>(globalOpposite.data(), Dimension),
-                contiguousCellData
-            );
+                contiguousCellData);
 
             // Integrate if both endpoints lie in the same cell.
-            if (iMaybeBaseCell != contiguousCellData.size() && iMaybeOppositeCell != contiguousCellData.size() && iMaybeBaseCell == iMaybeOppositeCell) {
+            if (iBaseCell != contiguousCellData.size() && iOppositeCell != contiguousCellData.size() && iBaseCell == iOppositeCell) {
                 const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
                                            + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
 
                 if (minBoundarySegmentNorm < segmentNorm) {
-                    Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
+                    Ref<const CellData> rCell = contiguousCellData[iBaseCell];
                     const auto ansatzSpace = rMesh.data().ansatzSpace();
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
@@ -233,8 +234,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                 }
             } // if both endpoints lie in the same cell
 
-            return iMaybeBaseCell != iMaybeOppositeCell &&
-                   (iMaybeBaseCell != contiguousCellData.size() || iMaybeOppositeCell != contiguousCellData.size());
+            return iBaseCell != iOppositeCell &&
+                   (iBaseCell != contiguousCellData.size() || iOppositeCell != contiguousCellData.size());
         }; // boundaryVisitor
 
         // Construct a binary tree that detects intersections between
@@ -244,6 +245,20 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     return boundarySegments;
 }
+
+
+template <
+    unsigned InDimension,
+    unsigned OutDimension,
+    concepts::Numeric TValue>
+class EmbeddedQuadraturePointFactory {
+public:
+    unsigned operator()() {
+
+    }
+
+private:
+}; // class EmbeddedQuadraturePointFactory
 
 
 } // namespace cie::fem

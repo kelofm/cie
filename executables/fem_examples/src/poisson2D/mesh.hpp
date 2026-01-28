@@ -21,9 +21,6 @@
 namespace cie::fem {
 
 
-using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
-
-
 /// @brief Mesh type.
 /// @details The mesh is modeled by an adjacency graph whose vertices are cells,
 ///          and edges represent the boundaries between adjacent cells. The graph
