@@ -55,15 +55,16 @@ constexpr unsigned AffineEmbeddingDerivative<TValue,1u,2u>::size() noexcept {
 
 
 template <concepts::Numeric TValue>
-TValue AffineEmbeddingDerivative<TValue,1u,2u>::evaluateDeterminant(ConstSpan in) const
-{
+TValue AffineEmbeddingDerivative<TValue,1u,2u>::evaluateDeterminant(ConstSpan in) const {
     StaticArray<TValue,OutDimension> augmented;
-    std::copy_n(in.begin(),
-                InDimension,
-                augmented.begin());
-    std::fill_n(augmented.begin() + InDimension,
-                OutDimension - InDimension,
-                static_cast<TValue>(-1));
+    std::copy_n(
+        in.begin(),
+        InDimension,
+        augmented.begin());
+    std::fill_n(
+        augmented.begin() + InDimension,
+        OutDimension - InDimension,
+        static_cast<TValue>(-1));
     return _transformDerivative.evaluateDeterminant(in);
 }
 

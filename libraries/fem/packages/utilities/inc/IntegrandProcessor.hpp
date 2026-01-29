@@ -8,7 +8,6 @@
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
-#include "packages/stl_extension/inc/OptionalRef.hpp"
 #include "packages/concurrency/inc/sycl.hpp"
 
 // --- STL Includes ---

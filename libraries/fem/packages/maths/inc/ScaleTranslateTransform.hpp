@@ -54,8 +54,9 @@ public:
     unsigned size() const noexcept;
 
     template <concepts::Numeric TTNumeric, unsigned Dim>
-    friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                                        Ref<const ScaleTranslateTransformDerivative<TTNumeric,Dim>> rObject);
+    friend Ref<std::ostream> operator<<(
+        Ref<std::ostream> rStream,
+        Ref<const ScaleTranslateTransformDerivative<TTNumeric,Dim>> rObject);
 
 private:
     friend class ScaleTranslateTransform<TValue,Dimension>;
@@ -99,8 +100,9 @@ public:
      *  @note The number of input components must match the dimension.
      */
     template <concepts::Iterator TPointIt>
-    ScaleTranslateTransform(TPointIt itTransformedBegin,
-                            TPointIt itTransformedEnd);
+    ScaleTranslateTransform(
+        TPointIt itTransformedBegin,
+        TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
     void evaluate(ConstSpan in, Span out) const;
@@ -115,12 +117,14 @@ public:
     Inverse makeInverse() const noexcept;
 
     template <concepts::Numeric TTNumeric, unsigned Dim>
-    friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                                        Ref<const ScaleTranslateTransform<TTNumeric,Dim>> rObject);
+    friend Ref<std::ostream> operator<<(
+        Ref<std::ostream> rStream,
+        Ref<const ScaleTranslateTransform<TTNumeric,Dim>> rObject);
 
 private:
-    ScaleTranslateTransform(RightRef<std::array<TValue,Dimension>> rScales,
-                            RightRef<std::array<TValue,Dimension>> rOffsets) noexcept;
+    ScaleTranslateTransform(
+        RightRef<std::array<TValue,Dimension>> rScales,
+        RightRef<std::array<TValue,Dimension>> rOffsets) noexcept;
 
 private:
     friend class ScaleTranslateTransformDerivative<TValue,Dimension>;
@@ -162,8 +166,9 @@ public:
      *  @note The number of input components must match the dimension.
      */
     template <concepts::Iterator TPointIt>
-    TranslateScaleTransform(TPointIt itTransformedBegin,
-                            TPointIt itTransformedEnd);
+    TranslateScaleTransform(
+        TPointIt itTransformedBegin,
+        TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
     void evaluate(ConstSpan in, Span out) const;
@@ -178,12 +183,14 @@ public:
     ScaleTranslateTransform<TValue,Dimension> makeInverse() const noexcept;
 
     template <concepts::Numeric TTNumeric, unsigned Dim>
-    friend Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                                        Ref<const TranslateScaleTransform<TTNumeric,Dim>> rObject);
+    friend Ref<std::ostream> operator<<(
+        Ref<std::ostream> rStream,
+        Ref<const TranslateScaleTransform<TTNumeric,Dim>> rObject);
 
 private:
-    TranslateScaleTransform(RightRef<std::array<TValue,Dimension>> rScales,
-                            RightRef<std::array<TValue,Dimension>> rOffsets) noexcept;
+    TranslateScaleTransform(
+        RightRef<std::array<TValue,Dimension>> rScales,
+        RightRef<std::array<TValue,Dimension>> rOffsets) noexcept;
 
 private:
     friend class ScaleTranslateTransformDerivative<TValue,Dimension>;
@@ -210,8 +217,7 @@ namespace cie::fem::io {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-struct GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>>
-{
+struct GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
     void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) noexcept;
@@ -219,8 +225,7 @@ struct GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimen
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>
-{
+struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
     void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept;
@@ -229,8 +234,7 @@ struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>
 
 template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
-    : public GraphML::DeserializerBase<maths::ScaleTranslateTransform<TValue,Dimension>>
-{
+    : public GraphML::DeserializerBase<maths::ScaleTranslateTransform<TValue,Dimension>> {
     using Value = maths::ScaleTranslateTransform<TValue,Dimension>;
 
     using GraphML::DeserializerBase<Value>::DeserializerBase;
@@ -251,8 +255,7 @@ private:
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-struct GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>
-{
+struct GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
     void operator()(Ref<XMLElement> rElement, Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) noexcept;

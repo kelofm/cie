@@ -31,8 +31,6 @@ struct CellData
 
     using CellBase = CellBase<cie::fem::Dimension,Scalar,SpatialTransform,Scalar>;
 
-    using CellBase::Dimension;
-
     using LocalCoordinate = Kernel<Dimension,Scalar>::LocalCoordinate;
 
     using GlobalCoordinate = Kernel<Dimension,Scalar>::GlobalCoordinate;
@@ -93,12 +91,13 @@ protected:
 
         do {
             // Compute the corner in local space.
-            std::transform(state.begin(),
-                           state.end(),
-                           localCorner.begin(),
-                           [&ordinates](std::uint8_t iOrdinate) {
-                                return ordinates[iOrdinate];
-                           });
+            std::transform(
+            state.begin(),
+                state.end(),
+                localCorner.begin(),
+                [&ordinates](std::uint8_t iOrdinate) {
+                    return ordinates[iOrdinate];
+                });
 
             // Transform the corner to global space.
             this->transform(
@@ -112,11 +111,12 @@ protected:
             } // for iDimension in range(Dimension)
         } while (cie::maths::OuterProduct<Dimension>::next(2u, state.data()));
 
-        std::transform(opposite.begin(),
-                       opposite.end(),
-                       rBox.base().begin(),
-                       rBox.lengths().begin(),
-                       std::minus<Scalar>());
+        std::transform(
+            opposite.begin(),
+            opposite.end(),
+            rBox.base().begin(),
+            rBox.lengths().begin(),
+            std::minus<Scalar>());
     }
 }; // struct CellData
 

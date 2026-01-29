@@ -18,7 +18,22 @@ namespace cie::fem {
 
 
 /// @brief Data structure unique to the triangulated, immersed boundary cells.
-using BoundaryCellData = maths::AffineEmbedding<Scalar,1u,Dimension>;
+static_assert(Dimension == 2u);
+class BoundaryCellData : public CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,2u>,void,2u> {
+public:
+    using Base = CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,2u>,void,2u>;
+
+    using Base::Base;
+
+    BoundaryCellData(RightRef<typename Base::SpatialTransform> rTransform) noexcept
+        : Base(
+            VertexID(),
+            Base::AnsatzSpaceID(),
+            OrientedAxes<1>(),
+            std::move(rTransform))
+    {}
+}; // class BoundaryCellData
+//using BoundaryCellData = maths::AffineEmbedding<Scalar,1u,Dimension>;
 
 
 /// @brief Data structure unqiue to the triangulated, immersed boundary cell corners.
@@ -168,21 +183,21 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             tree.getNodeGeometry(rNode, &base, &edgeLength);
 
             // Define sample points in the boundary cell's local space.
-            const StaticArray<Scalar,1>
+            const std::array<Kernel<1, Scalar>::LocalCoordinate,1>
                 localBase {base},
                 localOpposite {base + edgeLength};
 
             // Transform sample points to the global coordinate space.
-            geo::Traits<Dimension,Scalar>::Point globalBase, globalOpposite;
-            rBoundaryCell.data().evaluate(localBase, globalBase);
-            rBoundaryCell.data().evaluate(localOpposite, globalOpposite);
+            std::array<Kernel<Dimension, Scalar>::GlobalCoordinate,Dimension> globalBase, globalOpposite;
+            rBoundaryCell.data().transform(localBase, globalBase);
+            rBoundaryCell.data().transform(localOpposite, globalOpposite);
 
             // Check whether the two endpoints are in different cells.
             const auto iBaseCell = bvh.find(
-                std::span<const Scalar,Dimension>(globalBase.data(), Dimension),
+                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(globalBase.data()), Dimension),
                 contiguousCellData);
             const auto iOppositeCell = bvh.find(
-                std::span<const Scalar,Dimension>(globalOpposite.data(), Dimension),
+                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(globalOpposite.data()), Dimension),
                 contiguousCellData);
 
             // Integrate if both endpoints lie in the same cell.
@@ -245,20 +260,6 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     return boundarySegments;
 }
-
-
-template <
-    unsigned InDimension,
-    unsigned OutDimension,
-    concepts::Numeric TValue>
-class EmbeddedQuadraturePointFactory {
-public:
-    unsigned operator()() {
-
-    }
-
-private:
-}; // class EmbeddedQuadraturePointFactory
 
 
 } // namespace cie::fem

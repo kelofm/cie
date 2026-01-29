@@ -3,6 +3,7 @@
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
 #include "packages/maths/inc/Expression.hpp"
+#include "packages/maths/inc/IdentityTransform.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
@@ -96,6 +97,19 @@ private:
             TData>
     > _data;
 };
+
+
+template <class T, class TData = void>
+concept QuadraturePointLike
+= requires (T& instance, const T& constInstance) {
+    {constInstance.evaluate(
+        maths::IdentityTransform<double,1u>(),
+        std::span<double>())};
+    {constInstance.position()};
+    {constInstance.weight()};
+    {constInstance.data()} -> std::same_as<typename VoidSafe<const TData>::Ref>;
+    {instance.data()} -> std::same_as<typename VoidSafe<TData>::Ref>;
+}; // concept QuadraturePointLike
 
 
 } // namespace cie::fem

@@ -45,6 +45,8 @@ class AffineEmbedding<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbedding)
 
+    using typename ExpressionTraits<TValue>::Value;
+
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
@@ -87,6 +89,8 @@ class AffineEmbeddingDerivative<TValue,1u,2u> : public ExpressionTraits<TValue> 
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingDerivative)
 
+    using typename ExpressionTraits<TValue>::Value;
+
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
@@ -116,6 +120,8 @@ template <concepts::Numeric TValue>
 class AffineEmbeddingInverse<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverse)
+
+    using typename ExpressionTraits<TValue>::Value;
 
     using typename ExpressionTraits<TValue>::Span;
 
@@ -152,6 +158,8 @@ template <concepts::Numeric TValue>
 class AffineEmbeddingInverseDerivative<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverseDerivative)
+
+    using typename ExpressionTraits<TValue>::Value;
 
     using typename ExpressionTraits<TValue>::Span;
 

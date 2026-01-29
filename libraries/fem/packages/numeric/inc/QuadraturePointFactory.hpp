@@ -19,8 +19,9 @@ namespace cie::fem {
 template <class T, class TQuadraturePointData = void>
 concept QuadraturePointFactoryLike
 =  cie::concepts::UnsignedInteger<std::remove_const_t<decltype(T::Dimension)>>
-&& cie::concepts::Numeric<typename T::Value>
-&& requires(T& rInstance, std::span<QuadraturePoint<T::Dimension,typename T::Value,TQuadraturePointData>> quadraturePoints) {
+&& QuadraturePointLike<typename T::Value>
+&& cie::concepts::Numeric<typename T::Value::Value::Value>
+&& requires(T& rInstance, std::span<QuadraturePoint<T::Dimension,typename T::Value::Value::Value,TQuadraturePointData>> quadraturePoints) {
     {rInstance(quadraturePoints)} -> cie::concepts::UnsignedInteger;
 }; // concept QuadraturePointFactoryLike
 
@@ -47,13 +48,13 @@ class OuterProductQuadraturePointFactory {
 public:
     static constexpr inline unsigned Dimension = Dim;
 
-    using Value = TValue;
+    using Value = QuadraturePoint<Dimension,TValue,TQuadraturePointData>;
 
     constexpr OuterProductQuadraturePointFactory() noexcept;
 
     constexpr explicit OuterProductQuadraturePointFactory(std::span<const QuadraturePoint<1u,TValue,TQuadraturePointData>> base) noexcept;
 
-    unsigned operator()(std::span<QuadraturePoint<Dimension,TValue,TQuadraturePointData>> out) noexcept;
+    unsigned operator()(std::span<Value> out) noexcept;
 
 private:
     bool _done;
@@ -72,16 +73,16 @@ class CachedQuadraturePointFactory {
 public:
     static constexpr inline unsigned Dimension = Dim;
 
-    using Value = TValue;
+    using Value = QuadraturePoint<Dimension,TValue,TQuadraturePointData>;
 
     CachedQuadraturePointFactory() noexcept;
 
-    explicit CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,Value,TQuadraturePointData>> cache) noexcept;
+    explicit CachedQuadraturePointFactory(std::span<const Value> cache) noexcept;
 
-    unsigned operator()(std::span<QuadraturePoint<Dimension,TValue>> out) noexcept;
+    unsigned operator()(std::span<Value> out) noexcept;
 
 private:
-    std::span<const QuadraturePoint<Dimension,Value,TQuadraturePointData>> _cache;
+    std::span<const Value> _cache;
 };
 
 

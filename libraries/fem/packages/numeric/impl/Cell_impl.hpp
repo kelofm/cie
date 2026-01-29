@@ -8,11 +8,13 @@
 namespace cie::fem {
 
 
-template <unsigned Dim,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase() noexcept
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::CellBase() noexcept
     : _impl()
 {
     this->ansatzID() = 0u;
@@ -20,14 +22,17 @@ CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase() noexcept
 }
 
 
-template <unsigned Dim,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase(VertexID id,
-                                                       AnsatzSpaceID ansatzID,
-                                                       OrientedAxes<Dimension> axes,
-                                                       RightRef<SpatialTransform> rSpatialTransform) noexcept
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::CellBase(
+    VertexID id,
+    AnsatzSpaceID ansatzID,
+    OrientedAxes<ParametricDimension> axes,
+    RightRef<SpatialTransform> rSpatialTransform) noexcept
 requires std::is_same_v<TData,void>
     : _impl(ansatzID, id, axes, std::move(rSpatialTransform), {})
 {
@@ -35,15 +40,18 @@ requires std::is_same_v<TData,void>
 }
 
 
-template <unsigned Dim,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-CellBase<Dim,TValue,TSpatialTransform,TData>::CellBase(VertexID id,
-                                                       AnsatzSpaceID ansatzID,
-                                                       OrientedAxes<Dimension> axes,
-                                                       RightRef<SpatialTransform> rSpatialTransform,
-                                                       typename VoidSafe<TData,int>::RightRef rData) noexcept
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::CellBase(
+    VertexID id,
+    AnsatzSpaceID ansatzID,
+    OrientedAxes<ParametricDimension> axes,
+    RightRef<SpatialTransform> rSpatialTransform,
+    typename VoidSafe<TData,int>::RightRef rData) noexcept
 requires (!std::is_same_v<TData,void>)
     : _impl(ansatzID, id, axes, std::move(rSpatialTransform), {}, std::move(rData))
 {
@@ -51,57 +59,67 @@ requires (!std::is_same_v<TData,void>)
 }
 
 
-template <unsigned Dim,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void CellBase<Dim,TValue,TSpatialTransform,TData>::transform(Ref<const ConstLocalSpan> in,
-                                                             Ref<const GlobalSpan> out) const noexcept {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::transform(Ref<const ConstParametricSpan> in,
+                                                                                   Ref<const PhysicalSpan> out) const noexcept {
     this->spatialTransform().evaluate(
-        Kernel<Dimension,Value>::decay(in),
-        Kernel<Dimension,Value>::decay(out));
+        Kernel<ParametricDimension,Value>::decay(in),
+        Kernel<ParametricDimension,Value>::decay(out));
 }
 
 
-template <unsigned Dim,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void CellBase<Dim,TValue,TSpatialTransform,TData>::transform(Ref<const ConstGlobalSpan> in,
-                                                             Ref<const LocalSpan> out) const noexcept {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::transform(Ref<const ConstPhysicalSpan> in,
+                                                                                   Ref<const ParametricSpan> out) const noexcept {
     this->inverseSpatialTransform().evaluate(
-        Kernel<Dimension,Value>::decay(in),
-        Kernel<Dimension,Value>::decay(out));
+        Kernel<ParametricDimension,Value>::decay(in),
+        Kernel<ParametricDimension,Value>::decay(out));
 }
 
 
-template <unsigned Dim,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
 typename TSpatialTransform::Derivative
-CellBase<Dim,TValue,TSpatialTransform,TData>::makeJacobian() const {
+CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::makeJacobian() const {
     return this->spatialTransform().makeDerivative();
 }
 
 
-template <unsigned Dimension,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void io::GraphML::Serializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>::header(Ref<io::GraphML::XMLElement> rElement) const {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void io::GraphML::Serializer<CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>>::header(Ref<io::GraphML::XMLElement> rElement) const {
     io::GraphML::XMLElement defaultElement = rElement.addChild("default");
     Value instance;
     this->operator()(defaultElement, instance);
 }
 
 
-template <unsigned Dimension,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void io::GraphML::Serializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>::operator()(Ref<io::GraphML::XMLElement> rElement,
-                                                                                             Ref<const Value> rInstance) const {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void io::GraphML::Serializer<CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>>::operator()(Ref<io::GraphML::XMLElement> rElement,
+                                                                                                             Ref<const Value> rInstance) const {
     // Serialize trivial (integral / floating point) members.
     rElement.addAttribute("id", std::to_string(rInstance.id()));
     rElement.addAttribute("iAnsatz", std::to_string(rInstance.ansatzID()));
@@ -140,13 +158,15 @@ void io::GraphML::Serializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>
 }
 
 
-template <unsigned Dimension,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void io::GraphML::Deserializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>::onElementBegin(Ptr<void> pThis,
-                                                                                                   std::string_view elementName,
-                                                                                                   std::span<io::GraphML::AttributePair> attributes) {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void io::GraphML::Deserializer<CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>>::onElementBegin(Ptr<void> pThis,
+                                                                                                                   std::string_view elementName,
+                                                                                                                   std::span<io::GraphML::AttributePair> attributes) {
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
     // Deserialize the cell ID.
@@ -181,7 +201,7 @@ void io::GraphML::Deserializer<CellBase<Dimension,TValue,TSpatialTransform,TData
             [] (const auto pair) {
                 return pair.first == "axes";
             });
-        rThis.instance().axes() = OrientedAxes<Dimension>(it->second);
+        rThis.instance().axes() = OrientedAxes<ParametricDim>(it->second);
     }
 
     // Deserialize the spatial transformation.
@@ -228,24 +248,28 @@ void io::GraphML::Deserializer<CellBase<Dimension,TValue,TSpatialTransform,TData
 }
 
 
-template <unsigned Dimension,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void io::GraphML::Deserializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>::onText(Ptr<void>,
-                                                                                           std::string_view elementName) {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void io::GraphML::Deserializer<CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>>::onText(Ptr<void>,
+                                                                                                           std::string_view elementName) {
     CIE_THROW(
         Exception,
         "Unexpected text data while parsing a(n) " << elementName << " element in GraphML.")
 }
 
 
-template <unsigned Dimension,
-          cie::concepts::Numeric TValue,
-          maths::SpatialTransform TSpatialTransform,
-          class TData>
-void io::GraphML::Deserializer<CellBase<Dimension,TValue,TSpatialTransform,TData>>::onElementEnd(Ptr<void> pThis,
-                                                                                                 std::string_view elementName) {
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
+void io::GraphML::Deserializer<CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>>::onElementEnd(Ptr<void> pThis,
+                                                                                                                 std::string_view elementName) {
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
     rThis.instance().inverseSpatialTransform() = rThis.instance().spatialTransform.makeInverse();
     rThis.template release<Deserializer>(&rThis, elementName);

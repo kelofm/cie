@@ -33,7 +33,7 @@ constexpr inline OuterProductQuadraturePointFactory<Dim,TValue,TQD>::OuterProduc
 
 
 template <unsigned Dim, concepts::Numeric TValue, class TQD>
-unsigned OuterProductQuadraturePointFactory<Dim,TValue,TQD>::operator()(std::span<QuadraturePoint<Dimension,TValue,TQD>> out) noexcept {
+unsigned OuterProductQuadraturePointFactory<Dim,TValue,TQD>::operator()(std::span<Value> out) noexcept {
     auto itOut = out.begin();
 
     // Early exit if all quadrature points were already generated.
@@ -42,7 +42,7 @@ unsigned OuterProductQuadraturePointFactory<Dim,TValue,TQD>::operator()(std::spa
     // Generate quadrature points until they're exhausted
     // or there's no more output slots.
     do {
-        Ref<QuadraturePoint<Dimension,TValue,TQD>> rCurrent = *itOut++;
+        Ref<Value> rCurrent = *itOut++;
         rCurrent.weight() = static_cast<TValue>(1);
         for (unsigned iState=0u; iState<Dimension; ++iState) {
             rCurrent.weight() *= _base[_state[iState]].weight();
@@ -62,24 +62,24 @@ unsigned OuterProductQuadraturePointFactory<Dim,TValue,TQD>::operator()(std::spa
 
 template <unsigned Dim, concepts::Numeric TValue, class TQD>
 CachedQuadraturePointFactory<Dim,TValue,TQD>::CachedQuadraturePointFactory() noexcept
-    : CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,TValue,TQD>>())
+    : CachedQuadraturePointFactory(std::span<const Value>())
 {}
 
 
 template <unsigned Dim, concepts::Numeric TValue, class TQD>
-CachedQuadraturePointFactory<Dim,TValue,TQD>::CachedQuadraturePointFactory(std::span<const QuadraturePoint<Dimension,TValue,TQD>> cache) noexcept
+CachedQuadraturePointFactory<Dim,TValue,TQD>::CachedQuadraturePointFactory(std::span<const Value> cache) noexcept
     : _cache(cache)
 {}
 
 
 template <unsigned Dim, concepts::Numeric TValue, class TQD>
-unsigned CachedQuadraturePointFactory<Dim,TValue,TQD>::operator()(std::span<QuadraturePoint<Dimension,Value>> out) noexcept {
+unsigned CachedQuadraturePointFactory<Dim,TValue,TQD>::operator()(std::span<Value> out) noexcept {
     const std::size_t copyCount = std::min(_cache.size(), out.size());
     std::copy_n(
         _cache.data(),
         copyCount,
         out.data());
-    _cache = std::span<const QuadraturePoint<Dimension,Value>>(
+    _cache = std::span<const Value>(
         _cache.data() + copyCount,
         _cache.size() - copyCount);
     return copyCount;

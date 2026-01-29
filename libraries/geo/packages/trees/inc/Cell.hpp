@@ -12,8 +12,7 @@ namespace cie::geo {
 
 
 template <concepts::Cube PrimitiveType>
-class Cell<PrimitiveType> : public AbsCell<PrimitiveType>
-{
+class Cell<PrimitiveType> : public AbsCell<PrimitiveType> {
 private:
     using IndexConverter = CartesianIndexConverter<PrimitiveType::Dimension,Size,Size,tags::Eager>;
 
