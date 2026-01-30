@@ -178,6 +178,46 @@ struct Kernel
     static constexpr std::span<TOut,ArraySize> castView(StaticArray<TIn,ArraySize>& rArray) noexcept {
         return Kernel::cast<TOut>(Kernel::view(rArray));
     }
+
+    template <class TIn, std::size_t ArraySize>
+    requires (ct::Match<TIn>::template Any<Value,LocalCoordinate,GlobalCoordinate>)
+    static constexpr std::span<const TIn,ArraySize> view(const std::array<TIn,ArraySize>& rArray) noexcept {
+        return std::span<const TIn,ArraySize>(
+            reinterpret_cast<const TIn*>(rArray.data()),
+            ArraySize);
+    }
+
+    template <class TIn, std::size_t ArraySize>
+    requires ct::Match<TIn>::template Any<Value,LocalCoordinate,GlobalCoordinate>
+    static constexpr std::span<TIn,ArraySize> view(std::array<TIn,ArraySize>& rArray) noexcept {
+        return std::span<TIn,ArraySize>(
+            reinterpret_cast<TIn*>(rArray.data()),
+            ArraySize);
+    }
+
+    template <class TIn, std::size_t ArraySize>
+    requires ct::Match<TIn>::template Any<Value,LocalCoordinate,GlobalCoordinate>
+    static constexpr std::span<const Value,ArraySize> decayView(const std::array<TIn,ArraySize>& rArray) noexcept {
+        return Kernel::decay(Kernel::view(rArray));
+    }
+
+    template <class TIn, std::size_t ArraySize>
+    requires ct::Match<TIn>::template Any<Value,LocalCoordinate,GlobalCoordinate>
+    static constexpr std::span<Value,ArraySize> decayView(std::array<TIn,ArraySize>& rArray) noexcept {
+        return Kernel::decay(Kernel::view(rArray));
+    }
+
+    template <class TOut, class TIn, std::size_t ArraySize>
+    requires ct::Match<TIn,TOut>::template All<Value,LocalCoordinate,GlobalCoordinate>
+    static constexpr std::span<const TOut,ArraySize> castView(const std::array<TIn,ArraySize>& rArray) noexcept {
+        return Kernel::cast<TOut>(Kernel::view(rArray));
+    }
+
+    template <class TOut, class TIn, std::size_t ArraySize>
+    requires ct::Match<TIn,TOut>::template All<Value,LocalCoordinate,GlobalCoordinate>
+    static constexpr std::span<TOut,ArraySize> castView(std::array<TIn,ArraySize>& rArray) noexcept {
+        return Kernel::cast<TOut>(Kernel::view(rArray));
+    }
 }; // class Kernel
 
 ///@}
