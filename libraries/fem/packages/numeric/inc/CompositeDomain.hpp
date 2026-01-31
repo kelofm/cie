@@ -32,10 +32,4 @@ concept CompositeDomainLike
 }; // CompositeDomain
 
 
-template <class T, unsigned Dimension, class TValue>
-concept DiscreteCompositeDomainLike
-=  CompositeDomainLike<T,Dimension,TValue>
-&& DiscretizationLike<T>;
-
-
 } // namespace cie::fem

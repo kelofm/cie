@@ -26,11 +26,12 @@ namespace cie::fem {
 template <
     unsigned PhysicalDimension,
     concepts::Numeric TValue,
-    DiscreteCompositeDomainLike<PhysicalDimension,TValue> TMesh
+    CellLike TCell,
+    CompositeDomainLike<PhysicalDimension,TValue> TDomain
 >
 class KDTreeQuadraturePointFactory {
 private:
-    static constexpr inline unsigned ParametricDimension = TMesh::Vertex::Data::Dimension;
+    static constexpr inline unsigned ParametricDimension = TCell::Dimension;
 
     using TreePrimitive = geo::Cube<ParametricDimension,TValue>;
 
@@ -40,13 +41,13 @@ public:
     using Value = QuadraturePoint<
         ParametricDimension,
         TValue,
-        typename TMesh::DomainData>;
+        typename TDomain::DomainData>;
 
     KDTreeQuadraturePointFactory() = default;
 
     KDTreeQuadraturePointFactory(
-        Ref<const TMesh> rMesh,
-        Ref<const typename TMesh::Vertex::Data> rCell,
+        Ref<const TDomain> rDomain,
+        Ref<const TCell> rCell,
         std::span<const Value> basePoints,
         std::array<unsigned,2> depthRange = {0u, std::numeric_limits<unsigned>::max()})
     {
@@ -77,11 +78,11 @@ public:
             // Check which subdomain each corner of the current node belong to.
             constexpr unsigned cornerCount = intPow(2, ParametricDimension);
             std::array<TValue,cornerCount*PhysicalDimension> physicalCorners;
-            std::array<typename TMesh::DomainData,cornerCount> subdomains;
+            std::array<typename TDomain::DomainData,cornerCount> subdomains;
 
             Ptr<TValue> pCornerBegin = physicalCorners.data();
             ParametricSpace<ParametricDimension,TValue,ParametricSpaceType::Cartesian>::iterateCorners(
-                [&subdomains, &pCornerBegin, &rNode, &rMesh, &rCell, &base, &lengths] (std::span<const std::uint8_t,cornerCount> state) {
+                [&subdomains, &pCornerBegin, &rNode, &rDomain, &rCell, &base, &lengths] (std::span<const std::uint8_t,cornerCount> state) {
                     // Compute the tree node's corner (in parametric space).
                     std::array<TValue,cornerCount> parametricCorner;
                     for (unsigned iDimension=0u; iDimension<ParametricDimension; ++iDimension) {
@@ -104,13 +105,16 @@ public:
             //   further explored.
             // - If not all corners belong to the same domain, further
             //   partitioning is necessary.
+            rDomain.whichSubdomain(
+                std::span<const TValue>(physicalCorners),
+                std::span<typename TDomain::DomainData>(subdomains));
             const bool isHomogeneousSubdomain = std::adjacent_find(
                 subdomains.begin(),
                 subdomains.end(),
-                std::not_equal_to<typename TMesh::DomainData>()
+                std::not_equal_to<typename TDomain::DomainData>()
             ) == subdomains.end();
 
-            if (isHomogeneousSubdomain) {
+            if (isHomogeneousSubdomain && subdomains.front()) {
                 // Compute the spatial transform that maps from the node's
                 // local space to the cell's parametric space.
                 std::array<

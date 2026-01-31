@@ -18,7 +18,6 @@ namespace cie::fem {
 
 
 /// @brief Data structure unique to the triangulated, immersed boundary cells.
-static_assert(Dimension == 2u);
 class BoundaryCellData : public CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,2u>,void,2u> {
 public:
     using Base = CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,2u>,void,2u>;
@@ -38,6 +37,14 @@ public:
 
 /// @brief Data structure unqiue to the triangulated, immersed boundary cell corners.
 using BoundaryCornerData = Scalar;
+
+
+class BoundaryMeshData {
+public:
+    using DomainData = std::uint8_t;
+
+private:
+}; // class BoundaryMeshData
 
 
 /// @brief Mesh type of the immersed, triangulated boundary.
