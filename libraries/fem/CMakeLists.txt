@@ -62,6 +62,9 @@ if (${CIE_ENABLE_HDF5} MATCHES ON)
     target_link_libraries(
         ${PROJECT_NAME}
         PUBLIC hdf5::hdf5_cpp)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC "CIE_ENABLE_HDF5")
 endif()
 
 target_include_directories(${PROJECT_NAME}

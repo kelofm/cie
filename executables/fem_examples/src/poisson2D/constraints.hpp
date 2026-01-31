@@ -141,7 +141,10 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution) {
 }
 
 
-[[nodiscard]] DynamicArray<StaticArray<Scalar,2*Dimension+1>>
+using BoundarySegment = StaticArray<Scalar,2*Dimension+1>;
+
+
+[[nodiscard]] DynamicArray<BoundarySegment>
 imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const Assembler> rAssembler,
                          BVH::View bvh,
@@ -151,7 +154,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const utils::ArgParse::Results> rArguments) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
 
-    DynamicArray<StaticArray<Scalar,2*Dimension+1>> boundarySegments; // {p0x, p0y, p1x, p1y, level}
+    DynamicArray<BoundarySegment> boundarySegments; // {p0x, p0y, p1x, p1y, level}
     const unsigned boundaryResolution = rArguments.get<std::size_t>("boundary-resolution");
 
     // Load the boundary mesh.
@@ -248,7 +251,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                         std::span<Scalar>(rhs));
 
                     // Log debug and output info.
-                    decltype(boundarySegments)::value_type segment;
+                    BoundarySegment segment;
                     std::copy_n(globalCorners[0].data(), Dimension, segment.data());
                     std::copy_n(globalCorners[1].data(), Dimension, segment.data() + Dimension);
                     segment.back() = level;

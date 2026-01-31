@@ -216,8 +216,9 @@ private:
         /// @param rObjects Range of objects the original @ref AABBoxNode "tree" was built over.
         /// @param pEnd Sentinel of the tree's allocated memory region.
         template <concepts::SamplableGeometry TObject>
-        std::size_t find(Ref<const typename Geometry::Point> rPoint,
-                         Ref<const std::span<const TObject>> rObjects) const noexcept;
+        std::size_t find(
+            Ref<const typename Geometry::Point> rPoint,
+            Ref<const std::span<const TObject>> rObjects) const noexcept;
 
         Ptr<std::conditional_t<
             TMutable,
@@ -233,8 +234,9 @@ public:
         /// @param rPoint Coordinates of the point to find.
         /// @param rObjects Range of objects the original @ref AABBoxNode "tree" was built over.
         template <concepts::SamplableGeometry TObject>
-        std::size_t find(Ref<const std::span<const TCoordinate,Dimension>> rPoint,
-                        Ref<const std::span<const TObject>> rObjects) const noexcept;
+        std::size_t find(
+            Ref<const std::span<const TCoordinate,Dimension>> rPoint,
+            Ref<const std::span<const TObject>> rObjects) const noexcept;
 
     private:
         friend class FlatAABBoxTree;
@@ -256,7 +258,7 @@ public:
     }
 
     template <concepts::FunctionWithSignature<bool,Node</*TMutable=*/false>> TVisitor>
-    void visit(TVisitor&& rVisitor) {
+    void visit(TVisitor&& rVisitor) const {
         typename FlatAABBoxTree::template Node<false> current(_data.data());
         const Ptr<const std::byte> pEnd = _data.data() + _data.size();
         while (current._data < pEnd) {
