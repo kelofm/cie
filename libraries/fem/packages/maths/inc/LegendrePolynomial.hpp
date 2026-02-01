@@ -18,6 +18,16 @@ public:
 
 
 template <class TValue>
+class ModifiedLegendrePolynomial : public Polynomial<TValue>
+{
+public:
+    ModifiedLegendrePolynomial() noexcept = default;
+
+    ModifiedLegendrePolynomial(unsigned index);
+}; // class ModifiedLegendrePolynomial
+
+
+template <class TValue>
 class IntegratedLegendrePolynomial : public Polynomial<TValue>
 {
 public:

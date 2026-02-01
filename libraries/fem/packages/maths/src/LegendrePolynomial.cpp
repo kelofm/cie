@@ -52,6 +52,47 @@ LegendrePolynomial<TValue>::LegendrePolynomial(unsigned index)
 
 
 template <class TValue>
+ModifiedLegendrePolynomial<TValue>::ModifiedLegendrePolynomial(unsigned index)
+    : Polynomial<TValue>()
+{
+    typename Polynomial<TValue>::Coefficients coefficients(index + 1u);
+
+    if (index == 0u) {
+        coefficients.resize(2);
+        coefficients.front() = static_cast<TValue>( 0.5);
+        coefficients.back()  = static_cast<TValue>(-0.5);
+    } else if (index == 1u) {
+        coefficients.resize(2);
+        coefficients.front() = static_cast<TValue>( 0.5);
+        coefficients.back()  = static_cast<TValue>( 0.5);
+    } else {
+        std::fill_n(coefficients.data(), index + 1, static_cast<TValue>(0));
+
+        StaticArray<TValue,3> factors;
+        factors[1] = static_cast<TValue>(1) / std::pow(static_cast<TValue>(2),
+                                                       static_cast<TValue>(index));
+
+        for (unsigned i=0u; i<(index / 2) + 1; ++i) {
+            const unsigned iMonomial = index - 2 * i;
+
+            factors.front() = utils::NChooseK(index, i).numberOfPermutations();
+            factors.back()  = index <= 2 * (index - i)
+                              ? utils::NChooseK(2 * (index - i), index).numberOfPermutations()
+                              : static_cast<TValue>(1);
+
+            const TValue magnitude = std::accumulate(factors.begin(),
+                                                     factors.end(),
+                                                     static_cast<TValue>(1),
+                                                     std::multiplies<TValue>());
+            coefficients[iMonomial] = i % 2 ? -magnitude : magnitude;
+        } // for iMonomial in range(index)
+    }
+
+    static_cast<Polynomial<TValue>&>(*this) = Polynomial<TValue>(std::move(coefficients));
+}
+
+
+template <class TValue>
 IntegratedLegendrePolynomial<TValue>::IntegratedLegendrePolynomial(unsigned index)
     : Polynomial<TValue>()
 {
@@ -86,8 +127,9 @@ IntegratedLegendrePolynomial<TValue>::IntegratedLegendrePolynomial(unsigned inde
 }
 
 
-CIE_FEM_INSTANTIATE_NUMERIC_TEMPLATE(IntegratedLegendrePolynomial);
 CIE_FEM_INSTANTIATE_NUMERIC_TEMPLATE(LegendrePolynomial);
+CIE_FEM_INSTANTIATE_NUMERIC_TEMPLATE(ModifiedLegendrePolynomial);
+CIE_FEM_INSTANTIATE_NUMERIC_TEMPLATE(IntegratedLegendrePolynomial);
 
 
 } // namespace cie::fem::maths

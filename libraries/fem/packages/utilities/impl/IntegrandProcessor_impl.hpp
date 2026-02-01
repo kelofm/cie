@@ -103,7 +103,7 @@ template <
         std::span<const VertexID>,
         std::span<const typename TIntegrand::Value>
     > TIntegralSink
-> void  IntegrandProcessor<Dim,TIntegrand,TQD>::integrate(
+> void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
     Ref<const TMesh> rMesh,
     Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
     TIntegrandFactory&& rIntegrandFactory,

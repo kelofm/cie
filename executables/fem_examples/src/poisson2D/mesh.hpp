@@ -85,6 +85,10 @@ void generateMesh(Ref<Mesh> rMesh,
                         : 0u,
                     0.0);
 
+                std::cout << "basis " << iBasis << " [";
+                for (auto c : polynomialCoefficients) std::cout << c << ",";
+                std::cout << "],\n";
+
                 // Construct a new polynomial view over the copied coefficients.
                 // The array of coefficients is not stable, so these views must
                 // be reassigned after basis generation is done.

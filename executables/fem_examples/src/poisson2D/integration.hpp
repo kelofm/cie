@@ -92,7 +92,7 @@ void integrateStiffness(Ref<const Mesh> rMesh,
         .integrandBatchSize = quadratureBatchSize,
         .integrandsPerItem = {}};
 
-    pIntegrandProcessor->integrate(
+    pIntegrandProcessor->process(
         rMesh,
         quadratureRuleFactory,
         integrandFactory,

@@ -319,10 +319,17 @@ void postprocess(
         DynamicArray<Scalar> data;
         data.reserve(4 * 3 * boundingVolumes.size());
         for (const auto& rBoundingVolume : boundingVolumes) {
-            data.insert(
-                data.end(),
-                rBoundingVolume.begin(),
-                rBoundingVolume.end());
+            data.push_back(rBoundingVolume[0]);
+            data.push_back(rBoundingVolume[1]);
+            data.push_back(0.0);
+            data.push_back(rBoundingVolume[2]);
+            data.push_back(rBoundingVolume[3]);
+            data.push_back(0.0);
+            data.push_back(rBoundingVolume[4]);
+            data.push_back(rBoundingVolume[5]);
+            data.push_back(0.0);
+            data.push_back(rBoundingVolume[6]);
+            data.push_back(rBoundingVolume[7]);
             data.push_back(0.0);
         }
         output.write(
@@ -406,8 +413,8 @@ void postprocess(
                     </DataItem>
                 </Geometry>
 
-                <Attribute Name="state" Center="Node" AttributeType="Matrix">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 4 * rMesh.vertices().size() << " " << 1 << " " << polynomialOrder << R"(">
+                <Attribute Name="state" Center="Node" AttributeType="Scalar">
+                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 4 * rMesh.vertices().size() << R"(">
                         )";
     {
         DynamicArray<Scalar> data;
@@ -417,12 +424,7 @@ void postprocess(
             std::array<Scalar,Dimension> {-1.0,  1.0},
             std::array<Scalar,Dimension> { 1.0,  1.0}};
 
-        std::array<std::size_t,polynomialOrder> ansatzCounts;
-        for (std::size_t iOrder=1ul; iOrder<=polynomialOrder; ++iOrder)
-            ansatzCounts[iOrder - 1] = intPow(iOrder + 1, Dimension);
-        std::array<DynamicArray<std::size_t>,polynomialOrder> ansatzSets;
-
-        data.reserve(4 * polynomialOrder * rMesh.vertices().size());
+        data.reserve(4 * rMesh.vertices().size());
         DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatzSpace().size());
 
         for (const auto& rCell : rMesh.vertices()) {
@@ -434,40 +436,12 @@ void postprocess(
                 // Compute ansatz function values at the current local corner.
                 rAnsatzSpace.evaluate(rLocalPoint, ansatzBuffer);
 
-                std::array<Scalar,polynomialOrder> ansatzMagnitudes;
-                for (std::size_t iOrder=1ul; iOrder<=polynomialOrder; ++iOrder) {
-                    CIE_CHECK(ansatzCounts[iOrder - 1] <= ansatzBuffer.size(), ansatzCounts[iOrder - 1] << " " << ansatzBuffer.size())
-                    ansatzMagnitudes[iOrder - 1] = std::accumulate(
-                        ansatzBuffer.begin(),
-                        ansatzBuffer.begin() + ansatzCounts[iOrder - 1],
-                        0.0);
-                } // for iOrder in range(1, polynomialOrder + 1)
-
-                std::array<Scalar,polynomialOrder> unscaledStates;
-                for (std::size_t iOrder=1ul; iOrder<=polynomialOrder; ++iOrder) {
-                    Ref<Scalar> rUnscaledState = unscaledStates[iOrder - 1];
-                    if (iOrder == 1ul) {
-                        rUnscaledState = 0.0;
-                        for (std::size_t iFunction=0ul; iFunction<ansatzCounts[iOrder - 1]; ++iFunction) {
-                            rUnscaledState += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                        }
-                    } else {
-                        rUnscaledState = unscaledStates[iOrder - 2];
-                        for (std::size_t iFunction=ansatzCounts[iOrder - 2]; iFunction<ansatzCounts[iOrder - 1]; ++iFunction) {
-                            rUnscaledState += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                        }
-                    }
-                } // for iOrder in range(1, polynomialOrder + 1)
-
-                auto states = unscaledStates;
-                for (std::size_t iOrder=1ul; iOrder<=polynomialOrder; ++iOrder) {
-                    unscaledStates[iOrder - 1] *= ansatzMagnitudes.back() / ansatzMagnitudes[iOrder - 1];
+                Scalar state = 0.0;
+                for (std::size_t iFunction=0; iFunction<ansatzBuffer.size(); ++iFunction) {
+                    state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
                 }
 
-                data.insert(
-                    data.end(),
-                    states.begin(),
-                    states.end());
+                data.push_back(state);
             } // for rLocalPoint : localCorners
         } // for rCell in rMesh.vertices()
 
@@ -476,7 +450,7 @@ void postprocess(
                 data.data(),
                 data.size()),
             "meshState",
-            {static_cast<int>(4 * rMesh.vertices().size()), 1, polynomialOrder});
+            {static_cast<int>(4 * rMesh.vertices().size())});
     }
     output << R"(
                     </DataItem>

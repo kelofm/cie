@@ -52,7 +52,7 @@ public:
             std::span<const VertexID>,
             std::span<const typename TIntegrand::Value>
         > TIntegralSink
-    > void integrate(
+    > void process(
         Ref<const TMesh> rMesh,
         Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
         TIntegrandFactory&& rIntegrandFactory,
