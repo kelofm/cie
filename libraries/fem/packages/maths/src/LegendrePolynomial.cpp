@@ -105,8 +105,8 @@ IntegratedLegendrePolynomial<TValue>::IntegratedLegendrePolynomial(unsigned inde
         coefficients.back()  = static_cast<TValue>(-0.5);
     } else if (index == 1u) {
         coefficients.resize(2);
-        coefficients.front() = static_cast<TValue>(-0.5);
-        coefficients.back()  = static_cast<TValue>(-0.5);
+        coefficients.front() = static_cast<TValue>( 0.5);
+        coefficients.back()  = static_cast<TValue>( 0.5);
     } else {
         coefficients.resize(index + 1);
         coefficients.front() = static_cast<TValue>(0); // <== temporary
