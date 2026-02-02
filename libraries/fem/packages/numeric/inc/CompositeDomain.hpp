@@ -1,7 +1,6 @@
 #pragma once
 
 // --- FEM Includes ---
-#include "packages/graph/inc/GraphTraits.hpp"
 #include "packages/numeric/inc/Cell.hpp"
 
 // --- STL Includes ---
@@ -32,4 +31,26 @@ concept CompositeDomainLike
 }; // CompositeDomain
 
 
+template <CellLike TCell>
+class CellDomain {
+public:
+    using Cell = TCell;
+
+    using DomainData = bool;
+
+    constexpr CellDomain() noexcept;
+
+    constexpr CellDomain(Ref<const TCell> rCell) noexcept;
+
+    void whichSubdomain(
+        std::span<const typename TCell::Value> points,
+        std::span<DomainData> subdomains);
+
+private:
+    Ptr<const TCell> _pCell;
+}; // class CellDomain
+
+
 } // namespace cie::fem
+
+#include "packages/numeric/impl/CompositeDomain_impl.hpp"

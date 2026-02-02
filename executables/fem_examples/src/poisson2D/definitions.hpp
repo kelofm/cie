@@ -12,7 +12,7 @@
 namespace cie::fem {
 
 
-constexpr int polynomialOrder = 5;
+constexpr int polynomialOrder = 1;
 
 /// @brief Radius of the circle Dirichlet conditions are imposed on.
 constexpr double boundaryRadius             = 2.5e-1;
