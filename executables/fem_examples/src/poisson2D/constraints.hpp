@@ -224,10 +224,14 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                     const auto ansatzSpace = rMesh.data().ansatzSpace();
 
                     StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> physicalCorners;
-                    physicalCorners[0][0] = physicalBase[0];
-                    physicalCorners[0][1] = physicalBase[1];
-                    physicalCorners[1][0] = physicalOpposite[0];
-                    physicalCorners[1][1] = physicalOpposite[1];
+                    std::copy_n(
+                        physicalBase.data(),
+                        Dimension,
+                        physicalCorners[0].data());
+                    std::copy_n(
+                        physicalOpposite.data(),
+                        Dimension,
+                        physicalCorners[1].data());
                     const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(physicalCorners);
 
                     auto integrand = makeTransformedIntegrand(
@@ -237,7 +241,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                             ansatzSpace,
                             segmentTransform,
                             std::span<Scalar>(integrandBuffer)),
-                        segmentTransform.makeDerivative());
+                        segmentTransform.makeInverse().makeDerivative());
                     integrandBuffer.resize(integrand.getMinBufferSize());
                     integrand.setBuffer(integrandBuffer);
                     lineQuadrature.evaluate(integrand, quadratureBuffer);
@@ -250,7 +254,9 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                         lhs.columnIndices,
                         lhs.entries);
                     rAssembler.addContribution(
-                        std::span<const Scalar>(quadratureBuffer.data() + lhsEntryCount, quadratureBuffer.size() - lhsEntryCount),
+                        std::span<const Scalar>(
+                            quadratureBuffer.data() + lhsEntryCount,
+                            quadratureBuffer.size() - lhsEntryCount),
                         rCell.id(),
                         std::span<Scalar>(rhs));
 

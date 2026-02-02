@@ -31,7 +31,7 @@ using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
 
 
 constexpr unsigned integrationOrder = polynomialOrder + 1;
-constexpr unsigned boundaryIntegrationOrder = integrationOrder + 10;
+constexpr unsigned boundaryIntegrationOrder = integrationOrder;
 
 
 } // namespace cie::fem
