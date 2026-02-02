@@ -31,6 +31,7 @@ concept CellLike =
     {rConstInstance.transform(constParametricSpan, physicalSpan)}   -> std::same_as<void>;      // <== transform from local to global space
     {rConstInstance.transform(constPhysicalSpan, parametricSpan)}   -> std::same_as<void>;      // <== transform from global to local space
     {rConstInstance.makeJacobian()}                                 -> maths::JacobianExpression;
+    {rConstInstance.makeJacobianInverse()}                          -> maths::JacobianExpression;
     {rConstInstance.id()}                                           -> std::same_as<VertexID>;
     {rConstInstance.ansatzID()}                                     -> cie::concepts::UnsignedInteger;
 }; // concept Cell
@@ -95,6 +96,8 @@ public:
         Ref<const ParametricSpan> out) const noexcept;
 
     typename TSpatialTransform::Derivative makeJacobian() const;
+
+    typename TSpatialTransform::Derivative makeJacobianInverse() const;
 
     [[nodiscard]] constexpr AnsatzSpaceID ansatzID() const noexcept {
         return std::get<0>(_impl);

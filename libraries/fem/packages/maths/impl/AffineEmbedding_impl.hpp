@@ -15,7 +15,7 @@ void AffineEmbedding<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == AffineEmbedding::InDimension)
     CIE_OUT_OF_RANGE_CHECK(out.size() == AffineEmbedding::OutDimension)
 
-    StaticArray<TValue,2> augmentedIn;
+    std::array<TValue,OutDimension> augmentedIn;
     augmentedIn[0] = in[0];
     augmentedIn[1] = static_cast<TValue>(-1);
     _transform.evaluate(augmentedIn, out);
@@ -30,21 +30,22 @@ constexpr unsigned AffineEmbedding<TValue,1u,2u>::size() noexcept {
 
 template <concepts::Numeric TValue>
 void AffineEmbeddingDerivative<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const {
-    StaticArray<TValue,OutDimension> augmented;
-    StaticArray<TValue,OutDimension*OutDimension> buffer;
+    std::array<TValue,OutDimension> augmented;
+    std::array<TValue,OutDimension*OutDimension> buffer;
 
-    std::copy_n(in.begin(),
-                InDimension,
-                augmented.begin());
-    std::fill_n(augmented.begin() + InDimension,
-                OutDimension - InDimension,
-                static_cast<TValue>(-1));
-
+    std::copy_n(
+        in.data(),
+        InDimension,
+        augmented.data());
+    std::fill_n(
+        augmented.data() + InDimension,
+        OutDimension - InDimension,
+        static_cast<TValue>(-1));
     _transformDerivative.evaluate(in, buffer);
-
-    std::copy_n(buffer.begin(),
-                OutDimension * InDimension,
-                out.begin());
+    std::copy_n(
+        buffer.data(),
+        OutDimension * InDimension,
+        out.data());
 }
 
 
@@ -56,13 +57,13 @@ constexpr unsigned AffineEmbeddingDerivative<TValue,1u,2u>::size() noexcept {
 
 template <concepts::Numeric TValue>
 TValue AffineEmbeddingDerivative<TValue,1u,2u>::evaluateDeterminant(ConstSpan in) const {
-    StaticArray<TValue,OutDimension> augmented;
+    std::array<TValue,OutDimension> augmented;
     std::copy_n(
-        in.begin(),
+        in.data(),
         InDimension,
-        augmented.begin());
+        augmented.data());
     std::fill_n(
-        augmented.begin() + InDimension,
+        augmented.data() + InDimension,
         OutDimension - InDimension,
         static_cast<TValue>(-1));
     return _transformDerivative.evaluateDeterminant(in);
@@ -70,8 +71,7 @@ TValue AffineEmbeddingDerivative<TValue,1u,2u>::evaluateDeterminant(ConstSpan in
 
 
 template <concepts::Numeric TValue>
-void AffineEmbeddingInverse<TValue,2u,1u>::evaluate(ConstSpan in, Span out) const
-{
+void AffineEmbeddingInverse<TValue,2u,1u>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == AffineEmbeddingInverse::InDimension)
     CIE_OUT_OF_RANGE_CHECK(out.size() == AffineEmbeddingInverse::OutDimension)
 

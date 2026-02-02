@@ -18,9 +18,9 @@ namespace cie::fem {
 
 
 /// @brief Data structure unique to the triangulated, immersed boundary cells.
-class BoundaryCellData : public CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,2u>,void,2u> {
+class BoundaryCellData : public CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,Dimension>,void,Dimension> {
 public:
-    using Base = CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,2u>,void,2u>;
+    using Base = CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,Dimension>,void,Dimension>;
 
     using Base::Base;
 
@@ -100,7 +100,7 @@ BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh) {
 }
 
 
-BoundaryMesh generateBoundaryMesh(const unsigned resolution) {
+BoundaryMesh generateBoundaryMesh(const Scalar radius, const unsigned resolution) {
     using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
 
     if (resolution < 3) CIE_THROW(Exception, "boundary resolution must be 3 or greater")
@@ -111,21 +111,20 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution) {
     for (unsigned iSegment=0u; iSegment<resolution + 1; ++iSegment) {
         const Scalar arcParameter = iSegment * 2 * std::numbers::pi / resolution;
         corners.push_back(Point {
-            boundaryRadius * std::cos(arcParameter) + 0.5,
-            boundaryRadius * std::sin(arcParameter) + 0.5
+            radius * std::cos(arcParameter) + 0.5,
+            radius * std::sin(arcParameter) + 0.5
         });
     } // for iSegment in range(resolution)
 
     for (unsigned iCorner=0u; iCorner<corners.size(); ++iCorner) {
-        const StaticArray<Point,2> transformed {
+        const std::array<Point,2> transformed {
             corners[iCorner],
-            corners[(iCorner + 1) % corners.size()]
-        };
+            corners[(iCorner + 1) % corners.size()]};
 
         boundary.insert(BoundaryMesh::Vertex(
             boundary.vertices().size(),
             {},
-            maths::AffineEmbedding<Scalar,1u,Dimension>(transformed)
+            {maths::AffineEmbedding<Scalar,1u,Dimension>(transformed)}
         ));
     } // for iCorner in range(1, corners.size())
 
@@ -158,7 +157,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
     const unsigned boundaryResolution = rArguments.get<std::size_t>("boundary-resolution");
 
     // Load the boundary mesh.
-    const auto boundary = generateBoundaryMesh(boundaryResolution);
+    const Scalar boundaryRadius = rArguments.get<double>("boundary-radius");
+    const auto boundary = generateBoundaryMesh(boundaryRadius, boundaryResolution);
 
     using TreePrimitive = geo::Cube<1,Scalar>;
     using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
@@ -173,6 +173,9 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     DirichletBoundary dirichletBoundary;
     const Scalar penaltyFactor = rArguments.get<double>("penalty-factor");
+    const unsigned minBoundaryTreeDepth = rArguments.get<std::size_t>("min-boundary-tree-depth");
+    const unsigned maxBoundaryTreeDepth = rArguments.get<std::size_t>("max-boundary-tree-depth");
+    const Scalar minBoundarySegmentNorm = rArguments.get<double>("min-boundary-segment-norm");
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
         Tree tree(Tree::Point {-1.0}, 2.0);
@@ -182,7 +185,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                                       &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
                                       lhs, &rAssembler,
                                       &rhs, &dirichletBoundary,
-                                      &boundarySegments, &contiguousCellData, penaltyFactor] (
+                                      &boundarySegments, &contiguousCellData,
+                                      penaltyFactor, minBoundaryTreeDepth, maxBoundaryTreeDepth, minBoundarySegmentNorm] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
@@ -192,39 +196,39 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             Scalar base, edgeLength;
             tree.getNodeGeometry(rNode, &base, &edgeLength);
 
-            // Define sample points in the boundary cell's local space.
+            // Define sample points in the boundary cell's parametric space.
             const std::array<Kernel<1, Scalar>::LocalCoordinate,1>
-                localBase {base},
-                localOpposite {base + edgeLength};
+                parametricBase {base},
+                parametricOpposite {base + edgeLength};
 
             // Transform sample points to the global coordinate space.
-            std::array<Kernel<Dimension, Scalar>::GlobalCoordinate,Dimension> globalBase, globalOpposite;
-            rBoundaryCell.data().transform(localBase, globalBase);
-            rBoundaryCell.data().transform(localOpposite, globalOpposite);
+            std::array<Kernel<Dimension, Scalar>::GlobalCoordinate,Dimension> physicalBase, physicalOpposite;
+            rBoundaryCell.data().transform(parametricBase, physicalBase);
+            rBoundaryCell.data().transform(parametricOpposite, physicalOpposite);
 
             // Check whether the two endpoints are in different cells.
             const auto iBaseCell = bvh.find(
-                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(globalBase.data()), Dimension),
+                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(physicalBase.data()), Dimension),
                 contiguousCellData);
             const auto iOppositeCell = bvh.find(
-                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(globalOpposite.data()), Dimension),
+                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(physicalOpposite.data()), Dimension),
                 contiguousCellData);
 
             // Integrate if both endpoints lie in the same cell.
             if (iBaseCell != contiguousCellData.size() && iOppositeCell != contiguousCellData.size() && iBaseCell == iOppositeCell) {
-                const Scalar segmentNorm =   std::pow(globalOpposite[0] - globalBase[0], static_cast<Scalar>(2))
-                                           + std::pow(globalOpposite[1] - globalBase[1], static_cast<Scalar>(2));
+                const Scalar segmentNorm =   std::pow(physicalOpposite[0] - physicalBase[0], static_cast<Scalar>(2))
+                                           + std::pow(physicalOpposite[1] - physicalBase[1], static_cast<Scalar>(2));
 
                 if (minBoundarySegmentNorm < segmentNorm) {
                     Ref<const CellData> rCell = contiguousCellData[iBaseCell];
                     const auto ansatzSpace = rMesh.data().ansatzSpace();
 
-                    StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
-                    globalCorners[0][0] = globalBase[0];
-                    globalCorners[0][1] = globalBase[1];
-                    globalCorners[1][0] = globalOpposite[0];
-                    globalCorners[1][1] = globalOpposite[1];
-                    const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(globalCorners);
+                    StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> physicalCorners;
+                    physicalCorners[0][0] = physicalBase[0];
+                    physicalCorners[0][1] = physicalBase[1];
+                    physicalCorners[1][0] = physicalOpposite[0];
+                    physicalCorners[1][1] = physicalOpposite[1];
+                    const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(physicalCorners);
 
                     auto integrand = makeTransformedIntegrand(
                         makeDirichletPenaltyIntegrand(
@@ -252,11 +256,11 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
                     // Log debug and output info.
                     BoundarySegment segment;
-                    std::copy_n(globalCorners[0].data(), Dimension, segment.data());
-                    std::copy_n(globalCorners[1].data(), Dimension, segment.data() + Dimension);
+                    std::copy_n(physicalCorners[0].data(), Dimension, segment.data());
+                    std::copy_n(physicalCorners[1].data(), Dimension, segment.data() + Dimension);
                     segment.back() = level;
                     boundarySegments.push_back(segment);
-                }
+                } // if minBoundarySegmentNorm < segmentNorm
             } // if both endpoints lie in the same cell
 
             return iBaseCell != iOppositeCell &&

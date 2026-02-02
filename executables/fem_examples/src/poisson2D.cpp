@@ -183,6 +183,26 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
             "Number of nodes discretizing the boundary circle.")
         .addKeyword(
+            {"--boundary-radius"},
+            cie::utils::ArgParse::DefaultValue {"2.5e-1"},
+            cie::utils::ArgParse::validatorFactory<double>(),
+            "Radius of the boundary circle.")
+        .addKeyword(
+            {"--min-boundary-tree-depth"},
+            cie::utils::ArgParse::DefaultValue {"3"},
+            cie::utils::ArgParse::validatorFactory<std::size_t>(),
+            "Minimum number of splits before considering boundary segments for integration.")
+        .addKeyword(
+            {"--max-boundary-tree-depth"},
+            cie::utils::ArgParse::DefaultValue {"15"},
+            cie::utils::ArgParse::validatorFactory<std::size_t>(),
+            "Maximum number of segment splits on the boundary.")
+        .addKeyword(
+            {"--min-boundary-segment-norm"},
+            cie::utils::ArgParse::DefaultValue {"1e-12"},
+            cie::utils::ArgParse::validatorFactory<double>(),
+            "Minimum size of a boundary segment to integrate.")
+        .addKeyword(
             {"--scatter-resolution"},
             cie::utils::ArgParse::DefaultValue {"100"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),

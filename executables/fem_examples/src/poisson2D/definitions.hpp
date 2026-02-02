@@ -5,26 +5,11 @@
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 
-// --- Utility Includes ---
-//#include "packages/concurrency/inc/sycl.hpp"
-
 
 namespace cie::fem {
 
 
-constexpr int polynomialOrder = 1;
-
-/// @brief Radius of the circle Dirichlet conditions are imposed on.
-constexpr double boundaryRadius             = 2.5e-1;
-
-/// @brief Minimum depth of the spatial tree used to find intersections between domain cells and boundary cells.
-constexpr unsigned minBoundaryTreeDepth     = 3;
-
-/// @brief Maximum depth of the spatial tree used to find intersections between domain cells and boundary cells.
-constexpr unsigned maxBoundaryTreeDepth     = 20;
-
-/// @brief Minimum norm of a boundary segment to integrate over.
-constexpr double minBoundarySegmentNorm     = 1e-12;
+constexpr int polynomialOrder = 5;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
@@ -46,7 +31,7 @@ using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
 
 
 constexpr unsigned integrationOrder = polynomialOrder + 1;
-constexpr unsigned boundaryIntegrationOrder = integrationOrder;
+constexpr unsigned boundaryIntegrationOrder = integrationOrder + 10;
 
 
 } // namespace cie::fem

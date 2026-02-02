@@ -105,6 +105,18 @@ template <
     maths::SpatialTransform TSpatialTransform,
     class TData,
     unsigned PhysicalDim>
+typename TSpatialTransform::Derivative
+CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::makeJacobianInverse() const {
+    return this->inverseSpatialTransform().makeDerivative();
+}
+
+
+template <
+    unsigned ParametricDim,
+    cie::concepts::Numeric TValue,
+    maths::SpatialTransform TSpatialTransform,
+    class TData,
+    unsigned PhysicalDim>
 void io::GraphML::Serializer<CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>>::header(Ref<io::GraphML::XMLElement> rElement) const {
     io::GraphML::XMLElement defaultElement = rElement.addChild("default");
     Value instance;
