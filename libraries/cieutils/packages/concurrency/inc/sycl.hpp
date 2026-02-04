@@ -58,8 +58,6 @@ template <class T>
 using DeviceMemory = std::unique_ptr<
     T,
     DeviceMemoryDeleter<T>>;
-#endif
-
 
 template <class T>
 DeviceMemory<T> makeDeviceMemory(std::size_t size, Ref<sycl::queue> rQueue) {
@@ -70,6 +68,7 @@ DeviceMemory<T> makeDeviceMemory(std::size_t size, Ref<sycl::queue> rQueue) {
     //    static_cast<void*>(p)));
     return DeviceMemory<T>(p, DeviceMemoryDeleter<T>(rQueue));
 }
+#endif
 
 
 } // namespace cie

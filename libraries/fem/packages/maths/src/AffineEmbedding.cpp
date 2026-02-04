@@ -13,43 +13,6 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue>
-AffineEmbedding<TValue,1u,2u>::AffineEmbedding(std::span<const OutPoint> transformed)
-{
-    CIE_OUT_OF_RANGE_CHECK(transformed.size() == 2u)
-    if (transformed.size() != 2u) {
-        CIE_THROW(Exception, "Expecting 2 transformed points, but got " << transformed.size() << ".")
-    }
-
-    OutPoint segment;
-    std::transform(transformed[0].begin(),
-                   transformed[0].end(),
-                   transformed[1].begin(),
-                   segment.begin(),
-                   [](auto begin, auto end) {
-                    return end - begin;
-                   });
-    const auto segmentNorm = std::sqrt(std::inner_product(segment.begin(),
-                                                          segment.end(),
-                                                          segment.begin(),
-                                                          static_cast<TValue>(0)));
-    CIE_DIVISION_BY_ZERO_CHECK(segmentNorm)
-    const auto scale = static_cast<TValue>(2) / segmentNorm;
-
-    StaticArray<OutPoint,3> augmented;
-    std::copy(transformed.begin(),
-              transformed.end(),
-              augmented.begin());
-
-    augmented[2][0] = transformed[0][0] - scale * (transformed[1][1] - transformed[0][1]);
-    augmented[2][1] = transformed[0][1] + scale * (transformed[1][0] - transformed[0][0]);
-
-    CIE_BEGIN_EXCEPTION_TRACING
-    _transform = AffineTransform<TValue,2u>(augmented);
-    CIE_END_EXCEPTION_TRACING
-}
-
-
-template <concepts::Numeric TValue>
 AffineEmbedding<TValue,1u,2u>::AffineEmbedding(RightRef<AffineTransform<TValue,OutDimension>> rTransform) noexcept
     : _transform(std::move(rTransform))
 {

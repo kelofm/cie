@@ -62,8 +62,9 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     using maths::ExpressionTraits<Scalar>::Span;
     using maths::ExpressionTraits<Scalar>::ConstSpan;
 
-    void evaluate(ConstSpan position, Span state) const noexcept {
-        state[0] = position[0] + position[1];
+    void evaluate([[maybe_unused]] ConstSpan position, Span state) const noexcept {
+        //state[0] = position[0] + position[1];
+        state[0] = 1.0;
     }
 
     unsigned size() const noexcept {
@@ -140,7 +141,7 @@ BoundaryMesh generateBoundaryMesh(const Scalar radius, const unsigned resolution
 }
 
 
-using BoundarySegment = StaticArray<Scalar,2*Dimension+1>;
+using BoundarySegment = StaticArray<Scalar,2*Dimension>;
 
 
 [[nodiscard]] DynamicArray<BoundarySegment>
@@ -153,7 +154,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const utils::ArgParse::Results> rArguments) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
 
-    DynamicArray<BoundarySegment> boundarySegments; // {p0x, p0y, p1x, p1y, level}
+    DynamicArray<BoundarySegment> boundarySegments; // {p0x, p0y, p1x, p1y}
     const unsigned boundaryResolution = rArguments.get<std::size_t>("boundary-resolution");
 
     // Load the boundary mesh.
@@ -179,14 +180,17 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     for (const auto& rBoundaryCell : boundary.vertices()) {
         Tree tree(Tree::Point {-1.0}, 2.0);
+        std::vector<std::tuple<
+            std::size_t,    // cell data index
+            Scalar,         // segment begin
+            Scalar          // segment end
+        >> homogeneousSegments;
 
         // Define a functor detecting cell boundaries.
         const auto boundaryVisitor = [bvh, &tree, &rBoundaryCell,
-                                      &lineQuadrature, &integrandBuffer, &quadratureBuffer, &rMesh,
-                                      lhs, &rAssembler,
-                                      &rhs, &dirichletBoundary,
-                                      &boundarySegments, &contiguousCellData,
-                                      penaltyFactor, minBoundaryTreeDepth, maxBoundaryTreeDepth, minBoundarySegmentNorm] (
+                                      &contiguousCellData,
+                                      &homogeneousSegments,
+                                      minBoundaryTreeDepth, maxBoundaryTreeDepth] (
             Ref<const Tree::Node> rNode,
             unsigned level) -> bool {
 
@@ -208,65 +212,22 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
             // Check whether the two endpoints are in different cells.
             const auto iBaseCell = bvh.find(
-                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(physicalBase.data()), Dimension),
+                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(
+                    physicalBase.data()),
+                    Dimension),
                 contiguousCellData);
             const auto iOppositeCell = bvh.find(
-                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(physicalOpposite.data()), Dimension),
+                std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(
+                    physicalOpposite.data()),
+                    Dimension),
                 contiguousCellData);
 
             // Integrate if both endpoints lie in the same cell.
             if (iBaseCell != contiguousCellData.size() && iOppositeCell != contiguousCellData.size() && iBaseCell == iOppositeCell) {
-                const Scalar segmentNorm =   std::pow(physicalOpposite[0] - physicalBase[0], static_cast<Scalar>(2))
-                                           + std::pow(physicalOpposite[1] - physicalBase[1], static_cast<Scalar>(2));
-
-                if (minBoundarySegmentNorm < segmentNorm) {
-                    Ref<const CellData> rCell = contiguousCellData[iBaseCell];
-                    const auto ansatzSpace = rMesh.data().ansatzSpace();
-
-                    StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> physicalCorners;
-                    std::copy_n(
-                        physicalBase.data(),
-                        Dimension,
-                        physicalCorners[0].data());
-                    std::copy_n(
-                        physicalOpposite.data(),
-                        Dimension,
-                        physicalCorners[1].data());
-                    const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(physicalCorners);
-
-                    auto integrand = makeTransformedIntegrand(
-                        makeDirichletPenaltyIntegrand(
-                            dirichletBoundary,
-                            penaltyFactor,
-                            ansatzSpace,
-                            segmentTransform,
-                            std::span<Scalar>(integrandBuffer)),
-                        segmentTransform.makeInverse().makeDerivative());
-                    integrandBuffer.resize(integrand.getMinBufferSize());
-                    integrand.setBuffer(integrandBuffer);
-                    lineQuadrature.evaluate(integrand, quadratureBuffer);
-
-                    const std::size_t lhsEntryCount = std::pow(ansatzSpace.size(), Dimension);
-                    rAssembler.addContribution(
-                        std::span<const Scalar>(quadratureBuffer.data(), lhsEntryCount),
-                        rCell.id(),
-                        lhs.rowExtents,
-                        lhs.columnIndices,
-                        lhs.entries);
-                    rAssembler.addContribution(
-                        std::span<const Scalar>(
-                            quadratureBuffer.data() + lhsEntryCount,
-                            quadratureBuffer.size() - lhsEntryCount),
-                        rCell.id(),
-                        std::span<Scalar>(rhs));
-
-                    // Log debug and output info.
-                    BoundarySegment segment;
-                    std::copy_n(physicalCorners[0].data(), Dimension, segment.data());
-                    std::copy_n(physicalCorners[1].data(), Dimension, segment.data() + Dimension);
-                    segment.back() = level;
-                    boundarySegments.push_back(segment);
-                } // if minBoundarySegmentNorm < segmentNorm
+                homogeneousSegments.emplace_back(
+                    iBaseCell,
+                    base,
+                    base + edgeLength);
             } // if both endpoints lie in the same cell
 
             return iBaseCell != iOppositeCell &&
@@ -276,6 +237,89 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         // Construct a binary tree that detects intersections between
         // Cell boundaries and the current boundary cell.
         tree.scan(boundaryVisitor);
+
+        std::sort(
+            homogeneousSegments.begin(),
+            homogeneousSegments.end(),
+            [](const auto& rLeft, const auto& rRight) {
+                if (std::get<0>(rLeft) < std::get<0>(rRight)) return true;
+                else if (std::get<0>(rRight) < std::get<0>(rLeft)) return false;
+                else return std::get<1>(rLeft) < std::get<1>(rRight);
+            });
+
+        auto itBegin = homogeneousSegments.begin();
+        while (itBegin != homogeneousSegments.end()) {
+            const std::size_t iCellData = std::get<0>(*itBegin);
+            const Scalar segmentBegin = std::get<1>(*itBegin);
+
+            auto itEnd = std::upper_bound(
+                itBegin,
+                homogeneousSegments.end(),
+                iCellData,
+                [](std::size_t iCellData, const auto& rItem) {
+                    return iCellData < std::get<0>(rItem);
+                });
+            const Scalar segmentEnd = itBegin == itEnd ? std::get<2>(*itEnd) : std::get<2>(*(itEnd - 1));
+
+            // Transform sample points to the global coordinate space.
+            std::array<
+                std::array<
+                    Kernel<Dimension, Scalar>::GlobalCoordinate,
+                    Dimension>,
+                2
+            > physicalCorners;
+            rBoundaryCell.data().transform(
+                Kernel<1,Scalar>::cast<Kernel<1,Scalar>::LocalCoordinate>(std::span<const Scalar,1>(&segmentBegin, 1)),
+                physicalCorners.front());
+            rBoundaryCell.data().transform(
+                Kernel<1,Scalar>::cast<Kernel<1,Scalar>::LocalCoordinate>(std::span<const Scalar,1>(&segmentEnd, 1)),
+                physicalCorners.back());
+
+            // Discard the segment if it's too short.
+            const Scalar segmentNorm =   std::pow(physicalCorners.back()[0] - physicalCorners.front()[0], static_cast<Scalar>(2))
+                                       + std::pow(physicalCorners.back()[1] - physicalCorners.front()[1], static_cast<Scalar>(2));
+
+            if (minBoundarySegmentNorm < segmentNorm) {
+                Ref<const CellData> rCell = contiguousCellData[iCellData];
+                const auto ansatzSpace = rMesh.data().ansatzSpace();
+                const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(physicalCorners);
+
+                auto integrand = makeTransformedIntegrand(
+                    makeDirichletPenaltyIntegrand(
+                        dirichletBoundary,
+                        penaltyFactor,
+                        ansatzSpace,
+                        segmentTransform,
+                        std::span<Scalar>(integrandBuffer)),
+                    segmentTransform.makeInverse().makeDerivative());
+                integrandBuffer.resize(integrand.getMinBufferSize());
+                integrand.setBuffer(integrandBuffer);
+                lineQuadrature.evaluate(integrand, quadratureBuffer);
+
+                const std::size_t lhsEntryCount = std::pow(ansatzSpace.size(), Dimension);
+                rAssembler.addContribution(
+                    std::span<const Scalar>(quadratureBuffer.data(), lhsEntryCount),
+                    rCell.id(),
+                    lhs.rowExtents,
+                    lhs.columnIndices,
+                    lhs.entries);
+                rAssembler.addContribution(
+                    std::span<const Scalar>(
+                        quadratureBuffer.data() + lhsEntryCount,
+                        quadratureBuffer.size() - lhsEntryCount),
+                    rCell.id(),
+                    std::span<Scalar>(rhs));
+
+                // Log debug and output info.
+                BoundarySegment segment;
+                std::copy_n(physicalCorners[0].data(), Dimension, segment.data());
+                std::copy_n(physicalCorners[1].data(), Dimension, segment.data() + Dimension);
+                boundarySegments.push_back(segment);
+            }
+
+            itBegin = itEnd;
+        } // while itBegin != homogeneousSegments.end()
+
     } // for rBoundaryCell in boundary.vertices()
 
     return boundarySegments;

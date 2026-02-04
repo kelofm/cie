@@ -11,6 +11,56 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue>
+template <class T>
+requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+AffineEmbedding<TValue,1u,2u>::AffineEmbedding(std::span<const std::array<T,OutDimension>,2> transformed) {
+    CIE_OUT_OF_RANGE_CHECK(transformed.size() == 2u)
+    if (transformed.size() != 2u) {
+        CIE_THROW(Exception, "Expecting 2 transformed points, but got " << transformed.size() << ".")
+    }
+
+    OutPoint segment;
+    std::transform(
+        transformed[0].begin(),
+        transformed[0].end(),
+        transformed[1].begin(),
+        segment.begin(),
+        std::minus<TValue>());
+    const auto segmentNorm = std::sqrt(std::inner_product(
+        segment.begin(),
+        segment.end(),
+        segment.begin(),
+        static_cast<TValue>(0)));
+    CIE_DIVISION_BY_ZERO_CHECK(segmentNorm)
+    const auto scale = static_cast<TValue>(2) / segmentNorm;
+
+    std::array<typename AffineTransform<TValue,2u>::Point,3> augmented;
+    for (std::size_t iPoint=0ul; iPoint<transformed.size(); ++iPoint) {
+        std::copy_n(
+            transformed[iPoint].data(),
+            transformed[iPoint].size(),
+            augmented[iPoint].data());
+    }
+
+    augmented.back()[0] = transformed[0][0] - scale * (transformed[1][1] - transformed[0][1]);
+    augmented.back()[1] = transformed[0][1] + scale * (transformed[1][0] - transformed[0][0]);
+
+    CIE_BEGIN_EXCEPTION_TRACING
+    _transform = AffineTransform<TValue,2u>(augmented);
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <concepts::Numeric TValue>
+template <class T>
+requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+AffineEmbedding<TValue,1u,2u>::AffineEmbedding(Ref<const std::array<std::array<T,OutDimension>,2>> rTransformed)
+    : AffineEmbedding(std::span<const std::array<T,OutDimension>,2>(rTransformed))
+{}
+
+
+
+template <concepts::Numeric TValue>
 void AffineEmbedding<TValue,1u,2u>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(in.size() == AffineEmbedding::InDimension)
     CIE_OUT_OF_RANGE_CHECK(out.size() == AffineEmbedding::OutDimension)

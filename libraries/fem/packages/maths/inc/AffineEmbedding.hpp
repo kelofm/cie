@@ -2,6 +2,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
+#include "packages/compile_time/packages/parameter_pack/inc/Match.hpp"
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
@@ -55,9 +56,9 @@ public:
 
     static constexpr unsigned OutDimension = 2u;
 
-    using InPoint = typename Kernel<InDimension,TValue>::Point;
+    using InPoint = std::array<Value,InDimension>;
 
-    using OutPoint = typename Kernel<OutDimension,TValue>::Point;
+    using OutPoint = std::array<TValue,OutDimension>;
 
     using Derivative = AffineEmbeddingDerivative<TValue,InDimension,OutDimension>;
 
@@ -65,7 +66,13 @@ public:
 
     AffineEmbedding() noexcept = default;
 
-    AffineEmbedding(std::span<const OutPoint> transformed);
+    template <class T>
+    requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+    AffineEmbedding(std::span<const std::array<T,OutDimension>,2> transformed);
+
+    template <class T>
+    requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+    AffineEmbedding(Ref<const std::array<std::array<T,OutDimension>,2>> rTransformed);
 
     void evaluate(ConstSpan in, Span out) const;
 

@@ -19,8 +19,8 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
         CIE_TEST_CASE_INIT("1D => 2D")
         using Embedding = AffineEmbedding<double,1,2>;
 
-        StaticArray<double,1> in;
-        StaticArray<double,2> out;
+        std::array<double,1> in;
+        std::array<double,2> out;
 
         // Check default-constructed embedding.
         CIE_TEST_CHECK_NOTHROW(Embedding());
@@ -42,7 +42,7 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
         CIE_TEST_CHECK(out[1] == Approx(-1.0));
 
         // Check embedding from 2 endpoints.
-        StaticArray<Embedding::OutPoint,2> transformed;
+        std::array<Embedding::OutPoint,2> transformed;
         transformed[0] = Embedding::OutPoint {10.0, 5.0};
         transformed[1] = Embedding::OutPoint {-2.0, 15.0};
         CIE_TEST_CHECK_NOTHROW(embedding = Embedding(transformed));
@@ -67,7 +67,7 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
             CIE_TEST_REQUIRE_NOTHROW(embedding.makeDerivative());
             const auto jacobian = embedding.makeDerivative();
 
-            const StaticArray<double,2> segment {
+            const std::array<double,2> segment {
                 transformed[1][0] - transformed[0][0],
                 transformed[1][1] - transformed[0][1]
             };
@@ -78,9 +78,9 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
                 0.0));
 
             CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
-            StaticArray<double,1> reference, perturbed;
+            std::array<double,1> reference, perturbed;
             constexpr double perturbationNorm = 1e0;
-            StaticArray<double,2> transformedPerturbed;
+            std::array<double,2> transformedPerturbed;
 
             perturbed = in;
             perturbed[0] += perturbationNorm;
@@ -88,7 +88,7 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
             reference[0] = (transformedPerturbed[0] - out[0]) / perturbationNorm;
             reference[1] = (transformedPerturbed[1] - out[1]) / perturbationNorm;
 
-            StaticArray<double,2> test;
+            std::array<double,2> test;
             CIE_TEST_CHECK_NOTHROW(jacobian.evaluate(in, test));
             CIE_TEST_CHECK(test[0] == Approx(reference[0]));
             CIE_TEST_CHECK(test[1] == Approx(reference[1]));
@@ -100,21 +100,21 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
         CIE_TEST_REQUIRE_NOTHROW(embedding.makeInverse());
         const auto projection = embedding.makeInverse();
 
-        out = StaticArray<double,2> { 10.0,  5.0};
+        out = std::array<double,2> { 10.0,  5.0};
         CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
         CIE_TEST_CHECK(in[0] == Approx(-1.0));
 
-        out = StaticArray<double,2> {  4.0, 10.0};
+        out = std::array<double,2> {  4.0, 10.0};
         CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
         CIE_TEST_CHECK(in[0] == Approx(0.0).margin(1e-14));
 
-        out = StaticArray<double,2> { -2.0, 15.0};
+        out = std::array<double,2> { -2.0, 15.0};
         CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
         CIE_TEST_CHECK(in[0] == Approx(1.0));
 
         // Check the embedding's inverse when the input point
         // does not lie on the transformed line segment.
-        out = StaticArray<double,2> {  0.0,  0.0};
+        out = std::array<double,2> {  0.0,  0.0};
         CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
         CIE_TEST_CHECK(in[0] == Approx(-0.42622950819672134));
 
@@ -123,7 +123,7 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
             CIE_TEST_CHECK_NOTHROW(projection.makeDerivative());
             const auto jacobian = projection.makeDerivative();
 
-            const StaticArray<double,2> segment {
+            const std::array<double,2> segment {
                 transformed[1][0] - transformed[0][0],
                 transformed[1][1] - transformed[0][1]
             };
@@ -133,9 +133,9 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
                                                                     0.0));
 
             CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
-            StaticArray<double,2> reference, perturbed;
+            std::array<double,2> reference, perturbed;
             constexpr double perturbationNorm = 1e0;
-            StaticArray<double,1> transformedPerturbed;
+            std::array<double,1> transformedPerturbed;
 
             perturbed = out;
             perturbed[0] += perturbationNorm;
@@ -147,7 +147,7 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
             CIE_TEST_CHECK_NOTHROW(projection.evaluate(perturbed, transformedPerturbed));
             reference[1] = (transformedPerturbed[0] - in[0]) / perturbationNorm;
 
-            StaticArray<double,2> test;
+            std::array<double,2> test;
             CIE_TEST_CHECK_NOTHROW(jacobian.evaluate(out, test));
             CIE_TEST_CHECK(test[0] == Approx(reference[0]));
             CIE_TEST_CHECK(test[1] == Approx(reference[1]));

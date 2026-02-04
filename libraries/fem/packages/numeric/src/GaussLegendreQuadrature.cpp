@@ -80,8 +80,7 @@ namespace cie::fem {
 
 
 template <class T>
-struct GaussLegendreInitializer
-{
+struct GaussLegendreInitializer {
     static std::pair<typename GaussLegendreQuadrature<T>::NodeContainer,
                      typename GaussLegendreQuadrature<T>::WeightContainer>
     getNodesAndWeights(Size integrationOrder,
@@ -105,7 +104,7 @@ struct GaussLegendreInitializer
 
         // Handle symmetry
         Size i_pivot;
-        if (integrationOrder % 2 == 1) {
+        if (integrationOrder % 2 == 1 && 1 < integrationOrder) {
             i_pivot = integrationOrder / 2 + 1;
             r_nodes[i_pivot] = 0;
 
@@ -164,10 +163,7 @@ struct GaussLegendreInitializer
         CIE_END_EXCEPTION_TRACING
     }
 
-    static T approximateLegendreRoot(Size order, Size index)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
+    static T approximateLegendreRoot(Size order, Size index) {
         index = order - index;
         const T eighth = T(1) / T(8);
 
@@ -175,8 +171,6 @@ struct GaussLegendreInitializer
         output *= std::cos(std::numbers::pi * T(4*index-1)/T(4*order + 2));
 
         return output;
-
-        CIE_END_EXCEPTION_TRACING
     }
 };
 

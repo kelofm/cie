@@ -654,7 +654,7 @@ BoundaryMesh generateBoundaryMesh(const unsigned resolution)
     } // for iSegment in range(resolution)
 
     for (unsigned iCorner=0u; iCorner<corners.size(); ++iCorner) {
-        const StaticArray<Point,2> transformed {
+        const std::array<Point,2> transformed {
             corners[iCorner],
             corners[(iCorner + 1) % corners.size()]
         };
@@ -838,7 +838,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                     Ref<const CellData> rCell = contiguousCellData[iMaybeBaseCell];
                     const auto& rAnsatzSpace = rMesh.data().ansatzSpaces[rCell.iAnsatz];
 
-                    StaticArray<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
+                    std::array<maths::AffineEmbedding<Scalar,1,Dimension>::OutPoint,2> globalCorners;
                     globalCorners[0][0] = globalBase[0];
                     globalCorners[0][1] = globalBase[1];
                     globalCorners[1][0] = globalOpposite[0];

@@ -14,8 +14,7 @@ namespace cie::fem {
 template <concepts::Numeric TValue, unsigned Dimension>
 template <maths::Expression TExpression>
 void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> rExpression,
-                                            typename TExpression::Span out) const
-{
+                                            typename TExpression::Span out) const {
     DynamicArray<TValue> buffer(rExpression.size());
     this->evaluate(rExpression, buffer, out);
 }
@@ -25,8 +24,7 @@ template <concepts::Numeric TValue, unsigned Dimension>
 template <maths::Expression TExpression>
 void Quadrature<TValue,Dimension>::evaluate(Ref<const TExpression> rExpression,
                                             typename TExpression::Span buffer,
-                                            typename TExpression::Span out) const
-{
+                                            typename TExpression::Span out) const {
     const unsigned size = rExpression.size();
 
     // Clear output

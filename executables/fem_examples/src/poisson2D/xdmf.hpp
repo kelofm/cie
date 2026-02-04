@@ -278,28 +278,6 @@ void postprocess(
     output << R"(
                     </DataItem>
                 </Geometry>
-
-                <Attribute Name="level" Center="Cell" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << boundarySegments.size() << R"( 1">
-                        )";
-    {
-        DynamicArray<int> data;
-        data.reserve(boundarySegments.size());
-        std::transform(
-            boundarySegments.begin(),
-            boundarySegments.end(),
-            std::back_inserter(data),
-            [](const auto& rSegment) -> int {return rSegment.back();});
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "boundarySegmentLevel",
-            {static_cast<int>(boundarySegments.size()), 1});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
             </Grid>
 
             <Grid Name="bvh" GridType="Uniform">

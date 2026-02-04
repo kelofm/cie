@@ -20,17 +20,20 @@ class Quadrature : public Kernel<Dimension,TValue>
 public:
     Quadrature(Ref<const QuadratureBase<TValue>> rBase);
 
-    Quadrature(Ref<const typename QuadratureBase<TValue>::NodeContainer> rNodes,
-               Ref<const typename QuadratureBase<TValue>::WeightContainer> rWeights);
+    Quadrature(
+        Ref<const typename QuadratureBase<TValue>::NodeContainer> rNodes,
+        Ref<const typename QuadratureBase<TValue>::WeightContainer> rWeights);
 
     template <maths::Expression TExpression>
-    void evaluate(Ref<const TExpression> rExpression,
-                  typename TExpression::Span buffer,
-                  typename TExpression::Span out) const;
+    void evaluate(
+        Ref<const TExpression> rExpression,
+        typename TExpression::Span buffer,
+        typename TExpression::Span out) const;
 
     template <maths::Expression TExpression>
-    void evaluate(Ref<const TExpression> rExpression,
-                  typename TExpression::Span out) const;
+    void evaluate(
+        Ref<const TExpression> rExpression,
+        typename TExpression::Span out) const;
 
 private:
     DynamicArray<StaticArray<TValue,Dimension+1>> _nodesAndWeights;
