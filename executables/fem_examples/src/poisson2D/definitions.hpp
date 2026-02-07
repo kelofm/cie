@@ -9,7 +9,7 @@
 namespace cie::fem {
 
 
-constexpr int polynomialOrder = 5;
+constexpr int polynomialOrder = 15;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;

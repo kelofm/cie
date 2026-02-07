@@ -67,11 +67,11 @@ public:
     AffineEmbedding() noexcept = default;
 
     template <class T>
-    requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+    requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
     AffineEmbedding(std::span<const std::array<T,OutDimension>,2> transformed);
 
     template <class T>
-    requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+    requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
     AffineEmbedding(Ref<const std::array<std::array<T,OutDimension>,2>> rTransformed);
 
     void evaluate(ConstSpan in, Span out) const;

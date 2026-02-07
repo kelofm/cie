@@ -12,7 +12,7 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue>
 template <class T>
-requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
 AffineEmbedding<TValue,1u,2u>::AffineEmbedding(std::span<const std::array<T,OutDimension>,2> transformed) {
     CIE_OUT_OF_RANGE_CHECK(transformed.size() == 2u)
     if (transformed.size() != 2u) {
@@ -53,7 +53,7 @@ AffineEmbedding<TValue,1u,2u>::AffineEmbedding(std::span<const std::array<T,OutD
 
 template <concepts::Numeric TValue>
 template <class T>
-requires ct::Match<T>::template Any<TValue,typename Kernel<2,TValue>::GlobalCoordinate>
+requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
 AffineEmbedding<TValue,1u,2u>::AffineEmbedding(Ref<const std::array<std::array<T,OutDimension>,2>> rTransformed)
     : AffineEmbedding(std::span<const std::array<T,OutDimension>,2>(rTransformed))
 {}

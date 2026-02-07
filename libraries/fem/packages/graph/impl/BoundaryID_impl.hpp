@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_GRAPH_BOUNDARY_ID_IMPL_HPP
-#define CIE_FEM_GRAPH_BOUNDARY_ID_IMPL_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/maths/inc/bit.hpp"
@@ -59,67 +58,57 @@ inline constexpr BoundaryID::BoundaryID(unsigned dimension, bool direction)
 }
 
 
-inline constexpr BoundaryID& BoundaryID::operator++() noexcept
-{
+inline constexpr BoundaryID& BoundaryID::operator++() noexcept {
     _id <<= (1u ^ ((_id ^= 1u) & 1u));
     return *this;
 }
 
 
-inline constexpr BoundaryID BoundaryID::operator++(int) noexcept
-{
+inline constexpr BoundaryID BoundaryID::operator++(int) noexcept {
     BoundaryID copy(*this);
     ++*this;
     return copy;
 }
 
 
-inline constexpr BoundaryID BoundaryID::operator-() const noexcept
-{
+inline constexpr BoundaryID BoundaryID::operator-() const noexcept {
     BoundaryID copy = *this;
     copy._id ^= 1u;
     return copy;
 }
 
 
-inline unsigned BoundaryID::getDimension() const noexcept
-{
+inline unsigned BoundaryID::getDimension() const noexcept {
     return utils::getNumberOfTrailingZeros(_id & (~1u)) - 1u;
 }
 
 
-inline constexpr bool BoundaryID::getDirection() const noexcept
-{
+inline constexpr bool BoundaryID::getDirection() const noexcept {
     return _id & 1u;
 }
 
 
-inline constexpr unsigned BoundaryID::getData() const noexcept
-{
+inline constexpr unsigned BoundaryID::getData() const noexcept {
     return _id;
 }
 
 
-inline constexpr bool operator==(BoundaryID left, BoundaryID right) noexcept
-{
+inline constexpr bool operator==(BoundaryID left, BoundaryID right) noexcept {
     return left._id == right._id;
 }
 
 
-inline constexpr bool operator!=(BoundaryID left, BoundaryID right) noexcept
-{
+inline constexpr bool operator!=(BoundaryID left, BoundaryID right) noexcept {
     return left._id != right._id;
 }
 
 
-inline constexpr bool operator<(BoundaryID left, BoundaryID right) noexcept
-{
+inline constexpr bool operator<(BoundaryID left, BoundaryID right) noexcept {
     return left._id < right._id;
 }
 
 
-inline void io::GraphML::Serializer<BoundaryID>::header(Ref<XMLElement> rElement)
-{
+inline void io::GraphML::Serializer<BoundaryID>::header(Ref<XMLElement> rElement) {
     XMLElement defaultData = rElement.addChild("default");
     std::stringstream stream;
     stream << BoundaryID();
@@ -128,8 +117,7 @@ inline void io::GraphML::Serializer<BoundaryID>::header(Ref<XMLElement> rElement
 
 
 inline void io::GraphML::Serializer<BoundaryID>::operator()(Ref<XMLElement> rElement,
-                                                            Ref<const BoundaryID> rInstance)
-{
+                                                            Ref<const BoundaryID> rInstance) {
     std::stringstream stream;
     stream << rInstance;
     rElement.setValue(stream.view());
@@ -138,14 +126,12 @@ inline void io::GraphML::Serializer<BoundaryID>::operator()(Ref<XMLElement> rEle
 
 inline void io::GraphML::Deserializer<BoundaryID>::onElementBegin(Ptr<void> ,
                                                                   std::string_view,
-                                                                  std::span<GraphML::AttributePair>) noexcept
-{
+                                                                  std::span<GraphML::AttributePair>) noexcept {
 }
 
 
 inline void io::GraphML::Deserializer<BoundaryID>::onText(Ptr<void> pThis,
-                                                          std::string_view data)
-{
+                                                          std::string_view data) {
     if (data.size() != 2) {
         CIE_THROW(
             Exception,
@@ -159,8 +145,7 @@ inline void io::GraphML::Deserializer<BoundaryID>::onText(Ptr<void> pThis,
 
 
 inline void io::GraphML::Deserializer<BoundaryID>::onElementEnd(Ptr<void> pThis,
-                                                                std::string_view elementName) noexcept
-{
+                                                                std::string_view elementName) noexcept {
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
     rThis.template release<Deserializer>(&rThis, elementName);
 }
@@ -172,13 +157,9 @@ inline void io::GraphML::Deserializer<BoundaryID>::onElementEnd(Ptr<void> pThis,
 namespace std {
 
 
-inline size_t hash<cie::fem::BoundaryID>::operator()(cie::fem::BoundaryID id) const noexcept
-{
+inline size_t hash<cie::fem::BoundaryID>::operator()(cie::fem::BoundaryID id) const noexcept {
     return hash<unsigned>()(id.getData());
 }
 
 
 } // namespace std
-
-
-#endif

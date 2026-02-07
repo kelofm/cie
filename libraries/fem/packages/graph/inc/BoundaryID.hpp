@@ -17,8 +17,7 @@ namespace cie::fem {
 
 
 /// @brief Class for identifying hypercubes' faces (left, right, bottom, top, etc.) in local space.
-class BoundaryID
-{
+class BoundaryID {
 public:
     // Required by std::incrementable.
     using difference_type = std::int8_t;

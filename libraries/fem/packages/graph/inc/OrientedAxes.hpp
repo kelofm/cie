@@ -24,8 +24,7 @@ namespace cie::fem {
  *         in any axis-parallel orientation within \f$d\f$-dimensional space.
  */
 template <unsigned Dimension>
-class OrientedAxes
-{
+class OrientedAxes {
 private:
     static constexpr unsigned ComponentBitWidth = 1 + 1 + utils::getMSBIndex(Dimension);
 
@@ -103,8 +102,7 @@ private:
     friend struct utils::Hash<OrientedAxes>;
 
     template <bool Mutable>
-    class ValueProxy
-    {
+    class ValueProxy {
     public:
         ValueProxy& operator=(BoundaryID rhs)
         requires Mutable;
@@ -132,8 +130,7 @@ private:
 
 
     template <bool Mutable>
-    class Iterator
-    {
+    class Iterator {
     private:
         using Data = typename OrientedAxes<Dimension>::Data;
 

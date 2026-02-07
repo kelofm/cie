@@ -27,7 +27,7 @@ template <
     unsigned PhysicalDimension,
     concepts::Numeric TValue,
     CellLike TCell,
-    CompositeDomainLike<PhysicalDimension,TValue> TDomain
+    DomainDataLike TDomainData
 >
 class KDTreeQuadraturePointFactory {
 private:
@@ -41,10 +41,11 @@ public:
     using Value = QuadraturePoint<
         ParametricDimension,
         TValue,
-        typename TDomain::DomainData>;
+        TDomainData>;
 
     KDTreeQuadraturePointFactory() = default;
 
+    template <CompositeDomainLike<PhysicalDimension,TValue> TDomain>
     KDTreeQuadraturePointFactory(
         Ref<const TDomain> rDomain,
         Ref<const TCell> rCell,

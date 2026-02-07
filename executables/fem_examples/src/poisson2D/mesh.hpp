@@ -7,6 +7,7 @@
 
 // --- FEM Includes ---
 #include "packages/maths/inc/LegendrePolynomial.hpp"
+#include "packages/maths/inc/LagrangePolynomial.hpp"
 
 // ---- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
@@ -67,21 +68,28 @@ void generateMesh(Ref<Mesh> rMesh,
             // Construct basis functions.
             for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
                 // Generate a 1D polynomial serving as one of the basis functions.
-                maths::IntegratedLegendrePolynomial<Scalar> legendre(iBasis);
+                maths::IntegratedLegendrePolynomial<Scalar> basis(iBasis);
+                //std::array<Scalar,polynomialOrder + 1> nodes;
+                //const Scalar nodeAngle = std::numbers::pi / polynomialOrder;
+                //for (std::size_t iNode=0ul; iNode<nodes.size(); ++iNode) nodes[iNode] = std::cos(iNode * nodeAngle);
+                //maths::LagrangePolynomial<Scalar> basis(
+                //    nodes,
+                //    iBasis);
+
                 std::array<Scalar,Basis::coefficientCount> polynomialCoefficients;
                 CIE_CHECK(
-                    legendre.coefficients().size() <= polynomialCoefficients.size(),
+                    basis.coefficients().size() <= polynomialCoefficients.size(),
                     "basis function " << iBasis << " is expected to have at most "
                     << polynomialCoefficients.size() << " coefficients, but has "
-                    << legendre.coefficients().size())
+                    << basis.coefficients().size())
                 std::copy_n(
-                    legendre.coefficients().data(),
-                    legendre.coefficients().size(),
+                    basis.coefficients().data(),
+                    basis.coefficients().size(),
                     polynomialCoefficients.data());
                 std::fill_n(
-                    polynomialCoefficients.data() + legendre.coefficients().size(),
-                    legendre.coefficients().size() < polynomialCoefficients.size()
-                        ? polynomialCoefficients.size() - legendre.coefficients().size()
+                    polynomialCoefficients.data() + basis.coefficients().size(),
+                    basis.coefficients().size() < polynomialCoefficients.size()
+                        ? polynomialCoefficients.size() - basis.coefficients().size()
                         : 0u,
                     0.0);
 

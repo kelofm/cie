@@ -105,7 +105,7 @@ template <
     maths::SpatialTransform TSpatialTransform,
     class TData,
     unsigned PhysicalDim>
-typename TSpatialTransform::Derivative
+typename TSpatialTransform::Inverse::Derivative
 CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::makeJacobianInverse() const {
     return this->inverseSpatialTransform().makeDerivative();
 }

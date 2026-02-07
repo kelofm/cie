@@ -24,16 +24,17 @@ concept CellLike =
 && std::is_same_v<std::remove_cvref_t<decltype(T::PhysicalDimension)>,unsigned>
 && cie::concepts::Numeric<typename T::Value>
 && requires (const T& rConstInstance,
-             std::span<const typename Kernel<T::ParametricDimension,typename T::Value>::LocalCoordinate,T::ParametricDimension> constParametricSpan,
-             std::span<typename Kernel<T::ParametricDimension,typename T::Value>::LocalCoordinate,T::ParametricDimension> parametricSpan,
-             std::span<const typename Kernel<T::PhysicalDimension,typename T::Value>::GlobalCoordinate,T::PhysicalDimension> constPhysicalSpan,
-             std::span<typename Kernel<T::PhysicalDimension,typename T::Value>::GlobalCoordinate,T::PhysicalDimension> physicalSpan) {
+             std::span<const ParametricCoordinate<typename T::Value>,T::ParametricDimension> constParametricSpan,
+             std::span<ParametricCoordinate<typename T::Value>,T::ParametricDimension> parametricSpan,
+             std::span<const PhysicalCoordinate<typename T::Value>,T::PhysicalDimension> constPhysicalSpan,
+             std::span<PhysicalCoordinate<typename T::Value>,T::PhysicalDimension> physicalSpan) {
     {rConstInstance.transform(constParametricSpan, physicalSpan)}   -> std::same_as<void>;      // <== transform from local to global space
     {rConstInstance.transform(constPhysicalSpan, parametricSpan)}   -> std::same_as<void>;      // <== transform from global to local space
     {rConstInstance.makeJacobian()}                                 -> maths::JacobianExpression;
     {rConstInstance.makeJacobianInverse()}                          -> maths::JacobianExpression;
     {rConstInstance.id()}                                           -> std::same_as<VertexID>;
     {rConstInstance.ansatzID()}                                     -> cie::concepts::UnsignedInteger;
+    {rConstInstance.makeSpatialTransform()}                         -> maths::SpatialTransform;
 }; // concept Cell
 
 
@@ -54,13 +55,13 @@ public:
 
     constexpr inline static unsigned PhysicalDimension = PhysicalDim;
 
-    using ConstParametricSpan = std::span<const typename Kernel<ParametricDimension,TValue>::LocalCoordinate,ParametricDimension>;
+    using ConstParametricSpan = std::span<const ParametricCoordinate<TValue>,ParametricDimension>;
 
-    using ParametricSpan = std::span<typename Kernel<ParametricDimension,TValue>::LocalCoordinate,ParametricDimension>;
+    using ParametricSpan = std::span<ParametricCoordinate<TValue>,ParametricDimension>;
 
-    using ConstPhysicalSpan = std::span<const typename Kernel<PhysicalDimension,TValue>::GlobalCoordinate,PhysicalDimension>;
+    using ConstPhysicalSpan = std::span<const PhysicalCoordinate<TValue>,PhysicalDimension>;
 
-    using PhysicalSpan = std::span<typename Kernel<PhysicalDimension,TValue>::GlobalCoordinate,PhysicalDimension>;
+    using PhysicalSpan = std::span<PhysicalCoordinate<TValue>,PhysicalDimension>;
 
     using AnsatzSpaceID = unsigned short;
 
@@ -97,7 +98,7 @@ public:
 
     typename TSpatialTransform::Derivative makeJacobian() const;
 
-    typename TSpatialTransform::Derivative makeJacobianInverse() const;
+    typename TSpatialTransform::Inverse::Derivative makeJacobianInverse() const;
 
     [[nodiscard]] constexpr AnsatzSpaceID ansatzID() const noexcept {
         return std::get<0>(_impl);
@@ -109,6 +110,14 @@ public:
 
     [[nodiscard]] constexpr OrientedAxes<ParametricDimension> axes() const noexcept {
         return std::get<2>(_impl);
+    }
+
+    [[nodiscard]] Ref<const SpatialTransform> makeSpatialTransform() const noexcept {
+        return std::get<3>(_impl);
+    }
+
+    [[nodiscard]] Ref<const typename SpatialTransform::Inverse> makeInverseSpatialTransform() const noexcept {
+        return std::get<4>(_impl);
     }
 
     [[nodiscard]] constexpr typename VoidSafe<const TData>::Ref data() const noexcept

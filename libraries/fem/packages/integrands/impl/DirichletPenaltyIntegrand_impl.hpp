@@ -10,71 +10,77 @@
 namespace cie::fem {
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand()
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand()
     : DirichletPenaltyIntegrand(TDirichlet(), 0, nullptr)
 {
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                                                                                    const Value penalty,
-                                                                                    Ref<const TAnsatz> rAnsatzSpace,
-                                                                                    Ref<const TTransform> rSpatialTransform)
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                                                                                         const Value penalty,
+                                                                                         Ref<const TAnsatz> rAnsatzSpace,
+                                                                                         Ref<const TEmbedding> rBoundaryTransform,
+                                                                                         Ref<const CellInverseTransform> rCellInverseTransform)
     : _penalty(penalty),
       _pDirichletFunctor(&rDirichletFunctor),
       _pAnsatzSpace(&rAnsatzSpace),
-      _pSpatialTransform(&rSpatialTransform),
+      _pEmbedding(&rBoundaryTransform),
+      _pCellInverseTransform(&rCellInverseTransform),
       _buffer()
 {
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
-                                                                                    const Value penalty,
-                                                                                    Ref<const TAnsatz> rAnsatzSpace,
-                                                                                    Ref<const TTransform> rSpatialTransform,
-                                                                                    std::span<Value> buffer)
-    : DirichletPenaltyIntegrand(rDirichletFunctor, penalty, rAnsatzSpace, rSpatialTransform)
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand(Ref<const TDirichlet> rDirichletFunctor,
+                                                                                         const Value penalty,
+                                                                                         Ref<const TAnsatz> rAnsatzSpace,
+                                                                                         Ref<const TEmbedding> rEmbedding,
+                                                                                         Ref<const CellInverseTransform> rCellInverseTransform,
+                                                                                         std::span<Value> buffer)
+    : DirichletPenaltyIntegrand(rDirichletFunctor, penalty, rAnsatzSpace, rEmbedding, rCellInverseTransform)
 {
     this->setBuffer(buffer);
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::evaluate(ConstSpan in, Span out) const {
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
 
     Ref<const TAnsatz> rAnsatzSpace = *_pAnsatzSpace;
 
     // Fetch object output sizes.
     const unsigned ansatzCount = rAnsatzSpace.size();
-    const unsigned transformedSize = _pSpatialTransform->size();
     const unsigned stateVariableCount = _pDirichletFunctor->size();
 
     using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
     using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
 
     auto pAnsatzBufferBegin = _buffer.data();
-    auto pTransformedBufferBegin = pAnsatzBufferBegin + ansatzCount;
-    auto pDirichletBufferBegin = pTransformedBufferBegin + transformedSize;
+    auto pEmbeddingBufferBegin = pAnsatzBufferBegin + ansatzCount;
+    auto pCellParametricBufferBegin = pEmbeddingBufferBegin + TCell::PhysicalDimension;
+    auto pDirichletBufferBegin = pCellParametricBufferBegin + TCell::ParametricDimension;
 
-    Span ansatzBuffer(pAnsatzBufferBegin, ansatzCount),
-         transformedBuffer(pTransformedBufferBegin, transformedSize),
-         dirichletBuffer(pDirichletBufferBegin, stateVariableCount);
+    const Span ansatzBuffer(pAnsatzBufferBegin, ansatzCount),
+               boundaryTransformedBuffer(pEmbeddingBufferBegin, TCell::PhysicalDimension),
+               cellTransformedBuffer(pCellParametricBufferBegin, TCell::ParametricDimension),
+               dirichletBuffer(pDirichletBufferBegin, stateVariableCount);
 
     // Compute LHS contribution.
-    rAnsatzSpace.evaluate(in, ansatzBuffer);
+    _pEmbedding->evaluate(in, boundaryTransformedBuffer);
+    _pCellInverseTransform->evaluate(boundaryTransformedBuffer, cellTransformedBuffer);
+
+    rAnsatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer);
     EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
     EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
 
     lhsAdaptor.noalias() = ansatzAdaptor * _penalty * ansatzAdaptor.transpose();
 
     // Compute the prescribed state at the given input.
-    _pSpatialTransform->evaluate(in, transformedBuffer);
-    _pDirichletFunctor->evaluate(transformedBuffer, dirichletBuffer);
+    _pDirichletFunctor->evaluate(boundaryTransformedBuffer, dirichletBuffer);
 
     // Compute RHS contribution.
     for (unsigned iStateComponent=0u; iStateComponent<dirichletBuffer.size(); ++iStateComponent) {
@@ -90,8 +96,8 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::evaluate(ConstSpa
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::size() const {
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() const {
     const auto ansatzCount = _pAnsatzSpace->size();
     return
           ansatzCount * ansatzCount     // <= LHS contribution
@@ -99,16 +105,19 @@ unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::size() const 
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::setBuffer(std::span<Value> buffer) {
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::setBuffer(std::span<Value> buffer) {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= buffer.size())
     _buffer = buffer;
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TTransform>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TTransform>::getMinBufferSize() const noexcept {
-    return _pAnsatzSpace->size() + _pSpatialTransform->size() + _pDirichletFunctor->size();
+template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::getMinBufferSize() const noexcept {
+    return _pAnsatzSpace->size()
+         + TCell::PhysicalDimension
+         + TCell::ParametricDimension
+         + _pDirichletFunctor->size();
 }
 
 

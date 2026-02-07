@@ -25,7 +25,7 @@ namespace cie::fem {
 
 
 struct Sample {
-    StaticArray<CellData::GlobalCoordinate,Dimension>   position;
+    StaticArray<CellData::PhysicalCoordinate,Dimension> position;
     Scalar                                              state;
     Scalar                                              load;
     Scalar                                              residual;
@@ -72,7 +72,8 @@ public:
                 if constexpr (sizeof(std::size_t) == 4) valueType = H5::PredType::NATIVE_UINT32;
                 else if constexpr (sizeof(std::size_t) == 8) valueType = H5::PredType::NATIVE_UINT64;
                 else static_assert(std::is_same_v<T,void>, "unsupported type");
-            } else if constexpr (std::is_same_v<T,float>) valueType = H5::PredType::IEEE_F32LE;
+            } else if constexpr (std::is_same_v<T,std::int8_t>) valueType = H5::PredType::NATIVE_INT8;
+            else if constexpr (std::is_same_v<T,float>) valueType = H5::PredType::IEEE_F32LE;
             else if constexpr (std::is_same_v<T,double>) valueType = H5::PredType::IEEE_F64LE;
             else static_assert(std::is_same_v<T,void>, "unsupported_type");
 
@@ -183,7 +184,7 @@ void postprocess(
                     rSample.cellID = rCellData.id();
 
                     // Compute sample point in the cell's local space.
-                    StaticArray<CellData::LocalCoordinate,Dimension> localSamplePoint;
+                    StaticArray<CellData::ParametricCoordinate,Dimension> localSamplePoint;
                     rCellData.transform(
                         Kernel<Dimension,Scalar>::view(rSample.position),
                         Kernel<Dimension,Scalar>::view(localSamplePoint));
@@ -382,16 +383,16 @@ void postprocess(
                         )";
     {
         DynamicArray<Scalar> data;
-        const std::array<std::array<CellData::LocalCoordinate,Dimension>,intPow(2,Dimension)> localCorners {
-            std::array<CellData::LocalCoordinate,Dimension> {-1.0, -1.0},
-            std::array<CellData::LocalCoordinate,Dimension> { 1.0, -1.0},
-            std::array<CellData::LocalCoordinate,Dimension> {-1.0,  1.0},
-            std::array<CellData::LocalCoordinate,Dimension> { 1.0,  1.0}};
+        const std::array<std::array<CellData::ParametricCoordinate,Dimension>,intPow(2,Dimension)> localCorners {
+            std::array<CellData::ParametricCoordinate,Dimension> {-1.0, -1.0},
+            std::array<CellData::ParametricCoordinate,Dimension> { 1.0, -1.0},
+            std::array<CellData::ParametricCoordinate,Dimension> {-1.0,  1.0},
+            std::array<CellData::ParametricCoordinate,Dimension> { 1.0,  1.0}};
         data.reserve(3 * localCorners.size() * rMesh.vertices().size());
 
         for (const auto& rCell : rMesh.vertices()) {
             for (const auto& rLocalPoint : localCorners) {
-                StaticArray<CellData::GlobalCoordinate,Dimension> globalPoint;
+                StaticArray<CellData::PhysicalCoordinate,Dimension> globalPoint;
                 rCell.data().transform(
                     Kernel<Dimension,Scalar>::view(rLocalPoint),
                     Kernel<Dimension,Scalar>::view(globalPoint));
@@ -452,6 +453,59 @@ void postprocess(
                 data.size()),
             "meshState",
             {static_cast<int>(4 * rMesh.vertices().size())});
+    }
+    output << R"(
+                    </DataItem>
+                </Attribute>
+                <Attribute Name="DoFIDs" Center="Cell" AttributeType="Matrix">
+                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << " " << rMesh.data().ansatzSpace().size() << R"(">
+                        )";
+    {
+        DynamicArray<std::size_t> data;
+
+        data.reserve(rMesh.data().ansatzSpace().size() * rMesh.vertices().size());
+        DynamicArray<std::size_t> ansatzBuffer(rMesh.data().ansatzSpace().size());
+
+        for (const auto& rCell : rMesh.vertices()) {
+            const auto& rGlobalIndices = rAssembler[rCell.id()];
+            std::copy(
+                rGlobalIndices.begin(),
+                rGlobalIndices.end(),
+                std::back_inserter(data));
+        } // for rCell in rMesh.vertices()
+
+        output.write(
+            std::span<const decltype(data)::value_type>(
+                data.data(),
+                data.size()),
+            "DoFIDs",
+            {static_cast<int>(rMesh.vertices().size()), static_cast<int>(rMesh.data().ansatzSpace().size())});
+    }
+    output << R"(
+                    </DataItem>
+                </Attribute>
+                <Attribute Name="axes" Center="Cell" AttributeType="Matrix">
+                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << " " << Dimension << R"(">
+                        )";
+    {
+        DynamicArray<std::int8_t> data;
+
+        data.reserve(Dimension * rMesh.vertices().size());
+
+        for (const auto& rCell : rMesh.vertices()) {
+            const auto axes = rCell.data().axes();
+            for (std::uint8_t iDimension=0; iDimension<Dimension; ++iDimension) {
+                const BoundaryID value = axes[iDimension];
+                data.push_back(value.getDirection() ? (value.getDimension() + 1) : -(value.getDimension() + 1));
+            }
+        } // for rCell in rMesh.vertices()
+
+        output.write(
+            std::span<const decltype(data)::value_type>(
+                data.data(),
+                data.size()),
+            "cellAxes",
+            {static_cast<int>(rMesh.vertices().size()), static_cast<int>(Dimension)});
     }
     output << R"(
                     </DataItem>

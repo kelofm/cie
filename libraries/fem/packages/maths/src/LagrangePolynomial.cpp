@@ -16,14 +16,13 @@ namespace cie::fem::maths {
 
 
 template <class TValue>
-LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> pNodeBegin,
-                                               Ptr<const TValue> pNodeEnd,
+LagrangePolynomial<TValue>::LagrangePolynomial(std::span<const TValue> nodes,
                                                Size iBase)
     : Polynomial<TValue>()
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    const Size polynomialOrder = std::distance(pNodeBegin, pNodeEnd);
+    const Size polynomialOrder = nodes.size();
     typename LagrangePolynomial::Coefficients coefficients(polynomialOrder);
 
     if (polynomialOrder) [[likely]] {
@@ -32,7 +31,7 @@ LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> pNodeBegin,
 
         // Get the base node
         CIE_OUT_OF_RANGE_CHECK(iBase < polynomialOrder)
-        const auto itBaseNode = pNodeBegin + iBase;
+        const auto itBaseNode = nodes.begin() + iBase;
         const TValue baseNode = *itBaseNode;
 
         // Collect and negate the rest.
@@ -45,10 +44,10 @@ LagrangePolynomial<TValue>::LagrangePolynomial(Ptr<const TValue> pNodeBegin,
         CIE_DIVISION_BY_ZERO_CHECK(denominator)
 
         auto itLocal = std::back_inserter(localNodes);
-        std::transform(pNodeBegin, itBaseNode, itLocal, transform);
+        std::transform(nodes.begin(), itBaseNode, itLocal, transform);
 
         if (iBase < polynomialOrder - 1)
-            std::transform(itBaseNode + 1, pNodeEnd, itLocal, transform);
+            std::transform(itBaseNode + 1, nodes.end(), itLocal, transform);
 
         // Loop backward through the exponents
         const auto itLocalNodeBegin = localNodes.begin();

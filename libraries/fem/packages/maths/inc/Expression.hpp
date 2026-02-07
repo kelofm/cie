@@ -14,6 +14,7 @@
 #include <concepts> // same_as
 #include <span> // span
 #include <memory> // shared_ptr
+#include <type_traits> // std::remove_cvref_t
 
 
 namespace cie::fem::maths {
@@ -44,15 +45,15 @@ namespace cie::fem::maths {
 /// @ingroup fem
 template <class T>
 concept Expression
-= requires (T instance, const T constInstance) {
+= requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
     /// @brief Value type to perform numerical operations on (eg: @a double).
-    typename T::Value;
+    typename std::remove_cvref_t<T>::Value;
 
     /// @brief Span over a contiguous array of value types.
-    typename T::Span;
+    typename std::remove_cvref_t<T>::Span;
 
     /// @brief Span over a contiguous array of const value types.
-    typename T::ConstSpan;
+    typename std::remove_cvref_t<T>::ConstSpan;
 
     // /// @brief Type of the function's derivative; must also be an @p Expression.
     // typename T::Derivative;
@@ -65,8 +66,9 @@ concept Expression
     ///          void Expression::evaluate(ConstIterator itBegin, ConstIterator itEnd, Iterator itOut)
     ///          @endcode
     {
-        instance.evaluate(std::declval<typename T::ConstSpan>(),
-                          std::declval<typename T::Span>())
+        instance.evaluate(
+            std::declval<typename std::remove_cvref_t<T>::ConstSpan>(),
+            std::declval<typename std::remove_cvref_t<T>::Span>())
     } -> std::same_as<void>;
 
     // /// @brief Require a derivative factory
@@ -88,10 +90,10 @@ concept Expression
 /// @ingroup fem
 template <class T>
 concept JacobianExpression
-= Expression<T> && requires (const T constInstance) {
+= Expression<T> && requires (const std::remove_cvref_t<T> constInstance) {
     {
-        constInstance.evaluateDeterminant(typename T::ConstSpan())
-    } -> std::same_as<typename T::Value>;
+        constInstance.evaluateDeterminant(typename std::remove_cvref_t<T>::ConstSpan())
+    } -> std::same_as<typename std::remove_cvref_t<T>::Value>;
 }; // concept JacobianExpression
 
 
@@ -127,7 +129,7 @@ concept JacobianExpression
 /// @ingroup fem
 template <class T>
 concept SpatialTransform
-= Expression<T> && requires (const T constInstance) {
+= Expression<T> && requires (const std::remove_cvref_t<T> constInstance) {
     /// @details Require a derivative factory. The derivative type need not be a @p SpatialTransform,
     ///          but it must satisfy @ref JacobianExpression that is used for computing
     ///          @ref IntegrandTransform "transformed integrals" (they require the Jacobian's determinant).

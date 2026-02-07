@@ -9,6 +9,9 @@
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
+#include "packages/numeric/inc/KDTreeQuadraturePointFactory.hpp"
+#include "packages/numeric/inc/CompositeDomain.hpp"
+#include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 
 // --- STL Includes ---
 #include <numbers> // std::numbers::pi
@@ -41,9 +44,21 @@ using BoundaryCornerData = Scalar;
 
 class BoundaryMeshData {
 public:
-    using DomainData = std::uint8_t;
+    BoundaryMeshData() noexcept = default;
+
+    BoundaryMeshData(std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet)
+        : _quadraturePointSet(quadraturePointSet.begin(), quadraturePointSet.end())
+    {}
+
+    CachedQuadraturePointFactory<1,Scalar> makeQuadratureRule() const {
+        return CachedQuadraturePointFactory<1,Scalar>(
+            std::span<const QuadraturePoint<1,Scalar>>(
+                _quadraturePointSet.data(),
+                _quadraturePointSet.size()));
+    }
 
 private:
+    std::vector<QuadraturePoint<1,Scalar>> _quadraturePointSet;
 }; // class BoundaryMeshData
 
 
@@ -51,7 +66,8 @@ private:
 /// @details Cell data consists of
 using BoundaryMesh = Graph<
     BoundaryCellData,
-    BoundaryCornerData
+    BoundaryCornerData,
+    BoundaryMeshData
 >;
 
 
@@ -63,8 +79,8 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     using maths::ExpressionTraits<Scalar>::ConstSpan;
 
     void evaluate([[maybe_unused]] ConstSpan position, Span state) const noexcept {
-        //state[0] = position[0] + position[1];
-        state[0] = 1.0;
+        state[0] = position[0] + position[1];
+        //state[0] = 1.0;
     }
 
     unsigned size() const noexcept {
@@ -137,6 +153,19 @@ BoundaryMesh generateBoundaryMesh(const Scalar radius, const unsigned resolution
         ));
     } // for iCorner in range(corners.size())
 
+    // Generate quadrature points.
+    CIE_BEGIN_EXCEPTION_TRACING
+        GaussLegendreQuadrature<Scalar> quadrature(boundaryIntegrationOrder);
+        DynamicArray<QuadraturePoint<1,Scalar>> points;
+        points.reserve(quadrature.numberOfNodes());
+        for (std::size_t iPoint=0ul; iPoint<quadrature.numberOfNodes(); ++iPoint) {
+            points.emplace_back(
+                quadrature.nodes()[iPoint],
+                quadrature.weights()[iPoint]);
+        }
+        boundary.data() = BoundaryMeshData(points);
+    CIE_END_EXCEPTION_TRACING
+
     return boundary;
 }
 
@@ -168,10 +197,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         boundaryIntegrationOrder,
         utils::Comparison<Scalar>(1e-14, 1e-14),
         /*maxNewtonIterations=*/200ul)));
-    DynamicArray<Scalar> quadratureBuffer(  std::pow(rMesh.data().ansatzSpace().size(), Dimension)
-                                          + rMesh.data().ansatzSpace().size());
+    DynamicArray<Scalar> quadratureBuffer;
     DynamicArray<Scalar> integrandBuffer;
-
     DirichletBoundary dirichletBoundary;
     const Scalar penaltyFactor = rArguments.get<double>("penalty-factor");
     const unsigned minBoundaryTreeDepth = rArguments.get<std::size_t>("min-boundary-tree-depth");
@@ -201,12 +228,12 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             tree.getNodeGeometry(rNode, &base, &edgeLength);
 
             // Define sample points in the boundary cell's parametric space.
-            const std::array<Kernel<1, Scalar>::LocalCoordinate,1>
+            const std::array<ParametricCoordinate<Scalar>,1>
                 parametricBase {base},
                 parametricOpposite {base + edgeLength};
 
             // Transform sample points to the global coordinate space.
-            std::array<Kernel<Dimension, Scalar>::GlobalCoordinate,Dimension> physicalBase, physicalOpposite;
+            std::array<PhysicalCoordinate<Scalar>,Dimension> physicalBase, physicalOpposite;
             rBoundaryCell.data().transform(parametricBase, physicalBase);
             rBoundaryCell.data().transform(parametricOpposite, physicalOpposite);
 
@@ -264,15 +291,15 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             // Transform sample points to the global coordinate space.
             std::array<
                 std::array<
-                    Kernel<Dimension, Scalar>::GlobalCoordinate,
+                    PhysicalCoordinate<Scalar>,
                     Dimension>,
                 2
             > physicalCorners;
             rBoundaryCell.data().transform(
-                Kernel<1,Scalar>::cast<Kernel<1,Scalar>::LocalCoordinate>(std::span<const Scalar,1>(&segmentBegin, 1)),
+                Kernel<1,Scalar>::cast<ParametricCoordinate<Scalar>>(std::span<const Scalar,1>(&segmentBegin, 1)),
                 physicalCorners.front());
             rBoundaryCell.data().transform(
-                Kernel<1,Scalar>::cast<Kernel<1,Scalar>::LocalCoordinate>(std::span<const Scalar,1>(&segmentEnd, 1)),
+                Kernel<1,Scalar>::cast<ParametricCoordinate<Scalar>>(std::span<const Scalar,1>(&segmentEnd, 1)),
                 physicalCorners.back());
 
             // Discard the segment if it's too short.
@@ -290,23 +317,24 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                         penaltyFactor,
                         ansatzSpace,
                         segmentTransform,
-                        std::span<Scalar>(integrandBuffer)),
-                    segmentTransform.makeInverse().makeDerivative());
+                        rCell),
+                    segmentTransform.makeDerivative());
                 integrandBuffer.resize(integrand.getMinBufferSize());
                 integrand.setBuffer(integrandBuffer);
+                quadratureBuffer.resize(integrand.size());
                 lineQuadrature.evaluate(integrand, quadratureBuffer);
 
                 const std::size_t lhsEntryCount = std::pow(ansatzSpace.size(), Dimension);
-                rAssembler.addContribution(
+                rAssembler.addContribution<tags::Serial>(
                     std::span<const Scalar>(quadratureBuffer.data(), lhsEntryCount),
                     rCell.id(),
                     lhs.rowExtents,
                     lhs.columnIndices,
                     lhs.entries);
-                rAssembler.addContribution(
+                rAssembler.addContribution<tags::Serial>(
                     std::span<const Scalar>(
                         quadratureBuffer.data() + lhsEntryCount,
-                        quadratureBuffer.size() - lhsEntryCount),
+                        quadratureBuffer.data() + quadratureBuffer.size()),
                     rCell.id(),
                     std::span<Scalar>(rhs));
 

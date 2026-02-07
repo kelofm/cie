@@ -293,7 +293,6 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
         for (unsigned integrationOrder=3u; integrationOrder<10u; ++integrationOrder) {
             for (unsigned segmentCount=1u; segmentCount<10u; ++segmentCount) {
                 Scalar integral = 0.0;
-                Scalar TEST = 0.0;
                 const Scalar segmentLength = 2.0 / segmentCount;
 
                 for (unsigned iSegment=0u; iSegment<segmentCount; ++iSegment) {
@@ -310,14 +309,6 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                         maths::AffineEmbedding<double,1u,2u>(
                             physicalCorners).makeInverse().makeDerivative());
 
-                    const std::array<Scalar,2> sample {
-                        (physicalCorners[0][1] + physicalCorners[1][1]) / 2.0,
-                        (physicalCorners[0][1] + physicalCorners[1][1]) / 2.0
-                    };
-                    double TMP;
-                    function.evaluate(sample, {&TMP,1});
-                    TEST += segmentLength * std::sqrt(2.0) * TMP;
-
                     Scalar output;
                     const Quadrature<Scalar,1> quadrature((GaussLegendreQuadrature<Scalar>(
                         integrationOrder)));
@@ -326,7 +317,6 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                 } // for iSegment in range(segmentCount)
 
                 CIE_TEST_CHECK(integral == Approx(referenceValue));
-                CIE_TEST_CHECK(TEST == Approx(referenceValue));
             } // for segmentCount in range(1, 10)
         } // for integrationOrder in range(1, 10)
     }

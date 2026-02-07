@@ -37,7 +37,7 @@ void integrateStiffness(Ref<const Mesh> rMesh,
 
     using StiffnessIntegrand = TransformedIntegrand<
         LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>,
-        SpatialTransform::Derivative>;
+        SpatialTransform::Inverse::Derivative>;
     static_assert(maths::StaticExpression<StiffnessIntegrand>);
     static_assert(!StiffnessIntegrand::isBuffered);
 
@@ -74,7 +74,7 @@ void integrateStiffness(Ref<const Mesh> rMesh,
             LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
                 rCell.diffusivity(),
                 Ansatz::Derivative(rMesh.data().ansatzDerivative())),
-            rCell.makeJacobian());};
+            rCell.makeJacobianInverse());};
 
     const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
         mp::ParallelFor<std::size_t>(rThreads).operator()(

@@ -47,10 +47,15 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
     constexpr Scalar penalty = 10.0;
     const maths::IdentityTransform<Scalar,Dimension> spatialTransform;
     const DirichletPenaltyTest dirichlet;
-    DirichletPenaltyIntegrand<DirichletPenaltyTest,Ansatz,maths::IdentityTransform<Scalar,Dimension>> integrand(
+    DirichletPenaltyIntegrand<
+        DirichletPenaltyTest,
+        Ansatz,
+        maths::IdentityTransform<Scalar,Dimension>,
+        CellBase<Dimension,Scalar,maths::IdentityTransform<Scalar,Dimension>>> integrand(
         dirichlet,
         penalty,
         *pAnsatzSpace,
+        spatialTransform,
         spatialTransform);
     CIE_TEST_CHECK(integrand.size() == 4 * 4 + 4);
     CIE_TEST_CHECK(integrand.getMinBufferSize() == 4 + 2 + 1);

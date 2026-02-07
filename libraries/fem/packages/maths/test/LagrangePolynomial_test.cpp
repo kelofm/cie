@@ -18,8 +18,8 @@ CIE_TEST_CASE("LagrangePolynomial", "[maths]")
     double result;
 
     for (Size baseIndex=0; baseIndex<nodes.size(); ++baseIndex) {
-        CIE_TEST_REQUIRE_NOTHROW(Test(nodes.data(), nodes.data() + nodes.size(), baseIndex));
-        Test polynomial(nodes.data(), nodes.data() + nodes.size(), baseIndex);
+        CIE_TEST_REQUIRE_NOTHROW(Test(nodes, baseIndex));
+        Test polynomial(nodes, baseIndex);
 
         for (Size nodeIndex=0; nodeIndex<nodes.size(); ++nodeIndex) {
             CIE_TEST_CHECK_NOTHROW(polynomial.evaluate({nodes.data() + nodeIndex, nodes.data() + nodeIndex + 1}, {&result, (&result) + 1}));

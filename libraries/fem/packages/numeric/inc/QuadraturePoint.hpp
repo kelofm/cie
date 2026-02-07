@@ -22,7 +22,7 @@ template <
     class TData = void>
 class QuadraturePoint {
 public:
-    using Value = typename Kernel<Dim,TValue>::LocalCoordinate;
+    using Value = ParametricCoordinate<TValue>;
 
     constexpr static inline unsigned Dimension = Dim;
 
@@ -40,6 +40,15 @@ public:
             Dim,
             std::get<0>(_data).data());
         std::get<0>(_data).back() = weight;
+    }
+
+    constexpr QuadraturePoint(
+        Ref<const std::span<const TValue,Dim>> rPosition,
+        TValue weight,
+        typename VoidSafe<TData,int>::RightRef rData) noexcept
+    requires (!std::is_same_v<TData,void>)
+        : QuadraturePoint(rPosition, weight) {
+        this->data() = std::move(rData);
     }
 
     constexpr QuadraturePoint(Value position, Value weight) noexcept

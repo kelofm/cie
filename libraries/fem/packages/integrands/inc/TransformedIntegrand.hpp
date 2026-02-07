@@ -43,7 +43,8 @@ public:
 
     void evaluate(ConstSpan in, Span out) const {
         const Value determinant = std::abs(_inverseJacobian.evaluateDeterminant(in));
-        const Value scale = static_cast<Value>(1) / determinant;
+        //const Value scale = static_cast<Value>(1) / determinant;
+        const Value scale = determinant;
         _integrand.evaluate(in, out);
         for (Value& rComponent : out) {
             rComponent *= scale;
