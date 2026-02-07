@@ -65,41 +65,67 @@ void generateMesh(Ref<Mesh> rMesh,
         {
             auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");
 
+            enum class BasisType {
+                IntegratedLegendre,
+                Lagrange};
+            BasisType basisType = BasisType::IntegratedLegendre;
+
+            {
+                const std::string basisName = rArguments.get<std::string>("basis");
+                if (basisName == "legendre") basisType = BasisType::IntegratedLegendre;
+                else if (basisName == "lagrange") basisType = BasisType::Lagrange;
+                else CIE_THROW(Exception, "unhandled basis type '" << basisName << "'")
+            }
+
             // Construct basis functions.
             for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
                 // Generate a 1D polynomial serving as one of the basis functions.
-                maths::IntegratedLegendrePolynomial<Scalar> basis(iBasis);
-                //std::array<Scalar,polynomialOrder + 1> nodes;
-                //const Scalar nodeAngle = std::numbers::pi / polynomialOrder;
-                //for (std::size_t iNode=0ul; iNode<nodes.size(); ++iNode) nodes[iNode] = std::cos(iNode * nodeAngle);
-                //maths::LagrangePolynomial<Scalar> basis(
-                //    nodes,
-                //    iBasis);
-
                 std::array<Scalar,Basis::coefficientCount> polynomialCoefficients;
-                CIE_CHECK(
+
+                if (basisType == BasisType::IntegratedLegendre) {
+                    maths::IntegratedLegendrePolynomial<Scalar> basis(iBasis);
+                    CIE_CHECK(
                     basis.coefficients().size() <= polynomialCoefficients.size(),
-                    "basis function " << iBasis << " is expected to have at most "
-                    << polynomialCoefficients.size() << " coefficients, but has "
-                    << basis.coefficients().size())
-                std::copy_n(
-                    basis.coefficients().data(),
-                    basis.coefficients().size(),
-                    polynomialCoefficients.data());
-                std::fill_n(
-                    polynomialCoefficients.data() + basis.coefficients().size(),
-                    basis.coefficients().size() < polynomialCoefficients.size()
-                        ? polynomialCoefficients.size() - basis.coefficients().size()
-                        : 0u,
-                    0.0);
+                        "basis function " << iBasis << " is expected to have at most "
+                        << polynomialCoefficients.size() << " coefficients, but has "
+                        << basis.coefficients().size())
+                    std::copy_n(
+                        basis.coefficients().data(),
+                        basis.coefficients().size(),
+                        polynomialCoefficients.data());
+                    std::fill_n(
+                        polynomialCoefficients.data() + basis.coefficients().size(),
+                        basis.coefficients().size() < polynomialCoefficients.size()
+                            ? polynomialCoefficients.size() - basis.coefficients().size()
+                            : 0u,
+                        0.0);
+                } else if (basisType == BasisType::Lagrange) {
+                    std::array<Scalar,polynomialOrder + 1> nodes;
+                    const Scalar nodeAngle = std::numbers::pi / polynomialOrder;
+                    for (std::size_t iNode=0ul; iNode<nodes.size(); ++iNode) nodes[iNode] = std::cos(iNode * nodeAngle);
+                    maths::LagrangePolynomial<Scalar> basis(
+                        nodes,
+                        iBasis);
+                    CIE_CHECK(
+                        basis.coefficients().size() <= polynomialCoefficients.size(),
+                        "basis function " << iBasis << " is expected to have at most "
+                        << polynomialCoefficients.size() << " coefficients, but has "
+                        << basis.coefficients().size())
+                    std::copy_n(
+                        basis.coefficients().data(),
+                        basis.coefficients().size(),
+                        polynomialCoefficients.data());
+                    std::fill_n(
+                        polynomialCoefficients.data() + basis.coefficients().size(),
+                        basis.coefficients().size() < polynomialCoefficients.size()
+                            ? polynomialCoefficients.size() - basis.coefficients().size()
+                            : 0u,
+                        0.0);
+                }
 
                 std::cout << "basis " << iBasis << " [";
                 for (auto c : polynomialCoefficients) std::cout << c << ",";
                 std::cout << "],\n";
-
-                // Construct a new polynomial view over the copied coefficients.
-                // The array of coefficients is not stable, so these views must
-                // be reassigned after basis generation is done.
                 basisFunctions[iBasis] = Basis(polynomialCoefficients);
             } // for iBasis in range(polynomialOrder + 1)
 

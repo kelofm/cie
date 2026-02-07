@@ -178,6 +178,15 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
             "Resolution (number of nodes per direction.)")
         .addKeyword(
+            {"--basis"},
+            cie::utils::ArgParse::DefaultValue {"legendre"},
+            [] (cie::utils::ArgParse::ValueView argument) {
+                std::string arg;
+                std::copy(argument.begin(), argument.end(), std::back_inserter(arg));
+                return arg == "legendre" || arg == "lagrange";
+            },
+            "Type of basis polynomials to use (lagrange or integrated legendre)")
+        .addKeyword(
             {"--boundary-resolution"},
             cie::utils::ArgParse::DefaultValue {"20"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
@@ -209,7 +218,7 @@ int main(int argc, const char** argv) {
             "Number of sample points per direction for scatter post-processing.")
         .addKeyword(
             {"--penalty-factor"},
-            cie::utils::ArgParse::DefaultValue {"1e-2"},
+            cie::utils::ArgParse::DefaultValue {"1e6"},
             cie::utils::ArgParse::validatorFactory<double>(),
             "Penalty value for the weak imposition of Dirichlet boundary conditions.")
         .addKeyword(
