@@ -89,13 +89,11 @@ template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
 template <
     GraphLike TMesh,
     QuadratureRuleFactoryLike<
-        TMesh,
         typename TMesh::Vertex::Data,
         TQD
     > TQuadratureRuleFactory,
     concepts::FunctionWithSignature<
         TIntegrand,
-        Ref<const TMesh>,
         Ref<const typename TMesh::Vertex::Data>
     > TIntegrandFactory,
     concepts::FunctionWithSignature<
@@ -124,7 +122,6 @@ template <
     DynamicArray<typename TIntegrand::Value> output;
     using TQuadraturePointFactory = std::invoke_result_t<
         TQuadratureRuleFactory,
-        Ref<const TMesh>,
         Ref<const typename TMesh::Vertex::Data>>;
     TQuadraturePointFactory quadraturePointFactory;
 
@@ -137,11 +134,11 @@ template <
         // and thus new integrand.
         _pImpl->extents.push(
             rCell.id(),
-            rIntegrandFactory(rMesh, rCell.data()));
+            rIntegrandFactory(rCell.data()));
 
         // Construct a new quadrature point rule for the current cell.
         CIE_BEGIN_EXCEPTION_TRACING
-        quadraturePointFactory = rQuadratureRuleFactory(rMesh, rCell.data());
+        quadraturePointFactory = rQuadratureRuleFactory(rCell.data());
         CIE_END_EXCEPTION_TRACING
 
         // Generate quadrature points for the current cell,
@@ -158,7 +155,7 @@ template <
             if (_pImpl->extents.empty()) {
                 _pImpl->extents.push(
                     rCell.id(),
-                    rIntegrandFactory(rMesh, rCell.data()));
+                    rIntegrandFactory(rCell.data()));
             } // extents.empty()
 
             // Generate quadrature points into the remaining range

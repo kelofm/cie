@@ -28,14 +28,12 @@ concept QuadraturePointFactoryLike
 
 template <
     class T,
-    class TMesh = Graph<CellBase<1,float,maths::IdentityTransform<float,1>>,void,void>,
-    class TCell = typename TMesh::Vertex::Data,
+    class TCell = CellBase<1,float,maths::IdentityTransform<float,1>>,
     class TQuadraturePointData = void>
 concept QuadratureRuleFactoryLike
-=  GraphLike<TMesh>
-&& CellLike<TCell>
-&& requires (const T& constInstance, const TMesh& rMesh, const TCell& rCell) {
-    {constInstance(rMesh, rCell)} -> QuadraturePointFactoryLike<TQuadraturePointData>;
+=  CellLike<TCell>
+&& requires (const T& constInstance, const TCell& rCell) {
+    {constInstance(rCell)} -> QuadraturePointFactoryLike<TQuadraturePointData>;
 }; // concept QuadratureRuleFactoryLike
 
 

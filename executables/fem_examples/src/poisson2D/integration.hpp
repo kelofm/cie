@@ -66,10 +66,10 @@ void integrateStiffness(Ref<const Mesh> rMesh,
     CIE_END_EXCEPTION_TRACING
 
     CIE_BEGIN_EXCEPTION_TRACING
-    const auto quadratureRuleFactory = [] (Ref<const Mesh> rMesh, Ref<const Mesh::Vertex::Data>) {
+    const auto quadratureRuleFactory = [&rMesh] (Ref<const Mesh::Vertex::Data>) {
         return rMesh.data().makeQuadratureRule();};
 
-    const auto integrandFactory = [] (Ref<const Mesh> rMesh, Ref<const CellData> rCell) {
+    const auto integrandFactory = [&rMesh] (Ref<const CellData> rCell) {
         return StiffnessIntegrand(
             LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
                 rCell.diffusivity(),

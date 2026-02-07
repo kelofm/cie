@@ -38,13 +38,11 @@ public:
     template <
         GraphLike TMesh,
         QuadratureRuleFactoryLike<
-            TMesh,
             typename TMesh::Vertex::Data,
             TQuadraturePointData
         > TQuadratureRuleFactory,
         concepts::FunctionWithSignature<
             TIntegrand,
-            Ref<const TMesh>,
             Ref<const typename TMesh::Vertex::Data>
         > TIntegrandFactory,
         concepts::FunctionWithSignature<
