@@ -15,7 +15,7 @@ constexpr int polynomialOrder = 3;
 constexpr unsigned Dimension = 2u;
 
 /// @brief Floating point scalar type to use.
-using Scalar = double;
+using Scalar = float;
 
 /// @brief Spatial transform type mapping cells' local space to global space.
 /// @details The flexibility of this transform directly defines what kind

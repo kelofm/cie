@@ -81,7 +81,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // Create empty CSR matrix
     int rowCount, columnCount;
     DynamicArray<int> rowExtents, columnIndices;
-    DynamicArray<double> entries;
+    DynamicArray<Scalar> entries;
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("compute sparsity pattern");
         assembler.makeCSRMatrix(

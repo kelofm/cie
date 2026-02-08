@@ -42,10 +42,7 @@ public:
         OuterProductQuadraturePointFactory<Dimension,Scalar> generator;
 
         CIE_BEGIN_EXCEPTION_TRACING
-            GaussLegendreQuadrature<Scalar> quadrature(
-                integrationOrder,
-                utils::Comparison<Scalar>(1e-14, 1e-14),
-                /*maxNewtonIterations=*/200ul);
+            GaussLegendreQuadrature<Scalar> quadrature(integrationOrder);
             basePoints.reserve(quadrature.numberOfNodes());
             for (std::size_t iNode=0ul; iNode<quadrature.numberOfNodes(); ++iNode) {
                 basePoints.emplace_back(
@@ -57,7 +54,7 @@ public:
 
         // Generate nD quadrature points.
         constexpr std::size_t initialSize = 0x10;
-        constexpr double growFactor = 2.0;
+        constexpr Scalar growFactor = 2.0;
         std::size_t pointCount = 0ul;
         _quadraturePointSet.resize(initialSize);
 

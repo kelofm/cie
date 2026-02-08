@@ -51,10 +51,8 @@ class BoundaryMeshData {
 public:
     BoundaryMeshData() noexcept = default;
 
-    BoundaryMeshData(std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet,
-                     Ref<const MeshData> rMeshData)
-        : _quadraturePointSet(quadraturePointSet.begin(), quadraturePointSet.end()),
-          _pMeshData(&rMeshData)
+    BoundaryMeshData(std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet)
+        : _quadraturePointSet(quadraturePointSet.begin(), quadraturePointSet.end())
     {}
 
     CachedQuadraturePointFactory<1,Scalar> makeQuadratureRule() const {
@@ -66,8 +64,6 @@ public:
 
 private:
     std::vector<QuadraturePoint<1,Scalar>> _quadraturePointSet;
-
-    Ptr<const MeshData> _pMeshData;
 }; // class BoundaryMeshData
 
 
@@ -219,8 +215,7 @@ void partitionBoundaryCell(Ref<maths::AffineEmbedding<Scalar,1u,Dimension>> rTra
 using BoundarySegment = StaticArray<Scalar,2*Dimension>;
 
 
-BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
-                                  BVH::View bvh,
+BoundaryMesh generateBoundaryMesh(BVH::View bvh,
                                   std::span<const CellData> contiguousCellData,
                                   Ref<const utils::ArgParse::Results> rArguments,
                                   Ref<DynamicArray<BoundarySegment>> rBoundarySegments) {
@@ -242,8 +237,8 @@ BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
     for (unsigned iSegment=0u; iSegment<resolution + 1; ++iSegment) {
         const Scalar arcParameter = iSegment * 2 * std::numbers::pi / resolution;
         corners.push_back(Point {
-            radius * std::cos(arcParameter) + 0.5,
-            radius * std::sin(arcParameter) + 0.5
+            radius * std::cos(arcParameter) + Scalar(0.5),
+            radius * std::sin(arcParameter) + Scalar(0.5)
         });
     } // for iSegment in range(resolution)
 
@@ -303,7 +298,7 @@ BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
                 quadrature.nodes()[iPoint],
                 quadrature.weights()[iPoint]);
         }
-        boundary.data() = BoundaryMeshData(points, rMesh.data());
+        boundary.data() = BoundaryMeshData(points);
     CIE_END_EXCEPTION_TRACING
 
     return boundary;
@@ -323,7 +318,6 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh(
-        rMesh,
         bvh,
         contiguousCellData,
         rArguments,

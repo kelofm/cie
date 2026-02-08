@@ -112,8 +112,8 @@ template <class T, class TData = void>
 concept QuadraturePointLike
 = requires (T& instance, const T& constInstance) {
     {constInstance.evaluate(
-        maths::IdentityTransform<double,1u>(),
-        std::span<double>())};
+        maths::IdentityTransform<typename T::Value::Value,1u>(),
+        std::span<typename T::Value::Value>())};
     {constInstance.position()};
     {constInstance.weight()};
     {constInstance.data()} -> std::same_as<typename VoidSafe<const TData>::Ref>;
