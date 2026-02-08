@@ -84,13 +84,13 @@ public:
 private:
     Value _penalty;
 
-    Ptr<const TDirichlet> _pDirichletFunctor;
+    TDirichlet _dirichletFunctor;
 
-    Ptr<const TAnsatzSpace> _pAnsatzSpace;
+    TAnsatzSpace _ansatzSpace;
 
-    Ptr<const TEmbedding> _pEmbedding;
+    TEmbedding _embedding;
 
-    Ptr<const CellInverseTransform> _pCellInverseTransform;
+    CellInverseTransform _cellInverseTransform;
 
     std::span<Value> _buffer;
 }; // class DirichletPenaltyIntegrand

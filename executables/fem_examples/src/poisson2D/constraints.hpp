@@ -12,6 +12,7 @@
 #include "packages/numeric/inc/KDTreeQuadraturePointFactory.hpp"
 #include "packages/numeric/inc/CompositeDomain.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
+#include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- STL Includes ---
 #include <numbers> // std::numbers::pi
@@ -30,7 +31,7 @@ public:
     BoundaryCellData(RightRef<typename Base::SpatialTransform> rEmbedding,
                      Ref<const CellData> rCell) noexcept
         : Base(
-            VertexID(),
+            VertexID(rCell.id()),
             Base::AnsatzSpaceID(),
             OrientedAxes<1>(),
             std::move(rEmbedding)),
@@ -215,10 +216,14 @@ void partitionBoundaryCell(Ref<maths::AffineEmbedding<Scalar,1u,Dimension>> rTra
 }
 
 
+using BoundarySegment = StaticArray<Scalar,2*Dimension>;
+
+
 BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
                                   BVH::View bvh,
                                   std::span<const CellData> contiguousCellData,
-                                  Ref<const utils::ArgParse::Results> rArguments) {
+                                  Ref<const utils::ArgParse::Results> rArguments,
+                                  Ref<DynamicArray<BoundarySegment>> rBoundarySegments) {
     BoundaryMesh boundary;
 
     // Parse user input.
@@ -226,6 +231,7 @@ BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
     const std::size_t resolution            = rArguments.get<std::size_t>("boundary-resolution");
     const std::size_t minBoundaryTreeDepth  = rArguments.get<std::size_t>("min-boundary-tree-depth");
     const std::size_t maxBoundaryTreeDepth  = rArguments.get<std::size_t>("max-boundary-tree-depth");
+    const Scalar minBoundarySegmentNorm     = rArguments.get<double>("min-boundary-segment-norm");
 
     // Sanity checks.
     if (resolution < 3) CIE_THROW(Exception, "boundary resolution must be 3 or greater")
@@ -266,13 +272,24 @@ BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
             transform.evaluate(
                 {&rSegment.segmentEnd, 1},
                 segmentEndPoints.back());
-            boundary.insert(BoundaryMesh::Vertex(
-                boundary.vertices().size(),
-                {},
-                BoundaryCellData(
-                    maths::AffineEmbedding<Scalar,1u,Dimension>(segmentEndPoints),
-                    contiguousCellData[rSegment.iCell]
-                )));
+
+            const Scalar segmentNorm = std::pow(segmentEndPoints.back()[0] - segmentEndPoints.front()[0], static_cast<Scalar>(2))
+                                     + std::pow(segmentEndPoints.back()[1] - segmentEndPoints.front()[1], static_cast<Scalar>(2));
+
+            if (minBoundarySegmentNorm < segmentNorm) {
+                boundary.insert(BoundaryMesh::Vertex(
+                    boundary.vertices().size(),
+                    {},
+                    BoundaryCellData(
+                        maths::AffineEmbedding<Scalar,1u,Dimension>(segmentEndPoints),
+                        contiguousCellData[rSegment.iCell]
+                    )));
+                rBoundarySegments.push_back({
+                    segmentEndPoints.front().front(),
+                    segmentEndPoints.front().back(),
+                    segmentEndPoints.back().front(),
+                    segmentEndPoints.back().back()});
+            }
         } // for rSegment in boundarySegments
     } // for iCorner in range(1, corners.size())
 
@@ -293,9 +310,6 @@ BoundaryMesh generateBoundaryMesh(Ref<const Mesh> rMesh,
 }
 
 
-using BoundarySegment = StaticArray<Scalar,2*Dimension>;
-
-
 [[nodiscard]] DynamicArray<BoundarySegment>
 imposeBoundaryConditions(Ref<Mesh> rMesh,
                          Ref<const Assembler> rAssembler,
@@ -312,76 +326,66 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         rMesh,
         bvh,
         contiguousCellData,
-        rArguments);
+        rArguments,
+        boundarySegments);
 
-    const Quadrature<Scalar,1> lineQuadrature((GaussLegendreQuadrature<Scalar>(
-        boundaryIntegrationOrder,
-        utils::Comparison<Scalar>(1e-14, 1e-14),
-        /*maxNewtonIterations=*/200ul)));
-    DynamicArray<Scalar> quadratureBuffer;
-    DynamicArray<Scalar> integrandBuffer;
+    const auto quadratureRuleFactory = [&boundary] (Ref<const BoundaryMesh::Vertex::Data>) {
+        return boundary.data().makeQuadratureRule();};
+
     DirichletBoundary dirichletBoundary;
     const Scalar penaltyFactor = rArguments.get<double>("penalty-factor");
-    const Scalar minBoundarySegmentNorm = rArguments.get<double>("min-boundary-segment-norm");
+    DynamicArray<Scalar> integrandBuffer;
+    const auto integrandFactory = [&rMesh, &dirichletBoundary, penaltyFactor, &integrandBuffer] (Ref<const BoundaryMesh::Vertex::Data> rBoundaryCell) {
+        auto integrand = makeTransformedIntegrand(
+            makeDirichletPenaltyIntegrand(
+                dirichletBoundary,
+                penaltyFactor,
+                rMesh.data().ansatzSpace(),
+                rBoundaryCell.makeSpatialTransform(),
+                rBoundaryCell.getEmbeddingCell()),
+            rBoundaryCell.makeJacobian());
+        integrandBuffer.resize(integrand.getMinBufferSize());
+        integrand.setBuffer(integrandBuffer);
+        return integrand;
+    }; // integrandFactory
 
-    for (const auto& rBoundaryCell : boundary.vertices()) {
-        // Transform sample points to the global coordinate space.
-        const std::array<ParametricCoordinate<Scalar>,1> segmentBegin {-1.0}, segmentEnd{1.0};
-        std::array<
-            std::array<
-                PhysicalCoordinate<Scalar>,
-                Dimension>,
-            2
-        > physicalCorners;
-        rBoundaryCell.data().transform(
-            segmentBegin,
-            physicalCorners.front());
-        rBoundaryCell.data().transform(
-            segmentEnd,
-            physicalCorners.back());
-
-        // Discard the segment if it's too short.
-        const Scalar segmentNorm = std::pow(physicalCorners.back()[0] - physicalCorners.front()[0], static_cast<Scalar>(2))
-                                 + std::pow(physicalCorners.back()[1] - physicalCorners.front()[1], static_cast<Scalar>(2));
-
-        if (minBoundarySegmentNorm < segmentNorm) {
-            const auto ansatzSpace = rMesh.data().ansatzSpace();
-            const maths::AffineEmbedding<Scalar,1,Dimension> segmentTransform(physicalCorners);
-
-            auto integrand = makeTransformedIntegrand(
-                makeDirichletPenaltyIntegrand(
-                    dirichletBoundary,
-                    penaltyFactor,
-                    ansatzSpace,
-                    segmentTransform,
-                    rBoundaryCell.data().getEmbeddingCell()),
-                segmentTransform.makeDerivative());
-            integrandBuffer.resize(integrand.getMinBufferSize());
-            integrand.setBuffer(integrandBuffer);
-            quadratureBuffer.resize(integrand.size());
-            lineQuadrature.evaluate(integrand, quadratureBuffer);
-
-            const std::size_t lhsEntryCount = std::pow(ansatzSpace.size(), Dimension);
+    const auto integralSink = [&lhs, &rhs, &rAssembler, &boundary] (std::span<const VertexID> cellIDs,
+                                                                    std::span<const Scalar> results) {
+        constexpr std::size_t lhsEntryCount = intPow(Ansatz::size(), Dimension);
+        constexpr std::size_t rhsEntryCount = Ansatz::size();
+        for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
+            Ptr<const Scalar> pResultsBegin = results.data() + iCell * (lhsEntryCount +rhsEntryCount);
+            const VertexID cellID = boundary.find(cellIDs[iCell]).value().data().getEmbeddingCell().id();
             rAssembler.addContribution<tags::Serial>(
-                std::span<const Scalar>(quadratureBuffer.data(), lhsEntryCount),
-                rBoundaryCell.data().getEmbeddingCell().id(),
+                std::span<const Scalar>(pResultsBegin, lhsEntryCount),
+                cellID,
                 lhs.rowExtents,
                 lhs.columnIndices,
                 lhs.entries);
             rAssembler.addContribution<tags::Serial>(
-                std::span<const Scalar>(
-                    quadratureBuffer.data() + lhsEntryCount,
-                    quadratureBuffer.data() + quadratureBuffer.size()),
-                rBoundaryCell.data().getEmbeddingCell().id(),
+                std::span<const Scalar>(pResultsBegin + lhsEntryCount, rhsEntryCount),
+                cellID,
                 std::span<Scalar>(rhs));
+        } // for iCell in range(cellIDs.size())
+    };
 
-            // Log debug and output info.
-            BoundarySegment segment;
-            std::copy_n(physicalCorners[0].data(), Dimension, segment.data());
-            std::copy_n(physicalCorners[1].data(), Dimension, segment.data() + Dimension);
-            boundarySegments.push_back(segment);
-        } // if minBoundarySegmentNorm < segmentNorm
-    } // for rBoundaryCell in boundary.vertices()
+    using Integrand = TransformedIntegrand<
+        DirichletPenaltyIntegrand<
+            DirichletBoundary,
+            Ansatz,
+            maths::AffineEmbedding<Scalar,1u,Dimension>,
+            CellData>,
+        maths::AffineEmbedding<Scalar,1u,Dimension>::Derivative>;
+    const IntegrandProcessor<1,Integrand>::Properties executionProperties{
+        .integrandBatchSize = rArguments.get<std::size_t>("integrand-batch-size"),
+        .integrandsPerItem = {}};
+    auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
+    pProcessor->process(
+        boundary,
+        quadratureRuleFactory,
+        integrandFactory,
+        integralSink,
+        executionProperties);
 
     return boundarySegments;
 }

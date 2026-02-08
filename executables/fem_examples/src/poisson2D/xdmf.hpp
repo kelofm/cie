@@ -25,7 +25,7 @@ namespace cie::fem {
 
 
 struct Sample {
-    StaticArray<CellData::PhysicalCoordinate,Dimension> position;
+    StaticArray<PhysicalCoordinate<Scalar>,Dimension>   position;
     Scalar                                              state;
     Scalar                                              load;
     Scalar                                              residual;
@@ -184,7 +184,7 @@ void postprocess(
                     rSample.cellID = rCellData.id();
 
                     // Compute sample point in the cell's local space.
-                    StaticArray<CellData::ParametricCoordinate,Dimension> localSamplePoint;
+                    StaticArray<ParametricCoordinate<Scalar>,Dimension> localSamplePoint;
                     rCellData.transform(
                         Kernel<Dimension,Scalar>::view(rSample.position),
                         Kernel<Dimension,Scalar>::view(localSamplePoint));
@@ -383,16 +383,16 @@ void postprocess(
                         )";
     {
         DynamicArray<Scalar> data;
-        const std::array<std::array<CellData::ParametricCoordinate,Dimension>,intPow(2,Dimension)> localCorners {
-            std::array<CellData::ParametricCoordinate,Dimension> {-1.0, -1.0},
-            std::array<CellData::ParametricCoordinate,Dimension> { 1.0, -1.0},
-            std::array<CellData::ParametricCoordinate,Dimension> {-1.0,  1.0},
-            std::array<CellData::ParametricCoordinate,Dimension> { 1.0,  1.0}};
+        const std::array<std::array<ParametricCoordinate<Scalar>,Dimension>,intPow(2,Dimension)> localCorners {
+            std::array<ParametricCoordinate<Scalar>,Dimension> {-1.0, -1.0},
+            std::array<ParametricCoordinate<Scalar>,Dimension> { 1.0, -1.0},
+            std::array<ParametricCoordinate<Scalar>,Dimension> {-1.0,  1.0},
+            std::array<ParametricCoordinate<Scalar>,Dimension> { 1.0,  1.0}};
         data.reserve(3 * localCorners.size() * rMesh.vertices().size());
 
         for (const auto& rCell : rMesh.vertices()) {
             for (const auto& rLocalPoint : localCorners) {
-                StaticArray<CellData::PhysicalCoordinate,Dimension> globalPoint;
+                StaticArray<PhysicalCoordinate<Scalar>,Dimension> globalPoint;
                 rCell.data().transform(
                     Kernel<Dimension,Scalar>::view(rLocalPoint),
                     Kernel<Dimension,Scalar>::view(globalPoint));

@@ -17,9 +17,19 @@
 namespace cie::fem {
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     using QPoint = QuadraturePoint<Dimension,typename TIntegrand::Value,TQD>;
+
+    struct StaticIntegrandSize {
+        static constexpr std::size_t value() noexcept
+        requires maths::StaticExpression<TIntegrand> {
+            return TIntegrand::size();}
+
+        static constexpr std::size_t value() noexcept
+        requires (!maths::StaticExpression<TIntegrand>){
+            return 0ul;}
+    }; // struct StaticIntegrandSize
 
     class Extents {
     public:
@@ -75,17 +85,17 @@ struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
 }; // struct IntegrandProcessor::Impl
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 IntegrandProcessor<Dim,TIntegrand,TQD>::IntegrandProcessor()
     : _pImpl(new Impl)
 {}
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 IntegrandProcessor<Dim,TIntegrand,TQD>::~IntegrandProcessor() = default;
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 template <
     GraphLike TMesh,
     QuadratureRuleFactoryLike<
@@ -183,7 +193,7 @@ template <
                     // => issue an evaluation.
                     const auto extentView = _pImpl->extents.get();
                     const std::size_t cellCount = extentView.size() - 1;
-                    output.resize(cellCount * TIntegrand::size());
+                    output.resize(cellCount * extentView.back().integrand.size());
 
                     CIE_BEGIN_EXCEPTION_TRACING
                         auto logBlock = utils::LoggerSingleton::get().newBlock(
@@ -225,7 +235,7 @@ template <
         const auto extentView = _pImpl->extents.get();
         _pImpl->quadraturePoints.resize(extentView.back().iQuadraturePointBegin);
         const std::size_t cellCount = extentView.size() - 1;
-        output.resize(cellCount * TIntegrand::size());
+        output.resize(cellCount * extentView.back().integrand.size());
 
         CIE_BEGIN_EXCEPTION_TRACING
             auto logBlock = utils::LoggerSingleton::get().newBlock(
@@ -260,7 +270,7 @@ template <
 }
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::Properties>
 IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
     return std::make_unique<Properties>(Properties {
@@ -270,23 +280,32 @@ IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
 }
 
 
-template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 void IntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TIntegrand::Value> output,
                                                      Ref<const Properties>) {
     const auto& rQuadraturePoints = _pImpl->quadraturePoints;
     const auto extentView = _pImpl->extents.get();
     if (rQuadraturePoints.empty()) return;
 
-    std::array<typename TIntegrand::Value,TIntegrand::size()> result;
+    std::conditional_t<
+        maths::StaticExpression<TIntegrand>,
+        std::array<typename TIntegrand::Value,Impl::StaticIntegrandSize::value()>,
+        std::vector<typename TIntegrand::Value>
+    > result;
+    //std::array<typename TIntegrand::Value,TIntegrand::size()> result;
+
+    if constexpr (!maths::StaticExpression<TIntegrand>) {
+        result.resize(extentView.back().integrand.size());
+    }
 
     for (std::size_t iExtent=0ul; iExtent<extentView.size()-1; ++iExtent) {
         Ref<const TIntegrand> rIntegrand = extentView[iExtent].integrand;
         const std::span<typename TIntegrand::Value> reducedOutput(
-            output.data() + iExtent * TIntegrand::size(),
-            TIntegrand::size());
+            output.data() + iExtent * result.size(),
+            result.size());
         std::fill_n(
             reducedOutput.data(),
-            TIntegrand::size(),
+            result.size(),
             static_cast<typename TIntegrand::Value>(0));
 
         const std::size_t iQuadraturePointBegin = extentView[iExtent].iQuadraturePointBegin;

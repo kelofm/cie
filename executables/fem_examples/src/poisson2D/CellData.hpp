@@ -31,10 +31,6 @@ struct CellData
 
     using CellBase = CellBase<cie::fem::Dimension,Scalar,SpatialTransform,Scalar>;
 
-    using ParametricCoordinate = ParametricCoordinate<Scalar>;
-
-    using PhysicalCoordinate = PhysicalCoordinate<Scalar>;
-
     CellData() noexcept = default;
 
     CellData(VertexID id,
@@ -57,9 +53,9 @@ struct CellData
 
     bool at(geo::BoxBoundable<Dimension,Scalar>::Point point) const {
         const utils::Comparison<Scalar> comparison(1e-8, 1e-10);
-        StaticArray<ParametricCoordinate,Dimension> local;
+        StaticArray<ParametricCoordinate<Scalar>,Dimension> local;
         this->transform(
-            Kernel<Dimension,Scalar>::cast<PhysicalCoordinate>(std::span<const Scalar,Dimension>(point.data(), Dimension)),
+            Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(std::span<const Scalar,Dimension>(point.data(), Dimension)),
             Kernel<Dimension,Scalar>::view(local));
 
         return std::all_of(
@@ -74,8 +70,8 @@ struct CellData
 protected:
     void computeBoundingBoxImpl(BoundingBox& rBox) noexcept override {
         BoundingBox::Point opposite;
-        StaticArray<ParametricCoordinate,Dimension> localCorner;
-        StaticArray<PhysicalCoordinate,Dimension> globalCorner;
+        StaticArray<ParametricCoordinate<Scalar>,Dimension> localCorner;
+        StaticArray<PhysicalCoordinate<Scalar>,Dimension> globalCorner;
 
         std::fill_n(
             rBox.base().data(),
@@ -87,7 +83,7 @@ protected:
             std::numeric_limits<Scalar>::lowest());
 
         StaticArray<std::uint8_t,Dimension> state {0u, 0u};
-        StaticArray<ParametricCoordinate,2> ordinates {-1.0, 1.0};
+        StaticArray<ParametricCoordinate<Scalar>,2> ordinates {-1.0, 1.0};
 
         do {
             // Compute the corner in local space.

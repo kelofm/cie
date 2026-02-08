@@ -20,7 +20,7 @@ namespace cie::fem {
 
 template <
     unsigned Dim,
-    maths::StaticExpression TIntegrand,
+    maths::Expression TIntegrand,
     class TQuadraturePointData = void>
 class IntegrandProcessor {
 public:

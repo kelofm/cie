@@ -12,9 +12,13 @@ namespace cie::fem {
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
 DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand()
-    : DirichletPenaltyIntegrand(TDirichlet(), 0, nullptr)
-{
-}
+    : _penalty(0),
+      _dirichletFunctor(),
+      _ansatzSpace(),
+      _embedding(),
+      _cellInverseTransform(),
+      _buffer()
+{}
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
@@ -24,13 +28,12 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
                                                                                          Ref<const TEmbedding> rBoundaryTransform,
                                                                                          Ref<const CellInverseTransform> rCellInverseTransform)
     : _penalty(penalty),
-      _pDirichletFunctor(&rDirichletFunctor),
-      _pAnsatzSpace(&rAnsatzSpace),
-      _pEmbedding(&rBoundaryTransform),
-      _pCellInverseTransform(&rCellInverseTransform),
+      _dirichletFunctor(rDirichletFunctor),
+      _ansatzSpace(rAnsatzSpace),
+      _embedding(rBoundaryTransform),
+      _cellInverseTransform(rCellInverseTransform),
       _buffer()
-{
-}
+{}
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
@@ -50,11 +53,9 @@ template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expres
 void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(this->getMinBufferSize() <= _buffer.size())
 
-    Ref<const TAnsatz> rAnsatzSpace = *_pAnsatzSpace;
-
     // Fetch object output sizes.
-    const unsigned ansatzCount = rAnsatzSpace.size();
-    const unsigned stateVariableCount = _pDirichletFunctor->size();
+    const unsigned ansatzCount = _ansatzSpace.size();
+    const unsigned stateVariableCount = _dirichletFunctor.size();
 
     using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
     using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
@@ -70,17 +71,17 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(Co
                dirichletBuffer(pDirichletBufferBegin, stateVariableCount);
 
     // Compute LHS contribution.
-    _pEmbedding->evaluate(in, boundaryTransformedBuffer);
-    _pCellInverseTransform->evaluate(boundaryTransformedBuffer, cellTransformedBuffer);
+    _embedding.evaluate(in, boundaryTransformedBuffer);
+    _cellInverseTransform.evaluate(boundaryTransformedBuffer, cellTransformedBuffer);
 
-    rAnsatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer);
+    _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer);
     EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
     EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
 
     lhsAdaptor.noalias() = ansatzAdaptor * _penalty * ansatzAdaptor.transpose();
 
     // Compute the prescribed state at the given input.
-    _pDirichletFunctor->evaluate(boundaryTransformedBuffer, dirichletBuffer);
+    _dirichletFunctor.evaluate(boundaryTransformedBuffer, dirichletBuffer);
 
     // Compute RHS contribution.
     for (unsigned iStateComponent=0u; iStateComponent<dirichletBuffer.size(); ++iStateComponent) {
@@ -98,7 +99,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(Co
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
 unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() const {
-    const auto ansatzCount = _pAnsatzSpace->size();
+    const auto ansatzCount = _ansatzSpace.size();
     return
           ansatzCount * ansatzCount     // <= LHS contribution
         + ansatzCount;                  // <= RHS contribution
@@ -114,10 +115,10 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::setBuffer(s
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
 unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::getMinBufferSize() const noexcept {
-    return _pAnsatzSpace->size()
+    return _ansatzSpace.size()
          + TCell::PhysicalDimension
          + TCell::ParametricDimension
-         + _pDirichletFunctor->size();
+         + _dirichletFunctor.size();
 }
 
 

@@ -69,7 +69,7 @@ void integrateStiffness(Ref<const Mesh> rMesh,
     const auto quadratureRuleFactory = [&rMesh] (Ref<const Mesh::Vertex::Data>) {
         return rMesh.data().makeQuadratureRule();};
 
-    const auto integrandFactory = [&rMesh] (Ref<const CellData> rCell) {
+    const auto integrandFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
         return StiffnessIntegrand(
             LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
                 rCell.diffusivity(),
