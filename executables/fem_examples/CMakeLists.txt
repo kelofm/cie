@@ -16,12 +16,13 @@ if (NOT TARGET fem)
 endif()
 
 # Build executables.
-file(GLOB drivers "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB directories "${CMAKE_CURRENT_SOURCE_DIR}/src/*")
 set(targets "")
-foreach(driver ${drivers})
+foreach(directory ${directories})
     # Extract target name and define executable.
-    get_filename_component(driver_name ${driver} NAME_WE)
-    add_executable(${driver_name} "${driver}")
+    get_filename_component(driver_name ${directory} NAME_WE)
+    file(GLOB sources "${directory}/*.cpp")
+    add_executable(${driver_name} ${sources})
     target_include_directories(${driver_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     list(APPEND targets ${driver_name})
 
