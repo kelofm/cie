@@ -231,7 +231,7 @@ template <
     } // for rCell in rMesh.vertices()
 
     // Issue an evaluation if there are any leftover quadrature points.
-    if (!_pImpl->extents.empty()) {
+    if (!_pImpl->extents.empty() && _pImpl->extents.get().back().iQuadraturePointBegin != 0ul) {
         const auto extentView = _pImpl->extents.get();
         _pImpl->quadraturePoints.resize(extentView.back().iQuadraturePointBegin);
         const std::size_t cellCount = extentView.size() - 1;
