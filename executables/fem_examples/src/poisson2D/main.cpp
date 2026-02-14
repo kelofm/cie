@@ -101,14 +101,12 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     };
 
     // Compute element contributions and assemble them into the matrix
-    {
-        integrateStiffness(
-            mesh,
-            assembler,
-            lhs,
-            rArguments,
-            threads);
-    }
+    integrateStiffness(
+        mesh,
+        assembler,
+        lhs,
+        rArguments,
+        threads);
 
     const auto boundarySegments = imposeBoundaryConditions(
         mesh,
