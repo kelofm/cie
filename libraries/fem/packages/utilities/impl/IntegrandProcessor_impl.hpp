@@ -97,29 +97,72 @@ IntegrandProcessor<Dim,TIntegrand,TQD>::~IntegrandProcessor() = default;
 
 template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 template <
-    GraphLike TMesh,
+    concepts::Iterator TCellIt,
     QuadratureRuleFactoryLike<
-        typename TMesh::Vertex::Data,
+        typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>::Data,
         TQD
     > TQuadratureRuleFactory,
     concepts::FunctionWithSignature<
         TIntegrand,
-        Ref<const typename TMesh::Vertex::Data>
+        Ref<const typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>::Data>
     > TIntegrandFactory,
     concepts::FunctionWithSignature<
         void,
         std::span<const VertexID>,
         std::span<const typename TIntegrand::Value>
     > TIntegralSink
-> void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
-    Ref<const TMesh> rMesh,
+>
+requires (
+    CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
+ || CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type::Data>>)
+void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
+    TCellIt itCellBegin,
+    TCellIt itCellEnd,
     Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
     TIntegrandFactory&& rIntegrandFactory,
     TIntegralSink&& rIntegralSink,
     Ref<const Properties> rExecutionProperties)
 {
-    CIE_BEGIN_EXCEPTION_TRACING
+    using TItValueType = typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>;
+    if constexpr (CellLike<TItValueType>) {
+        this->processImpl<TItValueType>(
+            [] (const auto& rItem) -> const auto& {return rItem;},
+            itCellBegin,
+            itCellEnd,
+            rQuadratureRuleFactory,
+            std::forward<TIntegrandFactory>(rIntegrandFactory),
+            std::forward<TIntegralSink>(rIntegralSink),
+            rExecutionProperties);
+    } else if constexpr (CellLike<typename TItValueType::Data>) {
+        this->processImpl<typename TItValueType::Data>(
+            [] (const auto& rItem) -> const auto& {return rItem.data();},
+            itCellBegin,
+            itCellEnd,
+            rQuadratureRuleFactory,
+            std::forward<TIntegrandFactory>(rIntegrandFactory),
+            std::forward<TIntegralSink>(rIntegralSink),
+            rExecutionProperties);
+    }
+}
 
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <
+    class TCell,
+    class TCellGetter,
+    class TCellIt,
+    class TQuadratureRuleFactory,
+    class TIntegrandFactory,
+    class TIntegralSink>
+void IntegrandProcessor<Dim,TIntegrand,TQD>::processImpl(
+    TCellGetter&& rCellGetter,
+    TCellIt itCellBegin,
+    TCellIt itCellEnd,
+    TQuadratureRuleFactory&& rQuadratureRuleFactory,
+    TIntegrandFactory&& rIntegrandFactory,
+    TIntegralSink&& rIntegralSink,
+    Ref<const Properties> rExecutionProperties)
+{
+    CIE_BEGIN_EXCEPTION_TRACING
     // Parse execution properties.
     auto pDefaultProperties = this->makeDefaultProperties();
     const std::size_t batchSize = rExecutionProperties.integrandBatchSize.has_value()
@@ -132,23 +175,25 @@ template <
     DynamicArray<typename TIntegrand::Value> output;
     using TQuadraturePointFactory = std::invoke_result_t<
         TQuadratureRuleFactory,
-        Ref<const typename TMesh::Vertex::Data>>;
+        Ref<const TCell>>;
     TQuadraturePointFactory quadraturePointFactory;
 
     // Producer-consumer loop.
     // 0) Generate quadrature points.
     // 1) Evaluate integrands at quadrature points.
     // 2) Call the consumer with the cell-wise reduced results.
-    for (Ref<const typename TMesh::Vertex> rCell : rMesh.vertices()) {
+    for (auto itCell=itCellBegin; itCell!=itCellEnd; ++itCell) {
+        Ref<const TCell> rCell = rCellGetter(*itCell);
+
         // Mark the begin of recording quadrature points for a new cell
         // and thus new integrand.
         _pImpl->extents.push(
             rCell.id(),
-            rIntegrandFactory(rCell.data()));
+            rIntegrandFactory(rCell));
 
         // Construct a new quadrature point rule for the current cell.
         CIE_BEGIN_EXCEPTION_TRACING
-        quadraturePointFactory = rQuadratureRuleFactory(rCell.data());
+        quadraturePointFactory = rQuadratureRuleFactory(rCell);
         CIE_END_EXCEPTION_TRACING
 
         // Generate quadrature points for the current cell,
@@ -165,7 +210,7 @@ template <
             if (_pImpl->extents.empty()) {
                 _pImpl->extents.push(
                     rCell.id(),
-                    rIntegrandFactory(rCell.data()));
+                    rIntegrandFactory(rCell));
             } // extents.empty()
 
             // Generate quadrature points into the remaining range

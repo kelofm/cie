@@ -314,6 +314,8 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
                          std::span<Scalar> rhs,
                          Ref<const utils::ArgParse::Results> rArguments) {
     DynamicArray<BoundarySegment> boundarySegments;
+
+    CIE_BEGIN_EXCEPTION_TRACING
     auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
 
     // Load the boundary mesh.
@@ -374,14 +376,17 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
         .integrandBatchSize = rArguments.get<std::size_t>("integrand-batch-size"),
         .integrandsPerItem = {}};
     auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
+    const auto& rBoundaryCells = boundary.vertices();
     pProcessor->process(
-        boundary,
+        rBoundaryCells.begin(),
+        rBoundaryCells.end(),
         quadratureRuleFactory,
         integrandFactory,
         integralSink,
         executionProperties);
 
     return boundarySegments;
+    CIE_END_EXCEPTION_TRACING
 }
 
 

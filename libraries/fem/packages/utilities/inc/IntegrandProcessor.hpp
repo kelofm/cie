@@ -7,6 +7,7 @@
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
+#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 #include "packages/concurrency/inc/sycl.hpp"
 
@@ -36,22 +37,27 @@ public:
     virtual ~IntegrandProcessor();
 
     template <
-        GraphLike TMesh,
+        concepts::Iterator TCellIt,
         QuadratureRuleFactoryLike<
-            typename TMesh::Vertex::Data,
+            typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>::Data,
             TQuadraturePointData
         > TQuadratureRuleFactory,
         concepts::FunctionWithSignature<
             TIntegrand,
-            Ref<const typename TMesh::Vertex::Data>
+            Ref<const typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>::Data>
         > TIntegrandFactory,
         concepts::FunctionWithSignature<
             void,
             std::span<const VertexID>,
             std::span<const typename TIntegrand::Value>
         > TIntegralSink
-    > void process(
-        Ref<const TMesh> rMesh,
+    >
+    requires (
+        CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
+     || CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type::Data>>)
+    void process(
+        TCellIt itCellBegin,
+        TCellIt itCellEnd,
         Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
         TIntegrandFactory&& rIntegrandFactory,
         TIntegralSink&& rIntegralSink,
@@ -66,6 +72,23 @@ protected:
 
     struct Impl;
     std::unique_ptr<Impl> _pImpl;
+
+private:
+    template <
+        class TCell,
+        class TCellGetter,
+        class TCellIt,
+        class TQuadratureRuleFactory,
+        class TIntegrandFactory,
+        class TIntegralSink>
+    void processImpl(
+        TCellGetter&& rCellGetter,
+        TCellIt itCellBegin,
+        TCellIt itCellEnd,
+        TQuadratureRuleFactory&& rQuadratureRuleFactory,
+        TIntegrandFactory&& rIntegrandFactory,
+        TIntegralSink&& rIntegralSink,
+        Ref<const Properties> rExecutionProperties);
 }; // class IntegrandProcessor
 
 
