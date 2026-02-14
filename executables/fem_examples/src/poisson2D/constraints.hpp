@@ -28,10 +28,11 @@ public:
 
     using Base::Base;
 
-    BoundaryCellData(RightRef<typename Base::SpatialTransform> rEmbedding,
+    BoundaryCellData(unsigned id,
+                     RightRef<typename Base::SpatialTransform> rEmbedding,
                      Ref<const CellData> rCell) noexcept
         : Base(
-            VertexID(rCell.id()),
+            VertexID(id),
             Base::AnsatzSpaceID(),
             OrientedAxes<1>(),
             std::move(rEmbedding)),
@@ -272,10 +273,12 @@ BoundaryMesh generateBoundaryMesh(BVH::View bvh,
                                      + std::pow(segmentEndPoints.back()[1] - segmentEndPoints.front()[1], static_cast<Scalar>(2));
 
             if (minBoundarySegmentNorm < segmentNorm) {
+                const auto id = boundary.vertices().size();
                 boundary.insert(BoundaryMesh::Vertex(
-                    boundary.vertices().size(),
+                    id,
                     {},
                     BoundaryCellData(
+                        id,
                         maths::AffineEmbedding<Scalar,1u,Dimension>(segmentEndPoints),
                         contiguousCellData[rSegment.iCell]
                     )));
