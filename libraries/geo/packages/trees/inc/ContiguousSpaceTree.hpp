@@ -78,8 +78,7 @@ template <concepts::Object TGeometry,
 class ContiguousSpaceTree : public TGeometry,
                             public utils::ContiguousTree<detail::CSTNode<TGeometry::Dimension,TIndex>,
                                                          TIndex,
-                                                         TParallelTag>
-{
+                                                         TParallelTag> {
 public:
     using Geometry = TGeometry;
 
