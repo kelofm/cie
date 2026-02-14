@@ -126,21 +126,21 @@ void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
     using TItValueType = typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>;
     if constexpr (CellLike<TItValueType>) {
         this->processImpl<TItValueType>(
-            [] (const auto& rItem) -> const auto& {return rItem;},
+            [] (const TItValueType& rItem) -> const TItValueType& {return rItem;},
             itCellBegin,
             itCellEnd,
             rQuadratureRuleFactory,
-            std::forward<TIntegrandFactory>(rIntegrandFactory),
-            std::forward<TIntegralSink>(rIntegralSink),
+            rIntegrandFactory,
+            rIntegralSink,
             rExecutionProperties);
     } else if constexpr (CellLike<typename TItValueType::Data>) {
         this->processImpl<typename TItValueType::Data>(
-            [] (const auto& rItem) -> const auto& {return rItem.data();},
+            [] (const TItValueType& rItem) -> const typename TItValueType::Data& {return rItem.data();},
             itCellBegin,
             itCellEnd,
             rQuadratureRuleFactory,
-            std::forward<TIntegrandFactory>(rIntegrandFactory),
-            std::forward<TIntegralSink>(rIntegralSink),
+            rIntegrandFactory,
+            rIntegralSink,
             rExecutionProperties);
     }
 }
