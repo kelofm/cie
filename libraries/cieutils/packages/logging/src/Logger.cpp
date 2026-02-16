@@ -71,36 +71,29 @@ Logger::~Logger()
 }
 
 
-void Logger::write(const char* p_message, std::streamsize messageSize)
-{
+void Logger::write(const char* p_message, std::streamsize messageSize) {
     CIE_BEGIN_EXCEPTION_TRACING
+    std::scoped_lock<std::mutex> lock(_writeMutex);
 
     const char* it_begin            = p_message;
     const char* const it_messageEnd = p_message + messageSize;
     const char* it_end              = it_messageEnd;
 
-    while (it_begin < it_messageEnd)
-    {
+    while (it_begin < it_messageEnd) {
         it_end = std::find(
             it_begin,
             it_messageEnd,
-            '\n'
-        );
-
+            '\n');
         this->preWrite();
-
-        this->directWriteToAll(it_begin,
-                               std::distance(it_begin, it_end));
-
+        this->directWriteToAll(
+            it_begin,
+            std::distance(it_begin, it_end));
         if (it_end != it_messageEnd)
             this->postWrite();
-
         it_begin = it_end + 1;
     }
 
-    if (_forceFlush)
-        this->flush();
-
+    if (_forceFlush) this->flush();
     CIE_END_EXCEPTION_TRACING
 }
 
@@ -154,8 +147,9 @@ Logger& Logger::log(const std::string& message)
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    this->write(message.c_str(),
-                message.size());
+    this->write(
+        message.c_str(),
+        message.size());
     this->postWrite();
     return *this;
 
@@ -183,79 +177,69 @@ Logger& Logger::logDate( const std::string& message )
 }
 
 
-size_t Logger::startTimer()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
+std::size_t Logger::startTimer() {
+    std::scoped_lock<std::mutex> lock(_mutex);
 
     // Find an idle slot
-    size_t slotID = std::distance(_timeLog.begin(),
-                                  std::find(_timeLog.begin()+1,
-                                            _timeLog.end(),
-                                            _timeLog[0]));
-    if (slotID == _timeLog.size())
-    {
-        _timeLog.push_back( _timeLog[0] );
+   std::size_t slotID = std::distance(
+        _timeLog.begin(),
+        std::find(
+            _timeLog.begin() + 1,
+            _timeLog.end(),
+            _timeLog[0]));
+    if (slotID == _timeLog.size()) {
+        _timeLog.push_back(_timeLog[0]);
         slotID = _timeLog.size() - 1;
     }
 
     // Start timer
     _timeLog[slotID] = detail::getTime();
     return slotID;
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 
-size_t Logger::elapsed( size_t slotID, bool reset )
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
+std::size_t Logger::elapsed(size_t slotID, bool reset) {
     // Check if valid slot
-    if ( slotID >= _timeLog.size() )
-        error( "Invalid timerID " + std::to_string(slotID) );
+    decltype(_timeLog)::value_type begin;
+    {
+        std::scoped_lock<std::mutex> lock(_mutex);
+
+        if (slotID >= _timeLog.size())
+            error( "Invalid timerID " + std::to_string(slotID) );
+        begin = _timeLog[slotID];
+
+        // Reset timer if requested
+        if (reset) {
+            _timeLog[slotID] = _timeLog[0];
+        }
+    }
 
     // Compute elapsed time
-    size_t t = (size_t)std::chrono::duration_cast<std::chrono::microseconds>(detail::getTime() - _timeLog[slotID]).count();
-
-    // Reset timer if requested
-    if (reset)
-        _timeLog[slotID] = _timeLog[0];
-
-    return t;
-
-    CIE_END_EXCEPTION_TRACING
+    return (std::size_t)std::chrono::duration_cast<std::chrono::microseconds>(detail::getTime() - begin).count();
 }
 
 
-Logger& Logger::logElapsed( const std::string& message,
-                            size_t timeID,
-                            bool reset )
-{
+Logger& Logger::logElapsed(const std::string& message,
+                           std::size_t timeID,
+                           bool reset ) {
     CIE_BEGIN_EXCEPTION_TRACING
-
     auto dt = elapsed( timeID, reset );
     std::string unit = " [us] ";
 
-    if ( dt > 100000 )
-    {
-        dt      /= 1000;
-        unit    = " [ms] ";
-
-        if ( dt > 100000 )
-        {
-            dt      /= 1000;
-            unit    = " [s] ";
-
-            if ( dt > 6000 )
-            {
-                dt      /= 60;
-                unit    = " [min] ";
+    if (dt > 100000) {
+        dt /= 1000;
+        unit = " [ms] ";
+        if (dt > 100000) {
+            dt /= 1000;
+            unit = " [s] ";
+            if (dt > 6000) {
+                dt /= 60;
+                unit = " [min] ";
             }
         }
     }
 
     return log( message + " " + std::to_string( dt ) + unit );
-
     CIE_END_EXCEPTION_TRACING
 }
 
