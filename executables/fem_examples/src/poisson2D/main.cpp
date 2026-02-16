@@ -103,6 +103,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // Compute element contributions and assemble them into the matrix
     integrateStiffness(
         mesh,
+        contiguousCellData,
         assembler,
         lhs,
         rArguments,

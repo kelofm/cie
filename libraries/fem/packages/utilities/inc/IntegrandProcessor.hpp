@@ -28,8 +28,9 @@ public:
     static inline constexpr unsigned Dimension = Dim;
 
     struct Properties {
-        std::optional<std::size_t> integrandBatchSize;
-        std::optional<std::size_t> integrandsPerItem;
+        std::optional<std::size_t>  integrandBatchSize;
+        std::optional<std::size_t>  integrandsPerItem;
+        std::optional<std::uint8_t> verbosity;
     };
 
     IntegrandProcessor();
@@ -52,9 +53,32 @@ public:
             std::span<const typename TIntegrand::Value>
         > TIntegralSink
     >
-    requires (
-        CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
-     || CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type::Data>>)
+    requires CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type::Data>>
+    void process(
+        TCellIt itCellBegin,
+        TCellIt itCellEnd,
+        Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
+        TIntegrandFactory&& rIntegrandFactory,
+        TIntegralSink&& rIntegralSink,
+        Ref<const Properties> rExecutionProperties);
+
+    template <
+        concepts::Iterator TCellIt,
+        QuadratureRuleFactoryLike<
+            typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>,
+            TQuadraturePointData
+        > TQuadratureRuleFactory,
+        concepts::FunctionWithSignature<
+            TIntegrand,
+            Ref<const typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
+        > TIntegrandFactory,
+        concepts::FunctionWithSignature<
+            void,
+            std::span<const VertexID>,
+            std::span<const typename TIntegrand::Value>
+        > TIntegralSink
+    >
+    requires CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
     void process(
         TCellIt itCellBegin,
         TCellIt itCellEnd,

@@ -34,14 +34,12 @@ struct CellData
     CellData() noexcept = default;
 
     CellData(VertexID id,
-             unsigned short iAnsatz,
              Scalar diffusivity,
              OrientedAxes<Dimension> axes,
              RightRef<SpatialTransform> rSpatialTransform) noexcept
         : BoxBase(),
           CellBase(
             id,
-            iAnsatz,
             axes,
             std::move(rSpatialTransform),
             std::move(diffusivity))

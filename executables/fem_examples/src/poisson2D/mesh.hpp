@@ -180,7 +180,6 @@ void generateMesh(Ref<Mesh> rMesh,
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
             Mesh::Vertex::Data data (
                 VertexID(iCell), // <= todo: remove duplicate id
-                0u,   // <= All cells share the same ansatz space in this example.
                 1.0,
                 axes,
                 SpatialTransform(transformed.begin(), transformed.end())

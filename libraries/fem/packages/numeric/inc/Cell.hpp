@@ -33,7 +33,6 @@ concept CellLike =
     {rConstInstance.makeJacobian()}                                 -> maths::JacobianExpression;
     {rConstInstance.makeJacobianInverse()}                          -> maths::JacobianExpression;
     {rConstInstance.id()}                                           -> std::same_as<VertexID>;
-    {rConstInstance.ansatzID()}                                     -> cie::concepts::UnsignedInteger;
     {rConstInstance.makeSpatialTransform()}                         -> maths::SpatialTransform;
 }; // concept Cell
 
@@ -63,8 +62,6 @@ public:
 
     using PhysicalSpan = std::span<PhysicalCoordinate<TValue>,PhysicalDimension>;
 
-    using AnsatzSpaceID = unsigned short;
-
     using Value = TValue;
 
     using Data = TData;
@@ -75,14 +72,12 @@ public:
 
     CellBase(
         VertexID id,
-        AnsatzSpaceID ansatzID,
         OrientedAxes<ParametricDimension> axes,
         RightRef<SpatialTransform> rSpatialTransform) noexcept
     requires std::is_same_v<TData,void>;
 
     CellBase(
         VertexID id,
-        AnsatzSpaceID ansatzID,
         OrientedAxes<ParametricDimension> axes,
         RightRef<SpatialTransform> rSpatialTransform,
         typename VoidSafe<TData,int>::RightRef rData) noexcept
@@ -96,38 +91,34 @@ public:
         Ref<const ConstPhysicalSpan> in,
         Ref<const ParametricSpan> out) const noexcept;
 
-    typename TSpatialTransform::Derivative makeJacobian() const;
+    [[nodiscard]] typename TSpatialTransform::Derivative makeJacobian() const;
 
-    typename TSpatialTransform::Inverse::Derivative makeJacobianInverse() const;
+    [[nodiscard]] typename TSpatialTransform::Inverse::Derivative makeJacobianInverse() const;
 
-    [[nodiscard]] constexpr AnsatzSpaceID ansatzID() const noexcept {
+    [[nodiscard]] constexpr VertexID id() const noexcept {
         return std::get<0>(_impl);
     }
 
-    [[nodiscard]] constexpr VertexID id() const noexcept {
+    [[nodiscard]] constexpr OrientedAxes<ParametricDimension> axes() const noexcept {
         return std::get<1>(_impl);
     }
 
-    [[nodiscard]] constexpr OrientedAxes<ParametricDimension> axes() const noexcept {
+    [[nodiscard]] Ref<const SpatialTransform> makeSpatialTransform() const noexcept {
         return std::get<2>(_impl);
     }
 
-    [[nodiscard]] Ref<const SpatialTransform> makeSpatialTransform() const noexcept {
-        return std::get<3>(_impl);
-    }
-
     [[nodiscard]] Ref<const typename SpatialTransform::Inverse> makeInverseSpatialTransform() const noexcept {
-        return std::get<4>(_impl);
+        return std::get<3>(_impl);
     }
 
     [[nodiscard]] constexpr typename VoidSafe<const TData>::Ref data() const noexcept
     requires (!std::is_same_v<TData,void>) {
-        return std::get<5>(_impl);
+        return std::get<4>(_impl);
     }
 
     [[nodiscard]] constexpr typename VoidSafe<TData>::Ref data() noexcept
     requires (!std::is_same_v<TData,void>) {
-        return std::get<5>(_impl);
+        return std::get<4>(_impl);
     }
 
 protected:
@@ -135,44 +126,38 @@ protected:
 
     friend struct io::GraphML::Deserializer<CellBase>;
 
-    [[nodiscard]] constexpr Ref<AnsatzSpaceID> ansatzID() noexcept {
+    [[nodiscard]] constexpr Ref<VertexID> id() noexcept {
         return std::get<0>(_impl);
     }
 
-    [[nodiscard]] constexpr Ref<VertexID> id() noexcept {
+    [[nodiscard]] constexpr Ref<OrientedAxes<ParametricDimension>> axes() noexcept {
         return std::get<1>(_impl);
     }
 
-    [[nodiscard]] constexpr Ref<OrientedAxes<ParametricDimension>> axes() noexcept {
+    [[nodiscard]] constexpr Ref<const TSpatialTransform> spatialTransform() const noexcept {
         return std::get<2>(_impl);
     }
 
-    [[nodiscard]] constexpr Ref<const TSpatialTransform> spatialTransform() const noexcept {
-        return std::get<3>(_impl);
-    }
-
     [[nodiscard]] constexpr Ref<TSpatialTransform> spatialTransform() noexcept {
-        return std::get<3>(_impl);
+        return std::get<2>(_impl);
     }
 
     [[nodiscard]] constexpr Ref<const typename TSpatialTransform::Inverse> inverseSpatialTransform() const noexcept {
-        return std::get<4>(_impl);
+        return std::get<3>(_impl);
     }
 
     [[nodiscard]] constexpr Ref<typename TSpatialTransform::Inverse> inverseSpatialTransform() noexcept {
-        return std::get<4>(_impl);
+        return std::get<3>(_impl);
     }
 
     using Impl = std::conditional_t<
         std::is_same_v<TData,void>,
         std::tuple<
-            AnsatzSpaceID,
             VertexID,
             OrientedAxes<ParametricDimension>,
             TSpatialTransform,
             typename TSpatialTransform::Inverse>,
         std::tuple<
-            AnsatzSpaceID,
             VertexID,
             OrientedAxes<ParametricDimension>,
             TSpatialTransform,
@@ -181,6 +166,86 @@ protected:
     >;
     Impl _impl;
 }; // class CellBase
+
+
+template <CellLike TCell>
+class IndirectCell {
+public:
+    constexpr inline static unsigned ParametricDimension = TCell::ParametricDimension;
+
+    constexpr inline static unsigned PhysicalDimension = TCell::PhysicalDimension;
+
+    using Value = typename TCell::Value;
+
+    using Data = typename TCell::Data;
+
+    using ConstParametricSpan = std::span<const ParametricCoordinate<Value>,ParametricDimension>;
+
+    using ParametricSpan = std::span<ParametricCoordinate<Value>,ParametricDimension>;
+
+    using ConstPhysicalSpan = std::span<const PhysicalCoordinate<Value>,PhysicalDimension>;
+
+    using PhysicalSpan = std::span<PhysicalCoordinate<Value>,PhysicalDimension>;
+
+    using SpatialTransform = typename TCell::SpatialTransform;
+
+    constexpr IndirectCell() noexcept
+        : _pCell(nullptr)
+    {}
+
+    constexpr IndirectCell(Ref<TCell> rCell) noexcept
+        : _pCell(&rCell)
+    {}
+
+    void transform(
+        Ref<const ConstParametricSpan> in,
+        Ref<const PhysicalSpan> out) const noexcept {
+        _pCell->transform(in, out);
+    }
+
+    void transform(
+        Ref<const ConstPhysicalSpan> in,
+        Ref<const ParametricSpan> out) const noexcept {
+        _pCell->transform(in, out);
+    }
+
+    [[nodiscard]] typename SpatialTransform::Derivative makeJacobian() const {
+        return _pCell->makeJacobian();
+    }
+
+    [[nodiscard]] typename SpatialTransform::Inverse::Derivative makeJacobianInverse() const {
+        return _pCell->makeJacobianInverse();
+    }
+
+    [[nodiscard]] constexpr VertexID id() const noexcept {
+        return _pCell->id();
+    }
+
+    [[nodiscard]] constexpr OrientedAxes<ParametricDimension> axes() const noexcept {
+        return _pCell->axes();
+    }
+
+    [[nodiscard]] Ref<const SpatialTransform> makeSpatialTransform() const noexcept {
+        return _pCell->makeSpatialTransform();
+    }
+
+    [[nodiscard]] Ref<const typename SpatialTransform::Inverse> makeInverseSpatialTransform() const noexcept {
+        return _pCell->makeInverseSpatialTransform();
+    }
+
+    [[nodiscard]] constexpr typename VoidSafe<const Data>::Ref data() const noexcept
+    requires (!std::is_same_v<Data,void>) {
+        return _pCell->data();
+    }
+
+    [[nodiscard]] constexpr typename VoidSafe<Data>::Ref data() noexcept
+    requires (!std::is_same_v<Data,void> && !std::is_const_v<TCell>) {
+        return _pCell->data();
+    }
+
+private:
+    Ptr<TCell> _pCell;
+}; // class IndirectCell
 
 
 template <
