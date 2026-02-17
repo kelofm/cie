@@ -279,6 +279,27 @@ void postprocess(
     output << R"(
                     </DataItem>
                 </Geometry>
+
+                <Attribute Name="state" Center="Node" AttributeType="Scalar">
+                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 2 * boundarySegments.size() << R"(">
+                        )";
+    {
+        DynamicArray<Scalar> data;
+        data.reserve(2 * boundarySegments.size());
+        for (const auto& rSegment : boundarySegments) {
+            data.push_back(rSegment[4]);
+            data.push_back(rSegment[5]);
+        }
+        output.write(
+            std::span<const decltype(data)::value_type>(
+                data.data(),
+                data.size()),
+            "boundaryDirichlet",
+            {static_cast<int>(2 * boundarySegments.size())});
+    }
+    output << R"(
+                    </DataItem>
+                </Attribute>
             </Grid>
 
             <Grid Name="bvh" GridType="Uniform">

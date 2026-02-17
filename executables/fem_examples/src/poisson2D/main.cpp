@@ -172,6 +172,11 @@ int main(int argc, const char** argv) {
     cie::utils::ArgParse parser("2D Poisson Example");
     parser
         .addKeyword(
+            {"--boundary-file-path"},
+            cie::utils::ArgParse::DefaultValue {"boundary.csv"},
+            //cie::utils::ArgParse::validatorFactory<std::filesystem::path>(),
+            "Path to the boundary definition file.")
+        .addKeyword(
             {"-r", "--resolution"},
             cie::utils::ArgParse::DefaultValue {"31"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
@@ -185,16 +190,6 @@ int main(int argc, const char** argv) {
                 return arg == "legendre" || arg == "lagrange";
             },
             "Type of basis polynomials to use (lagrange or integrated legendre)")
-        .addKeyword(
-            {"--boundary-resolution"},
-            cie::utils::ArgParse::DefaultValue {"20"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Number of nodes discretizing the boundary circle.")
-        .addKeyword(
-            {"--boundary-radius"},
-            cie::utils::ArgParse::DefaultValue {"2.5e-1"},
-            cie::utils::ArgParse::validatorFactory<double>(),
-            "Radius of the boundary circle.")
         .addKeyword(
             {"--min-boundary-tree-depth"},
             cie::utils::ArgParse::DefaultValue {"3"},
@@ -226,7 +221,7 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
             "Number of quadrature points to evaluate at once.")
         .addFlag(
-            {"--gpu"},
+            {"--sycl"},
             "Use the GPU for integration and postprocessing.")
         .addFlag(
             {"-h", "--help"},
@@ -246,10 +241,10 @@ int main(int argc, const char** argv) {
         return 0;
     }
 
-    try {
+    //try {
         return cie::fem::main(arguments);
-    } catch (cie::Exception& rException) {
-        std::cerr << rException.what() << std::endl;
-        return 1;
-    }
+    //} catch (cie::Exception& rException) {
+    //    std::cerr << rException.what() << std::endl;
+    //    return 1;
+    //}
 }
