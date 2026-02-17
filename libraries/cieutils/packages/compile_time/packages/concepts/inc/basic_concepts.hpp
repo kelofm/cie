@@ -301,7 +301,7 @@ concept NonPointer
 // ---------------------------------------------------------
 
 
-template <class TAllocator, class TValue>
+template <class TAllocator, class TValue=void>
 concept Allocator
 = requires (TAllocator instance,
             std::size_t count,

@@ -135,8 +135,7 @@ class MatchTuple {};
 
 /// Compare the parameter packs of two tuples.
 template <class ...Ts>
-class MatchTuple<std::tuple<Ts...>>
-{
+class MatchTuple<std::tuple<Ts...>> {
 private:
     template <class T>
     struct AnyImpl {};
