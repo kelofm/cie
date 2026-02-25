@@ -514,7 +514,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TInt
         : pDefaultExecutionProperties->integrandsPerItem.value();
 
     // Allocate memory on the device.
-    if (rExecutionProperties.verbosity && 3 <= rExecutionProperties.verbosity.value()) {
+    if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
         utils::LoggerSingleton::get().log(std::format(
             "allocate {} bytes on {}",
             extentView.size() * sizeof(typename Base::Impl::Extents::Value)
@@ -522,6 +522,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TInt
                 + output.size() * sizeof(typename TIntegrand::Value),
             trimmedDeviceName));
     }
+    const auto memoryTimer = utils::LoggerSingleton::get().startTimer();
     auto pDeviceExtents = makeDeviceMemory<typename Base::Impl::Extents::Value>(
         extentView.size(),
         rQueue);
@@ -531,6 +532,13 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(std::span<typename TInt
     auto pDeviceOutput = makeDeviceMemory<typename TIntegrand::Value>(
         output.size(),
         rQueue);
+    if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
+        utils::LoggerSingleton::get().logElapsed(
+            std::format(
+                "allocation on {} took ",
+                trimmedDeviceName),
+            memoryTimer);
+    }
 
     // Copy input data to the device.
     [[maybe_unused]] sycl::event extentCopyEvent = rQueue.copy(
