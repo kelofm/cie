@@ -27,7 +27,9 @@ CIE_TEST_CASE( "centripetal parameter positions", "[splinekernel]" )
     // Get parameter positions
     std::vector<double> parameterPositions(interpolationPoints[0].size());
 
-    CIE_TEST_REQUIRE_NOTHROW(parameterPositions = centripetalParameterPositions(interpolationPoints));
+    CIE_TEST_REQUIRE_NOTHROW(parameterPositions = centripetalParameterPositions<double>({
+        interpolationPoints[0],
+        interpolationPoints[1]}));
 
     // Check parameter positions
     double d = 5.0 + 13.0 + 17.0 + 25.0; // d = 60
@@ -234,7 +236,9 @@ CIE_TEST_CASE( "interpolate with BSpline", "[splinekernel]" )
     // Check if parameter positions and knot vectors are sorted
     std::vector<double> parameterPositions, knotVector;
 
-    CIE_TEST_REQUIRE_NOTHROW(parameterPositions = centripetalParameterPositions(interpolationPoints));
+    CIE_TEST_REQUIRE_NOTHROW(parameterPositions = centripetalParameterPositions<double>({
+        interpolationPoints[0],
+        interpolationPoints[1]}));
 
     CIE_TEST_CHECK(is_sorted(parameterPositions.begin(), parameterPositions.end()));
 
