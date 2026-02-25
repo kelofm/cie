@@ -57,24 +57,28 @@ public:
 
 
     template <class T>
-    class DeserializerBase
-    {
+    class DeserializerBase {
     public:
-        [[nodiscard]] static Ptr<Deserializer<T>> make(typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
-                                                       Ref<SAXHandler> rSAX,
-                                                       std::string_view elementName);
+        template <class ...TArgs>
+        [[nodiscard]] static Ptr<Deserializer<T>> make(
+            typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
+            Ref<SAXHandler> rSAX,
+            std::string_view elementName,
+            TArgs&& ... rArguments);
 
     protected:
-        DeserializerBase(typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
-                         Ref<SAXHandler> rSAX) noexcept;
+        DeserializerBase(
+            typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
+            Ref<SAXHandler> rSAX) noexcept;
 
         typename VoidSafe<T,std::nullptr_t>::Ref instance() noexcept;
 
         Ref<SAXHandler> sax() noexcept;
 
         template <class TDerived>
-        static void release(Ptr<TDerived> pThis,
-                            std::string_view elementName) noexcept;
+        static void release(
+            Ptr<TDerived> pThis,
+            std::string_view elementName) noexcept;
 
     private:
         Ptr<T> _pInstance;
@@ -82,8 +86,7 @@ public:
         Ptr<SAXHandler> _pSAX;
     }; // class DeserializerBase
 
-    class Input
-    {
+    class Input {
     public:
         Input();
 
@@ -175,8 +178,7 @@ public:
 
 
 template <class TVertexData, class TEdgeData, class TGraphData>
-struct GraphML::Serializer<Graph<TVertexData,TEdgeData,TGraphData>>
-{
+struct GraphML::Serializer<Graph<TVertexData,TEdgeData,TGraphData>> {
     void header(Ref<GraphML::XMLElement> rElement) const;
 
     void operator()(Ref<GraphML::XMLElement> rElement,
@@ -186,57 +188,61 @@ struct GraphML::Serializer<Graph<TVertexData,TEdgeData,TGraphData>>
 
 template <class TVertexData, class TEdgeData, class TGraphData>
 struct GraphML::Deserializer<Graph<TVertexData,TEdgeData,TGraphData>>
-    : public GraphML::DeserializerBase<Graph<TVertexData,TEdgeData,TGraphData>>
-{
+    : public GraphML::DeserializerBase<Graph<TVertexData,TEdgeData,TGraphData>> {
     using GraphML::DeserializerBase<Graph<TVertexData,TEdgeData,TGraphData>>::DeserializerBase;
 
-    static void onElementBegin(void* pInstance,
-                               std::string_view name,
-                               std::span<GraphML::AttributePair> attributes);
+    static void onElementBegin(
+        Ptr<void> pInstance,
+        std::string_view name,
+        std::span<GraphML::AttributePair> attributes);
 
-    static void onText(void* pInstance,
-                       std::string_view data);
+    static void onText(
+        Ptr<void> pInstance,
+        std::string_view data);
 
-    static void onElementEnd(void* pInstance,
-                             std::string_view name);
+    static void onElementEnd(
+        Ptr<void> pInstance,
+        std::string_view name);
 }; // struct Deserializer<Graph>
 
 
-template <class T>
-requires std::is_same_v<typename T::ID,VertexID>
+template <VertexLike T>
 struct GraphML::Deserializer<T>
-    : public GraphML::DeserializerBase<T>
-{
+    : public GraphML::DeserializerBase<T> {
     using GraphML::DeserializerBase<T>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view name,
-                               std::span<GraphML::AttributePair> attributes);
+    static void onElementBegin(
+        Ptr<void> pThis,
+        std::string_view name,
+        std::span<GraphML::AttributePair> attributes);
 
-    static void onText(Ptr<void> pThis,
-                       std::string_view data);
+    static void onText(
+        Ptr<void> pThis,
+        std::string_view data);
 
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view name) noexcept;
+    static void onElementEnd(
+        Ptr<void> pThis,
+        std::string_view name) noexcept;
 }; // struct Deserializer<Graph::Vertex>
 
 
-template <class T>
-requires std::is_same_v<typename T::ID,EdgeID>
+template <EdgeLike T>
 struct GraphML::Deserializer<T>
-    : public GraphML::DeserializerBase<T>
-{
+    : public GraphML::DeserializerBase<T> {
     using GraphML::DeserializerBase<T>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view name,
-                               std::span<GraphML::AttributePair> attributes);
+    static void onElementBegin(
+        Ptr<void> pThis,
+        std::string_view name,
+        std::span<GraphML::AttributePair> attributes);
 
-    static void onText(Ptr<void> pThis,
-                       std::string_view data);
+    static void onText(
+        Ptr<void> pThis,
+        std::string_view data);
 
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view name) noexcept;
+    static void onElementEnd(
+        Ptr<void> pThis,
+        std::string_view name) noexcept;
 }; // struct Deserializer<Graph::Edge>
 
 

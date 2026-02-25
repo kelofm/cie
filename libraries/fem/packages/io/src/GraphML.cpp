@@ -275,8 +275,7 @@ struct GraphML::SAXHandler::Impl
 
     static void onError([[maybe_unused]] void* pContext,
                         const char* pMessage,
-                        ...)
-    {
+                        ...) {
         CIE_THROW(Exception, std::string(pMessage))
     }
 
