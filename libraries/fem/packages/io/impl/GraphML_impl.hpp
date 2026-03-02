@@ -21,10 +21,7 @@ Ptr<GraphML::Deserializer<T>> GraphML::DeserializerBase<T>::make(typename VoidSa
                                                                  Ref<SAXHandler> rSAX,
                                                                  [[maybe_unused]] std::string_view elementName,
                                                                  TArgs&&... rArguments) {
-    return new GraphML::Deserializer<T>(
-        rInstance,
-        rSAX,
-        std::forward<TArgs>(rArguments)...);
+    return new GraphML::Deserializer<T>(rInstance, rSAX, std::forward<TArgs>(rArguments)...);
 }
 
 

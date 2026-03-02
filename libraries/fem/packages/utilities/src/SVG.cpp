@@ -95,10 +95,12 @@ template <class T>
 GraphML::Deserializer<fem::SVG<T>>::Deserializer(
         Ref<fem::SVG<T>> rInstance,
         Ref<SAXHandler> rSAX,
+        Ref<const maths::AffineTransform<T,2>> rTransform,
         std::string_view parseMode)
     : GraphML::DeserializerBase<fem::SVG<T>>(rInstance, rSAX),
       _mode(parseMode),
-      _attributes()
+      _attributes(),
+      _transform(rTransform)
 {}
 
 
@@ -119,11 +121,21 @@ void GraphML::Deserializer<fem::SVG<T>>::onElementBegin(
             elementName))
 
     if (rThis._mode == "svg") {
-        if (elementName != "svg") {
+        if (elementName == "svg") {
+            std::array<typename Kernel<2,T>::Point,3> transformed;
+            transformed[0][0] = static_cast<T>(-1);
+            transformed[0][1] = static_cast<T>( 1);
+            transformed[1][0] = static_cast<T>( 1);
+            transformed[1][1] = static_cast<T>( 1);
+            transformed[2][0] = static_cast<T>(-1);
+            transformed[2][1] = static_cast<T>(-1);
+            rThis._transform = maths::AffineTransform<T,2>(transformed);
+        } else {
             auto pDeserializer = Deserializer::make(
                 rThis.instance(),
                 rThis.sax(),
                 elementName,
+                rThis._transform,
                 elementName);
             pDeserializer->onElementBegin(
                 pDeserializer,
@@ -241,6 +253,7 @@ void makeLineSegments(std::span<const std::vector<T>,2u> points,
 
 template <class T>
 void parsePathElement(Ref<const std::unordered_map<std::string,std::string>> rAttributes,
+                      Ref<const maths::AffineTransform<T,2>> rTransform,
                       Ref<SVG<T>> rSVG) {
     CIE_BEGIN_EXCEPTION_TRACING
     constexpr unsigned D = 2u;
@@ -387,6 +400,10 @@ void parsePathElement(Ref<const std::unordered_map<std::string,std::string>> rAt
                     points[d].back() += translation[d];
                     it += iComponentEnd + 1;
                 } // for d in range(D)
+                std::array<T,D> point, transformed;
+                for (unsigned d=0u; d<D; ++d) point[d] = points[d].back();
+                rTransform.evaluate(point, transformed);
+                for (unsigned d=0u; d<D; ++d) points[d].back() = transformed[d];
                 --it;
             } else if (*it == ' ') {
                 ++it;
@@ -421,6 +438,7 @@ void GraphML::Deserializer<fem::SVG<T>>::onElementEnd(
     if (elementName == "path") {
         parsePathElement<T>(
             rThis._attributes,
+            rThis._transform,
             rThis.instance());
     } else if (elementName == "svg") {
     } else if (elementName == "defs") {
@@ -436,23 +454,10 @@ void GraphML::Deserializer<fem::SVG<T>>::onElementEnd(
     CIE_END_EXCEPTION_TRACING
 }
 
-
-//template void GraphML::Deserializer<fem::SVG<float>>::onElementBegin(
-//    Ptr<void> pThis,
-//    std::string_view elementName,
-//    std::span<GraphML::AttributePair> attributes);
-//
-//template void GraphML::Deserializer<fem::SVG<float>>::onText(
-//    Ptr<void> pThis,
-//    std::string_view data);
-//
-//template void GraphML::Deserializer<fem::SVG<float>>::onElementEnd(
-//    Ptr<void> pThis,
-//    std::string_view elementName);
-
 template GraphML::Deserializer<fem::SVG<double>>::Deserializer(
         Ref<fem::SVG<double>>,
         Ref<GraphML::SAXHandler>,
+        Ref<const maths::AffineTransform<double,2>> rTransform,
         std::string_view);
 
 template void GraphML::Deserializer<fem::SVG<double>>::onElementBegin(

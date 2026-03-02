@@ -4,13 +4,9 @@
 // --- GEO Includes ---
 #include "packages/spline/inc/curve.hpp"
 
-// --- Utility Includes ---
-#include "packages/logging/inc/LoggerSingleton.hpp"
-
 // --- STL Includes ---
 #include <algorithm>
 #include <format>
-#include <source_location>
 
 
 namespace cie::fem::maths {
@@ -60,17 +56,18 @@ template <class T, unsigned P, unsigned D>
 void BSpline<T,P,D>::evaluate(ConstSpan in, Span out) const {
     CIE_OUT_OF_RANGE_CHECK(ParametricDimension * out.size() == PhysicalDimension * in.size());
     if constexpr (ParametricDimension == 1u && PhysicalDimension == 2u) {
-        geo::evaluate2DCurveDeBoor(
+        geo::evaluateBSplineCurve<T,D>(
             in,
-            this->controlPointCoordinates(0),
-            this->controlPointCoordinates(1),
+            {this->controlPointCoordinates(0), this->controlPointCoordinates(1)},
             this->knots(),
-            std::span<T>(
-                out.data(),
-                in.size()),
-            std::span<T>(
-                out.data() + in.size(),
-                in.size()));
+            {
+                std::span<T>(
+                    out.data(),
+                    in.size()),
+                std::span<T>(
+                    out.data() + in.size(),
+                    in.size())
+            });
     } else {
         static_assert(
             std::is_same_v<T,void>,

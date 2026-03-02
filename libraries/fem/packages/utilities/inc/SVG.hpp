@@ -3,6 +3,7 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/BSpline.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
+#include "packages/maths/inc/AffineTransform.hpp"
 #include "packages/io/inc/GraphML.hpp"
 
 // --- STL Includes ---
@@ -53,6 +54,7 @@ struct GraphML::Deserializer<fem::SVG<T>>
     Deserializer(
         Ref<fem::SVG<T>> rInstance,
         Ref<SAXHandler> rSAX,
+        Ref<const maths::AffineTransform<T,2>> rTransform = {},
         std::string_view parseMode = "svg");
 
     static void onElementBegin(
@@ -72,6 +74,8 @@ private:
     std::string _mode;
 
     std::unordered_map<std::string,std::string> _attributes;
+
+    maths::AffineTransform<T,2> _transform;
 }; // struct GraphML::Deserializer<SVG>
 
 

@@ -7,6 +7,7 @@
 // --- STL Includes ---
 #include <vector>
 #include <span>
+#include <array>
 
 namespace cie::geo {
 
@@ -24,14 +25,12 @@ StaticArray<std::vector<double>, 2> evaluate2DCurve(
     const std::vector<double>& yCoordinates,
     const std::vector<double>& knotVector);
 
-template <concepts::Numeric TValue>
-void evaluate2DCurveDeBoor(
+template <concepts::Numeric TValue, unsigned Dimension>
+void evaluateBSplineCurve(
     std::span<const TValue> tCoordinates,
-    std::span<const TValue> xCoordinates,
-    std::span<const TValue> yCoordinates,
+    Ref<const std::array<std::span<const TValue>,Dimension>> controlPoints,
     std::span<const TValue> knotVector,
-    std::span<TValue> xOut,
-    std::span<TValue> yOut);
+    Ref<const std::array<std::span<TValue>,Dimension>> output);
 
 //! Identical to evaluate2DCurve, but using De Boor's algorithm.
 StaticArray<std::vector<double>, 2> evaluate2DCurveDeBoor(
@@ -59,14 +58,14 @@ StaticArray<double, 2> deBoor(
     std::size_t recursionLevel = 1 );
 
 //! Same as above but without recursion.
-template <concepts::Numeric TValue>
-StaticArray<TValue, 2> deBoorOptimized(
-    TValue t,
-    std::size_t i,
-    std::size_t p,
+template <concepts::Numeric TValue, unsigned Dimension>
+std::array<TValue,Dimension> deBoorOptimized(
+    TValue parametricCoordinate,
+    std::size_t iKnotSpan,
+    std::size_t polynomialOrder,
     Ref<const std::span<const TValue>> knotVector,
-    Ref<const std::span<const TValue>> xCoordinates,
-    Ref<const std::span<const TValue>> yCoordinates);
+    Ref<const std::array<std::span<const TValue>,Dimension>> coordinates,
+    Ref<const std::array<std::span<TValue>,Dimension>> buffers);
 
 //! Determines the knot span of the parametric coordinate t.
 template <concepts::Numeric TValue>

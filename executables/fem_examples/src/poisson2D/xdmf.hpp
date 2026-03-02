@@ -109,6 +109,8 @@ private:
 
 
 void postprocess(
+    std::span<const Scalar> meshBase,
+    std::span<const Scalar> meshLengths,
     CSRWrapper lhs,
     std::span<const Scalar> solution,
     std::span<const Scalar> rhs,
@@ -161,18 +163,18 @@ void postprocess(
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("scatter postprocess");
-        constexpr Scalar epsilon = 1e-10;
-        const Scalar postprocessDelta  = (1.0 - 2 * epsilon) / (postprocessResolution - 1);
+        const Scalar postprocessDelta  = 1.0 / (postprocessResolution - 1);
 
         mp::ParallelFor<std::size_t>(rThreads).operator()(
             intPow(postprocessResolution, 2),
-            [&samples, &solution, &rhs, &residual, &rAssembler, &rMesh, &rBVH, &contiguousCellData, postprocessResolution, postprocessDelta](
+            [&samples, &solution, &rhs, &residual, &rAssembler, &rMesh, &rBVH, &contiguousCellData, postprocessResolution, postprocessDelta, meshBase, meshLengths](
                     const std::size_t iSample) -> void {
                 const std::size_t iSampleY = iSample / postprocessResolution;
                 const std::size_t iSampleX = iSample % postprocessResolution;
                 auto& rSample = samples[iSample];
-                rSample.position = {epsilon + iSampleX * postprocessDelta,
-                                    epsilon + iSampleY * postprocessDelta};
+                rSample.position = {
+                    meshBase[0] + meshLengths[0] * iSampleX * postprocessDelta,
+                    meshBase[1] + meshLengths[1] * iSampleY * postprocessDelta};
 
                 // Find which cell the global point lies in.
                 const auto iMaybeCellData = rBVH.makeView().find(

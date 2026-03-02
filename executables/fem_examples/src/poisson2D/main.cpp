@@ -26,8 +26,41 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
 
+    // Read the boundary input and set mesh boundaries.
+    const auto tesselatedBoundary = makeBoundary(rArguments);
+    std::array<Scalar,2> meshBase {
+            std::numeric_limits<Scalar>::max(),
+            std::numeric_limits<Scalar>::max()},
+        meshLengths{
+            std::numeric_limits<Scalar>::lowest(),
+            std::numeric_limits<Scalar>::lowest()};
+    for (const auto& rSegment : tesselatedBoundary) {
+        for (unsigned iDimension=0u; iDimension<2; ++iDimension) {
+            for (unsigned iPoint=0u; iPoint<2; ++iPoint) {
+                meshBase[iDimension] = std::min<Scalar>(
+                    meshBase[iDimension],
+                    rSegment[iDimension + iPoint * 2]);
+                meshLengths[iDimension] = std::max<Scalar>(
+                    meshLengths[iDimension],
+                    rSegment[iDimension + iPoint * 2]);
+            }
+        }
+    }
+    meshLengths.front() = (1.0 + 2e-6) * (meshLengths.front() - meshBase.front());
+    meshLengths.back()  = (1.0 + 2e-6) * (meshLengths.back() - meshBase.back());
+    meshBase.front() -= 1e-6 / (1.0 + 2e-6) * (meshLengths.front());
+    meshBase.back() -= 1e-6 / (1.0 + 2e-6) * (meshLengths.back());
+    std::cout << std::format(
+        "mesh covers\n\tx in [{}, {}]\n\ty in [{}, {}]\n",
+        meshBase.front(), meshBase.front() + meshLengths.front(),
+        meshBase.back(), meshBase.back() + meshLengths.back());
+
     // Fill the mesh with cells and boundaries.
-    generateMesh(mesh, rArguments);
+    generateMesh(
+        mesh,
+        meshBase,
+        meshLengths,
+        rArguments);
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("write graphml");
@@ -70,7 +103,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // point membership tests. Running on accelerator devices also requires
     // - the cell data to be available in a contiguous array
     // - the cell data to be self contained (no pointers and heap storage)
-    auto bvh = makeBoundingVolumeHierarchy(mesh);
+    auto bvh = makeBoundingVolumeHierarchy(mesh, meshBase, meshLengths);
     const auto bvhView = bvh.makeView();
     DynamicArray<CellData> contiguousCellData(mesh.vertices().size());
     std::ranges::transform(
@@ -111,6 +144,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
     const auto boundarySegments = imposeBoundaryConditions(
         mesh,
+        tesselatedBoundary,
         assembler,
         bvhView,
         contiguousCellData,
@@ -150,6 +184,8 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     } // solve
 
     postprocess(
+        meshBase,
+        meshLengths,
         lhs,
         solution,
         rhs,
@@ -241,10 +277,10 @@ int main(int argc, const char** argv) {
         return 0;
     }
 
-    //try {
+    try {
         return cie::fem::main(arguments);
-    //} catch (cie::Exception& rException) {
-    //    std::cerr << rException.what() << std::endl;
-    //    return 1;
-    //}
+    } catch (cie::Exception& rException) {
+        std::cerr << rException.what() << std::endl;
+        return 1;
+    }
 }

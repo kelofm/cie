@@ -116,18 +116,22 @@ private:
 }; // class DirichletBoundary
 
 
-BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh) {
+BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh, std::span<const Scalar> meshBase, std::span<const Scalar> meshLengths) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
 
     constexpr int targetLeafWidth = 5;
     constexpr int maxTreeDepth = 5;
-    constexpr Scalar epsilon = 1e-3;
 
     geo::AABBoxNode<CellData> root;
-
     geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
-    std::fill(rootBase.begin(), rootBase.end(), -epsilon);
-    std::fill(rootLengths.begin(), rootLengths.end(), 1.0 + 3.0 * epsilon);
+    std::copy_n(
+        meshBase.data(),
+        meshBase.size(),
+        rootBase.data());
+    std::copy_n(
+        meshLengths.data(),
+        meshLengths.size(),
+        rootLengths.data());
     root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
 
     for (auto& rCell : rMesh.vertices()) {
@@ -237,7 +241,42 @@ void partitionBoundaryCell(Ref<maths::AffineEmbedding<Scalar,1u,Dimension>> rTra
 using BoundarySegment = StaticArray<Scalar,2*Dimension+2>;
 
 
-BoundaryMesh generateBoundaryMesh(BVH::View bvh,
+std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rArguments) {
+    std::vector<BoundarySegment> output;
+
+    CIE_BEGIN_EXCEPTION_TRACING
+    const std::filesystem::path boundaryFile    = rArguments.get<std::filesystem::path>("boundary-file-path");
+    std::ifstream file(boundaryFile);
+    const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
+    const std::regex pattern(std::format(
+        "^({}),({}),({}),({}),({}),({}).*",
+        floatingPointRegex, floatingPointRegex, floatingPointRegex,
+        floatingPointRegex, floatingPointRegex, floatingPointRegex));
+    std::string line, component;
+    while (std::getline(file, line)) {
+        std::match_results<std::string::iterator> match;
+        if (std::regex_match(line.begin(), line.end(), match, pattern)) {
+            CIE_CHECK(match.size() == 6 + 1, "invalid line in boundary file: '" << line << "'" << "(" << match.size() << " matches)")
+            BoundarySegment segment;
+            std::transform(
+                match.begin() + 1,
+                match.end(),
+                segment.begin(),
+                [] (const auto& rSubMatch) -> Scalar {
+                    const std::string& rString = rSubMatch.str();
+                    return static_cast<Scalar>(std::stold(rString));
+                });
+            output.push_back(segment);
+        } // if regex_match
+    } // while getline
+    CIE_END_EXCEPTION_TRACING
+
+    return output;
+}
+
+
+BoundaryMesh generateBoundaryMesh(std::span<const BoundarySegment> tesselatedBoundary,
+                                  BVH::View bvh,
                                   std::span<const CellData> contiguousCellData,
                                   Ref<const utils::ArgParse::Results> rArguments,
                                   Ref<DynamicArray<BoundarySegment>> rBoundarySegments) {
@@ -247,50 +286,11 @@ BoundaryMesh generateBoundaryMesh(BVH::View bvh,
     const std::size_t minBoundaryTreeDepth      = rArguments.get<std::size_t>("min-boundary-tree-depth");
     const std::size_t maxBoundaryTreeDepth      = rArguments.get<std::size_t>("max-boundary-tree-depth");
     const Scalar minBoundarySegmentNorm         = rArguments.get<double>("min-boundary-segment-norm");
-    const std::filesystem::path boundaryFile    = rArguments.get<std::filesystem::path>("boundary-file-path");
-
-    std::vector<BoundarySegment> segments;
-    {
-        std::ifstream file(boundaryFile);
-        const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
-        const std::regex pattern(std::format(
-            "^({}),({}),({}),({}),({}),({}).*",
-            floatingPointRegex, floatingPointRegex, floatingPointRegex,
-            floatingPointRegex, floatingPointRegex, floatingPointRegex));
-        std::string line, component;
-        while (std::getline(file, line)) {
-            std::match_results<std::string::iterator> match;
-            if (std::regex_match(line.begin(), line.end(), match, pattern)) {
-                CIE_CHECK(match.size() == 6 + 1, "invalid line in boundary file: '" << line << "'" << "(" << match.size() << " matches)")
-                BoundarySegment segment;
-                std::transform(
-                    match.begin() + 1,
-                    match.end(),
-                    segment.begin(),
-                    [] (const auto& rSubMatch) -> Scalar {
-                        const std::string& rString = rSubMatch.str();
-                        return static_cast<Scalar>(std::stold(rString));
-                    });
-                segments.push_back(segment);
-            } // if regex_match
-        } // while getline
-    }
-
-    //// Generate vertices for the non-conforming boundary mesh.
-    //using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
-    //DynamicArray<Point> corners;
-    //for (unsigned iSegment=0u; iSegment<resolution + 1; ++iSegment) {
-    //    const Scalar arcParameter = iSegment * 2 * std::numbers::pi / resolution;
-    //    corners.push_back(Point {
-    //        radius * std::cos(arcParameter) + Scalar(0.5),
-    //        radius * std::sin(arcParameter) + Scalar(0.5)
-    //    });
-    //} // for iSegment in range(resolution)
 
     // Generate edges for the non-conforming boundary mesh,
     // and cut them by the cells they're located in.
     using Point = maths::AffineEmbedding<Scalar,1u,Dimension>::OutPoint;
-    for (Ref<const BoundarySegment> rPhysicalSegment : segments) {
+    for (Ref<const BoundarySegment> rPhysicalSegment : tesselatedBoundary) {
         const std::array<Point,2> transformed {
             Point {rPhysicalSegment[0], rPhysicalSegment[1]},
             Point {rPhysicalSegment[2], rPhysicalSegment[3]}};
@@ -361,6 +361,7 @@ BoundaryMesh generateBoundaryMesh(BVH::View bvh,
 
 [[nodiscard]] DynamicArray<BoundarySegment>
 imposeBoundaryConditions(Ref<Mesh> rMesh,
+                         std::span<const BoundarySegment> tesselatedBoundary,
                          Ref<const Assembler> rAssembler,
                          BVH::View bvh,
                          std::span<const CellData> contiguousCellData,
@@ -374,6 +375,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
 
     // Load the boundary mesh.
     const auto boundary = generateBoundaryMesh(
+        tesselatedBoundary,
         bvh,
         contiguousCellData,
         rArguments,

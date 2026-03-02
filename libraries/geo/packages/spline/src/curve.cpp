@@ -69,43 +69,48 @@ StaticArray<std::vector<double>, 2> evaluate2DCurve(const std::vector<double>& t
     return { curveX, curveY };
 }
 
-template <concepts::Numeric TValue>
-StaticArray<TValue, 2> deBoorOptimized(TValue t,
-                                       std::size_t knotSpanIndex,
-                                       std::size_t polynomialDegree,
-                                       Ref<const std::span<const TValue>> knotVector,
-                                       Ref<const std::span<const TValue>> xCoordinates,
-                                       Ref<const std::span<const TValue>> yCoordinates,
-                                       std::span<TValue> dx,
-                                       std::span<TValue> dy) {
-    CIE_CHECK(
-        dx.size() == polynomialDegree + 1,
-        std::format(
-            "expecting buffer of size {}, but got {}",
-            polynomialDegree + 1,
-            dx.size()))
-    CIE_CHECK(
-        dy.size() == polynomialDegree + 1,
-        std::format(
-            "expecting buffer of size {}, but got {}",
-            polynomialDegree + 1,
-            dy.size()))
+template <concepts::Numeric TValue, unsigned Dimension>
+std::array<TValue,Dimension> deBoorOptimized(
+    TValue parametricCoordinate,
+    std::size_t iKnotSpan,
+    std::size_t polynomialOrder,
+    Ref<const std::span<const TValue>> knotVector,
+    Ref<const std::array<std::span<const TValue>,Dimension>> coordinates,
+    Ref<const std::array<std::span<TValue>,Dimension>> buffers) {
+        std::array<TValue,Dimension> output;
+        #ifdef CIE_ENABLE_OUT_OF_RANGE_CHECKS
+        for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) CIE_CHECK(
+            buffers[iDimension].size() == polynomialOrder + 1,
+            std::format(
+                "expecting buffer of size {} for coordinate component {}, but got {}",
+                polynomialOrder + 1,
+                iDimension,
+                buffers[iDimension].size()))
+        #endif
 
-    for( std::size_t j = 0; j < polynomialDegree + 1; ++j ) {
-        dx[j] = xCoordinates[j + knotSpanIndex - polynomialDegree];
-        dy[j] = yCoordinates[j + knotSpanIndex - polynomialDegree];
-    }
+        for( std::size_t j = 0; j < polynomialOrder + 1; ++j ) {
+            const std::size_t iPoint = j + iKnotSpan - polynomialOrder;
+            for (unsigned iDim=0u; iDim<Dimension; ++iDim) {
+                buffers[iDim][j] = coordinates[iDim][iPoint];
+            } // for iDim in range(Dimension)
+        } // for j in range(polynomialOrder + 1)
 
-    for(std::size_t r = 1; r < polynomialDegree + 1; ++r) {
-        for(std::size_t j = polynomialDegree; j > r - 1; --j) {
-            TValue tj = knotVector[j + knotSpanIndex - polynomialDegree];
-            TValue alpha = ( tj - t ) / ( tj - knotVector[j + knotSpanIndex + 1 - r] );
-            dx[j] = ( 1.0 - alpha ) * dx[j - 1] + alpha * dx[j];
-            dy[j] = ( 1.0 - alpha ) * dy[j - 1] + alpha * dy[j];
-        }
-    }
+        for(std::size_t r = 1; r < polynomialOrder + 1; ++r) {
+            for(std::size_t j = polynomialOrder; j > r - 1; --j) {
+                const TValue tj = knotVector[j + iKnotSpan - polynomialOrder];
+                const TValue alpha = (tj - parametricCoordinate) / (tj - knotVector[j + iKnotSpan + 1 - r]);
+                const TValue beta = static_cast<TValue>(1) - alpha;
+                for (const auto& rBuffer : buffers)
+                    rBuffer[j] = alpha * rBuffer[j] + beta * rBuffer[j - 1];
+            } // for j in range(polynomialOrder, r - 1, -1)
+        } // for r in range(1, polynomialOrder + 1)
 
-    return { dx[polynomialDegree], dy[polynomialDegree] };
+        std::transform(
+            buffers.begin(),
+            buffers.end(),
+            output.begin(),
+            [] (const auto& rSpan) {return rSpan.back();});
+        return output;
 }
 
 StaticArray<double, 2> deBoor( double t,
@@ -133,55 +138,84 @@ StaticArray<double, 2> deBoor( double t,
 }
 
 
-template <concepts::Numeric TValue>
-void evaluate2DCurveDeBoor(std::span<const TValue> tCoordinates,
-                           std::span<const TValue> xCoordinates,
-                           std::span<const TValue> yCoordinates,
-                           std::span<const TValue> knotVector,
-                           std::span<TValue> xOut,
-                           std::span<TValue> yOut) {
-    const std::size_t numberOfSamples = tCoordinates.size( );
-    const std::size_t numberOfPoints = xCoordinates.size( );
-    const std::size_t m = knotVector.size( );
-    const std::size_t polynomialOrder = m - numberOfPoints - 1;
+template <concepts::Numeric TValue, unsigned Dimension>
+void evaluateBSplineCurve(
+    std::span<const TValue> tCoordinates,
+    Ref<const std::array<std::span<const TValue>,Dimension>> controlPoints,
+    std::span<const TValue> knotVector,
+    Ref<const std::array<std::span<TValue>,Dimension>> output) {
+        const std::size_t numberOfSamples = tCoordinates.size( );
+        const std::size_t numberOfPoints = controlPoints.front().size( );
+        const std::size_t m = knotVector.size( );
+        const std::size_t polynomialOrder = m - numberOfPoints - 1;
 
-    CIE_CHECK(
-        xOut.size() == numberOfSamples,
-        "x coordinate output size " << xOut.size() << " does not match curve parameter array size " << numberOfSamples)
-    CIE_CHECK(
-        yOut.size() == numberOfSamples,
-        "y coordinate output size " << yOut.size() << " does not match curve parameter array size " << numberOfSamples)
+        #ifdef CIE_ENABLE_OUT_OF_RANGE_CHECKS
+        for (unsigned iDim=0u; iDim<Dimension; ++iDim) {
+            CIE_CHECK(
+                controlPoints[iDim].size() == numberOfPoints,
+                std::format(
+                    "expecting coordinate input array for component {} to be of size {}, but got {}",
+                    iDim,
+                    controlPoints[iDim].size(),
+                    numberOfPoints))
+            CIE_CHECK(
+                output[iDim].size() == numberOfSamples,
+                std::format(
+                    "expecting coordinate output array for component {} to be of size {}, but got {}",
+                    iDim,
+                    output[iDim].size(),
+                    numberOfSamples))
+        }
+        #endif
 
-    if( yCoordinates.size( ) != numberOfPoints )
-        CIE_THROW( OutOfRangeException, "Inconsistent size in evaluate2DCurveDeBoor" );
+        std::vector<TValue> deBoorBuffer(Dimension * (polynomialOrder + 1));
+        std::array<std::span<TValue>,Dimension> bufferViews;
+        for (unsigned iDim=0u; iDim<Dimension; ++iDim)
+            bufferViews[iDim] = std::span<TValue>(
+                deBoorBuffer.data() + iDim * (polynomialOrder + 1),
+                polynomialOrder + 1);
 
-    std::vector<TValue> deBoorBuffer(2 * (polynomialOrder + 1));
-    const std::span<TValue>
-        xBuffer(
-            deBoorBuffer.data(),
-            polynomialOrder + 1),
-        yBuffer(
-            deBoorBuffer.data() + polynomialOrder + 1,
-            polynomialOrder + 1);
-
-    for(std::size_t i = 0; i < numberOfSamples; ++i) {
-        const std::size_t iKnotSpan = findKnotSpan(
-            tCoordinates[i],
-            numberOfPoints,
-            knotVector);
-        const StaticArray<TValue, 2> Point = deBoorOptimized(
-            tCoordinates[i],
-            iKnotSpan,
-            polynomialOrder,
-            knotVector,
-            xCoordinates,
-            yCoordinates,
-            xBuffer,
-            yBuffer);
-        xOut[i] = Point[0];
-        yOut[i] = Point[1];
-    }
+        for(std::size_t i = 0; i < numberOfSamples; ++i) {
+            const std::size_t iKnotSpan = findKnotSpan(
+                tCoordinates[i],
+                numberOfPoints,
+                knotVector);
+            const auto sample = deBoorOptimized<TValue,Dimension>(
+                tCoordinates[i],
+                iKnotSpan,
+                polynomialOrder,
+                knotVector,
+                controlPoints,
+                bufferViews);
+            for (unsigned iDim=0u; iDim<Dimension; ++iDim)
+                output[iDim][i] = sample[iDim];
+        }
 }
+
+
+template void evaluateBSplineCurve<double,2>(
+    std::span<const double>,
+    Ref<const std::array<std::span<const double>,2>>,
+    std::span<const double>,
+    Ref<const std::array<std::span<double>,2>>);
+
+template void evaluateBSplineCurve<float,2>(
+    std::span<const float>,
+    Ref<const std::array<std::span<const float>,2>>,
+    std::span<const float>,
+    Ref<const std::array<std::span<float>,2>>);
+
+template void evaluateBSplineCurve<double,3>(
+    std::span<const double>,
+    Ref<const std::array<std::span<const double>,3>>,
+    std::span<const double>,
+    Ref<const std::array<std::span<double>,3>>);
+
+template void evaluateBSplineCurve<float,3>(
+    std::span<const float>,
+    Ref<const std::array<std::span<const float>,3>>,
+    std::span<const float>,
+    Ref<const std::array<std::span<float>,3>>);
 
 
 StaticArray<std::vector<double>, 2> evaluate2DCurveDeBoor(const std::vector<double>& tCoordinates,
@@ -191,13 +225,11 @@ StaticArray<std::vector<double>, 2> evaluate2DCurveDeBoor(const std::vector<doub
     StaticArray<std::vector<double>,2> out {
         std::vector<double>(tCoordinates.size()),
         std::vector<double>(tCoordinates.size())};
-    evaluate2DCurveDeBoor<double>(
+    evaluateBSplineCurve<double,2>(
         tCoordinates,
-        xCoordinates,
-        yCoordinates,
+        {xCoordinates, yCoordinates},
         knotVector,
-        out.front(),
-        out.back());
+        {out.front(), out.back()});
     return out;
 }
 
@@ -209,13 +241,11 @@ StaticArray<std::vector<float>, 2> evaluate2DCurveDeBoor(const std::vector<float
     StaticArray<std::vector<float>,2> out {
         std::vector<float>(tCoordinates.size()),
         std::vector<float>(tCoordinates.size())};
-    evaluate2DCurveDeBoor<float>(
+    evaluateBSplineCurve<float,2>(
         tCoordinates,
-        xCoordinates,
-        yCoordinates,
+        {xCoordinates, yCoordinates},
         knotVector,
-        out.front(),
-        out.back());
+        {out.front(), out.back()});
     return out;
 }
 
