@@ -143,8 +143,7 @@ struct io::GraphML::Deserializer<T>
 }; // struct Deserializer<T>
 
 
-CIE_TEST_CASE("GraphML custom data", "[graph]")
-{
+CIE_TEST_CASE("GraphML custom data", "[graph]") {
     CIE_TEST_CASE_INIT("GraphML custom data")
     using GraphData = GraphMLTestGraphData;
     using VertexData = GraphMLTestVertexData;

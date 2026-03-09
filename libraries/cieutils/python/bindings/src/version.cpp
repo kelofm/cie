@@ -14,11 +14,10 @@ namespace cie {
 
 
 template <>
-void addBindings<Version>(Ref<pybind11::module_> r_module)
-{
-    pybind11::class_<cie::Version>(r_module, "Version")
+void addBindings<Version>(Ref<pybind11::module_> rModule) {
+    pybind11::class_<cie::Version>(rModule, "Version")
         .def(pybind11::init<cie::Ref <const cie::Version::Branch>, cie::Ref<const cie::Version::Hash>>())
-        .def("__str__", [](cie::Ref<const cie::Version> r_version){return (std::string) r_version;})
+        .def("__str__", [](cie::Ref<const cie::Version> rVersion){return (std::string) rVersion;})
         .def(pybind11::self == pybind11::self)
         .def(pybind11::self != pybind11::self)
         .def(pybind11::self < pybind11::self)

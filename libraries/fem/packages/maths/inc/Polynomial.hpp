@@ -206,7 +206,7 @@ namespace cie::fem::io {
 
 
 template <class TValue, int PolynomialOrder>
-struct io::GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>> {
+struct GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>> {
     void header(Ref<XMLElement> rElement);
 
     void operator()(Ref<XMLElement> rElement,
@@ -215,7 +215,7 @@ struct io::GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>> {
 
 
 template <class TValue, int PolynomialOrder>
-struct io::GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>> {
+struct GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>> {
     void header(Ref<XMLElement> rElement);
 
     void operator()(Ref<XMLElement> rElement,
@@ -224,10 +224,10 @@ struct io::GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>> {
 
 
 template <class TValue, int PolynomialOrder>
-struct io::GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>
-    : public io::GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>
+struct GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>
+    : public GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>
 {
-    using io::GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>::DeserializerBase;
+    using GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>::DeserializerBase;
 
     static void onElementBegin(Ptr<void> pThis,
                                std::string_view elementName,

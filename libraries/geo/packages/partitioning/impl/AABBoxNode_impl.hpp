@@ -44,8 +44,7 @@ AABBoxNode<TObject>::AABBoxNode() noexcept
 
 
 template <concepts::BoxBoundable TObject>
-bool AABBoxNode<TObject>::insert(Ptr<ObjectType> pObject)
-{
+bool AABBoxNode<TObject>::insert(Ptr<ObjectType> pObject) {
     if (this->parent() != nullptr) CIE_THROW(Exception, "attempt to insert object into non-root node")
     if (!this->children().empty()) CIE_THROW(Exception, "attempt to insert into non-empty root node")
 
@@ -60,8 +59,7 @@ bool AABBoxNode<TObject>::insert(Ptr<ObjectType> pObject)
 
 
 template <concepts::BoxBoundable TObject>
-void AABBoxNode<TObject>::shrink()
-{
+void AABBoxNode<TObject>::shrink() {
     auto visitor = [](AABBoxNode* pNode) -> bool {
         std::fill_n(pNode->lengths().data(), AABBoxNode::Dimension, static_cast<typename TObject::Coordinate>(0));
 
@@ -248,8 +246,7 @@ Ptr<AABBoxNode<TObject>> AABBoxNode<TObject>::find(Ref<const Point> rPoint)
 
 template <concepts::BoxBoundable TObject>
 bool AABBoxNode<TObject>::partition(Size maxObjects,
-                                    Size maxLevel)
-{
+                                    Size maxLevel) {
     bool objectLimitReached = true;
 
     auto visitor = [=,&objectLimitReached](AABBoxNode* pNode) -> bool {
@@ -347,54 +344,47 @@ bool AABBoxNode<TObject>::partition(Size maxObjects,
 
 template <concepts::BoxBoundable TObject>
 std::span<const Ptr<const TObject>>
-AABBoxNode<TObject>::contained() const noexcept
-{
+AABBoxNode<TObject>::contained() const noexcept {
     return _containedObjects;
 }
 
 
 template <concepts::BoxBoundable TObject>
 std::span<Ptr<TObject>>
-AABBoxNode<TObject>::contained() noexcept
-{
+AABBoxNode<TObject>::contained() noexcept {
     return _containedObjects;
 }
 
 
 template <concepts::BoxBoundable TObject>
 std::span<const Ptr<const TObject>>
-AABBoxNode<TObject>::intersected() const noexcept
-{
+AABBoxNode<TObject>::intersected() const noexcept {
     return _intersectedObjects;
 }
 
 
 template <concepts::BoxBoundable TObject>
 std::span<Ptr<TObject>>
-AABBoxNode<TObject>::intersected() noexcept
-{
+AABBoxNode<TObject>::intersected() noexcept {
     return _intersectedObjects;
 }
 
 
 template <concepts::BoxBoundable TObject>
-Ptr<AABBoxNode<TObject>> AABBoxNode<TObject>::parent() noexcept
-{
+Ptr<AABBoxNode<TObject>> AABBoxNode<TObject>::parent() noexcept {
     return _pParent;
 }
 
 
 template <concepts::BoxBoundable TObject>
-Ptr<const AABBoxNode<TObject>> AABBoxNode<TObject>::parent() const noexcept
-{
+Ptr<const AABBoxNode<TObject>> AABBoxNode<TObject>::parent() const noexcept {
     return _pParent;
 }
 
 
 template <concepts::BoxBoundable TObject>
 void
-AABBoxNode<TObject>::insertObject(Ptr<TObject> pObject, Ref<DynamicArray<Ptr<TObject>>> rSet)
-{
+AABBoxNode<TObject>::insertObject(Ptr<TObject> pObject, Ref<DynamicArray<Ptr<TObject>>> rSet) {
     rSet.insert(std::upper_bound(rSet.begin(),
                                  rSet.end(),
                                  pObject,
@@ -405,8 +395,7 @@ AABBoxNode<TObject>::insertObject(Ptr<TObject> pObject, Ref<DynamicArray<Ptr<TOb
 
 template <concepts::BoxBoundable TObject>
 DynamicArray<Ptr<TObject>>::iterator
-AABBoxNode<TObject>::findObject(Ptr<TObject> pObject, Ref<DynamicArray<Ptr<TObject>>> rSet)
-{
+AABBoxNode<TObject>::findObject(Ptr<TObject> pObject, Ref<DynamicArray<Ptr<TObject>>> rSet) {
     auto it = std::lower_bound(rSet.begin(),
                                rSet.end(),
                                pObject,
@@ -417,8 +406,7 @@ AABBoxNode<TObject>::findObject(Ptr<TObject> pObject, Ref<DynamicArray<Ptr<TObje
 
 template <concepts::BoxBoundable TObject>
 DynamicArray<Ptr<TObject>>::const_iterator
-AABBoxNode<TObject>::findObject(Ptr<TObject> pObject, Ref<const DynamicArray<Ptr<TObject>>> rSet)
-{
+AABBoxNode<TObject>::findObject(Ptr<TObject> pObject, Ref<const DynamicArray<Ptr<TObject>>> rSet) {
     auto it = std::lower_bound(rSet.begin(),
                                rSet.end(),
                                pObject,
@@ -429,8 +417,7 @@ AABBoxNode<TObject>::findObject(Ptr<TObject> pObject, Ref<const DynamicArray<Ptr
 
 template <concepts::BoxBoundable TObject>
 void
-AABBoxNode<TObject>::eraseObjects(std::span<Ptr<TObject>> objects, Ref<DynamicArray<Ptr<TObject>>> rSet)
-{
+AABBoxNode<TObject>::eraseObjects(std::span<Ptr<TObject>> objects, Ref<DynamicArray<Ptr<TObject>>> rSet) {
     DynamicArray<Ptr<TObject>> difference;
     difference.reserve(rSet.size());
 
@@ -450,8 +437,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 std::span<const TCoordinate,Dimension>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::base() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::base() const noexcept {
     Ptr<const TCoordinate> pBegin = static_cast<Ptr<const TCoordinate>>(static_cast<Ptr<const void>>(_data));
     return std::span<const TCoordinate,Dimension>(
         pBegin,
@@ -467,8 +453,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 std::span<TCoordinate,Dimension>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::base() noexcept
-requires TMutable
-{
+requires TMutable {
     Ptr<TCoordinate> pBegin = static_cast<Ptr<TCoordinate>>(static_cast<Ptr<void>>(_data));
     return std::span<TCoordinate,Dimension>(
         pBegin,
@@ -483,8 +468,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 std::span<const TCoordinate,Dimension>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::lengths() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::lengths() const noexcept {
     const auto base = this->base();
     return std::span<const TCoordinate,Dimension>(
         base.data() + base.size(),
@@ -500,8 +484,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 std::span<TCoordinate,Dimension>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::lengths() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto base = this->base();
     return std::span<TCoordinate,Dimension>(
         base.data() + base.size(),
@@ -516,8 +499,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 std::size_t
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::iSibling() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::iSibling() const noexcept {
     const auto lengths = this->lengths();
     Ptr<const TCoordinate> pLengthEnd = lengths.data() + lengths.size();
     Ptr<const std::size_t> pSiblingBegin = static_cast<Ptr<const std::size_t>>(
@@ -534,8 +516,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 Ref<std::size_t>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::iSibling() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto lengths = this->lengths();
     Ptr<TCoordinate> pLengthEnd = lengths.data() + lengths.size();
     Ptr<std::size_t> pSiblingBegin = static_cast<Ptr<std::size_t>>(
@@ -551,8 +532,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 unsigned
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::containedCount() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::containedCount() const noexcept {
     const auto lengths = this->lengths();
     Ptr<const std::byte> pLengthEnd = static_cast<Ptr<const std::byte>>(
         static_cast<Ptr<const void>>(
@@ -575,8 +555,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 Ref<unsigned>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::containedCount() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto lengths = this->lengths();
     Ptr<std::byte> pLengthEnd = static_cast<Ptr<std::byte>>(
         static_cast<Ptr<void>>(
@@ -598,8 +577,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 unsigned
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::intersectedCount() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::intersectedCount() const noexcept {
     const auto lengths = this->lengths();
     Ptr<const std::byte> pLengthEnd = static_cast<Ptr<const std::byte>>(
         static_cast<Ptr<const void>>(
@@ -622,8 +600,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 Ref<unsigned>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::intersectedCount() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto lengths = this->lengths();
     Ptr<std::byte> pLengthEnd = static_cast<Ptr<std::byte>>(
         static_cast<Ptr<void>>(
@@ -645,8 +622,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 std::span<const TObjectIndex>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::contained() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::contained() const noexcept {
     const auto lengths = this->lengths();
     Ptr<const std::byte> pLengthEnd = static_cast<Ptr<const std::byte>>(
         static_cast<Ptr<const void>>(
@@ -672,8 +648,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 std::span<TObjectIndex>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::contained() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto lengths = this->lengths();
     Ptr<std::byte> pLengthEnd = static_cast<Ptr<std::byte>>(
         static_cast<Ptr<void>>(
@@ -698,8 +673,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 std::span<const TObjectIndex>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::intersected() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::intersected() const noexcept {
     const auto contained = this->contained();
     return {
         contained.data() + contained.size(),
@@ -715,8 +689,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 std::span<TObjectIndex>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::intersected() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto contained = this->contained();
     return {
         contained.data() + contained.size(),
@@ -731,8 +704,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 typename FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::template Node<false>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::next() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::next() const noexcept {
     const auto intersected = this->intersected();
     const auto pNext = static_cast<Ptr<const std::byte>>(
         static_cast<Ptr<const void>>(
@@ -750,8 +722,7 @@ template <concepts::Numeric TCoordinate,
 template <bool TMutable>
 typename FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::template Node<true>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::next() noexcept
-requires TMutable
-{
+requires TMutable {
     const auto intersected = this->intersected();
     const auto pNext = static_cast<Ptr<std::byte>>(
         static_cast<Ptr<void>>(
@@ -768,8 +739,7 @@ template <concepts::Numeric TCoordinate,
           concepts::Allocator<std::byte> TAllocator>
 template <bool TMutable>
 unsigned
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::size() const noexcept
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::size() const noexcept {
     return   this->staticSize()
            + this->containedCount() * sizeof(TObjectIndex)
            + this->intersectedCount() * sizeof(TObjectIndex)
@@ -785,8 +755,7 @@ template <bool TMutable>
 template <concepts::SamplableGeometry TObject>
 std::size_t
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::find(Ref<const typename Geometry::Point> rPoint,
-                                                                                    Ref<const std::span<const TObject>> rObjects) const noexcept
-{
+                                                                                    Ref<const std::span<const TObject>> rObjects) const noexcept {
     //std::cout << "node at " << std::distance(rData.data(), this->_data) << ":\n"
     //          << "\tbase            : " << this->base()[0] << " " << this->base()[1] << "\n"
     //          << "\tlengths         : " << this->lengths()[0] << " " << this->lengths()[1] << "\n"
@@ -839,8 +808,7 @@ template <concepts::Numeric TCoordinate,
           unsigned Dimension,
           concepts::UnsignedInteger TObjectIndex,
           concepts::Allocator<std::byte> TAllocator>
-FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::~FlatAABBoxTree()
-{
+FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::~FlatAABBoxTree() {
     if (_data.data() && !_data.empty())
         _allocator.deallocate(_data.data(), _data.size());
 }
@@ -853,8 +821,7 @@ template <concepts::Numeric TCoordinate,
 template <concepts::SamplableGeometry TObject>
 std::size_t
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::View::find(Ref<const std::span<const TCoordinate,Dimension>> rPoint,
-                                                                          Ref<const std::span<const TObject>> rObjects) const noexcept
-{
+                                                                          Ref<const std::span<const TObject>> rObjects) const noexcept {
     Ptr<const std::byte> pMaybeRoot = _data.data();
     if (pMaybeRoot == nullptr) {
         return {};
@@ -879,9 +846,10 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::View::find(Ref<co
             // Check whether the point lies within the node.
             const auto base = node.base();
             const auto lengths = node.lengths();
-            const bool inNode = Geometry::at(rPoint.data(),
-                                             base.data(),
-                                             lengths.data());
+            const bool inNode = Geometry::at(
+                rPoint.data(),
+                base.data(),
+                lengths.data());
 
             if (inNode) {
                 // The point lies within the current node.
@@ -928,8 +896,7 @@ requires (TObject::Dimension == Dimension && std::is_same_v<typename TObject::Co
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::flatten(Ref<const AABBoxNode<TObject>> rRoot,
                                                                        THasher&& rHasher,
-                                                                       TAllocator&& rAllocator)
-{
+                                                                       TAllocator&& rAllocator) {
     FlatAABBoxTree flatTree(std::move(rAllocator));
 
     // First, find out how much memory the flattened tree requires.
@@ -993,7 +960,7 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::flatten(Ref<const
                 // - the parent
                 // - the youngest elder sibling
                 // - the youngest child of the youngest elder sibling
-                // of the current node, depending on its level.
+                //   of the current node, depending on its level.
                 const unsigned previousLevel = trace.top().second;
 
                 if (previousLevel < currentLevel) {

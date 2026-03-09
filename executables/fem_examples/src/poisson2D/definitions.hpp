@@ -9,13 +9,13 @@
 namespace cie::fem {
 
 
-constexpr int polynomialOrder = 3;
+constexpr int polynomialOrder = 5;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
 
 /// @brief Floating point scalar type to use.
-using Scalar = float;
+using Scalar = double;
 
 /// @brief Spatial transform type mapping cells' local space to global space.
 /// @details The flexibility of this transform directly defines what kind

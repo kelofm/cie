@@ -28,6 +28,7 @@ struct CSRWrapper {
 
 
 void integrateStiffness(Ref<const Mesh> rMesh,
+                        std::span<const CellData> contiguousCellData,
                         Ref<const Assembler> rAssembler,
                         CSRWrapper lhs,
                         Ref<const utils::ArgParse::Results> rArguments,
@@ -41,26 +42,57 @@ void integrateStiffness(Ref<const Mesh> rMesh,
     static_assert(maths::StaticExpression<StiffnessIntegrand>);
     static_assert(!StiffnessIntegrand::isBuffered);
 
-    auto pIntegrandProcessor = std::make_unique<IntegrandProcessor<
+    std::vector<std::unique_ptr<IntegrandProcessor<
         Dimension,
-        StiffnessIntegrand>>();
+        StiffnessIntegrand
+    >>> integrandProcessors;
+    std::vector<std::size_t> partitions {0ul};
 
     CIE_BEGIN_EXCEPTION_TRACING
     #ifdef CIE_ENABLE_SYCL
-        if (rArguments.get<bool>("gpu")) {
-            pIntegrandProcessor = std::make_unique<SYCLIntegrandProcessor<
-                Dimension,
-                StiffnessIntegrand>>(std::make_shared<sycl::queue>());
-        } else if (rThreads.size() != 1) {
-            pIntegrandProcessor = std::make_unique<ParallelIntegrandProcessor<
-                Dimension,
-                StiffnessIntegrand>>(rThreads);
+        if (rArguments.get<bool>("sycl")) {
+            auto logBlock = utils::LoggerSingleton::get().newBlock("discover SYCL devices");
+            std::vector<sycl::device> devices;
+            for (auto device : sycl::device::get_devices(sycl::info::device_type::cpu)) {
+                std::cout << device.get_info<sycl::info::device::name>() << std::endl;
+                devices.push_back(device);
+                break;
+            } // for device
+            for (auto device : sycl::device::get_devices(sycl::info::device_type::gpu)) {
+                std::cout << device.get_info<sycl::info::device::name>() << std::endl;
+                devices.push_back(device);
+            } // for device
+            for (auto device : devices) {
+                partitions.push_back(std::min(
+                    partitions.back() + contiguousCellData.size() / devices.size(),
+                    contiguousCellData.size()));
+                integrandProcessors.emplace_back(std::make_unique<SYCLIntegrandProcessor<
+                    Dimension,
+                    StiffnessIntegrand>>(std::make_shared<sycl::queue>(device)));
+            } // for device in devices
+            partitions.back() = contiguousCellData.size();
+        } else {
+            partitions.push_back(contiguousCellData.size());
+            if (rThreads.size() == 1) {
+                integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
+                        Dimension,
+                        StiffnessIntegrand>>());
+            } else {
+                integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
+                    Dimension,
+                    StiffnessIntegrand>>(rThreads));
+            }
         }
     #else
-        if (rThreads.size() != 1) {
-            pIntegrandProcessor = std::make_unique<ParallelIntegrandProcessor<
+        if (rThreads.size() == 1) {
+            integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
+                    Dimension,
+                    StiffnessIntegrand
+                >>());
+        } else {
+            integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
                 Dimension,
-                StiffnessIntegrand>>(rThreads);
+                StiffnessIntegrand>>(rThreads));
         }
     #endif
     CIE_END_EXCEPTION_TRACING
@@ -76,11 +108,13 @@ void integrateStiffness(Ref<const Mesh> rMesh,
                 Ansatz::Derivative(rMesh.data().ansatzDerivative())),
             rCell.makeJacobianInverse());};
 
-    const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
+    std::mutex integralSinkMutex;
+    const auto integralSink = [&lhs, &rAssembler, &rThreads, &integralSinkMutex] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
+        std::scoped_lock<std::mutex> lock(integralSinkMutex);
         mp::ParallelFor<std::size_t>(rThreads).operator()(
             cellIDs.size(),
             [&lhs, &rAssembler, cellIDs, results] (std::size_t iCell) {
-                rAssembler.addContribution(
+                rAssembler.addContribution<tags::SMP>(
                     std::span<const Scalar>(results.data() + iCell * StiffnessIntegrand::size(), StiffnessIntegrand::size()),
                     cellIDs[iCell],
                     lhs.rowExtents,
@@ -90,14 +124,26 @@ void integrateStiffness(Ref<const Mesh> rMesh,
 
     IntegrandProcessor<Dimension,StiffnessIntegrand>::Properties executionProperties {
         .integrandBatchSize = quadratureBatchSize,
-        .integrandsPerItem = {}};
+        .integrandsPerItem = {},
+        .verbosity = 3};
 
-    pIntegrandProcessor->process(
-        rMesh,
-        quadratureRuleFactory,
-        integrandFactory,
-        integralSink,
-        executionProperties);
+    {
+        std::vector<std::thread> jobs;
+        jobs.reserve(integrandProcessors.size());
+        for (std::size_t iPartition=0ul; iPartition<integrandProcessors.size(); ++iPartition) {
+            jobs.emplace_back([&, iPartition] () {
+                integrandProcessors[iPartition]->process(
+                    contiguousCellData.begin() + partitions[iPartition],
+                    contiguousCellData.begin() + partitions[iPartition + 1],
+                    quadratureRuleFactory,
+                    integrandFactory,
+                    integralSink,
+                    executionProperties);
+                });
+        }
+        for (Ref<std::thread> rJob : jobs) rJob.join();
+        jobs.clear();
+    }
     CIE_END_EXCEPTION_TRACING
 }
 

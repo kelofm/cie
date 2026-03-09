@@ -77,8 +77,7 @@ requires std::is_same_v<
     void
 >
 void GraphML::Serializer<TContainer>::operator()(Ref<XMLElement> rElement,
-                                                 Ref<const TContainer> rInstance)
-{
+                                                 Ref<const TContainer> rInstance) {
     GraphML::XMLElement subElement = rElement.addChild("list");
     subElement.addAttribute("size", std::to_string(rInstance.size()));
 
@@ -101,82 +100,87 @@ requires std::is_same_v<
 >
 void GraphML::Deserializer<TContainer>::onElementBegin(Ptr<void> pThis,
                                                        std::string_view elementName,
-                                                       std::span<GraphML::AttributePair> attributes)
-{
+                                                       std::span<GraphML::AttributePair> attributes) {
     CIE_BEGIN_EXCEPTION_TRACING
     using SubDeserializer = GraphML::Deserializer<typename TContainer::value_type>;
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
     if (!rThis.maybeIt.has_value()) {
         // Parse container size.
-        const auto itSize = std::find_if(attributes.begin(),
-                                         attributes.end(),
-                                         [](const auto pair) {
-                                            return pair.first == "size";
-                                         });
+        const auto itSize = std::find_if(
+            attributes.begin(),
+            attributes.end(),
+            [](const auto pair) {
+                return pair.first == "size";});
 
-        if (itSize == attributes.end()) {
-            CIE_THROW(
-                Exception,
-                "Missing attribute: \"size\" on <" << elementName << ">."
-            )
-        }
-
-        long long size = 0l;
-        auto [pEnd, error] = std::from_chars(itSize->second.data(),
-                                             itSize->second.data() + itSize->second.size(),
-                                             size);
-        if (error != std::errc {} || pEnd != itSize->second.data() + itSize->second.size()) {
-            CIE_THROW(
-                Exception,
-                "Failed to convert \"" << itSize->second << "\" to an integer while parsing GraphML."
-            )
-        }
-
-        if (size < 0l) {
-            CIE_THROW(Exception, "Found a negative size " << size << " while parsing GraphML.")
-        }
-
-        // Fill the container.
-        const std::size_t arraySize = size;
-
-        if (arraySize) {
-            if constexpr (concepts::detail::HasResize<TContainer,std::size_t>) {
-                rThis.instance().resize(arraySize);
-            } else if constexpr (concepts::StaticContainer<TContainer>) {
-                if (rThis.instance().size() != arraySize) {
+        if (itSize != attributes.end()) {
+            long long size = 0l;
+            auto [pEnd, error] = std::from_chars(
+                itSize->second.data(),
+                itSize->second.data() + itSize->second.size(),
+                size);
+            if (error != std::errc {} || pEnd != itSize->second.data() + itSize->second.size()) {
                 CIE_THROW(
-                    OutOfRangeException,
-                    "Expecting a container of size " << rThis.instance().size() << " "
-                    << "but parsed a <" << elementName << "> element with \"size\" " << arraySize <<"."
+                    Exception,
+                    "Failed to convert \"" << itSize->second << "\" to an integer while parsing GraphML."
                 )
             }
-            } else {
-                static_assert(std::is_same_v<TContainer,void>, "unsupported container");
+
+            if (size < 0l) {
+                CIE_THROW(Exception, "Found a negative size " << size << " while parsing GraphML.")
             }
-        }
+
+            // Fill the container.
+            const std::size_t arraySize = size;
+
+            if (arraySize) {
+                if constexpr (concepts::detail::HasResize<TContainer,std::size_t>) {
+                    rThis.instance().resize(arraySize);
+                } else if constexpr (concepts::StaticContainer<TContainer>) {
+                    if (rThis.instance().size() != arraySize) {
+                        CIE_THROW(
+                            OutOfRangeException,
+                            std::format(
+                                "Expecting a container of size {}, but parsed a(n) <{}> element with \"size\" {}",
+                                rThis.instance().size(),
+                                elementName,
+                                arraySize))
+                    }
+                }
+            } // if arraySize
+        } // if itSize != attributes.end()
 
         rThis.maybeIt = rThis.instance().begin();
         rThis.maybeItEnd = rThis.instance().end();
-    } /*if !rThis.maybeIt.has_value()*/ else if (rThis.maybeIt.value() != rThis.maybeItEnd.value()) {
-        Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(*rThis.maybeIt.value(), rThis.sax(), elementName);
+    } /*if !rThis.maybeIt.has_value()*/ else {
+        if (rThis.maybeIt.value() == rThis.maybeItEnd.value()) {
+            // Need to resize the container to fit at least one more item.
+            if constexpr (concepts::detail::HasPushBack<TContainer>) {
+                rThis.instance().push_back({});
+                rThis.maybeItEnd = rThis.instance().end();
+                rThis.maybeIt = rThis.maybeItEnd.value();
+                --rThis.maybeIt.value();
+            } else {
+                CIE_THROW(
+                    OutOfRangeException,
+                    std::format(
+                        "expecting {} items in <{}>, but found more",
+                        std::distance(rThis.instance().begin(), rThis.maybeIt.value()),
+                        elementName))
+            }
+        }
+
+        Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(
+            *rThis.maybeIt.value(),
+            rThis.sax(),
+            elementName);
         rThis.sax().push({
             pSubDeserializer,
             SubDeserializer::onElementBegin,
             SubDeserializer::onText,
-            SubDeserializer::onElementEnd
-        });
+            SubDeserializer::onElementEnd});
         ++rThis.maybeIt.value();
         SubDeserializer::onElementBegin(pSubDeserializer, elementName, attributes);
-    } else {
-        std::stringstream message;
-        message << "Unexpected child of <list> at index "
-                << std::distance(rThis.instance().begin(), rThis.maybeIt.value())
-                << ".";
-        CIE_THROW(
-            OutOfRangeException,
-            message.view()
-        )
     }
     CIE_END_EXCEPTION_TRACING
 }
@@ -191,12 +195,11 @@ requires std::is_same_v<
     void
 >
 void GraphML::Deserializer<TContainer>::onText(Ptr<void>,
-                                               std::string_view)
-{
-    CIE_THROW(
-        Exception,
-        "Found unexpected text data while parsing a container in GraphML."
-    )
+                                               std::string_view t) {
+    if (std::find_if(t.begin(), t.end(), [](auto c) {return !std::isspace(c);}) != t.end())
+            CIE_THROW(
+                Exception,
+                std::format("Unexpected text data while parsing a container '{}'.", t))
 }
 
 
@@ -209,8 +212,7 @@ requires std::is_same_v<
     void
 >
 void GraphML::Deserializer<TContainer>::onElementEnd(Ptr<void> pThis,
-                                                     std::string_view elementName)
-{
+                                                     std::string_view elementName) {
     if (elementName != "list") {
         CIE_THROW(
             Exception,
@@ -233,16 +235,14 @@ void GraphML::Deserializer<TContainer>::onElementEnd(Ptr<void> pThis,
 
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
-GraphML::Serializer<TContainer>::Serializer() noexcept
-{
+GraphML::Serializer<TContainer>::Serializer() noexcept {
     this->setFormat(tags::Text::flags());
 }
 
 
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
-void GraphML::Serializer<TContainer>::header(Ref<XMLElement> rElement)
-{
+void GraphML::Serializer<TContainer>::header(Ref<XMLElement> rElement) {
     XMLElement defaultElement = rElement.addChild("default");
     TContainer instance;
     this->operator()(defaultElement, instance);
@@ -252,8 +252,7 @@ void GraphML::Serializer<TContainer>::header(Ref<XMLElement> rElement)
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
 void GraphML::Serializer<TContainer>::operator()(Ref<XMLElement> rElement,
-                                                 Ref<const TContainer> rInstance)
-{
+                                                 Ref<const TContainer> rInstance) {
     CIE_BEGIN_EXCEPTION_TRACING
     GraphML::XMLElement subElement = rElement.addChild("arr");
     subElement.addAttribute("size", std::to_string(rInstance.size()));
@@ -285,8 +284,7 @@ void GraphML::Serializer<TContainer>::operator()(Ref<XMLElement> rElement,
 
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
-void GraphML::Serializer<TContainer>::setFormat(tags::Flags format)
-{
+void GraphML::Serializer<TContainer>::setFormat(tags::Flags format) {
     if (tags::Flags() == (format & (tags::Text::flags() | tags::Binary::flags()))) {
         CIE_THROW(
             Exception,
@@ -301,8 +299,7 @@ template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
 GraphML::Deserializer<TContainer>::Deserializer(Ref<TContainer> rInstance,
                                                 Ref<GraphML::SAXHandler> rSAX)
-    : GraphML::DeserializerBase<TContainer>(rInstance, rSAX)
-{
+    : GraphML::DeserializerBase<TContainer>(rInstance, rSAX) {
     this->setFormat(tags::Text::flags());
 }
 
@@ -311,8 +308,7 @@ template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
 void GraphML::Deserializer<TContainer>::onElementBegin(Ptr<void> pThis,
                                                        std::string_view elementName,
-                                                       std::span<GraphML::AttributePair> attributes)
-{
+                                                       std::span<GraphML::AttributePair> attributes) {
     CIE_BEGIN_EXCEPTION_TRACING
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
@@ -369,8 +365,7 @@ void GraphML::Deserializer<TContainer>::onElementBegin(Ptr<void> pThis,
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
 void GraphML::Deserializer<TContainer>::onText(Ptr<void> pThis,
-                                               std::string_view data)
-{
+                                               std::string_view data) {
     Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
     using TValue = typename TContainer::value_type;
 
@@ -427,8 +422,7 @@ void GraphML::Deserializer<TContainer>::onText(Ptr<void> pThis,
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
 void GraphML::Deserializer<TContainer>::onElementEnd(Ptr<void> pThis,
-                                                     std::string_view elementName)
-{
+                                                     std::string_view elementName) {
     if (elementName != "arr") {
         CIE_THROW(
             Exception,
@@ -458,8 +452,7 @@ void GraphML::Deserializer<TContainer>::onElementEnd(Ptr<void> pThis,
 
 template <concepts::Container TContainer>
 requires std::is_arithmetic_v<typename TContainer::value_type>
-void GraphML::Deserializer<TContainer>::setFormat(tags::Flags format)
-{
+void GraphML::Deserializer<TContainer>::setFormat(tags::Flags format) {
     if (tags::Flags() == (format & (tags::Text::flags() | tags::Binary::flags()))) {
         CIE_THROW(
             Exception,

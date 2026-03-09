@@ -81,7 +81,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(Co
     lhsAdaptor.noalias() = ansatzAdaptor * _penalty * ansatzAdaptor.transpose();
 
     // Compute the prescribed state at the given input.
-    _dirichletFunctor.evaluate(boundaryTransformedBuffer, dirichletBuffer);
+    _dirichletFunctor.evaluate(in, dirichletBuffer);
 
     // Compute RHS contribution.
     for (unsigned iStateComponent=0u; iStateComponent<dirichletBuffer.size(); ++iStateComponent) {

@@ -188,9 +188,12 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
 
     mutexExtents.reserve(threadCount + 1);
     for (TIndex iThread=0; iThread<threadCount; ++iThread) {
-        mutexExtents.push_back(mutexExtents.empty() ? 0 : mutexExtents.back()
-                               + minRowsPerMutex
-                               + (iThread < leftoverRowCount ? 1 : 0));
+        mutexExtents.push_back(
+            mutexExtents.empty()
+            ? 0
+            : mutexExtents.back()
+              + minRowsPerMutex
+              + (iThread < leftoverRowCount ? 1 : 0));
     }
     mutexExtents.push_back(rowCount);
 
@@ -203,16 +206,20 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
                 // Find which thread the row belongs to.
                 const auto itMutexExtent = std::max(
                     mutexExtents.begin(),
-                    std::lower_bound(mutexExtents.begin(),
-                                    mutexExtents.end(),
-                                    iRow) - 1
+                    std::lower_bound(
+                        mutexExtents.begin(),
+                        mutexExtents.end(),
+                        iRow) - 1
                 );
                 CIE_OUT_OF_RANGE_CHECK(itMutexExtent < mutexExtents.end());
                 auto& rMutex = mutexes[std::distance(mutexExtents.begin(), itMutexExtent)];
 
                 std::scoped_lock<mp::Mutex<tags::SMP>> lock(rMutex);
                 CIE_OUT_OF_RANGE_CHECK(iRow < columnIndices.size());
-                columnIndices[iRow].insert(columnIndices[iRow].end(), rIndices.begin(), rIndices.end());
+                columnIndices[iRow].insert(
+                    columnIndices[iRow].end(),
+                    rIndices.begin(),
+                    rIndices.end());
             } // for iRow in rIndices
         };
 
@@ -220,9 +227,10 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
             for (const auto& rDofIndices : this->values()) job(rDofIndices);
         } else {
             const auto& rDofIndexContainers = this->values();
-            mp::ParallelFor<>(rThreadPool.value())(rDofIndexContainers.begin(),
-                                                   rDofIndexContainers.end(),
-                                                   job);
+            mp::ParallelFor<>(rThreadPool.value())(
+                rDofIndexContainers.begin(),
+                rDofIndexContainers.end(),
+                job);
         }
     }
 
@@ -244,11 +252,12 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
     rRowExtents.resize(rowCount + 1);
     rRowExtents.front() = 0;
 
-    std::inclusive_scan(columnIndices.begin(),
-                        columnIndices.end(),
-                        rRowExtents.begin() + 1,
-                        [](TIndex left, const auto& rRight) -> TIndex {return left + rRight.size();},
-                        static_cast<TIndex>(0));
+    std::inclusive_scan(
+        columnIndices.begin(),
+        columnIndices.end(),
+        rRowExtents.begin() + 1,
+        [](TIndex left, const auto& rRight) -> TIndex {return left + rRight.size();},
+        static_cast<TIndex>(0));
 
     // Copy column indices to CSR container
     rColumnIndices.resize(rRowExtents.back());
@@ -256,9 +265,10 @@ void Assembler::makeCSRMatrix(Ref<TIndex> rRowCount,
 
     {
         const auto job = [&columnIndices, &rColumnIndices, &rRowExtents] (const TIndex iRow) {
-            std::copy(columnIndices[iRow].begin(),
-                      columnIndices[iRow].end(),
-                      rColumnIndices.begin() + rRowExtents[iRow]);
+            std::copy(
+                columnIndices[iRow].begin(),
+                columnIndices[iRow].end(),
+                rColumnIndices.begin() + rRowExtents[iRow]);
         };
 
         if (threadCount < 2) {

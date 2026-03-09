@@ -85,6 +85,62 @@ ControlPointsAndKnotVector3D interpolateWithBSplineSurface(const VectorOfMatrice
 }
 
 
+template <class T>
+std::array<std::vector<T>,3> interpolateWithBSplineCurve(
+    std::array<std::span<const T>,2> interpolationPoints,
+    std::size_t polynomialDegree)
+{
+    std::array<std::vector<T>,3> output;
+
+    CIE_BEGIN_EXCEPTION_TRACING
+    size_t numberOfPoints = interpolationPoints[0].size();
+
+    CIE_CHECK(interpolationPoints[1].size( ) == numberOfPoints,
+              "Inconsistent sizes in interpolate curve: " << interpolationPoints[0].size() << " != " << interpolationPoints[1].size())
+
+    CIE_CHECK(0 < polynomialDegree && polynomialDegree < interpolationPoints[0].size(),
+              "Invalid polynomial degree " << polynomialDegree << " for " << interpolationPoints[0].size() << " points")
+
+    std::vector<T> parameterPositions = centripetalParameterPositions( interpolationPoints );
+    output.back() = knotVectorUsingAveraging( parameterPositions, polynomialDegree );
+
+    linalg::DynamicEigenMatrix<T> N( numberOfPoints, numberOfPoints );
+
+    // Set up interpolation matrix
+    for( size_t iInterpolationPoint = 0; iInterpolationPoint < numberOfPoints; ++iInterpolationPoint ) {
+        for( size_t iControlPoint = 0; iControlPoint < numberOfPoints; ++iControlPoint ) {
+            N(iInterpolationPoint, iControlPoint) = evaluateBSplineBasis(
+                parameterPositions[iInterpolationPoint],
+                iControlPoint,
+                polynomialDegree,
+                output.back());
+        } // iControlPoint
+    } // iInterpolationPoint
+
+    // First x, then y coordinates
+    const auto factorized = N.wrapped().partialPivLu();
+    for( size_t i_axis = 0; i_axis < 2; ++i_axis ) {
+        Eigen::Map<const Eigen::Matrix<T,Eigen::Dynamic,1>> rhs(
+            interpolationPoints[i_axis].data(),
+            interpolationPoints[i_axis].size());
+        output[i_axis].resize(interpolationPoints[i_axis].size());
+        Eigen::Map<Eigen::Matrix<T,Eigen::Dynamic,1>> result(
+            output[i_axis].data(),
+            output[i_axis].size());
+        result = factorized.solve(rhs);
+    } // i_axis
+
+    return output;
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template
+std::array<std::vector<double>,3> interpolateWithBSplineCurve<double>(
+    std::array<std::span<const double>,2> interpolationPoints,
+    std::size_t polynomialDegree);
+
+
 
 ControlPointsAndKnotVector interpolateWithBSplineCurve(const ControlPoints2D& interpolationPoints,
                                                        size_t polynomialDegree)
@@ -97,7 +153,7 @@ ControlPointsAndKnotVector interpolateWithBSplineCurve(const ControlPoints2D& in
     CIE_CHECK(0 < polynomialDegree && polynomialDegree < interpolationPoints[0].size(),
               "Invalid polynomial degree " << polynomialDegree << " for " << interpolationPoints[0].size() << " points")
 
-    std::vector<double> parameterPositions = centripetalParameterPositions( interpolationPoints );
+    std::vector<double> parameterPositions = centripetalParameterPositions<double>({interpolationPoints.front(), interpolationPoints.back()});
     std::vector<double> knotVector = knotVectorUsingAveraging( parameterPositions, polynomialDegree );
 
     linalg::DynamicEigenMatrix<double> N( numberOfPoints, numberOfPoints );
@@ -127,30 +183,34 @@ ControlPointsAndKnotVector interpolateWithBSplineCurve(const ControlPoints2D& in
 }
 
 
+template <class T>
+std::vector<T> centripetalParameterPositions(std::array<std::span<const T>,2> interpolationPoints) {
+    size_t numberOfPoints = interpolationPoints.front().size( );
+    std::vector<T> parameterPositions(numberOfPoints);
 
-std::vector<double> centripetalParameterPositions( const ControlPoints2D& interpolationPoints )
-    {
-    size_t numberOfPoints = interpolationPoints[0].size( );
+    for( size_t k = 1; k < numberOfPoints; ++k ) {
+        T dx = interpolationPoints[0][k] - interpolationPoints[0][k - 1];
+        T dy = interpolationPoints[1][k] - interpolationPoints[1][k - 1];
 
-    std::vector<double> parameterPositions( numberOfPoints, 0.0 );
-
-    for( size_t k = 1; k < numberOfPoints; ++k )
-    {
-        double dx = interpolationPoints[0][k] - interpolationPoints[0][k - 1];
-        double dy = interpolationPoints[1][k] - interpolationPoints[1][k - 1];
-
-        double dk = std::sqrt( dx * dx + dy * dy );
+        T dk = std::sqrt( dx * dx + dy * dy );
 
         parameterPositions[k] = parameterPositions[k - 1] + std::sqrt( dk );
     }
 
-    for( size_t k = 1; k < numberOfPoints; ++k )
-    {
-        parameterPositions[k] /= parameterPositions.back( );
+    const T scale = static_cast<T>(1) / parameterPositions.back();
+    for( size_t k = 1; k < numberOfPoints; ++k ) {
+        parameterPositions[k] *= scale;
     }
 
     return parameterPositions;
 }
+
+
+template
+std::vector<double> centripetalParameterPositions<double>(std::array<std::span<const double>,2> interpolationPoints);
+
+template
+std::vector<float> centripetalParameterPositions<float>(std::array<std::span<const float>,2> interpolationPoints);
 
 
 

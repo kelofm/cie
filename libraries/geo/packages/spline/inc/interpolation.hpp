@@ -9,6 +9,8 @@
 
 // --- STL Includes ---
 #include <vector>
+#include <span>
+#include <array>
 
 namespace cie::geo {
 
@@ -24,11 +26,20 @@ ControlPointsAndKnotVector3D interpolateWithBSplineSurface(const VectorOfMatrice
 	size_t polynomialDegreeR, size_t polynomialDegreeS);
 
 //! Returns the control points for a b-spline curve with given degree that interpolates the given points.
-ControlPointsAndKnotVector interpolateWithBSplineCurve( const ControlPoints2D& interpolationPoints,
-                                                        size_t polynomialDegree );
+template <class T>
+std::array<std::vector<T>,3> interpolateWithBSplineCurve(
+    std::array<std::span<const T>,2> interpolationPoints,
+    std::size_t polynomialDegree);
+
+//! Returns the control points for a b-spline curve with given degree that interpolates the given points.
+ControlPointsAndKnotVector interpolateWithBSplineCurve(
+    const ControlPoints2D& interpolationPoints,
+    size_t polynomialDegree );
 
 //! Computes the parameter positions for the given global interpolation points
-std::vector<double> centripetalParameterPositions( const ControlPoints2D& interpolationPoints );
+template <class T>
+std::vector<T> centripetalParameterPositions(std::array<std::span<const T>,2> interpolationPoints);
+
 StaticArray<std::vector<double>, 2> centripetalParameterPositions(const VectorOfMatrices& interpolationPoints);
 
 //! Computes the knot vector for the given parameter positions using the averaging technique

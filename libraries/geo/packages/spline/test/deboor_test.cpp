@@ -23,12 +23,12 @@ CIE_TEST_CASE( "find knot span", "[splinekernel]" )
     // So p = 3 but thats irrelevant here;
     size_t n = x.size( );
 
-    CIE_TEST_CHECK( findKnotSpan( 0.0, n, knotVector ) == 3 );
-    CIE_TEST_CHECK( findKnotSpan( 0.2, n, knotVector ) == 3 );
-    CIE_TEST_CHECK( findKnotSpan( 1.1, n, knotVector ) == 4 );
-    CIE_TEST_CHECK( findKnotSpan( 9.0, n, knotVector ) == 5 );
+    CIE_TEST_CHECK( findKnotSpan<double>( 0.0, n, knotVector ) == 3 );
+    CIE_TEST_CHECK( findKnotSpan<double>( 0.2, n, knotVector ) == 3 );
+    CIE_TEST_CHECK( findKnotSpan<double>( 1.1, n, knotVector ) == 4 );
+    CIE_TEST_CHECK( findKnotSpan<double>( 9.0, n, knotVector ) == 5 );
 
-    CIE_TEST_CHECK_THROWS(findKnotSpan(9.1, n, knotVector));
+    CIE_TEST_CHECK_THROWS(findKnotSpan<double>(9.1, n, knotVector));
 }
 
 CIE_TEST_CASE( "DeBoor test", "[splinekernel]" )
@@ -50,7 +50,7 @@ CIE_TEST_CASE( "DeBoor test", "[splinekernel]" )
     size_t s = 77;
 
     // For t0 (Beginning of curve)
-    CIE_TEST_REQUIRE_NOTHROW( s = findKnotSpan( t[0], n, knotVector ) );
+    CIE_TEST_REQUIRE_NOTHROW( s = findKnotSpan<double>( t[0], n, knotVector ) );
     CIE_TEST_REQUIRE_NOTHROW( P = deBoor( t[0], s, p, knotVector, x, y ) );
 
     // x-coordinates of curve
@@ -58,14 +58,14 @@ CIE_TEST_CASE( "DeBoor test", "[splinekernel]" )
     CIE_TEST_CHECK( P[1] == Approx( y[0] ) );
 
     // For t1 in the middle of the curve (see skript)
-    CIE_TEST_REQUIRE_NOTHROW( s = findKnotSpan( t[1], n, knotVector ) );
+    CIE_TEST_REQUIRE_NOTHROW( s = findKnotSpan<double>( t[1], n, knotVector ) );
     CIE_TEST_REQUIRE_NOTHROW( P = deBoor(t[1], s, p, knotVector, x, y ) );
 
     CIE_TEST_CHECK( P[0] == Approx(9.3419010416666683 ) );
     CIE_TEST_CHECK( P[1] == Approx(2.6049366319444447 ) );
 
     // For t3, so at the end of the curve
-    CIE_TEST_REQUIRE_NOTHROW( s = findKnotSpan(t[2], n, knotVector ) );
+    CIE_TEST_REQUIRE_NOTHROW( s = findKnotSpan<double>(t[2], n, knotVector ) );
     CIE_TEST_REQUIRE_NOTHROW( P = deBoor(t[2], s, p, knotVector, x, y ) );
 
     CIE_TEST_CHECK( P[0] == Approx( x.back( ) ) );

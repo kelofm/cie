@@ -49,6 +49,8 @@ using Mesh = Graph<CellData,BoundaryData,MeshData>;
 ///            [u(0,0)=0]                                     [u(1,0)=1]
 ///          @endcode
 void generateMesh(Ref<Mesh> rMesh,
+                  std::span<const Scalar,2> meshBase,
+                  std::span<const Scalar,2> meshLengths,
                   Ref<const utils::ArgParse::Results> rArguments) {
     auto logBlock = utils::LoggerSingleton::get().newBlock("generate mesh");
     const unsigned nodesPerDirection = rArguments.get<std::size_t>("r");
@@ -147,7 +149,9 @@ void generateMesh(Ref<Mesh> rMesh,
         }
 
     // Insert cells into the adjacency graph
-    const Scalar edgeLength = 1.0 / (nodesPerDirection - 1);
+    const std::array<Scalar,2> edgeLengths {
+        meshLengths.front() / (nodesPerDirection - 1),
+        meshLengths.back()  / (nodesPerDirection - 1)};
     Size iBoundary = 0ul;
 
     for (Size iCellRow : std::ranges::views::iota(0ul, nodesPerDirection - 1)) {
@@ -158,29 +162,28 @@ void generateMesh(Ref<Mesh> rMesh,
             // Define the cell's orientation in topological and physical space.
             if (iCellRow % 2) {
                 axes[0] = "-x";
-                transformed[0][0] = (iCellRow + 1.0) * edgeLength;
-                transformed[1][0] = iCellRow * edgeLength;
+                transformed[0][0] = meshBase[0] + (iCellRow + 1.0) * edgeLengths[0];
+                transformed[1][0] = meshBase[0] + iCellRow * edgeLengths[0];
             } else {
                 axes[0] = "+x";
-                transformed[0][0] = iCellRow * edgeLength;
-                transformed[1][0] = (iCellRow + 1.0) * edgeLength;
+                transformed[0][0] = meshBase[0] + iCellRow * edgeLengths[0];
+                transformed[1][0] = meshBase[0] + (iCellRow + 1.0) * edgeLengths[0];
             }
 
             if (iCellColumn % 2) {
                 axes[1] = "-y";
-                transformed[0][1] = (iCellColumn + 1.0) * edgeLength;
-                transformed[1][1] = iCellColumn * edgeLength;
+                transformed[0][1] = meshBase[1] + (iCellColumn + 1.0) * edgeLengths[1];
+                transformed[1][1] = meshBase[1] + iCellColumn * edgeLengths[1];
             } else {
                 axes[1] = "+y";
-                transformed[0][1] = iCellColumn * edgeLength;
-                transformed[1][1] = (iCellColumn + 1.0) * edgeLength;
+                transformed[0][1] = meshBase[1] + iCellColumn * edgeLengths[1];
+                transformed[1][1] = meshBase[1] + (iCellColumn + 1.0) * edgeLengths[1];
             }
 
             // Insert the cell into the adjacency graph (mesh) as a vertex
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
             Mesh::Vertex::Data data (
                 VertexID(iCell), // <= todo: remove duplicate id
-                0u,   // <= All cells share the same ansatz space in this example.
                 1.0,
                 axes,
                 SpatialTransform(transformed.begin(), transformed.end())
