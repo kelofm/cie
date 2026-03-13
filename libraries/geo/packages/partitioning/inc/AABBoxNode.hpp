@@ -141,8 +141,7 @@ template <concepts::Numeric TCoordinate,
           unsigned Dimension,
           concepts::UnsignedInteger TObjectIndex = unsigned,
           concepts::Allocator<std::byte> TAllocator = std::allocator<std::byte>>
-class FlatAABBoxTree
-{
+class FlatAABBoxTree {
 private:
     template <bool TMutable>
     class Node {
@@ -198,8 +197,7 @@ private:
         Node</*TMutable=*/true> next() noexcept
         requires TMutable;
 
-        static constexpr unsigned staticSize() noexcept
-        {
+        static constexpr unsigned staticSize() noexcept {
             return   Dimension * sizeof(TCoordinate)    // <== base
                    + Dimension * sizeof(TCoordinate)    // <== lengths
                    + sizeof(std::size_t)                // <== pointer to oldest younger sibling
@@ -270,9 +268,10 @@ public:
     template <concepts::SamplableGeometry TObject,
               concepts::FunctionWithSignature<TObjectIndex,Ref<const TObject>> THasher>
     requires (TObject::Dimension == Dimension && std::is_same_v<typename TObject::Coordinate,TCoordinate>)
-    static FlatAABBoxTree flatten(Ref<const AABBoxNode<TObject>> rRoot,
-                                  THasher&& rHasher,
-                                  TAllocator&& rAllocator);
+    static FlatAABBoxTree flatten(
+        Ref<const AABBoxNode<TObject>> rRoot,
+        THasher&& rHasher,
+        TAllocator&& rAllocator);
 
     ~FlatAABBoxTree();
 

@@ -35,9 +35,15 @@ PYBIND11_MODULE(geo_python_bindings, m){
 
     m.def("evaluateBSplineBasis", &cie::geo::evaluateBSplineBasis, "Evaluates a single b-spline basis function.");
     m.def("evaluate2DCurve", &cie::geo::evaluate2DCurve, "Evaluates B-Spline curve by multiplying control points and basis functions.");
-    m.def("evaluate2DCurveDeBoor", &cie::geo::evaluate2DCurveDeBoor, "Evaluates B-Spline using DeBoor");
+    m.def("evaluate2DCurveDeBoor", [] (const std::vector<double>& t,
+                                       const std::vector<double>& x,
+                                       const std::vector<double>& y,
+                                       const std::vector<double>& k) {
+        return cie::geo::evaluate2DCurveDeBoor(
+            t, x, y, k);
+    }, "Evaluates B-Spline using DeBoor");
     m.def("evaluateSurface", &cie::geo::evaluateSurface, "Evaluates B-Spline surface");
-    m.def("interpolateWithBSplineCurve", &cie::geo::interpolateWithBSplineCurve,
+    m.def("interpolateWithBSplineCurve", [] (const cie::geo::ControlPoints2D& p, std::size_t d) {return cie::geo::interpolateWithBSplineCurve(p, d);},
           "Finds control points for b-spline curve that interpolates given points.");
     m.def("interpolateWithBSplineSurface", &cie::geo::interpolateWithBSplineSurface,
           "Finds control points for b-spline surface that interpolates given points.");

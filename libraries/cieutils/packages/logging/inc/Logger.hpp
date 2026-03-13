@@ -12,6 +12,7 @@
 #include <chrono>
 #include <ctime>
 #include <filesystem>
+#include <mutex>
 
 
 namespace cie::utils {
@@ -101,14 +102,16 @@ protected:
         std::streamsize messageSize);
 
     std::deque<OutputStream::SharedPointer> _streams;
-    std::deque<detail::Time>                _timeLog;
+    std::deque<detail::Time> _timeLog;
 
-    std::string                             _prefix;
-    std::string                             _lineEnd;
-    bool                                    _forceFlush;
+    std::string _prefix;
+    std::string _lineEnd;
+    bool _forceFlush;
 
 private:
-    bool                                    _newLine;
+    bool _newLine;
+
+    std::mutex _mutex, _writeMutex;
 };
 
 
