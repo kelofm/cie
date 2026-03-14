@@ -13,16 +13,27 @@ namespace cie::fem {
 
 
 /// @brief Data structure unique to @ref Graph::Edge "boundaries" between cells.
-struct BoundaryData
-{
+struct BoundaryData {
+    static constexpr inline unsigned Dimension = 2;
+
+    constexpr BoundaryData() noexcept = default;
+
+    constexpr BoundaryData(BoundaryID boundary) noexcept
+        : _boundary(boundary)
+    {}
+
     /// @brief Boundary identifier of the shared boundary between the adjacent cells.
-    BoundaryID boundary;
+    BoundaryID boundary() const noexcept {
+        return _boundary;
+    }
+
+private:
+    BoundaryID _boundary;
 }; // struct BoundaryData
 
 
 template <>
-struct io::GraphML::Serializer<BoundaryData>
-{
+struct io::GraphML::Serializer<BoundaryData> {
     void header(Ref<io::GraphML::XMLElement> rElement) const {
         io::GraphML::XMLElement defaultElement = rElement.addChild("default");
         BoundaryData instance;
@@ -32,7 +43,7 @@ struct io::GraphML::Serializer<BoundaryData>
     void operator()(Ref<io::GraphML::XMLElement> rElement,
                     Ref<const BoundaryData> rInstance) const {
         std::ostringstream buffer;
-        buffer << rInstance.boundary;
+        buffer << rInstance.boundary();
         rElement.addAttribute("bnd", buffer.view());
     }
 }; // struct GraphML::Serializer<BoundaryData>
@@ -56,7 +67,7 @@ struct io::GraphML::Deserializer<BoundaryData>
                                          [] (const auto pair) {
                                             return pair.first == "bnd";
                                          });
-            rThis.instance().boundary = BoundaryID(it->second.data());
+            rThis.instance() = BoundaryData(BoundaryID(it->second.data()));
         }
     }
 

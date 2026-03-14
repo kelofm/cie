@@ -78,9 +78,9 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
                 0.0));
 
             CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
-            std::array<double,1> reference, perturbed;
+            std::array<double,1> perturbed;
             constexpr double perturbationNorm = 1e0;
-            std::array<double,2> transformedPerturbed;
+            std::array<double,2> transformedPerturbed, reference;
 
             perturbed = in;
             perturbed[0] += perturbationNorm;

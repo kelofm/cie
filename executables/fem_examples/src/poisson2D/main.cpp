@@ -70,10 +70,9 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // Find ansatz functions that coincide on opposite boundaries.
     // In adjacent cells, these ansatz functions will have to map
     // to the same DoF in the assembled system.
-    const StaticArray<Scalar,5> samples {-1.0, -0.5, 0.0, 0.5, 1.0};
     const auto ansatzMap = makeAnsatzMap(
         mesh.data().ansatzSpace(),
-        samples,
+        /*integrationOrder=*/5,
         utils::Comparison<Scalar>(
             /*absoluteTolerance =*/ 1e-8,
             /*relativeTolerance =*/ 1e-6));
@@ -85,18 +84,8 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("parse mesh topology");
         assembler.addGraph(
             mesh,
-            [&mesh]([[maybe_unused]] Ref<const Mesh::Vertex> rVertex) -> std::size_t {
-                const Ansatz& rAnsatz = mesh.data().ansatzSpace();
-                return rAnsatz.size();
-            },
-            [&ansatzMap, &mesh = std::as_const(mesh)](Ref<const Mesh::Edge> rEdge, Assembler::DoFPairIterator it) {
-                const auto sourceAxes = mesh.find(rEdge.source()).value().data().axes();
-                const auto targetAxes = mesh.find(rEdge.target()).value().data().axes();
-                ansatzMap.getPairs(
-                    OrientedBoundary<Dimension>(sourceAxes, rEdge.data().boundary),
-                    OrientedBoundary<Dimension>(targetAxes, rEdge.data().boundary),
-                    it);
-            });
+            ansatzMap,
+            mesh.data().ansatzSpace().size());
     } // parse mesh topology
 
     // Construct a bounding volume hierarchy over the cells to accelerate

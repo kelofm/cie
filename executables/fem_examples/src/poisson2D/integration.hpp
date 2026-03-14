@@ -53,11 +53,11 @@ void integrateStiffness(Ref<const Mesh> rMesh,
         if (rArguments.get<bool>("sycl")) {
             auto logBlock = utils::LoggerSingleton::get().newBlock("discover SYCL devices");
             std::vector<sycl::device> devices;
-            for (auto device : sycl::device::get_devices(sycl::info::device_type::cpu)) {
-                std::cout << device.get_info<sycl::info::device::name>() << std::endl;
-                devices.push_back(device);
-                break;
-            } // for device
+            //for (auto device : sycl::device::get_devices(sycl::info::device_type::cpu)) {
+            //    std::cout << device.get_info<sycl::info::device::name>() << std::endl;
+            //    devices.push_back(device);
+            //    break;
+            //} // for device
             for (auto device : sycl::device::get_devices(sycl::info::device_type::gpu)) {
                 std::cout << device.get_info<sycl::info::device::name>() << std::endl;
                 devices.push_back(device);

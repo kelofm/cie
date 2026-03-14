@@ -19,8 +19,8 @@ namespace cie::fem {
 
 
 template <class T>
-concept CellLike =
-   std::is_same_v<std::remove_cvref_t<decltype(T::ParametricDimension)>,unsigned>
+concept CellLike
+=  std::is_same_v<std::remove_cvref_t<decltype(T::ParametricDimension)>,unsigned>
 && std::is_same_v<std::remove_cvref_t<decltype(T::PhysicalDimension)>,unsigned>
 && cie::concepts::Numeric<typename T::Value>
 && requires (const T& rConstInstance,
@@ -34,7 +34,15 @@ concept CellLike =
     {rConstInstance.makeJacobianInverse()}                          -> maths::JacobianExpression;
     {rConstInstance.id()}                                           -> std::same_as<VertexID>;
     {rConstInstance.makeSpatialTransform()}                         -> maths::SpatialTransform;
-}; // concept Cell
+}; // concept CellLike
+
+
+template <class T>
+concept CellBoundaryLike
+=  std::is_same_v<std::remove_cvref_t<decltype(T::Dimension)>,unsigned>
+&& requires (const T& rConstInstance) {
+    {rConstInstance.boundary()} -> std::same_as<BoundaryID>;
+}; // concept CellBoundaryLike
 
 
 template <class T>
