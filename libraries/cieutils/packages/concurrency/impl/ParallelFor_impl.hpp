@@ -77,9 +77,12 @@ ParallelFor<TIndex,TStorage>::operator()(TIndex indexSentinel,
                                          Ref<const TFunction> rFunction)
 {
     CIE_BEGIN_EXCEPTION_TRACING
-    this->execute(DynamicIndexPartitionFactory({0, indexSentinel, 1}, _pool.size()),
-                  rFunction,
-                  true);
+    this->execute(
+        DynamicIndexPartitionFactory(
+            {0, static_cast<std::size_t>(indexSentinel), 1},
+            _pool.size()),
+        rFunction,
+        true);
     return *this;
     CIE_END_EXCEPTION_TRACING
 }
@@ -164,11 +167,11 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
         // The function is captured by reference because this function imposes
         // a barrier before it exits, so the function is guaranteed to stay alive
         // for the duration of the loop.
-        for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+        for (TIndex iPartition=0; iPartition<static_cast<TIndex>(partitionCount); ++iPartition) {
             const auto partition = rIndexPartitionFactory.getPartition(iPartition);
             _pool.queueTLSJob(
                 [partition, &rFunction](auto&... rArgs) -> void {
-                    for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                    for (TIndex i=partition.begin; i<static_cast<TIndex>(partition.end); i+=partition.step) {
                         rFunction(i, rArgs...);
                     }
                 }
@@ -178,11 +181,11 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
     } else {
         // The function must be copied into the lambda because the jobs are
         // not guaranteed to finish before exiting this function.
-        for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+        for (TIndex iPartition=0; iPartition<static_cast<TIndex>(partitionCount); ++iPartition) {
             const auto partition = rIndexPartitionFactory.getPartition(iPartition);
             _pool.queueTLSJob(
                 [partition, rFunction](auto&... rArgs) -> void {
-                    for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                    for (TIndex i=partition.begin; i<static_cast<TIndex>(partition.end); i+=partition.step) {
                         rFunction(i, rArgs...);
                     }
                 }
@@ -210,11 +213,11 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
     // The function and container are captured by reference because this function imposes
     // a barrier before it exits, so the captured objects are guaranteed to stay alive
     // for the duration of the loop.
-    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+    for (TIndex iPartition=0; iPartition<static_cast<TIndex>(partitionCount); ++iPartition) {
         const auto partition = rIndexPartitionFactory.getPartition(iPartition);
         _pool.queueTLSJob(
             [partition, &rFunction, &rContainer](auto&... rArgs) -> void {
-                for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                for (TIndex i=partition.begin; i<static_cast<TIndex>(partition.end); i+=partition.step) {
                     rFunction(rContainer[i], rArgs...);
                 }
             }
@@ -243,11 +246,11 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
     // The function and container are captured by reference because this function imposes
     // a barrier before it exits, so the captured objects are guaranteed to stay alive
     // for the duration of the loop.
-    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+    for (TIndex iPartition=0; iPartition<static_cast<TIndex>(partitionCount); ++iPartition) {
         const auto partition = rIndexPartitionFactory.getPartition(iPartition);
         _pool.queueTLSJob(
             [partition, &rFunction, &rContainer](auto&... rArgs) -> void {
-                for (TIndex i=partition.begin; i<partition.end; i+=partition.step) {
+                for (TIndex i=partition.begin; i<static_cast<TIndex>(partition.end); i+=partition.step) {
                     rFunction(rContainer[i], rArgs...);
                 }
             }
@@ -272,11 +275,11 @@ ParallelFor<TIndex,TStorage>::execute(Ref<const IndexPartitionFactory> rIndexPar
     if (!partitionCount) return;
 
     // Schedule jobs
-    for (TIndex iPartition=0; iPartition<partitionCount; ++iPartition) {
+    for (TIndex iPartition=0; iPartition<static_cast<TIndex>(partitionCount); ++iPartition) {
         const auto partition = rIndexPartitionFactory.getPartition(iPartition);
         _pool.queueTLSJob(
             [partition, itBegin, &rFunction] (auto&... rArgs) -> void {
-                for (TIndex i=partition.begin; i<partition.end; i+= partition.step) {
+                for (TIndex i=partition.begin; i<static_cast<TIndex>(partition.end); i+= partition.step) {
                     auto it = itBegin;
                     std::ranges::advance(it, i);
                     rFunction(*it, rArgs...);
