@@ -14,8 +14,7 @@ namespace cie::io {
 
 /// @brief IO class for reading and writing matrices in @a MatrixMarket format.
 /// @ingroup cieutils
-struct MatrixMarket
-{
+struct MatrixMarket {
     struct Settings
     {}; // struct Settings
 

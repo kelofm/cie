@@ -25,8 +25,7 @@ private:
     using StorageContainer = tsl::robin_map<std::thread::id,TStorage>;
 
     template <class TValue>
-    class Iterator
-    {
+    class Iterator {
     public:
         using value_type = TValue;
 

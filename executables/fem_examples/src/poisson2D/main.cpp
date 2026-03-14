@@ -18,6 +18,12 @@
 #include "packages/graph/inc/connectivity.hpp"
 #include "packages/graph/inc/Assembler.hpp"
 
+// --- Linalg Includes ---
+#include "packages/utilities/inc/reorder.hpp"
+
+// --- Utility Includes ---
+#include "packages/io/inc/MatrixMarket.hpp"
+
 
 namespace cie::fem {
 
@@ -46,10 +52,10 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             }
         }
     }
-    meshLengths.front() = (1.0 + 2e-6) * (meshLengths.front() - meshBase.front());
-    meshLengths.back()  = (1.0 + 2e-6) * (meshLengths.back() - meshBase.back());
-    meshBase.front() -= 1e-6 / (1.0 + 2e-6) * (meshLengths.front());
-    meshBase.back() -= 1e-6 / (1.0 + 2e-6) * (meshLengths.back());
+    meshLengths.front() = (1.0 + 2e-2) * (meshLengths.front() - meshBase.front());
+    meshLengths.back()  = (1.0 + 2e-2) * (meshLengths.back() - meshBase.back());
+    meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (meshLengths.front());
+    meshBase.back() -= 1e-2 / (1.0 + 2e-2) * (meshLengths.back());
     std::cout << std::format(
         "mesh covers\n\tx in [{}, {}]\n\ty in [{}, {}]\n",
         meshBase.front(), meshBase.front() + meshLengths.front(),
@@ -154,8 +160,44 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
+
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("solve linear system");
+        std::vector<int> reordering(solution.size());
+
+        ReorderingStrategy reorderingStrategy = ReorderingStrategy::None;
+        Ref<const std::string> reorderingName = rArguments.get<std::string>("reordering");
+        if (reorderingName == "cuthill-mckee") reorderingStrategy = ReorderingStrategy::CuthillMcKee;
+        else if (reorderingName == "reverse-cuthill-mckee") reorderingStrategy = ReorderingStrategy::ReverseCuthillMcKee;
+        else if (reorderingName != "none") CIE_THROW(Exception, "unknown reordering strategy: " << reorderingName)
+
+        if (reorderingStrategy != ReorderingStrategy::None) {
+            auto logBlock = utils::LoggerSingleton::get().newBlock("reorder");
+            makeReordering<int,Scalar>(
+                reordering,
+                rowExtents,
+                columnIndices,
+                entries,
+                reorderingStrategy,
+                threads);
+            reorder<int,Scalar>(
+                reordering,
+                rowExtents,
+                columnIndices,
+                entries,
+                threads);
+            reorder<int,Scalar>(
+                reordering,
+                rhs,
+                threads);
+        }
+
+        if (rArguments.get<bool>("write-lhs")) {
+            std::ofstream file("lhs.mm");
+            cie::io::MatrixMarket::Output io(file);
+            io(rowCount, columnCount, entries.size(), rowExtents.data(), columnIndices.data(), entries.data());
+        }
+
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
             rowCount,
@@ -181,6 +223,24 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
         std::cout << solver.iterations() << " iterations "
                   << solver.error()      << " residual\n";
+
+        if (reorderingStrategy != ReorderingStrategy::None) {
+            auto logBlock = utils::LoggerSingleton::get().newBlock("reverse reorder");
+            reverseReorder<int,Scalar>(
+                reordering,
+                rowExtents,
+                columnIndices,
+                entries,
+                threads);
+            reverseReorder<int,Scalar>(
+                reordering,
+                rhs,
+                threads);
+            reverseReorder<int,Scalar>(
+                reordering,
+                solution,
+                threads);
+        }
     } // solve
 
     postprocess(
@@ -242,6 +302,14 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::validatorFactory<double>(),
             "Minimum size of a boundary segment to integrate.")
         .addKeyword(
+            {"--reordering"},
+            cie::utils::ArgParse::DefaultValue {"none"},
+            [] (const cie::utils::ArgParse::ValueView& rValue) -> bool {
+                const std::string value(rValue.begin(), rValue.end());
+                return value == "none" || value == "cuthill-mckee" || value == "reverse-cuthill-mckee";
+            },
+            "LHS matrix reordering strategy.")
+        .addKeyword(
             {"--scatter-resolution"},
             cie::utils::ArgParse::DefaultValue {"100"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
@@ -259,6 +327,9 @@ int main(int argc, const char** argv) {
         .addFlag(
             {"--sycl"},
             "Use the GPU for integration and postprocessing.")
+        .addFlag(
+            {"--write-lhs"},
+            "Write the LHS matrix to a MatrixMarket file.")
         .addFlag(
             {"-h", "--help"},
             "Print this help and exit.")

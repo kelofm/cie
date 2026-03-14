@@ -17,8 +17,7 @@ namespace cie::mp {
 
 /// @ingroup cieutils
 template <class TStorage = ThreadStorage<>>
-class ThreadPool final
-{
+class ThreadPool final {
 public:
     /// @brief Standard job type queued in @ref ThreadPoolBase.
     using Job = ThreadPoolBase::Job;

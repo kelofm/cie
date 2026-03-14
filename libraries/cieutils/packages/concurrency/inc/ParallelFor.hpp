@@ -25,8 +25,7 @@ namespace cie::mp {
  */
 template <concepts::Integer TIndex = Size,
           class TStorage = ThreadStorage<>>
-class ParallelFor final
-{
+class ParallelFor final {
 private:
     using Storage = TStorage;
 
