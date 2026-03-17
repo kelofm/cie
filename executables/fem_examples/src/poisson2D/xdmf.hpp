@@ -13,6 +13,9 @@
 #include "poisson2D/integration.hpp"
 #include "poisson2D/constraints.hpp"
 
+// --- FEM Includes ---
+#include "packages/io/inc/VTKHDF.hpp"
+
 // --- Utility Includes ---
 #include "packages/commandline/inc/ArgParse.hpp"
 
@@ -123,6 +126,11 @@ void postprocess(
     CIE_BEGIN_EXCEPTION_TRACING
     const unsigned postprocessResolution = rArguments.get<std::size_t>("scatter-resolution");
     Output output;
+
+    {
+        cie::io::VTKHDF::Output io;
+        io(rMesh);
+    }
 
     // Collect output for the bounding volume hierarchy.
     DynamicArray<StaticArray<Scalar,Dimension*intPow(2,Dimension)>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
