@@ -114,6 +114,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
             {}, ///< edges of the adjacency graph are added automatically during edge insertion
             Mesh::Vertex::Data(
                 iCell,
+                0ul,
                 axes,
                 maths::ScaleTranslateTransform<Scalar,Dimension>(transformed.begin(), transformed.end()),
                 1.0)

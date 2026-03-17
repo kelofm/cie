@@ -9,7 +9,8 @@
 #include "packages/graph/inc/OrientedAxes.hpp"
 #include "packages/io/inc/GraphML.hpp"
 #include "packages/io/inc/GraphML_specializations.hpp"
-#include "packages/numeric/inc/Cell.hpp"
+#include "packages/numeric/inc/CellBase.hpp"
+#include "packages/numeric/inc/MeshBase.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
 // --- GEO Includes ---
@@ -34,12 +35,14 @@ struct CellData
     CellData() noexcept = default;
 
     CellData(VertexID id,
+             AnsatzID ansatzID,
              Scalar diffusivity,
              OrientedAxes<Dimension> axes,
              RightRef<SpatialTransform> rSpatialTransform) noexcept
         : BoxBase(),
           CellBase(
             id,
+            ansatzID,
             axes,
             std::move(rSpatialTransform),
             std::move(diffusivity))

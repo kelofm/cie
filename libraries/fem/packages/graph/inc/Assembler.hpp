@@ -6,7 +6,7 @@
 // --- FEM Includes ---
 #include "packages/graph/inc/Graph.hpp"
 #include "packages/graph/inc/connectivity.hpp"
-#include "packages/numeric/inc/Cell.hpp"
+#include "packages/numeric/inc/CellBase.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"

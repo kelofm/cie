@@ -105,7 +105,7 @@ void integrateStiffness(Ref<const Mesh> rMesh,
         return StiffnessIntegrand(
             LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
                 rCell.diffusivity(),
-                Ansatz::Derivative(rMesh.data().ansatzDerivative())),
+                Ansatz::Derivative(rMesh.data().ansatzDerivative(rCell.ansatzID()))),
             rCell.makeJacobianInverse());};
 
     std::mutex integralSinkMutex;

@@ -77,7 +77,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // In adjacent cells, these ansatz functions will have to map
     // to the same DoF in the assembled system.
     const auto ansatzMap = makeAnsatzMap(
-        mesh.data().ansatzSpace(),
+        mesh.data().ansatz(0ul),
         /*integrationOrder=*/5,
         utils::Comparison<Scalar>(
             /*absoluteTolerance =*/ 1e-8,
@@ -91,7 +91,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         assembler.addGraph(
             mesh,
             ansatzMap,
-            mesh.data().ansatzSpace().size());
+            mesh.data().ansatz(0ul).size());
     } // parse mesh topology
 
     // Construct a bounding volume hierarchy over the cells to accelerate

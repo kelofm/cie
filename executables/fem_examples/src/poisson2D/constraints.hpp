@@ -30,11 +30,13 @@ public:
     using Base::Base;
 
     BoundaryCellData(unsigned id,
+                     std::size_t ansatzID,
                      RightRef<typename Base::SpatialTransform> rEmbedding,
                      Ref<const std::array<Scalar,2>> state,
                      Ref<const CellData> rCell) noexcept
         : Base(
-            VertexID(id),
+            id,
+            ansatzID,
             OrientedAxes<1>(),
             std::move(rEmbedding)),
          _pCell(&rCell),
@@ -95,12 +97,11 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     constexpr DirichletBoundary() noexcept = default;
 
     constexpr DirichletBoundary(Ref<const std::span<const Scalar,2>> rState) noexcept
-        : _state()
-    {
-        std::copy_n(
-            rState.data(),
-            rState.size(),
-            _state.data());
+        : _state() {
+            std::copy_n(
+                rState.data(),
+                rState.size(),
+                _state.data());
     }
 
     void evaluate([[maybe_unused]] ConstSpan position, Span state) const noexcept {
@@ -327,6 +328,7 @@ BoundaryMesh generateBoundaryMesh(std::span<const BoundarySegment> tesselatedBou
                     {},
                     BoundaryCellData(
                         id,
+                        0ul,
                         maths::AffineEmbedding<Scalar,1u,Dimension>(segmentEndPoints),
                         state,
                         contiguousCellData[rParametricSegment.iCell]
@@ -391,7 +393,7 @@ imposeBoundaryConditions(Ref<Mesh> rMesh,
             makeDirichletPenaltyIntegrand(
                 DirichletBoundary(rBoundaryCell.state()),
                 penaltyFactor,
-                rMesh.data().ansatzSpace(),
+                rMesh.data().ansatz(rBoundaryCell.ansatzID()),
                 rBoundaryCell.makeSpatialTransform(),
                 rBoundaryCell.getEmbeddingCell()),
             rBoundaryCell.makeJacobian());

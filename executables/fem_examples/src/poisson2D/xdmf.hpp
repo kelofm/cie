@@ -57,8 +57,6 @@ public:
         [[maybe_unused]] Ref<const std::string> rDatasetName,
         [[maybe_unused]] Ref<const std::vector<int>> rShape) {
         #ifdef CIE_ENABLE_HDF5
-            //for (const auto& c : data) _xdmfFile << c << " ";
-
             H5::PredType valueType = H5::PredType::IEEE_F32LE;
             if constexpr (std::is_same_v<T,int>) {
                 if constexpr (sizeof(int) == 4) valueType = H5::PredType::NATIVE_INT32;
@@ -192,7 +190,7 @@ void postprocess(
                         Kernel<Dimension,Scalar>::view(localSamplePoint));
 
                     // Evaluate the cell's ansatz functions at the local sample point.
-                    auto ansatzSpace = rMesh.data().ansatzSpace();
+                    auto ansatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
                     std::array<Scalar,Ansatz::size()> ansatzBuffer;
                     ansatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(
                         localSamplePoint),
@@ -450,11 +448,11 @@ void postprocess(
             std::array<Scalar,Dimension> { 1.0,  1.0}};
 
         data.reserve(4 * rMesh.vertices().size());
-        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatzSpace().size());
+        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatz(0ul).size());
 
         for (const auto& rCell : rMesh.vertices()) {
             const auto& rGlobalIndices = rAssembler[rCell.id()];
-            const auto& rAnsatzSpace = rMesh.data().ansatzSpace();
+            const auto& rAnsatzSpace = rMesh.data().ansatz(rCell.data().ansatzID());
             ansatzBuffer.resize(rAnsatzSpace.size());
 
             for (const auto& rLocalPoint : localCorners) {
@@ -481,13 +479,13 @@ void postprocess(
                     </DataItem>
                 </Attribute>
                 <Attribute Name="DoFIDs" Center="Cell" AttributeType="Matrix">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << " " << rMesh.data().ansatzSpace().size() << R"(">
+                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << " " << rMesh.data().ansatz(0ul).size() << R"(">
                         )";
     {
         DynamicArray<std::size_t> data;
 
-        data.reserve(rMesh.data().ansatzSpace().size() * rMesh.vertices().size());
-        DynamicArray<std::size_t> ansatzBuffer(rMesh.data().ansatzSpace().size());
+        data.reserve(rMesh.data().ansatz(0ul).size() * rMesh.vertices().size());
+        DynamicArray<std::size_t> ansatzBuffer(rMesh.data().ansatz(0ul).size());
 
         for (const auto& rCell : rMesh.vertices()) {
             const auto& rGlobalIndices = rAssembler[rCell.id()];
@@ -502,7 +500,7 @@ void postprocess(
                 data.data(),
                 data.size()),
             "DoFIDs",
-            {static_cast<int>(rMesh.vertices().size()), static_cast<int>(rMesh.data().ansatzSpace().size())});
+            {static_cast<int>(rMesh.vertices().size()), static_cast<int>(rMesh.data().ansatz(0ul).size())});
     }
     output << R"(
                     </DataItem>
@@ -545,11 +543,11 @@ void postprocess(
             std::array<Scalar,Dimension> { 1.0,  1.0}};
 
         data.reserve(4 * rMesh.vertices().size());
-        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatzSpace().size());
+        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatz(0ul).size());
 
         for (const auto& rCell : rMesh.vertices()) {
             const auto& rGlobalIndices = rAssembler[rCell.id()];
-            const auto& rAnsatzSpace = rMesh.data().ansatzSpace();
+            const auto& rAnsatzSpace = rMesh.data().ansatz(rCell.data().ansatzID());
             ansatzBuffer.resize(rAnsatzSpace.size());
 
             for (const auto& rLocalPoint : localCorners) {
@@ -587,11 +585,11 @@ void postprocess(
             std::array<Scalar,Dimension> { 1.0,  1.0}};
 
         data.reserve(4 * rMesh.vertices().size());
-        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatzSpace().size());
+        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatz(0ul).size());
 
         for (const auto& rCell : rMesh.vertices()) {
             const auto& rGlobalIndices = rAssembler[rCell.id()];
-            const auto& rAnsatzSpace = rMesh.data().ansatzSpace();
+            const auto& rAnsatzSpace = rMesh.data().ansatz(rCell.data().ansatzID());
             ansatzBuffer.resize(rAnsatzSpace.size());
 
             for (const auto& rLocalPoint : localCorners) {

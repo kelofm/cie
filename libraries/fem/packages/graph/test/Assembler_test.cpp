@@ -58,6 +58,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
         {},
         VertexData(
             0,
+            0ul,
             OrientedAxes<2>("+x+y"),
             maths::IdentityTransform<double,2>())));
     mesh.insert(Mesh::Vertex(
@@ -65,6 +66,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
         {},
         VertexData(
             1,
+            0ul,
             OrientedAxes<2>("-x+y"),
             maths::IdentityTransform<double,2>())));
     mesh.insert(Mesh::Vertex(
@@ -72,6 +74,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
         {},
         VertexData(
             2,
+            0ul,
             OrientedAxes<2>("+x+y"),
             maths::IdentityTransform<double,2>())));
     mesh.insert(Mesh::Vertex(
@@ -79,6 +82,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
         {},
         VertexData(
             3,
+            0ul,
             OrientedAxes<2>("+x-y"),
             maths::IdentityTransform<double,2>())));
     mesh.insert(Mesh::Vertex(
@@ -86,6 +90,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
         {},
         VertexData(
             4,
+            0ul,
             OrientedAxes<2>("-x-y"),
             maths::IdentityTransform<double,2>())));
     mesh.insert(Mesh::Vertex(
@@ -93,6 +98,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
         {},
         VertexData(
             5,
+            0ul,
             OrientedAxes<2>("+x-y"),
             maths::IdentityTransform<double,2>())));
 

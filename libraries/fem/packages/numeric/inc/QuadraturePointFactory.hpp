@@ -2,7 +2,7 @@
 
 // --- FEM Includes ---
 #include "packages/numeric/inc/QuadraturePoint.hpp"
-#include "packages/numeric/inc/Cell.hpp"
+#include "packages/numeric/inc/CellBase.hpp"
 #include "packages/maths/inc/IdentityTransform.hpp"
 #include "packages/graph/inc/Graph.hpp"
 

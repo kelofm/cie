@@ -13,6 +13,7 @@ namespace cie::fem {
 /// @see StrongTypeDef
 CIE_STRONG_TYPEDEF(unsigned, VertexID);
 
+
 /// @brief Edge identifier type.
 /// @class EdgeID
 /// @see StrongTypeDef

@@ -2,7 +2,7 @@
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
-#include "packages/numeric/inc/Cell.hpp"
+#include "packages/numeric/inc/CellBase.hpp"
 
 // --- STL Includes ---
 #include <span> // span
