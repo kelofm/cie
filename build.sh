@@ -69,40 +69,7 @@ case "$(uname -s)" in
         ;;
     Darwin*)
         jobCount=$(sysctl -n machdep.cpu.thread_count)
-
-        # Set clang from homebrew
-        if ! command -v brew &> /dev/null; then
-            echo "Error: $scriptName requires Homebrew"
-            exit 1
-        fi
-
-        foundPackage=""
-        get_homebrew_package() {
-            foundPackage=""
-            packageVersions="$(brew search --formula "/$1(@[0-9]+)?/")"
-            for packageVersion in $(echo $packageVersions | tr ' ' '\n' | sort -r | tr '\n' ' '); do
-                if brew list "$packageVersion" >/dev/null 2>&1; then
-                    foundPackage="$packageVersion"
-                    echo "using '$packageVersion' for dependency '$1'"
-                    return 0
-                fi
-            done
-
-            echo "Error: no installed version of '$1' was found."
-            echo "Consider running 'brew install $1'."
-            exit 1
-        }
-
-        get_homebrew_package llvm
-        toolchainRoot="$(brew --prefix $foundPackage)"
-        toolchainBin="${toolchainRoot}/bin"
-        toolchainLib="${toolchainRoot}/lib"
-        toolchainInclude="${toolchainRoot}/include"
-        cxx="$toolchainBin/clang++"
-
-        get_homebrew_package libomp
-        export OpenMP_ROOT=$(brew --prefix $foundPackage)
-        export LDFLAGS="$LDFLAGS -L${OpenMP_ROOT}/lib"
+        cmakeArguments="-DCMAKE_TOOLCHAIN_FILE=${scriptDir}/cmake/homebrew_llvm_toolchain.cmake"
         ;;
     \?)
         echo "Error: unsupported OS $(uname -s)"

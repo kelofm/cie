@@ -291,11 +291,20 @@ void parsePathElement(Ref<const std::unordered_map<std::string,std::string>> rAt
                         std::format(
                             "cannot find delimiter to argument {} of attribute \"transform\" in '{}'",
                             d, attributeValue))
-                    [[maybe_unused]] auto [pEnd, error] = std::from_chars(
-                        it, it + iDelimiter,
-                        translation[d]);
+                    // For some reason, Homebrew Clang refuses to do std::from_chars on floating point types.
+                    //[[maybe_unused]] auto [pEnd, error] = std::from_chars(
+                    //    it, it + iDelimiter,
+                    //    translation[d]);
+                    //CIE_CHECK(
+                    //    error == std::errc {} && pEnd == it + iDelimiter,
+                    //    std::format(
+                    //        "failed to interpret component '{}' as argument {} of attribute \"transform\"",
+                    //        std::string_view(it, it + iDelimiter),
+                    //        d))
+                    Ptr<std::string_view::value_type> pEnd = nullptr;
+                    translation[d] = std::strtod(it, &pEnd);
                     CIE_CHECK(
-                        error == std::errc {} && pEnd == it + iDelimiter,
+                        pEnd == it + iDelimiter,
                         std::format(
                             "failed to interpret component '{}' as argument {} of attribute \"transform\"",
                             std::string_view(it, it + iDelimiter),

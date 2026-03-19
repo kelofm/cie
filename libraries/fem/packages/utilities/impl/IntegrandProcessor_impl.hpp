@@ -224,7 +224,7 @@ void IntegrandProcessor<Dim,TIntegrand,TQD>::processImpl(
             rCell.id(),
             rIntegrandFactory(rCell));
 
-        // Construct a new quadrature point rule for the current cell.
+        // Construct a new quadrature rule for the current cell.
         CIE_BEGIN_EXCEPTION_TRACING
         quadraturePointFactory = rQuadratureRuleFactory(rCell);
         CIE_END_EXCEPTION_TRACING

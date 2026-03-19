@@ -41,6 +41,11 @@ std::size_t findKnotSpan(TValue t,
 }
 
 
+template std::size_t findKnotSpan(float, std::size_t, Ref<const std::span<const float>>);
+
+template std::size_t findKnotSpan(double, std::size_t, Ref<const std::span<const double>>);
+
+
 StaticArray<std::vector<double>, 2> evaluate2DCurve(const std::vector<double>& tCoordinates,
                                                     const std::vector<double>& xCoordinates,
                                                     const std::vector<double>& yCoordinates,

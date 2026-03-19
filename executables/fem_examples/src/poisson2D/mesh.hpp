@@ -18,6 +18,9 @@
 #include "packages/logging/inc/LogBlock.hpp"
 #include "packages/commandline/inc/ArgParse.hpp"
 
+// --- STL Includes ---
+#include <numbers>
+
 
 namespace cie::fem {
 
