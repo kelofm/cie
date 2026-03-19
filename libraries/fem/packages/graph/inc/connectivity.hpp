@@ -86,60 +86,85 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
  *                      |
  *           @endcode
  */
-template <unsigned Dimension, class TValue>
+template <unsigned Dim>
 class AnsatzMap {
-public:
-    AnsatzMap() noexcept = default;
-
-    template <maths::Expression TAnsatzSpace>
-    requires (std::is_same_v<typename TAnsatzSpace::Value,TValue> && 0 < Dimension)
-    AnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
-              std::span<const TValue> samples,
-              utils::Comparison<TValue> comparison);
-
-    template <cie::concepts::OutputIterator<std::pair<Size,Size>> TOutputIt>
-    void getPairs(const OrientedBoundary<Dimension> first,
-                  const OrientedBoundary<Dimension> second,
-                  TOutputIt itOutput) const;
-
-    Size getPairCount(OrientedBoundary<Dimension> first,
-                      OrientedBoundary<Dimension> second) const noexcept;
-
 private:
     struct SymmetricHash {
-        auto operator()(const std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>& rPair) const noexcept
-        {
-            utils::Hash<std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>> hasher;
+        auto operator()(const std::pair<OrientedBoundary<Dim>,OrientedBoundary<Dim>>& rPair) const noexcept {
+            utils::Hash<std::pair<OrientedBoundary<Dim>,OrientedBoundary<Dim>>> hasher;
             if (rPair.second < rPair.first) return hasher(std::make_pair(rPair.second, rPair.first));
             else return hasher(rPair);
         }
     }; // struct SymmetricHash
 
     struct SymmetricEquality {
-        auto operator()(const std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>& rLhs,
-                        const std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>& rRhs) const noexcept
-        {
+        auto operator()(const std::pair<OrientedBoundary<Dim>,OrientedBoundary<Dim>>& rLhs,
+                        const std::pair<OrientedBoundary<Dim>,OrientedBoundary<Dim>>& rRhs) const noexcept {
             return (rLhs.first == rRhs.first && rLhs.second == rRhs.second)
                 || (rLhs.second == rRhs.first && rLhs.first == rRhs.second);
         }
     }; // struct SymmetricOrdering
 
     using ConnectivityMap = tsl::robin_map<
-        std::pair<OrientedBoundary<Dimension>,OrientedBoundary<Dimension>>, ///< oriented boundary pair
-        DynamicArray<std::pair<Size,Size>>,                                 ///< list of coincident ansatz function indices on the pair of boundaries
+        std::pair<OrientedBoundary<Dim>,OrientedBoundary<Dim>>, ///< oriented boundary pair
+        DynamicArray<std::pair<std::size_t,std::size_t>>,       ///< list of coincident ansatz function indices on the pair of boundaries
         SymmetricHash,
         SymmetricEquality
     >;
-    ConnectivityMap _connectivityMap;
+
+    struct AnsatzPairs {
+        typename ConnectivityMap::const_iterator it;
+        bool swap;
+    }; // class AnsatzPairs
+
+public:
+    static constexpr inline unsigned Dimension = Dim;
+
+    AnsatzMap() noexcept = default;
+
+    template <maths::Expression TAnsatzSpace>
+    AnsatzMap(
+        Ref<const TAnsatzSpace> rAnsatzSpace,
+        std::size_t integrationOrder,
+        utils::Comparison<typename TAnsatzSpace::Value> comparison = utils::Comparison<typename TAnsatzSpace::Value>());
+
+    /// @brief Find coincident ansatz functions in a direction.
+    /// @see @ref pairCount
+    /// @see @ref getPairs
+    [[nodiscard]] AnsatzPairs findPairs(
+        const OrientedBoundary<Dim> first,
+        const OrientedBoundary<Dim> second) const noexcept;
+
+    /// @brief Fetch the number of coincident ansatz functions in a direction.
+    /// @see @ref findPairs
+    /// @see @ref getPairs
+    [[nodiscard]] std::size_t pairCount(AnsatzPairs pairs) const noexcept;
+
+    /// @brief Fetch the indices of coincident ansatz functions in a direction.
+    /// @see @ref findPairs
+    /// @see @ref pairCount
+    void getPairs(
+        AnsatzPairs pairs,
+        std::span<std::pair<std::size_t,std::size_t>> output) const;
+
+    /// @brief Get the number of ansatz function in the @ref AnsatzSpace.
+    [[nodiscard]] std::size_t ansatzCount() const noexcept;
+
+private:
+    std::size_t _ansatzCount;
+
+    ConnectivityMap _topology;
 }; // class AnsatzMap
 
 
 
-template <maths::Expression TAnsatzSpace>
-AnsatzMap<TAnsatzSpace::Dimension,typename TAnsatzSpace::Value>
-makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
-              std::span<const typename TAnsatzSpace::Value> samples,
-              utils::Comparison<typename TAnsatzSpace::Value> comparison);
+template <maths::Expression TAnsatzSpace, class TValue>
+requires std::is_same_v<TValue,typename TAnsatzSpace::Value>
+AnsatzMap<TAnsatzSpace::Dimension>
+makeAnsatzMap(
+    Ref<const TAnsatzSpace> rAnsatzSpace,
+    std::size_t integrationOrder,
+    utils::Comparison<TValue> comparison = utils::Comparison<typename TAnsatzSpace::Value>());
 
 
 } // namespace cie::fem

@@ -307,6 +307,7 @@ requires (!hasStaticBasis)
         [](Ref<const TScalarExpression> rAnsatzFunction){
              return rAnsatzFunction.makeDerivative();
         });
+    _buffer.resize(View(_ansatzSet, _derivativeSet).getMinBufferSize());
 }
 
 
@@ -644,6 +645,7 @@ requires (!hasStaticBasis)
       _buffer()
 {
     CIE_BEGIN_EXCEPTION_TRACING
+    _buffer.resize(View(_set).getMinBufferSize());
     auto view = this->makeView();
     _buffer.resize(view.size());
     CIE_END_EXCEPTION_TRACING
@@ -663,6 +665,7 @@ AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSet& rSet)
 requires (!hasStaticBasis)
     : AnsatzSpace(AnsatzSet(rSet))
 {
+    _buffer.resize(View(_set).getMinBufferSize());
 }
 
 

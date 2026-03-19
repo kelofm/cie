@@ -17,8 +17,7 @@ namespace cie::fem {
 ///@{
 
 template <concepts::Numeric NT>
-class GaussLegendreQuadrature final : public QuadratureBase<NT>
-{
+class GaussLegendreQuadrature final : public QuadratureBase<NT> {
 public:
     using typename QuadratureBase<NT>::NodeContainer;
 

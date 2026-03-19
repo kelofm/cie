@@ -57,11 +57,11 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
         *pAnsatzSpace,
         spatialTransform,
         spatialTransform);
-    CIE_TEST_CHECK(integrand.size() == 4 * 4 + 4);
-    CIE_TEST_CHECK(integrand.getMinBufferSize() == 4 + 2 + 1);
+    CIE_TEST_REQUIRE(integrand.size() == 4 * 4 + 4);
+    CIE_TEST_REQUIRE(integrand.getMinBufferSize() == 4 + 2 + 2 + 1);
 
     // Set buffer.
-    StaticArray<Scalar,7> buffer;
+    StaticArray<Scalar,9> buffer;
     StaticArray<Scalar,20> output;
 
     #ifdef CIE_ENABLE_OUT_OF_RANGE_CHECKS

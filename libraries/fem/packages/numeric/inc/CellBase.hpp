@@ -10,6 +10,7 @@
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
+#include "packages/stl_extension/inc/StrongTypeDef.hpp"
 
 // --- STL Includes ---
 #include <tuple>
@@ -18,9 +19,15 @@
 namespace cie::fem {
 
 
+/// @brief Ansatz space identifier type.
+/// @class AnsatzID
+/// @see StrongTypeDef
+CIE_STRONG_TYPEDEF(unsigned, AnsatzID);
+
+
 template <class T>
-concept CellLike =
-   std::is_same_v<std::remove_cvref_t<decltype(T::ParametricDimension)>,unsigned>
+concept CellLike
+=  std::is_same_v<std::remove_cvref_t<decltype(T::ParametricDimension)>,unsigned>
 && std::is_same_v<std::remove_cvref_t<decltype(T::PhysicalDimension)>,unsigned>
 && cie::concepts::Numeric<typename T::Value>
 && requires (const T& rConstInstance,
@@ -33,14 +40,17 @@ concept CellLike =
     {rConstInstance.makeJacobian()}                                 -> maths::JacobianExpression;
     {rConstInstance.makeJacobianInverse()}                          -> maths::JacobianExpression;
     {rConstInstance.id()}                                           -> std::same_as<VertexID>;
+    {rConstInstance.ansatzID()}                                     -> std::same_as<AnsatzID>;
     {rConstInstance.makeSpatialTransform()}                         -> maths::SpatialTransform;
-}; // concept Cell
+}; // concept CellLike
 
 
 template <class T>
-concept DiscretizationLike
-=   GraphLike<T>
-&&  CellLike<typename T::Vertex::Data>;
+concept CellBoundaryLike
+=  std::is_same_v<std::remove_cvref_t<decltype(T::Dimension)>,unsigned>
+&& requires (const T& rConstInstance) {
+    {rConstInstance.boundary()} -> std::same_as<BoundaryID>;
+}; // concept CellBoundaryLike
 
 
 template <unsigned ParametricDim,
@@ -72,12 +82,14 @@ public:
 
     CellBase(
         VertexID id,
+        AnsatzID ansatzID,
         OrientedAxes<ParametricDimension> axes,
         RightRef<SpatialTransform> rSpatialTransform) noexcept
     requires std::is_same_v<TData,void>;
 
     CellBase(
         VertexID id,
+        AnsatzID ansatzID,
         OrientedAxes<ParametricDimension> axes,
         RightRef<SpatialTransform> rSpatialTransform,
         typename VoidSafe<TData,int>::RightRef rData) noexcept
@@ -99,26 +111,30 @@ public:
         return std::get<0>(_impl);
     }
 
-    [[nodiscard]] constexpr OrientedAxes<ParametricDimension> axes() const noexcept {
+    [[nodiscard]] constexpr AnsatzID ansatzID() const noexcept {
         return std::get<1>(_impl);
     }
 
-    [[nodiscard]] Ref<const SpatialTransform> makeSpatialTransform() const noexcept {
+    [[nodiscard]] constexpr OrientedAxes<ParametricDimension> axes() const noexcept {
         return std::get<2>(_impl);
     }
 
-    [[nodiscard]] Ref<const typename SpatialTransform::Inverse> makeInverseSpatialTransform() const noexcept {
+    [[nodiscard]] Ref<const SpatialTransform> makeSpatialTransform() const noexcept {
         return std::get<3>(_impl);
+    }
+
+    [[nodiscard]] Ref<const typename SpatialTransform::Inverse> makeInverseSpatialTransform() const noexcept {
+        return std::get<4>(_impl);
     }
 
     [[nodiscard]] constexpr typename VoidSafe<const TData>::Ref data() const noexcept
     requires (!std::is_same_v<TData,void>) {
-        return std::get<4>(_impl);
+        return std::get<5>(_impl);
     }
 
     [[nodiscard]] constexpr typename VoidSafe<TData>::Ref data() noexcept
     requires (!std::is_same_v<TData,void>) {
-        return std::get<4>(_impl);
+        return std::get<5>(_impl);
     }
 
 protected:
@@ -130,35 +146,41 @@ protected:
         return std::get<0>(_impl);
     }
 
-    [[nodiscard]] constexpr Ref<OrientedAxes<ParametricDimension>> axes() noexcept {
+    [[nodiscard]] constexpr Ref<AnsatzID> ansatzID() noexcept {
         return std::get<1>(_impl);
     }
 
-    [[nodiscard]] constexpr Ref<const TSpatialTransform> spatialTransform() const noexcept {
+    [[nodiscard]] constexpr Ref<OrientedAxes<ParametricDimension>> axes() noexcept {
         return std::get<2>(_impl);
+    }
+
+    [[nodiscard]] constexpr Ref<const TSpatialTransform> spatialTransform() const noexcept {
+        return std::get<3>(_impl);
     }
 
     [[nodiscard]] constexpr Ref<TSpatialTransform> spatialTransform() noexcept {
-        return std::get<2>(_impl);
+        return std::get<3>(_impl);
     }
 
     [[nodiscard]] constexpr Ref<const typename TSpatialTransform::Inverse> inverseSpatialTransform() const noexcept {
-        return std::get<3>(_impl);
+        return std::get<4>(_impl);
     }
 
     [[nodiscard]] constexpr Ref<typename TSpatialTransform::Inverse> inverseSpatialTransform() noexcept {
-        return std::get<3>(_impl);
+        return std::get<4>(_impl);
     }
 
     using Impl = std::conditional_t<
         std::is_same_v<TData,void>,
         std::tuple<
             VertexID,
+            AnsatzID,
             OrientedAxes<ParametricDimension>,
             TSpatialTransform,
             typename TSpatialTransform::Inverse>,
         std::tuple<
             VertexID,
+            AnsatzID,
             OrientedAxes<ParametricDimension>,
             TSpatialTransform,
             typename TSpatialTransform::Inverse,
@@ -291,4 +313,4 @@ struct io::GraphML::Deserializer<CellBase<ParametricDimension,TValue,TSpatialTra
 
 } // namespace cie::fem
 
-#include "packages/numeric/impl/Cell_impl.hpp"
+#include "packages/numeric/impl/CellBase_impl.hpp"

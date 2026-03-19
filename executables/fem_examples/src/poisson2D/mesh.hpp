@@ -59,7 +59,6 @@ void generateMesh(Ref<Mesh> rMesh,
         // Define an ansatz space and its derivatives.
         // In this example, every cell will use the same ansatz space.
         Ansatz ansatzSpace;
-        Ansatz::Derivative ansatzDerivative;
 
         std::array<Basis,polynomialOrder+1> basisFunctions;
         std::array<Basis::Derivative,polynomialOrder+1> basisDerivatives;
@@ -140,13 +139,8 @@ void generateMesh(Ref<Mesh> rMesh,
             ansatzSpace = Ansatz(basisFunctions);
         }
 
-        // Construct the derivatives of ansatz spaces.
-        ansatzDerivative = Ansatz::Derivative(basisFunctions);
-
-        rMesh.data() = MeshData(
-            std::move(ansatzSpace),
-            std::move(ansatzDerivative));
-        }
+        rMesh.data() = MeshData(std::move(ansatzSpace));
+    }
 
     // Insert cells into the adjacency graph
     const std::array<Scalar,2> edgeLengths {
@@ -184,6 +178,7 @@ void generateMesh(Ref<Mesh> rMesh,
             const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
             Mesh::Vertex::Data data (
                 VertexID(iCell), // <= todo: remove duplicate id
+                0ul,
                 1.0,
                 axes,
                 SpatialTransform(transformed.begin(), transformed.end())

@@ -5,6 +5,7 @@
 #include "poisson2D/CellData.hpp"
 
 // --- FEM Includes ---
+#include "packages/numeric/inc/MeshBase.hpp"
 #include "packages/numeric/inc/QuadraturePointFactory.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/io/inc/GraphML.hpp"
@@ -18,25 +19,20 @@ namespace cie::fem {
 
 
 /// @brief Data structure common to the entire @ref Graph "mesh".
-class MeshData {
+class MeshData : public MeshBase<Ansatz> {
 public:
     MeshData()
-        : _ansatzSpace(),
-          _ansatzDerivative(),
+        : MeshBase<Ansatz>(),
           _quadraturePointSet(),
           _buffer()
     {}
 
-    MeshData(RightRef<Ansatz> rAnsatzSpace,
-             RightRef<Ansatz::Derivative> rAnsatzDerivative)
-        : _ansatzSpace(std::move(rAnsatzSpace)),
-          _ansatzDerivative(std::move(rAnsatzDerivative)),
-          _quadraturePointSet()
+    MeshData(RightRef<Ansatz> rAnsatzSpace)
+        : MeshBase<Ansatz>(std::span<const Ansatz>(&rAnsatzSpace, 1)),
+          _quadraturePointSet(),
+          _buffer()
     {
         // Cache quadrature points.
-        Graph<CellData,void,void> dummyMesh;
-        CellData dummyElement;
-
         // Generate 1D quadrature points.
         DynamicArray<QuadraturePoint<1,Scalar>> basePoints;
         OuterProductQuadraturePointFactory<Dimension,Scalar> generator;
@@ -79,14 +75,6 @@ public:
         _quadraturePointSet.shrink_to_fit();
     }
 
-    Ref<const Ansatz> ansatzSpace() const noexcept {
-        return _ansatzSpace;
-    }
-
-    Ref<const Ansatz::Derivative> ansatzDerivative() const noexcept {
-        return _ansatzDerivative;
-    }
-
     CachedQuadraturePointFactory<Dimension,Scalar> makeQuadratureRule() const {
         return CachedQuadraturePointFactory<Dimension,Scalar>(
             std::span<const QuadraturePoint<Dimension,Scalar>>(
@@ -99,12 +87,6 @@ private:
     friend struct io::GraphML::Serializer<MeshData>;
 
     friend struct io::GraphML::Deserializer<MeshData>;
-
-    /// @brief Collection of all ansatz spaces the contained cells can refer to.
-    Ansatz _ansatzSpace;
-
-    /// @brief Collection of all ansatz spaces' derivatives the contained cells can refer to.
-    Ansatz::Derivative _ansatzDerivative;
 
     /// @brief Set of quadrature points for a default local hypercube.
     /// @details These quadrature points are used while constructing
@@ -134,16 +116,9 @@ struct io::GraphML::Serializer<MeshData> {
         descriptionElement.setValue(description.view());
     }
 
-    void operator()(Ref<io::GraphML::XMLElement> rElement,
-                    Ref<const MeshData> rInstance) const {
-        // Serialize basis functions.
-        {
-            GraphML::XMLElement element = rElement.addChild("basisFunctions");
-            using SubSerializer = io::GraphML::Serializer<std::span<const Basis,polynomialOrder+1>>;
-            SubSerializer subSerializer;
-            subSerializer(element, rInstance.ansatzSpace().ansatzSet());
-        }
-    }
+    void operator()(
+        [[maybe_unused]] Ref<io::GraphML::XMLElement> rElement,
+        [[maybe_unused]] Ref<const MeshData> rInstance) const {}
 }; // struct GraphML::Serializer<MeshData>
 
 

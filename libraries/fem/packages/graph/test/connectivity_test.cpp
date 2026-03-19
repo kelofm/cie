@@ -266,26 +266,24 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
         Basis(Basis::Coefficients { 1.0,  0.0, -1.0})
     };
 
-    const StaticArray<double,5> samples {-1.0,
-                                         -0.5,
-                                          0.0,
-                                          0.5,
-                                          1.0};
-
     {
         CIE_TEST_CASE_INIT("1D")
         maths::AnsatzSpace<Basis,1> ansatzSpace(basisFunctions);
-        const auto map = makeAnsatzMap(ansatzSpace,
-                                       {samples.data(), samples.size()},
-                                       utils::Comparison<double>(1e-10, 1e-10));
+        const auto map = makeAnsatzMap(
+            ansatzSpace,
+            /*integrationOrder=*/5,
+            utils::Comparison<double>(1e-10, 1e-10));
 
         {
             DynamicArray<std::pair<Size,Size>> coincidentPairs;
             const OrientedBoundary<1> first("+x", "+x");
             const OrientedBoundary<1> second("-x", "+x");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 1);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 1);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 1);
             CIE_TEST_CHECK(coincidentPairs.front().first == 1);
             CIE_TEST_CHECK(coincidentPairs.front().second == 1);
@@ -297,8 +295,11 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
             const OrientedBoundary<1> first("+x", "-x");
             const OrientedBoundary<1> second("-x", "-x");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 1);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 1);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 1);
             CIE_TEST_CHECK(coincidentPairs.front().first == 0);
             CIE_TEST_CHECK(coincidentPairs.front().second == 0);
@@ -309,17 +310,21 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
     {
         CIE_TEST_CASE_INIT("2D")
         maths::AnsatzSpace<Basis,2> ansatzSpace(basisFunctions);
-        const auto map = makeAnsatzMap(ansatzSpace,
-                                       {samples.data(), samples.size()},
-                                       utils::Comparison<double>(1e-10, 1e-10));
+        const auto map = makeAnsatzMap(
+            ansatzSpace,
+            5,
+            utils::Comparison<double>(1e-10, 1e-10));
         DynamicArray<std::pair<Size,Size>> coincidentPairs;
 
         {
             OrientedBoundary<2> first("+x+y", "+x");
             OrientedBoundary<2> second("-x+y", "+x");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 3);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 3);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 3);
             CIE_TEST_CHECK(std::find(
                 coincidentPairs.begin(),
@@ -345,8 +350,11 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
             OrientedBoundary<2> first("-x+y", "+x");
             OrientedBoundary<2> second("+x+y", "+x");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 3);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 3);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 3);
             CIE_TEST_CHECK(std::find(
                 coincidentPairs.begin(),
@@ -372,8 +380,11 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
             OrientedBoundary<2> first("+x+y", "+y");
             OrientedBoundary<2> second("+x-y", "+y");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 3);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 3);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 3);
             CIE_TEST_CHECK(std::find(
                 coincidentPairs.begin(),
@@ -399,8 +410,11 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
             OrientedBoundary<2> first("+x-y", "+y");
             OrientedBoundary<2> second("+x+y", "+y");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 3);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 3);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 3);
             CIE_TEST_CHECK(std::find(
                 coincidentPairs.begin(),
@@ -426,17 +440,21 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
     {
         CIE_TEST_CASE_INIT("3D")
         maths::AnsatzSpace<Basis,3> ansatzSpace(basisFunctions);
-        const auto map = makeAnsatzMap(ansatzSpace,
-                                       {samples.data(), samples.size()},
-                                       utils::Comparison<double>(1e-10, 1e-8));
+        const auto map = makeAnsatzMap(
+            ansatzSpace,
+            5,
+            utils::Comparison<double>(1e-10, 1e-8));
         DynamicArray<std::pair<Size,Size>> coincidentPairs;
 
         {
             OrientedBoundary<3> first("+x+y+z", "+x");
             OrientedBoundary<3> second("-x+y+z", "+x");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 9);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 9);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 9);
             for (auto pair : StaticArray<std::pair<Size,Size>,9> {
                     { 1,  1},
@@ -462,8 +480,11 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
             OrientedBoundary<3> first("+x+y+z", "+y");
             OrientedBoundary<3> second("+x-y+z", "+y");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 9);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 9);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 9);
             for (auto pair : StaticArray<std::pair<Size,Size>,9> {
                     { 3,  3},
@@ -489,8 +510,11 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
             OrientedBoundary<3> first("+x+y+z", "+z");
             OrientedBoundary<3> second("+x+y-z", "+z");
 
-            CIE_TEST_CHECK(map.getPairCount(first, second) == 9);
-            map.getPairs(first, second, std::back_inserter(coincidentPairs));
+            auto itPairs = map.findPairs(first, second);
+            CIE_TEST_CHECK(map.pairCount(itPairs) == 9);
+
+            coincidentPairs.resize(map.pairCount(itPairs));
+            map.getPairs(itPairs, coincidentPairs);
             CIE_TEST_REQUIRE(coincidentPairs.size() == 9);
             for (auto pair : StaticArray<std::pair<Size,Size>,9> {
                     { 9,  9},

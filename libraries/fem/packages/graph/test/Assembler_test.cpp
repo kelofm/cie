@@ -6,6 +6,7 @@
 #include "packages/graph/inc/Assembler.hpp"
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
+#include "packages/maths/inc/IdentityTransform.hpp"
 #include "packages/graph/inc/OrientedBoundary.hpp"
 #include "packages/graph/inc/connectivity.hpp"
 #include <packages/io/inc/MatrixMarket.hpp>
@@ -15,13 +16,17 @@
 namespace cie::fem {
 
 
-CIE_TEST_CASE("Assembler", "[graph]")
-{
+struct TestEdgeData {
+    constexpr static inline unsigned Dimension = 2;
+    BoundaryID _boundary;
+    BoundaryID boundary() const noexcept {return _boundary;}
+};
+
+
+CIE_TEST_CASE("Assembler", "[graph]") {
     CIE_TEST_CASE_INIT("Assembler")
-    using Boundary = OrientedBoundary<2>;
-    using VertexData = void;
-    using EdgeData = std::pair<Boundary,Boundary>;
-    using Mesh = Graph<VertexData,EdgeData>;
+    using VertexData = CellBase<2,double,maths::IdentityTransform<double,2>>;
+    using Mesh = Graph<VertexData,TestEdgeData>;
 
     // Build mesh
     /** Build a mesh that consists of 6 linear quads with a linear set
@@ -48,35 +53,84 @@ CIE_TEST_CASE("Assembler", "[graph]")
      *           0 ----------- 1                           1 ----------- 0                           0 ----------- 1
      */
     Mesh mesh;
+    mesh.insert(Mesh::Vertex(
+        0,
+        {},
+        VertexData(
+            0,
+            0ul,
+            OrientedAxes<2>("+x+y"),
+            maths::IdentityTransform<double,2>())));
+    mesh.insert(Mesh::Vertex(
+        1,
+        {},
+        VertexData(
+            1,
+            0ul,
+            OrientedAxes<2>("-x+y"),
+            maths::IdentityTransform<double,2>())));
+    mesh.insert(Mesh::Vertex(
+        2,
+        {},
+        VertexData(
+            2,
+            0ul,
+            OrientedAxes<2>("+x+y"),
+            maths::IdentityTransform<double,2>())));
+    mesh.insert(Mesh::Vertex(
+        3,
+        {},
+        VertexData(
+            3,
+            0ul,
+            OrientedAxes<2>("+x-y"),
+            maths::IdentityTransform<double,2>())));
+    mesh.insert(Mesh::Vertex(
+        4,
+        {},
+        VertexData(
+            4,
+            0ul,
+            OrientedAxes<2>("-x-y"),
+            maths::IdentityTransform<double,2>())));
+    mesh.insert(Mesh::Vertex(
+        5,
+        {},
+        VertexData(
+            5,
+            0ul,
+            OrientedAxes<2>("+x-y"),
+            maths::IdentityTransform<double,2>())));
+
     std::size_t edgeID = 0ul;
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {0, 1},
-                           std::make_pair(Boundary("+x+y", "+x"),
-                                          Boundary("-x+y", "+x"))));
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {1, 2},
-                           std::make_pair(Boundary("-x+y", "-x"),
-                                          Boundary("+x+y", "-x"))));
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {3, 4},
-                           std::make_pair(Boundary("+x-y", "+x"),
-                                          Boundary("-x-y", "+x"))));
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {4, 5},
-                           std::make_pair(Boundary("-x-y", "-x"),
-                                          Boundary("+x-y", "-x"))));
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {0, 3},
-                           std::make_pair(Boundary("+x+y", "+y"),
-                                          Boundary("+x-y", "+y"))));
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {1, 4},
-                           std::make_pair(Boundary("-x+y", "+y"),
-                                          Boundary("-x-y", "+y"))));
-    mesh.insert(Mesh::Edge(edgeID++,
-                           {2, 5},
-                           std::make_pair(Boundary("+x+y", "+y"),
-                                          Boundary("+x-y", "+y"))));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {0, 1},
+        TestEdgeData("+x")));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {1, 2},
+        TestEdgeData("-x")));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {3, 4},
+        TestEdgeData("+x")));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {4, 5},
+        TestEdgeData("-x")));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {0, 3},
+        TestEdgeData("+y")));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {1, 4},
+        TestEdgeData("+y")));
+    mesh.insert(Mesh::Edge(
+        edgeID++,
+        {2, 5},
+        TestEdgeData("+y")));
 
     // Construct basis
     using Basis = maths::Polynomial<float>;
@@ -86,24 +140,14 @@ CIE_TEST_CASE("Assembler", "[graph]")
         Basis({ 0.5,  0.5})
     });
 
-    const auto ansatzMap = makeAnsatzMap(*pAnsatzSpace,
-                                         DynamicArray<float> {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f},
-                                         utils::Comparison<float>(1e-4, 1e-3));
-    const auto dofCounter = [&pAnsatzSpace]([[maybe_unused]] const auto& _) -> std::size_t {
-        return pAnsatzSpace->size();
-    };
-    const auto dofMatcher = [&ansatzMap](Ref<const Mesh::Edge> rBoundary,
-                                         Assembler::DoFPairIterator itOutput) -> void {
-        CIE_BEGIN_EXCEPTION_TRACING
-        ansatzMap.getPairs(rBoundary.data().first,
-                           rBoundary.data().second,
-                           itOutput);
-        CIE_END_EXCEPTION_TRACING
-    };
+    const auto ansatzMap = makeAnsatzMap(
+        *pAnsatzSpace,
+        5,
+        utils::Comparison<float>(1e-4, 1e-3));
 
     // Assign DoF indices
     Assembler assembler;
-    assembler.addGraph(mesh, dofCounter, dofMatcher);
+    assembler.addGraph(mesh, ansatzMap, pAnsatzSpace->size());
 
     // Check connectivities
     CIE_TEST_CHECK(assembler.dofCount() == 12);
@@ -130,19 +174,22 @@ CIE_TEST_CASE("Assembler", "[graph]")
         int rowCount, columnCount;
         DynamicArray<int> rowExtents, columnIndices;
         DynamicArray<float> entries;
-        assembler.makeCSRMatrix(rowCount,
-                                columnCount,
-                                rowExtents,
-                                columnIndices,
-                                entries);
+        assembler.makeCSRMatrix(
+            rowCount,
+            columnCount,
+            rowExtents,
+            columnIndices,
+            entries);
         std::ofstream file("assembler_test_2d.mm");
         cie::io::MatrixMarket::Output output(file);
-        CIE_TEST_CHECK_NOTHROW(output(rowCount,
-                                      columnCount,
-                                      entries.size(),
-                                      rowExtents.data(),
-                                      columnIndices.data(),
-                                      entries.data()));
+        CIE_TEST_CHECK_NOTHROW(
+            output(
+                rowCount,
+                columnCount,
+                entries.size(),
+                rowExtents.data(),
+                columnIndices.data(),
+                entries.data()));
     }
 } // CIE_TEST_CASE "Assembler"
 

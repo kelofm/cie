@@ -1,5 +1,4 @@
-#ifndef CIE_FEM_ORIENTED_BOUNDARY_HPP
-#define CIE_FEM_ORIENTED_BOUNDARY_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/maths/inc/bit.hpp" // getMSBIndex
@@ -83,15 +82,18 @@ public:
 public:
     OrientedBoundary() noexcept;
 
-    OrientedBoundary(Ptr<const BoundaryID> itBegin,
-                     size_type size,
-                     BoundaryID id);
+    OrientedBoundary(
+        Ptr<const BoundaryID> itBegin,
+        size_type size,
+        BoundaryID id);
 
-    OrientedBoundary(OrientedAxes<Dimension> axes,
-                     BoundaryID id);
+    OrientedBoundary(
+        OrientedAxes<Dimension> axes,
+        BoundaryID id);
 
-    OrientedBoundary(const char axes[2 * Dimension + 1],
-                     const char id[3])
+    OrientedBoundary(
+        const char axes[2 * Dimension + 1],
+        const char id[3])
     requires (Dimension < 4);
 
     /// @brief @ref BoundaryID of the current instance in topological space.
@@ -276,5 +278,3 @@ struct Hash<fem::OrientedBoundary<Dimension>>
 
 
 #include "packages/graph/impl/OrientedBoundary_impl.hpp"
-
-#endif

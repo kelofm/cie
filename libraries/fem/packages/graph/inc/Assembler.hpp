@@ -1,11 +1,12 @@
-#ifndef CIE_FEM_ASSEMBLER_HPP
-#define CIE_FEM_ASSEMBLER_HPP
+#pragma once
 
 // --- External Includes ---
 #include "tsl/robin_map.h"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Graph.hpp"
+#include "packages/graph/inc/connectivity.hpp"
+#include "packages/numeric/inc/CellBase.hpp"
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/functional.hpp"
@@ -37,9 +38,7 @@ private:
     }
 
 public:
-    using DoFPairVector = DynamicArray<std::pair<std::size_t,std::size_t>>;
-
-    using DoFPairIterator = std::back_insert_iterator<DoFPairVector>;
+    using DofPair = std::pair<std::size_t,std::size_t>;
 
     Assembler() noexcept;
 
@@ -49,19 +48,12 @@ public:
         class TVertexData,
         class TEdgeData,
         class TGraphData,
-        concepts::FunctionWithSignature<
-            std::size_t,
-            Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Vertex>
-        > TDoFCounter,
-        concepts::FunctionWithSignature<
-            void,
-            Ref<const typename Graph<TVertexData,TEdgeData,TGraphData>::Edge>,
-            DoFPairIterator>
-        TDoFPairFunctor>
+        unsigned Dimension>
+    requires (CellLike<TVertexData> && CellBoundaryLike<TEdgeData>)
     void addGraph(
         Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
-        TDoFCounter&& rDoFCounter,
-        TDoFPairFunctor&& rDoFMatcher);
+        Ref<const AnsatzMap<Dimension>> rAnsatzMap,
+        std::size_t dofsPerCell);
 
     std::size_t dofCount() const noexcept;
 
@@ -133,5 +125,3 @@ private:
 } // namespace cie::fem
 
 #include "packages/graph/impl/Assembler_impl.hpp"
-
-#endif
