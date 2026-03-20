@@ -1,20 +1,48 @@
-#include "packages/macros/inc/exceptions.hpp"
-#include <H5Opublic.h>
-#include <H5Ppublic.h>
 #ifdef CIE_ENABLE_HDF5
 
 // --- External Includes ---
 #include "H5Cpp.h"
+#include <H5Opublic.h>
+#include <H5Ppublic.h>
+#include <H5DcreatProp.h>
 
 // --- FEM Includes ---
 #include "packages/io/inc/VTKHDF.hpp"
 
+// --- Utility Includes ---
+#include "packages/macros/inc/exceptions.hpp"
+
 // --- STL Includes ---
-#include <array>
-#include <variant>
+#include <array> // std::array
+#include <variant> // std::variant
+#include <sstream> // std::stringstream
 
 
 namespace cie::io {
+
+
+#define CIE_CHECK_FOR_HDF5_ERROR(FUNCTION_NAME, RETURN_VALUE)                                                       \
+    if (RETURN_VALUE < 0) {                                                                                         \
+        std::stringstream message;                                                                                  \
+        message << "call to " << FUNCTION_NAME << " returned error code " << RETURN_VALUE << " with message:\n";    \
+        const auto callback = [](                                                                                   \
+            unsigned depth,                                                                                         \
+            const H5E_error_t* pErrorDescriptor,                                                                    \
+            void* pStream) -> herr_t {                                                                              \
+                Ref<std::stringstream> rStream = *static_cast<Ptr<std::stringstream>>(pStream);                     \
+                if (!depth) rStream << pErrorDescriptor->desc << "\n";                                              \
+                rStream << "in file " << pErrorDescriptor->file_name                                                \
+                        << ":" << pErrorDescriptor->line                                                            \
+                        << " in function " << pErrorDescriptor->func_name << "\n";                                  \
+                return 0;                                                                                           \
+        };                                                                                                          \
+        H5Ewalk(                                                                                                    \
+            H5E_DEFAULT,                                                                                            \
+            H5E_WALK_UPWARD,                                                                                        \
+            callback,                                                                                               \
+            static_cast<Ptr<void>>(&message));                                                                      \
+        CIE_THROW(Exception, message.str());                                                                        \
+    }
 
 
 template <class T>
@@ -48,20 +76,15 @@ struct VTKHDF::Output::Impl {
             // Define VTKHDF root with its required attributes.
             CIE_BEGIN_EXCEPTION_TRACING
                 H5::Group rootGroup = this->makeGroup("/VTKHDF");
+                const std::array<int,2> version {2, 4};
+                this->writeAttribute<H5::Group,int>(
+                    rootGroup,
+                    "Version",
+                    version);
                 this->writeAttribute(
                     rootGroup,
                     "Type",
                     "MultiBlockDataSet");
-                const std::array<int,2> version {2, 4};
-                this->writeAttribute(
-                    rootGroup,
-                    "Version",
-                    std::span<const int>(version));
-            CIE_END_EXCEPTION_TRACING
-
-            // Define the assembly.
-            CIE_BEGIN_EXCEPTION_TRACING
-                H5::Group assembly = this->makeGroup("/VTKHDF/Assembly");
             CIE_END_EXCEPTION_TRACING
     }
 
@@ -137,6 +160,8 @@ struct VTKHDF::Output::Impl {
             else if constexpr (sizeof(std::size_t) == 8) return H5::PredType::NATIVE_UINT64;
             else static_assert(std::is_same_v<T,void>, "unsupported type");
         } else if constexpr (std::is_same_v<T,std::int8_t>) return H5::PredType::NATIVE_INT8;
+        else if constexpr (std::is_same_v<T,std::uint8_t>) return H5::PredType::NATIVE_UINT8;
+        else if constexpr (std::is_same_v<T,std::int64_t>) return H5::PredType::NATIVE_INT64;
         else if constexpr (std::is_same_v<T,float>) return H5::PredType::IEEE_F32LE;
         else if constexpr (std::is_same_v<T,double>) return H5::PredType::IEEE_F64LE;
         else static_assert(std::is_same_v<T,void>, "unsupported_type");
@@ -165,7 +190,21 @@ struct VTKHDF::Output::Impl {
                             groupName))
                     group = group.openGroup(groupName.c_str());
                 } else {
-                    group = group.createGroup(groupName.c_str());
+                    //group = group.createGroup(groupName.c_str());
+                    auto groupProperties = H5Pcreate(H5P_GROUP_CREATE);
+                    CIE_CHECK_FOR_HDF5_ERROR(H5Pcreate, groupProperties)
+                    H5Pset_link_creation_order(
+                        groupProperties,
+                        H5P_CRT_ORDER_TRACKED | H5P_CRT_ORDER_INDEXED);
+                    const auto groupCreationReturn = H5Gcreate(
+                        group.getId(),
+                        groupName.c_str(),
+                        H5P_DEFAULT,
+                        groupProperties,
+                        H5P_DEFAULT);
+                    CIE_CHECK_FOR_HDF5_ERROR(H5Gcreate, groupCreationReturn);
+                    H5Pclose(groupProperties);
+                    group = group.openGroup(groupName.c_str());
                 }
             } // for rComponent in rPrefix
 
@@ -193,12 +232,13 @@ struct VTKHDF::Output::Impl {
                     rTargetString.end(),
                     std::back_inserter(target));
 
-                H5Lcreate_soft(
+                const auto errorCode = H5Lcreate_soft(
                     target.c_str(),
                     _file.getId(),
                     source.c_str(),
                     H5P_DEFAULT,
                     H5P_DEFAULT);
+                CIE_CHECK_FOR_HDF5_ERROR(H5Lcreate_soft, errorCode)
             CIE_END_EXCEPTION_TRACING
     }
 
@@ -209,7 +249,8 @@ struct VTKHDF::Output::Impl {
         Ref<const std::string> rName,
         std::string_view value) {
             CIE_BEGIN_EXCEPTION_TRACING
-                H5::StrType stringType(0, value.size());
+                H5::StrType stringType(H5::PredType::C_S1, value.size());
+                //stringType.setStrpad(H5T_STR_NULLTERM);
                 H5::DataSpace dataSpace(H5S_SCALAR);
                 H5::Attribute attribute = rEntity.createAttribute(
                     rName.c_str(),
@@ -321,13 +362,19 @@ void VTKHDF::Output::writeDataset(
                 rStem.begin(),
                 rStem.end(),
                 std::back_inserter(name));
+
             auto valueType = _pImpl->getH5Type<TValue>();
             H5::DataSpace dataSpace(shapeCopy.size(), shapeCopy.data());
             H5::Group parent = _pImpl->findGroup(rPrefix.parent_path());
+
+            H5::DSetCreatPropList properties;
+            properties.setChunk(shapeCopy.size(), shapeCopy.data());
+
             H5::DataSet dataset = parent.createDataSet(
                 name.c_str(),
                 valueType,
-                dataSpace);
+                dataSpace,
+                properties);
             dataset.write(data.data(), valueType);
         CIE_END_EXCEPTION_TRACING
 }
@@ -351,6 +398,7 @@ void VTKHDF::Output::writeDataset(
 CIE_INSTANTIATE_VTKHDF(int)
 CIE_INSTANTIATE_VTKHDF(unsigned)
 CIE_INSTANTIATE_VTKHDF(std::size_t)
+CIE_INSTANTIATE_VTKHDF(std::uint8_t)
 CIE_INSTANTIATE_VTKHDF(float)
 CIE_INSTANTIATE_VTKHDF(double)
 

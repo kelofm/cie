@@ -16,7 +16,7 @@ namespace cie::io {
 template <fem::DiscretizationLike TMesh>
 void VTKHDF::Output::operator()(
     Ref<const TMesh> rMesh,
-    std::string_view name) {
+    [[maybe_unused]] std::string_view name) {
         using Scalar = typename TMesh::Vertex::Data::Value;
         constexpr unsigned Dimension = TMesh::Data::Ansatz::Dimension;
 
@@ -25,14 +25,15 @@ void VTKHDF::Output::operator()(
 
         CIE_BEGIN_EXCEPTION_TRACING
             this->makeGroup(meshPrefix);
-            this->makeGroup(Prefix("/VTKHDF/Assembly") / name);
-            this->link(
-                Prefix("/VTKHDF/Assembly") / name / name,
-                meshPrefix);
             this->writeAttribute(
                 meshPrefix,
                 "Type",
                 "UnstructuredGrid");
+            const std::array<int,2> version {2, 4};
+            this->writeAttribute<int>(
+                meshPrefix,
+                "Version",
+                version);
         CIE_END_EXCEPTION_TRACING
 
         CIE_BEGIN_EXCEPTION_TRACING
@@ -44,10 +45,11 @@ void VTKHDF::Output::operator()(
                 {&cellCount, 1});
 
             constexpr std::size_t pointsPerCell = intPow<std::size_t>(2, Dimension);
+            const std::size_t topologySize = cellCount * pointsPerCell;
             this->writeDataset<std::size_t,1>(
                 meshPrefix / "NumberOfConnectivityIds",
                 {1},
-                {&cellCount, 1});
+                {&topologySize, 1});
 
             const std::size_t pointCount = pointsPerCell * cellCount;
             this->writeDataset<std::size_t,1>(
@@ -58,23 +60,28 @@ void VTKHDF::Output::operator()(
             // Cell-wise datasets.
             CIE_BEGIN_EXCEPTION_TRACING
 
-                std::vector<std::size_t> topology(cellCount * pointsPerCell);
+                std::vector<int> topology(cellCount * pointsPerCell);
+                std::vector<std::uint8_t> topologyTypes(cellCount);
+                std::vector<int> offsets(cellCount + 1);
                 std::vector<Scalar> points(pointCount * 3);
+
+                offsets.front() = 0ul;
                 std::size_t iCell = 0ul;
 
                 for (Ref<const typename TMesh::Vertex> rCell : rCells) {
-                        const std::size_t iCellBegin = pointsPerCell * iCell++;
+                        const std::size_t iCellBegin = pointsPerCell * iCell;
 
+                        // Get topology.
                         if constexpr (Dimension == 1) {
-                            topology[iCellBegin] = iCellBegin;
+                            topology[iCellBegin    ] = iCellBegin;
                             topology[iCellBegin + 1] = iCellBegin + 1;
                         } else if constexpr (Dimension == 2) {
-                            topology[iCellBegin] = iCellBegin;
+                            topology[iCellBegin    ] = iCellBegin;
                             topology[iCellBegin + 1] = iCellBegin + 1;
                             topology[iCellBegin + 2] = iCellBegin + 3;
                             topology[iCellBegin + 3] = iCellBegin + 2;
                         } else if constexpr (Dimension == 3) {
-                            topology[iCellBegin] = iCellBegin;
+                            topology[iCellBegin    ] = iCellBegin;
                             topology[iCellBegin + 1] = iCellBegin + 1;
                             topology[iCellBegin + 2] = iCellBegin + 3;
                             topology[iCellBegin + 3] = iCellBegin + 2;
@@ -84,6 +91,19 @@ void VTKHDF::Output::operator()(
                             topology[iCellBegin + 7] = iCellBegin + 6;
                         } else static_assert(Dimension == 1, "unsupported dimension");
 
+                        // Get topology type.
+                        if constexpr (TMesh::Data::Ansatz::Dimension == 1) {
+                            topologyTypes[iCell] = /*VTK_LINE*/ 3;
+                        } else if constexpr (TMesh::Data::Ansatz::Dimension == 2) {
+                            topologyTypes[iCell] = /*VTK_QUAD*/ 9;
+                        } else if constexpr (TMesh::Data::Ansatz::Dimension == 3) {
+                            topologyTypes[iCell] = /*VTK_HEXAHEDRON*/ 12;
+                        } else static_assert(Dimension == 1, "unsupported dimension");
+
+                        // Get the index of the cell's topology begin.
+                        offsets[iCell + 1] = offsets[iCell] + pointsPerCell;
+
+                        // Get node coordinates.
                         std::array<fem::ParametricCoordinate<Scalar>,TMesh::Vertex::Data::ParametricDimension> parametricCoordinates;
                         std::array<fem::PhysicalCoordinate<Scalar>,TMesh::Vertex::Data::PhysicalDimension> physicalCoordinates;
                         std::array<std::uint8_t,intPow(2,TMesh::Vertex::Data::ParametricDimension)> state;
@@ -108,23 +128,55 @@ void VTKHDF::Output::operator()(
 
                             std::copy_n(
                                 physicalCoordinates.data(),
-                                3,
+                                std::min<std::size_t>(3, TMesh::Vertex::Data::PhysicalDimension),
                                 points.data() + iComponentBegin);
+                            std::fill_n(
+                                points.data() + iComponentBegin + std::min<std::size_t>(3, TMesh::Vertex::Data::PhysicalDimension),
+                                3 - std::min<std::size_t>(3, TMesh::Vertex::Data::PhysicalDimension),
+                                static_cast<Scalar>(0));
+
                             iComponentBegin += 3;
                         } while (cie::maths::OuterProduct<TMesh::Vertex::Data::ParametricDimension>::next(2u, state.data()));
+
+                        ++iCell;
                     } // for rCell in rCells
 
-                    this->writeDataset<std::size_t,1>(
-                        meshPrefix / "Connectivity",
-                        {topology.size()},
-                        topology);
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        this->writeDataset<int,1>(
+                            meshPrefix / "Connectivity",
+                            {topology.size()},
+                            topology);
+                    CIE_END_EXCEPTION_TRACING
 
-                    this->writeDataset<Scalar,2>(
-                        meshPrefix / "Points",
-                        {pointCount, 3},
-                        points);
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        this->writeDataset<std::uint8_t,1>(
+                            meshPrefix / "Types",
+                            {topologyTypes.size()},
+                            topologyTypes);
+                    CIE_END_EXCEPTION_TRACING
+
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        this->writeDataset<int,1>(
+                            meshPrefix / "Offsets",
+                            {offsets.size()},
+                            offsets);
+                    CIE_END_EXCEPTION_TRACING
+
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        this->writeDataset<Scalar,2>(
+                            meshPrefix / "Points",
+                            {pointCount, 3},
+                            points);
+                    CIE_END_EXCEPTION_TRACING
             CIE_END_EXCEPTION_TRACING
 
+        CIE_END_EXCEPTION_TRACING
+
+        CIE_BEGIN_EXCEPTION_TRACING
+            this->makeGroup(Prefix("/VTKHDF") / "Assembly" / name);
+            this->link(
+                Prefix("/VTKHDF/Assembly") / name / std::format("__{}__", name),
+                meshPrefix);
         CIE_END_EXCEPTION_TRACING
 }
 
