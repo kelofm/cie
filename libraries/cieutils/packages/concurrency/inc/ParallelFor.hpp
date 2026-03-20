@@ -1,24 +1,17 @@
-#ifndef CIE_UTILS_PARALLEL_FOR_HPP
-#define CIE_UTILS_PARALLEL_FOR_HPP
+#pragma once
 
 // --- Internal Includes ---
-#include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/concurrency/inc/ThreadStorage.hpp"
 #include "packages/concurrency/inc/ThreadPool.hpp"
 #include "packages/concurrency/inc/IndexPartitionFactory.hpp"
 #include "packages/compile_time/packages/concepts/inc/container_concepts.hpp"
 #include "packages/types/inc/types.hpp"
 
-// --- STL Includes ---
-#include <functional>
-#include <optional>
-
 
 namespace cie::mp {
 
 
 /** @brief Parallel for construct with thread local storage.
- *
  *  @tparam TIndex: Index type used during partitioning and the loops.
  *  @tparam TStorage: @ref ThreadStorage for storing data local to each thread.
  *  @ingroup cieutils
@@ -81,8 +74,9 @@ public:
      *  @param rFunction target function to execute at each iteration.
      */
     template <class TFunction>
-    ParallelFor& operator()(Ref<const IndexPartitionFactory> rPartitionFactory,
-                            Ref<const TFunction> rFunction);
+    ParallelFor& operator()(
+        Ref<const IndexPartitionFactory> rPartitionFactory,
+        Ref<const TFunction> rFunction);
 
     /** @brief Execute an indexed for loop.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -94,10 +88,11 @@ public:
      *  @param rFunction target function to execute at each iteration.
      */
     template <class TFunction>
-    ParallelFor& operator()(TIndex indexMin,
-                            TIndex indexMax,
-                            long stepSize,
-                            Ref<const TFunction> rFunction);
+    ParallelFor& operator()(
+        TIndex indexMin,
+        TIndex indexMax,
+        long stepSize,
+        Ref<const TFunction> rFunction);
 
     /** @brief Execute an indexed for loop beginning from 0.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -107,8 +102,9 @@ public:
      *  @param rFunction target function to execute at each iteration.
      */
     template <class TFunction>
-    ParallelFor& operator()(TIndex indexMax,
-                            Ref<const TFunction> rFunction);
+    ParallelFor& operator()(
+        TIndex indexMax,
+        Ref<const TFunction> rFunction);
 
     /** @brief Execute a range-based for loop over a container.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -118,8 +114,9 @@ public:
      *  @param rFunction target function to execute at each iteration.
      */
     template <concepts::Container TContainer, class TFunction>
-    ParallelFor& operator()(Ref<TContainer> rContainer,
-                            Ref<const TFunction> rFunction);
+    ParallelFor& operator()(
+        Ref<TContainer> rContainer,
+        Ref<const TFunction> rFunction);
 
     /** @brief Execute a range-based for loop over a const container.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -129,8 +126,9 @@ public:
      *  @param rFunction target function to execute at each iteration.
      */
     template <concepts::Container TContainer, class TFunction>
-    ParallelFor& operator()(Ref<const TContainer> rContainer,
-                            Ref<const TFunction> rFunction);
+    ParallelFor& operator()(
+        Ref<const TContainer> rContainer,
+        Ref<const TFunction> rFunction);
 
     /** @brief Execute a range-based for loop over a range.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -141,9 +139,15 @@ public:
      *  @param rFunction target function to execute at each iteration.
      */
     template <concepts::Iterator TIterator, class TFunction>
-    ParallelFor& operator()(TIterator itBegin,
-                            TIterator itEnd,
-                            Ref<const TFunction> rFunction);
+    ParallelFor& operator()(
+        TIterator itBegin,
+        TIterator itEnd,
+        Ref<const TFunction> rFunction);
+
+    template <class ...TArgs>
+    ParallelFor& execute(TArgs&& ... rArgs) {
+        return this->operator()(std::forward<TArgs>(rArgs)...);
+    }
 
     Ref<const Pool> getPool() const noexcept;
 
@@ -155,32 +159,34 @@ private:
     ParallelFor& operator=(ParallelFor&& rRhs) = delete;
 
     template <class TFunction>
-    void execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
-                 Ref<const TFunction> rFunction,
-                 bool barrier);
+    void executeImpl(
+        Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+        Ref<const TFunction> rFunction,
+        bool barrier);
 
     template <concepts::Container TContainer, class TFunction>
-    void execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
-                 Ref<TContainer> rContainer,
-                 Ref<const TFunction> rFunction);
+    void executeImpl(
+        Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+        Ref<TContainer> rContainer,
+        Ref<const TFunction> rFunction);
 
     template <concepts::Container TContainer, class TFunction>
-    void execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
-                 Ref<const TContainer> rContainer,
-                 Ref<const TFunction> rFunction);
+    void executeImpl(
+        Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+        Ref<const TContainer> rContainer,
+        Ref<const TFunction> rFunction);
 
     template <concepts::Iterator TIterator, class TFunction>
-    void execute(Ref<const IndexPartitionFactory> rIndexPartitionFactory,
-                 TIterator itBegin,
-                 Ref<const TFunction> rFunction);
+    void executeImpl(
+        Ref<const IndexPartitionFactory> rIndexPartitionFactory,
+        TIterator itBegin,
+        Ref<const TFunction> rFunction);
 
 private:
     Pool _pool;
-};
+}; // class ParallelFor
 
 
 } // namespace cie::mp
 
 #include "packages/concurrency/impl/ParallelFor_impl.hpp"
-
-#endif

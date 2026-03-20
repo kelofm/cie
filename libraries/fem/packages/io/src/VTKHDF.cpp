@@ -1,3 +1,6 @@
+#include "packages/macros/inc/exceptions.hpp"
+#include <H5Opublic.h>
+#include <H5Ppublic.h>
 #ifdef CIE_ENABLE_HDF5
 
 // --- External Includes ---
@@ -27,32 +30,38 @@ struct VTKHDF::Output::Impl {
     Impl(Ref<const std::filesystem::path> rPath)
         : _file() {
             CIE_BEGIN_EXCEPTION_TRACING
-            H5std_string h5Path;
-            const auto& rPathString = rPath.string();
-            h5Path.resize(rPathString.size());
+                H5std_string h5Path;
+                const auto& rPathString = rPath.string();
+                h5Path.resize(rPathString.size());
 
-            std::copy(
-                rPathString.begin(),
-                rPathString.end(),
-                h5Path.begin());
+                std::copy(
+                    rPathString.begin(),
+                    rPathString.end(),
+                    h5Path.begin());
 
-            // Create or wipe the output file.
-            _file = H5::H5File(
-                h5Path,
-                H5F_ACC_TRUNC);
+                // Create or wipe the output file.
+                _file = H5::H5File(
+                    h5Path,
+                    H5F_ACC_TRUNC);
             CIE_END_EXCEPTION_TRACING
 
+            // Define VTKHDF root with its required attributes.
             CIE_BEGIN_EXCEPTION_TRACING
-            H5::Group rootGroup(_file.createGroup("/VTKHDF"));
-            this->writeAttribute(
-                rootGroup,
-                "Type",
-                "MultiBlockDataSet");
-            const std::array<int,2> version {2, 4};
-            this->writeAttribute(
-                rootGroup,
-                "Version",
-                std::span<const int>(version));
+                H5::Group rootGroup = this->makeGroup("/VTKHDF");
+                this->writeAttribute(
+                    rootGroup,
+                    "Type",
+                    "MultiBlockDataSet");
+                const std::array<int,2> version {2, 4};
+                this->writeAttribute(
+                    rootGroup,
+                    "Version",
+                    std::span<const int>(version));
+            CIE_END_EXCEPTION_TRACING
+
+            // Define the assembly.
+            CIE_BEGIN_EXCEPTION_TRACING
+                H5::Group assembly = this->makeGroup("/VTKHDF/Assembly");
             CIE_END_EXCEPTION_TRACING
     }
 
@@ -134,6 +143,66 @@ struct VTKHDF::Output::Impl {
     }
 
 
+    H5::Group makeGroup(Ref<const Prefix> rPrefix) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            H5::Group group = _file.openGroup("/");
+            std::string groupName;
+
+            for (Ref<const Prefix> rComponent : rPrefix) {
+                const auto& rString = rComponent.string();
+                groupName.resize(rString.size());
+                std::copy(
+                    rString.begin(),
+                    rString.end(),
+                    groupName.begin());
+
+                if (group.nameExists(groupName.c_str())) {
+                    CIE_CHECK(
+                        group.childObjType(groupName.c_str()) == H5O_TYPE_GROUP,
+                        std::format(
+                            "cannot create H5 group at \"{}\" because \"{}\" exists and is not a group.",
+                            rPrefix.string(),
+                            groupName))
+                    group = group.openGroup(groupName.c_str());
+                } else {
+                    group = group.createGroup(groupName.c_str());
+                }
+            } // for rComponent in rPrefix
+
+            return group;
+        CIE_END_EXCEPTION_TRACING
+    }
+
+
+    void link(
+        Ref<const Prefix> rSource,
+        Ref<const Prefix> rTarget) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->makeGroup(rSource.parent_path());
+                const auto& rSourceString = rSource.string();
+                std::string source;
+                std::copy(
+                    rSourceString.begin(),
+                    rSourceString.end(),
+                    std::back_inserter(source));
+
+                const auto& rTargetString = rTarget.string();
+                std::string target;
+                std::copy(
+                    rTargetString.begin(),
+                    rTargetString.end(),
+                    std::back_inserter(target));
+
+                H5Lcreate_soft(
+                    target.c_str(),
+                    _file.getId(),
+                    source.c_str(),
+                    H5P_DEFAULT,
+                    H5P_DEFAULT);
+            CIE_END_EXCEPTION_TRACING
+    }
+
+
     template <H5EntityLike TEntity>
     static void writeAttribute(
         Ref<TEntity> rEntity,
@@ -192,6 +261,18 @@ VTKHDF::Output::Output(Ref<const std::filesystem::path> rPath)
 VTKHDF::Output::~Output() = default;
 
 
+void VTKHDF::Output::makeGroup(Ref<const Prefix> rPrefix) {
+    _pImpl->makeGroup(rPrefix);
+}
+
+
+void VTKHDF::Output::link(
+    Ref<const Prefix> rSource,
+    Ref<const Prefix> rTarget) {
+        _pImpl->link(rSource, rTarget);
+}
+
+
 void VTKHDF::Output::writeAttribute(
     Ref<const Prefix> rPrefix,
     Ref<const std::string> rName,
@@ -227,10 +308,43 @@ void VTKHDF::Output::writeAttribute(
 }
 
 
+template <class TValue, unsigned Dimension>
+void VTKHDF::Output::writeDataset(
+    Ref<const Prefix> rPrefix,
+    std::array<const std::size_t,Dimension> shape,
+    std::span<const TValue> data) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            std::vector<hsize_t> shapeCopy(shape.begin(), shape.end());
+            std::string name;
+            const auto& rStem = rPrefix.filename().string();
+            std::copy(
+                rStem.begin(),
+                rStem.end(),
+                std::back_inserter(name));
+            auto valueType = _pImpl->getH5Type<TValue>();
+            H5::DataSpace dataSpace(shapeCopy.size(), shapeCopy.data());
+            H5::Group parent = _pImpl->findGroup(rPrefix.parent_path());
+            H5::DataSet dataset = parent.createDataSet(
+                name.c_str(),
+                valueType,
+                dataSpace);
+            dataset.write(data.data(), valueType);
+        CIE_END_EXCEPTION_TRACING
+}
+
+
 #define CIE_INSTANTIATE_VTKHDF(T)                       \
     template void VTKHDF::Output::writeAttribute<T>(    \
         Ref<const Prefix>,                              \
         Ref<const std::string>,                         \
+        std::span<const T>);                            \
+    template void VTKHDF::Output::writeDataset<T,1>(    \
+        Ref<const Prefix>,                              \
+        std::array<const std::size_t,1>,                \
+        std::span<const T>);                            \
+    template void VTKHDF::Output::writeDataset<T,2>(    \
+        Ref<const Prefix>,                              \
+        std::array<const std::size_t,2>,                \
         std::span<const T>);
 
 

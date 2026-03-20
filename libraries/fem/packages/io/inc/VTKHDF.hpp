@@ -9,6 +9,7 @@
 // --- STL Includes ---
 #include <filesystem> // std::filesystem::path
 #include <memory> // std::unique_ptr
+#include <string_view> // std::string_view
 
 
 namespace cie::io {
@@ -24,10 +25,18 @@ struct VTKHDF {
         ~Output();
 
         template <fem::DiscretizationLike TMesh>
-        void operator()(Ref<const TMesh>);
+        void operator()(
+            Ref<const TMesh> rMesh,
+            std::string_view name = "mesh");
 
     private:
         using Prefix = std::filesystem::path;
+
+        void makeGroup(Ref<const Prefix> rPrefix);
+
+        void link(
+            Ref<const Prefix> rSource,
+            Ref<const Prefix> rTarget);
 
         void writeAttribute(
             Ref<const Prefix> rPrefix,
@@ -39,6 +48,12 @@ struct VTKHDF {
             Ref<const Prefix> rPrefix,
             Ref<const std::string> rName,
             std::span<const T> value);
+
+        template <class TValue, unsigned Dimension>
+        void writeDataset(
+            Ref<const Prefix> rPrefix,
+            std::array<const std::size_t,Dimension> shape,
+            std::span<const TValue> data);
 
         struct Impl;
         std::unique_ptr<Impl> _pImpl;

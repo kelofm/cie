@@ -23,7 +23,7 @@ if (NOT TARGET geo)
 endif()
 
 if (${CIE_ENABLE_HDF5} MATCHES ON)
-    find_package(HDF5 REQUIRED COMPONENTS CXX)
+    find_package(HDF5 REQUIRED COMPONENTS C CXX)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -61,7 +61,7 @@ target_link_libraries(${PROJECT_NAME}
 if (${CIE_ENABLE_HDF5} MATCHES ON)
     target_link_libraries(
         ${PROJECT_NAME}
-        PUBLIC hdf5::hdf5_cpp)
+        PUBLIC hdf5::hdf5 hdf5::hdf5_cpp)
     target_compile_definitions(
         ${PROJECT_NAME}
         PUBLIC "CIE_ENABLE_HDF5")

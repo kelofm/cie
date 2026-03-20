@@ -53,8 +53,7 @@ using PhysicalCoordinate = utils::StrongTypeDef<T,detail::PhysicalSpaceTag>;
 
 
 template <unsigned Dimension, concepts::Numeric NT>
-struct Kernel
-{
+struct Kernel {
     static const unsigned dimension = Dimension;
     using Value                     = NT;
 
