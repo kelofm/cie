@@ -240,7 +240,6 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         rhs,
         mesh,
         contiguousCellData,
-        boundarySegments,
         bvh,
         assembler,
         rArguments,

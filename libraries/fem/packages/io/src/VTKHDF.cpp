@@ -368,14 +368,138 @@ void VTKHDF::Output::writeDataset(
             H5::Group parent = _pImpl->findGroup(rPrefix.parent_path());
 
             H5::DSetCreatPropList properties;
-            properties.setChunk(shapeCopy.size(), shapeCopy.data());
+
+            if (!data.empty())
+                properties.setChunk(shapeCopy.size(), shapeCopy.data());
 
             H5::DataSet dataset = parent.createDataSet(
                 name.c_str(),
                 valueType,
                 dataSpace,
                 properties);
-            dataset.write(data.data(), valueType);
+
+            if (!data.empty())
+                dataset.write(data.data(), valueType);
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class T, unsigned D>
+void VTKHDF::Output::writePointCloud(
+    std::string_view groupName,
+    std::span<const T> coordinates) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName;
+            H5::Group group = _pImpl->makeGroup(groupPrefix);
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                _pImpl->writeAttribute(
+                    group,
+                    "Type",
+                    "UnstructuredGrid");
+                const std::array<int,2> version {2, 4};
+                _pImpl->writeAttribute<H5::Group,int>(
+                    group,
+                    "Version",
+                    version);
+            CIE_END_EXCEPTION_TRACING
+
+            const std::size_t pointCount = coordinates.size() / D;
+            this->writeDataset<std::size_t,1>(
+                groupPrefix / "NumberOfCells",
+                {1},
+                {&pointCount, 1});
+            this->writeDataset<std::size_t,1>(
+                groupPrefix / "NumberOfConnectivityIds",
+                {1},
+                {&pointCount, 1});
+
+            this->writeDataset<std::size_t,1>(
+                groupPrefix / "NumberOfPoints",
+                {1},
+                {&pointCount, 1});
+
+            {
+                std::vector<int> connectivity(pointCount);
+                std::iota(connectivity.begin(), connectivity.end(), 0);
+                this->writeDataset<int,1>(
+                    groupPrefix / "Connectivity",
+                    {connectivity.size()},
+                    connectivity);
+
+                connectivity.push_back(pointCount);
+                this->writeDataset<int,1>(
+                    groupPrefix / "Offsets",
+                    {connectivity.size()},
+                    connectivity);
+            }
+
+            {
+                std::vector<std::uint8_t> types(pointCount);
+                std::fill(types.begin(), types.end(), static_cast<std::uint8_t>(1));
+                this->writeDataset<std::uint8_t,1>(
+                    groupPrefix / "Types",
+                    {types.size()},
+                    types);
+            }
+
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                const std::array<hsize_t,2> shape {pointCount, 3};
+                const char* pName = "Points";
+                auto valueType = _pImpl->getH5Type<T>();
+                H5::DataSpace dataSpace(shape.size(), shape.data());
+
+                H5::DSetCreatPropList properties;
+                properties.setChunk(shape.size(), shape.data());
+
+                H5::DataSet dataset = group.createDataSet(
+                    pName,
+                    valueType,
+                    dataSpace,
+                    properties);
+
+                if (!coordinates.empty()) {
+                    std::vector<T> column(pointCount);
+                    const std::size_t componentCount = coordinates.size() / pointCount;
+
+                    for (hsize_t d=0ul; d<3; ++d) {
+                        std::array<hsize_t,2>
+                            offset {0, d},
+                            count {pointCount, 1};
+                        dataSpace.selectHyperslab(
+                            H5S_SELECT_SET,
+                            count.data(),
+                            offset.data());
+                        std::array<hsize_t,2> memorySpaceShape {pointCount, 1};
+                        H5::DataSpace memorySpace(memorySpaceShape.size(), memorySpaceShape.data());
+
+                        if (d < D) {
+                            for (std::size_t iPoint=0ul; iPoint<pointCount; ++iPoint)
+                                column[iPoint] = coordinates[componentCount * iPoint + d];
+                        } else {
+                            std::fill(
+                                column.begin(),
+                                column.end(),
+                                static_cast<T>(0));
+                        }
+
+                        dataset.write(
+                            column.data(),
+                            valueType,
+                            memorySpace,
+                            dataSpace);
+                    }
+                }
+            CIE_END_EXCEPTION_TRACING
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->makeGroup(Prefix("/VTKHDF") / "Assembly" / groupName);
+                this->link(
+                    Prefix("/VTKHDF") / "Assembly" / groupName / groupName,
+                    groupPrefix);
+            CIE_END_EXCEPTION_TRACING
+
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -401,9 +525,21 @@ CIE_INSTANTIATE_VTKHDF(std::size_t)
 CIE_INSTANTIATE_VTKHDF(std::uint8_t)
 CIE_INSTANTIATE_VTKHDF(float)
 CIE_INSTANTIATE_VTKHDF(double)
-
-
 #undef CIE_INSTANTIATE_VTKHDF
+
+
+#define CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(T, D)        \
+    template void VTKHDF::Output::writePointCloud<T,D>( \
+        std::string_view,                               \
+        std::span<const T>);
+
+CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 1)
+CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 2)
+CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 3)
+CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(double, 1)
+CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(double, 2)
+CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(double, 3)
+#undef CIE_INSTANTIATE_VTKHDF_POINT_CLOUD
 
 
 } // namespace cie::io

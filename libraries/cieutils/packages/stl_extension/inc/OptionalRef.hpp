@@ -28,11 +28,11 @@ public:
     using value_type = TElement&;
 
     /// @brief Construct an invalid (uninitialized) optional.
-    OptionalRef() noexcept
-    {
+    OptionalRef() noexcept {
         // First of all, make sure that the pointer doesn't use the least significant bit
-        static_assert(1 < std::alignment_of<TElement>(),
-                      "OptionalReference cannot be used with types of size 1");
+        static_assert(
+            1 < std::alignment_of<TElement>(),
+            "OptionalRef cannot be used with types of size 1");
 
         // Assume that the size of PointerInteger is equal to the system's pointer size
         static_assert(sizeof(PointerInteger) == sizeof(TElement*));
@@ -44,8 +44,7 @@ public:
     }
 
     /// @brief Construct an optional reference to the provided instance.
-    OptionalRef(TElement& rElement) noexcept
-    {
+    OptionalRef(TElement& rElement) noexcept {
         PointerInteger p = reinterpret_cast<PointerInteger>(&rElement);
         mpElement.integer = p | static_cast<PointerInteger>(1);
     }
@@ -66,21 +65,18 @@ public:
     }
 
     /// @brief Check whether the optional is valid.
-    bool has_value() const noexcept
-    {
+    bool has_value() const noexcept {
         return mpElement.integer & static_cast<PointerInteger>(1);
     }
 
     /// @brief Check whether the optional is valid.
-    explicit operator bool () const noexcept
-    {
+    explicit operator bool () const noexcept {
         return this->has_value();
     }
 
     /// @brief Access the stored reference.
     /// @throws if the optional is uninitialized.
-    TElement& value() const
-    {
+    TElement& value() const {
         if (!this->has_value()){
             CIE_THROW(Exception, "Bad optional access")
         } else {
@@ -91,20 +87,17 @@ public:
 
     /// @brief Access the stored reference.
     /// @throws if the optional is uninitialized.
-    TElement& operator*() const noexcept
-    {
+    TElement& operator*() const noexcept {
         return this->value();
     }
 
     /// @brief Clear the optional.
-    void reset() noexcept
-    {
+    void reset() noexcept {
         mpElement.integer = 0;
     }
 
     /// @brief Cast to constant reference
-    operator OptionalRef<const TElement> () noexcept
-    {
+    operator OptionalRef<const TElement> () noexcept {
         if (this->has_value()) {
             return OptionalRef<const TElement>(this->value());
         } else {
