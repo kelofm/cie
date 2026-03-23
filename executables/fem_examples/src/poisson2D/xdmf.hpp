@@ -27,15 +27,6 @@
 namespace cie::fem {
 
 
-struct Sample {
-    StaticArray<PhysicalCoordinate<Scalar>,Dimension>   position;
-    Scalar                                              state;
-    Scalar                                              load;
-    Scalar                                              residual;
-    unsigned                                            cellID;
-}; // struct Sample
-
-
 class Output {
 public:
     Output(Ref<const std::filesystem::path> rPath = std::filesystem::path())
@@ -127,26 +118,7 @@ void postprocess(
     const unsigned postprocessResolution = rArguments.get<std::size_t>("scatter-resolution");
     Output output;
 
-    {
-        cie::io::VTKHDF::Output io;
-        io(rMesh);
-    }
-
-    // Collect output for the bounding volume hierarchy.
-    DynamicArray<StaticArray<Scalar,Dimension*intPow(2,Dimension)>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
-    rBVH.visit([&boundingVolumes](const auto& rBox) -> bool {
-        constexpr unsigned cornerCount = intPow(2,Dimension);
-        boundingVolumes.emplace_back();
-        geo::Box<Dimension,Scalar>::makeCorners(
-            rBox.base(),
-            rBox.lengths(),
-            std::span<Scalar,cornerCount*Dimension> (boundingVolumes.back().data(), cornerCount * Dimension)
-        );
-        return true;
-    });
-
-    // Compute residuals.
-    DynamicArray<Scalar> residual = rhs;
+    std::vector<Scalar> residual(rhs.begin(), rhs.end());
     {
         Eigen::Map<const Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>> lhsAdaptor(
             lhs.rowCount,
@@ -164,65 +136,135 @@ void postprocess(
         residualAdaptor.noalias() -= lhsAdaptor * solutionAdaptor;
     }
 
-    // Collect state samples.
-    DynamicArray<Sample> samples(postprocessResolution * postprocessResolution);
-
     {
-        auto logBlock = utils::LoggerSingleton::get().newBlock("scatter postprocess");
-        const Scalar postprocessDelta  = 1.0 / (postprocessResolution - 1);
+        cie::io::VTKHDF::Output io;
 
-        mp::ParallelFor<std::size_t>(rThreads).operator()(
-            intPow(postprocessResolution, 2),
-            [&samples, &solution, &rhs, &residual, &rAssembler, &rMesh, &rBVH, &contiguousCellData, postprocessResolution, postprocessDelta, meshBase, meshLengths](
-                    const std::size_t iSample) -> void {
-                const std::size_t iSampleY = iSample / postprocessResolution;
-                const std::size_t iSampleX = iSample % postprocessResolution;
-                auto& rSample = samples[iSample];
-                rSample.position = {
-                    meshBase[0] + meshLengths[0] * iSampleX * postprocessDelta,
-                    meshBase[1] + meshLengths[1] * iSampleY * postprocessDelta};
+        // Write the mesh.
+        io(
+            "mesh",
+            rMesh);
 
-                // Find which cell the global point lies in.
-                const auto iMaybeCellData = rBVH.makeView().find(
-                    Kernel<Dimension,Scalar>::decayView(rSample.position),
-                    std::span<const CellData>(contiguousCellData));
+        // Write solution, load and residual.
+        {
+            io.writeFieldVariables<Scalar>(
+                "mesh",
+                rMesh,
+                rAssembler,
+                {
+                    {"state", solution},
+                    {"load", rhs},
+                    {"residual", residual}
+                });
+        }
 
-                if (iMaybeCellData != contiguousCellData.size()) {
-                    Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
-                    rSample.cellID = rCellData.id();
+        // Write cell and DoF IDs.
+        {
+            std::vector<std::size_t> cellIDs, dofIDs;
+            cellIDs.reserve(contiguousCellData.size());
+            dofIDs.reserve(contiguousCellData.size() * rMesh.data().ansatz(0).size());
 
-                    // Compute sample point in the cell's local space.
-                    StaticArray<ParametricCoordinate<Scalar>,Dimension> localSamplePoint;
-                    rCellData.transform(
-                        Kernel<Dimension,Scalar>::view(rSample.position),
-                        Kernel<Dimension,Scalar>::view(localSamplePoint));
+            for (Ref<const CellData> rCell : contiguousCellData) {
+                cellIDs.push_back(rCell.id());
+                const auto& rDoFIDs = rAssembler[rCell.id()];
+                std::copy(
+                    rDoFIDs.begin(),
+                    rDoFIDs.end(),
+                    std::back_inserter(dofIDs));
+            } // for rCell in contiguousCellData
 
-                    // Evaluate the cell's ansatz functions at the local sample point.
-                    auto ansatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
-                    std::array<Scalar,Ansatz::size()> ansatzBuffer;
-                    ansatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(
-                        localSamplePoint),
-                        ansatzBuffer);
+            io.writeCellVariables<std::size_t>(
+                "mesh",
+                {
+                    {"id", {1}, cellIDs},
+                    {"dofs", {rMesh.data().ansatz(0).size()}, dofIDs}
+                });
+        }
 
-                    // Find the entries of the cell's DoFs in the global state vector.
-                    const auto& rGlobalIndices = rAssembler[rCellData.id()];
+        // Pointwise sampling.
+        {
+            auto logBlock = utils::LoggerSingleton::get().newBlock("scatter postprocess");
+            const Scalar postprocessDelta  = 1.0 / (postprocessResolution - 1);
 
-                    // Compute state as an indirect inner product of the solution vector
-                    // and the ansatz function values at the local corner coordinates.
-                    rSample.state = 0.0;
-                    rSample.load = 0.0;
-                    rSample.residual = 0.0;
-                    for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
-                        rSample.state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                        rSample.load += rhs[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                        rSample.residual += residual[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                    } // for iFunction in range(rGlobalIndices.size())
-                } else {
-                    // Could not find the cell that contains the current sample point.
-                    rSample.state = NAN;
-                }
-            });
+            const std::size_t sampleCount = intPow(postprocessResolution, 2);
+            std::vector<Scalar>
+                sampleCoordinates(sampleCount * Dimension),
+                sampleState(sampleCount),
+                sampleLoad(sampleCount),
+                sampleResidual(sampleCount);
+            std::vector<unsigned> cellIDs(sampleCount);
+
+            mp::ParallelFor<std::size_t>(rThreads).execute(
+                sampleCount,
+                [&](const std::size_t iSample) -> void {
+                    const std::size_t iSampleY = iSample / postprocessResolution;
+                    const std::size_t iSampleX = iSample % postprocessResolution;
+                    const auto physicalCoordinates = Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(std::span<Scalar,Dimension> {
+                        sampleCoordinates.data() + iSample * Dimension,
+                        Dimension});
+                    physicalCoordinates[0] = meshBase[0] + meshLengths[0] * iSampleX * postprocessDelta;
+                    physicalCoordinates[1] = meshBase[1] + meshLengths[1] * iSampleY * postprocessDelta;
+
+                    // Find which cell the global point lies in.
+                    const auto iMaybeCellData = rBVH.makeView().find(
+                        Kernel<Dimension,Scalar>::decay(physicalCoordinates),
+                        std::span<const CellData>(contiguousCellData));
+
+                    if (iMaybeCellData != contiguousCellData.size()) {
+                        Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
+                        cellIDs[iSample] = rCellData.id();
+
+                        // Compute sample point in the cell's local space.
+                        StaticArray<ParametricCoordinate<Scalar>,Dimension> parametricCoordinates;
+                        rCellData.transform(
+                            physicalCoordinates,
+                            Kernel<Dimension,Scalar>::view(parametricCoordinates));
+
+                        // Evaluate the cell's ansatz functions at the local sample point.
+                        auto ansatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
+                        std::array<Scalar,Ansatz::size()> ansatzBuffer;
+                        ansatzSpace.evaluate(Kernel<Dimension,Scalar>::decayView(
+                            parametricCoordinates),
+                            ansatzBuffer);
+
+                        // Find the entries of the cell's DoFs in the global state vector.
+                        const auto& rGlobalIndices = rAssembler[rCellData.id()];
+
+                        // Compute state as an indirect inner product of the solution vector
+                        // and the ansatz function values at the local corner coordinates.
+                        sampleState[iSample] = 0.0;
+                        sampleLoad[iSample] = 0.0;
+                        sampleResidual[iSample] = 0.0;
+                        for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
+                            sampleState[iSample] += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                            sampleLoad[iSample] += rhs[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                            sampleResidual[iSample] += residual[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
+                        } // for iFunction in range(rGlobalIndices.size())
+                    } else {
+                        // Could not find the cell that contains the current sample point.
+                        sampleState[iSample] = NAN;
+                        sampleLoad[iSample] = NAN;
+                        sampleResidual[iSample] = NAN;
+                    }
+                });
+
+            io.writePointCloud<Scalar,Dimension>(
+                "samples",
+                sampleCoordinates);
+        }
     }
+
+    // Collect output for the bounding volume hierarchy.
+    DynamicArray<StaticArray<Scalar,Dimension*intPow(2,Dimension)>> boundingVolumes; // {p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y}
+    rBVH.visit([&boundingVolumes](const auto& rBox) -> bool {
+        constexpr unsigned cornerCount = intPow(2,Dimension);
+        boundingVolumes.emplace_back();
+        geo::Box<Dimension,Scalar>::makeCorners(
+            rBox.base(),
+            rBox.lengths(),
+            std::span<Scalar,cornerCount*Dimension> (boundingVolumes.back().data(), cornerCount * Dimension)
+        );
+        return true;
+    });
 
     // Write XDMF.
     #ifdef CIE_ENABLE_HDF5
@@ -370,413 +412,6 @@ void postprocess(
             "bvhGeometry",
             {static_cast<int>(4 * boundingVolumes.size()), 3});
     }
-    output << R"(
-                    </DataItem>
-                </Geometry>
-            </Grid>
-
-            <Grid Name="mesh" GridType="Uniform">
-                <Topology TopologyType="Quadrilateral" NumberOfElements=")" << rMesh.vertices().size() << R"(" NodesPerElement="4">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << R"( 4">
-                        )";
-    {
-        DynamicArray<int> data;
-        data.reserve(rMesh.vertices().size() * 4);
-        std::ranges::for_each(
-            std::views::iota(0ul, rMesh.vertices().size()),
-            [&data] (std::size_t iCell) {
-                const int i = iCell * 4;
-                const std::array<int,4> buffer {
-                    i,
-                    i + 1,
-                    i + 3,
-                    i + 2};
-                data.insert(
-                    data.end(),
-                    buffer.begin(),
-                    buffer.end());
-            });
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "meshTopology",
-            {static_cast<int>(rMesh.vertices().size()), 4});
-    }
-    output << R"(
-                    </DataItem>
-                </Topology>
-
-                <Geometry Type="XYZ">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 4 * rMesh.vertices().size() << R"( 3">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        const std::array<std::array<ParametricCoordinate<Scalar>,Dimension>,intPow(2,Dimension)> localCorners {
-            std::array<ParametricCoordinate<Scalar>,Dimension> {-1.0, -1.0},
-            std::array<ParametricCoordinate<Scalar>,Dimension> { 1.0, -1.0},
-            std::array<ParametricCoordinate<Scalar>,Dimension> {-1.0,  1.0},
-            std::array<ParametricCoordinate<Scalar>,Dimension> { 1.0,  1.0}};
-        data.reserve(3 * localCorners.size() * rMesh.vertices().size());
-
-        for (const auto& rCell : rMesh.vertices()) {
-            for (const auto& rLocalPoint : localCorners) {
-                StaticArray<PhysicalCoordinate<Scalar>,Dimension> globalPoint;
-                rCell.data().transform(
-                    Kernel<Dimension,Scalar>::view(rLocalPoint),
-                    Kernel<Dimension,Scalar>::view(globalPoint));
-                data.insert(
-                    data.end(),
-                    globalPoint.begin(),
-                    globalPoint.end());
-                data.push_back(0.0);
-            } // for rLocalPoint : localCorners
-        } // for rCell in rMesh.vertices()
-
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "meshGeometry",
-            {static_cast<int>(4 * rMesh.vertices().size()), 3});
-    }
-    output << R"(
-                    </DataItem>
-                </Geometry>
-
-                <Attribute Name="state" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 4 * rMesh.vertices().size() << R"(">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        const std::array<std::array<Scalar,Dimension>,intPow(2,Dimension)> localCorners {
-            std::array<Scalar,Dimension> {-1.0, -1.0},
-            std::array<Scalar,Dimension> { 1.0, -1.0},
-            std::array<Scalar,Dimension> {-1.0,  1.0},
-            std::array<Scalar,Dimension> { 1.0,  1.0}};
-
-        data.reserve(4 * rMesh.vertices().size());
-        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatz(0ul).size());
-
-        for (const auto& rCell : rMesh.vertices()) {
-            const auto& rGlobalIndices = rAssembler[rCell.id()];
-            const auto& rAnsatzSpace = rMesh.data().ansatz(rCell.data().ansatzID());
-            ansatzBuffer.resize(rAnsatzSpace.size());
-
-            for (const auto& rLocalPoint : localCorners) {
-                // Compute ansatz function values at the current local corner.
-                rAnsatzSpace.evaluate(rLocalPoint, ansatzBuffer);
-
-                Scalar state = 0.0;
-                for (std::size_t iFunction=0; iFunction<ansatzBuffer.size(); ++iFunction) {
-                    state += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                }
-
-                data.push_back(state);
-            } // for rLocalPoint : localCorners
-        } // for rCell in rMesh.vertices()
-
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "meshState",
-            {static_cast<int>(4 * rMesh.vertices().size())});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-                <Attribute Name="DoFIDs" Center="Cell" AttributeType="Matrix">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << " " << rMesh.data().ansatz(0ul).size() << R"(">
-                        )";
-    {
-        DynamicArray<std::size_t> data;
-
-        data.reserve(rMesh.data().ansatz(0ul).size() * rMesh.vertices().size());
-        DynamicArray<std::size_t> ansatzBuffer(rMesh.data().ansatz(0ul).size());
-
-        for (const auto& rCell : rMesh.vertices()) {
-            const auto& rGlobalIndices = rAssembler[rCell.id()];
-            std::copy(
-                rGlobalIndices.begin(),
-                rGlobalIndices.end(),
-                std::back_inserter(data));
-        } // for rCell in rMesh.vertices()
-
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "DoFIDs",
-            {static_cast<int>(rMesh.vertices().size()), static_cast<int>(rMesh.data().ansatz(0ul).size())});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-                <Attribute Name="axes" Center="Cell" AttributeType="Matrix">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << rMesh.vertices().size() << " " << Dimension << R"(">
-                        )";
-    {
-        DynamicArray<std::int8_t> data;
-
-        data.reserve(Dimension * rMesh.vertices().size());
-
-        for (const auto& rCell : rMesh.vertices()) {
-            const auto axes = rCell.data().axes();
-            for (std::uint8_t iDimension=0; iDimension<Dimension; ++iDimension) {
-                const BoundaryID value = axes[iDimension];
-                data.push_back(value.getDirection() ? (value.getDimension() + 1) : -(value.getDimension() + 1));
-            }
-        } // for rCell in rMesh.vertices()
-
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "cellAxes",
-            {static_cast<int>(rMesh.vertices().size()), static_cast<int>(Dimension)});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-                <Attribute Name="load" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 4 * rMesh.vertices().size() << R"(">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        const std::array<std::array<Scalar,Dimension>,intPow(2,Dimension)> localCorners {
-            std::array<Scalar,Dimension> {-1.0, -1.0},
-            std::array<Scalar,Dimension> { 1.0, -1.0},
-            std::array<Scalar,Dimension> {-1.0,  1.0},
-            std::array<Scalar,Dimension> { 1.0,  1.0}};
-
-        data.reserve(4 * rMesh.vertices().size());
-        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatz(0ul).size());
-
-        for (const auto& rCell : rMesh.vertices()) {
-            const auto& rGlobalIndices = rAssembler[rCell.id()];
-            const auto& rAnsatzSpace = rMesh.data().ansatz(rCell.data().ansatzID());
-            ansatzBuffer.resize(rAnsatzSpace.size());
-
-            for (const auto& rLocalPoint : localCorners) {
-                // Compute ansatz function values at the current local corner.
-                rAnsatzSpace.evaluate(rLocalPoint, ansatzBuffer);
-
-                Scalar state = 0.0;
-                for (std::size_t iFunction=0; iFunction<ansatzBuffer.size(); ++iFunction) {
-                    state += rhs[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                }
-
-                data.push_back(state);
-            } // for rLocalPoint : localCorners
-        } // for rCell in rMesh.vertices()
-
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "meshLoad",
-            {static_cast<int>(4 * rMesh.vertices().size())});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-                <Attribute Name="residual" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << 4 * rMesh.vertices().size() << R"(">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        const std::array<std::array<Scalar,Dimension>,intPow(2,Dimension)> localCorners {
-            std::array<Scalar,Dimension> {-1.0, -1.0},
-            std::array<Scalar,Dimension> { 1.0, -1.0},
-            std::array<Scalar,Dimension> {-1.0,  1.0},
-            std::array<Scalar,Dimension> { 1.0,  1.0}};
-
-        data.reserve(4 * rMesh.vertices().size());
-        DynamicArray<Scalar> ansatzBuffer(rMesh.data().ansatz(0ul).size());
-
-        for (const auto& rCell : rMesh.vertices()) {
-            const auto& rGlobalIndices = rAssembler[rCell.id()];
-            const auto& rAnsatzSpace = rMesh.data().ansatz(rCell.data().ansatzID());
-            ansatzBuffer.resize(rAnsatzSpace.size());
-
-            for (const auto& rLocalPoint : localCorners) {
-                // Compute ansatz function values at the current local corner.
-                rAnsatzSpace.evaluate(rLocalPoint, ansatzBuffer);
-
-                Scalar state = 0.0;
-                for (std::size_t iFunction=0; iFunction<ansatzBuffer.size(); ++iFunction) {
-                    state += residual[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];
-                }
-
-                data.push_back(state);
-            } // for rLocalPoint : localCorners
-        } // for rCell in rMesh.vertices()
-
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "meshResidual",
-            {static_cast<int>(4 * rMesh.vertices().size())});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-            </Grid>
-
-            <Grid Name="sample" GridType="Uniform">
-                <Topology TopologyType="Quadrilateral" NumberOfElements=")" << intPow(postprocessResolution - 1, 2) << R"(" NodePerElement="4">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << intPow(postprocessResolution - 1, 2) << R"( 4">
-                        )";
-    {
-        DynamicArray<int> data;
-        data.reserve(4 * intPow(postprocessResolution - 1, 2));
-        for (unsigned iSampleCellY=0u; iSampleCellY<postprocessResolution - 1; ++iSampleCellY) {
-            for (unsigned iSampleCellX=0u; iSampleCellX<postprocessResolution - 1; ++iSampleCellX) {
-                const unsigned iBase = iSampleCellY * postprocessResolution + iSampleCellX;
-                const std::array<int,4> buffer {
-                    static_cast<int>(iBase),
-                    static_cast<int>(iBase) + 1,
-                    static_cast<int>(iBase + postprocessResolution) + 1,
-                    static_cast<int>(iBase + postprocessResolution)};
-                data.insert(
-                    data.end(),
-                    buffer.begin(),
-                    buffer.end());
-            } // for iSampleCellX in range(proceprocessResolution)
-        } // for iSampleCellY in range(proceprocessResolution)
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "sampleTopology",
-            {static_cast<int>(intPow(postprocessResolution - 1, 2)), 4});
-    }
-    output << R"(
-                    </DataItem>
-                </Topology>
-
-                <Geometry Type="XYZ">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << samples.size() << R"( 3">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        data.reserve(3 * samples.size());
-        for (const auto& rSample : samples) {
-            data.push_back(rSample.position.front());
-            data.push_back(rSample.position.back());
-            data.push_back(0.0);
-        }
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "sampleGeometry",
-            {static_cast<int>(samples.size()), 3});
-    }
-    output << R"(
-                    </DataItem>
-                </Geometry>
-
-                <Attribute Name="state" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << samples.size() << R"( 1">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        data.reserve(samples.size());
-        std::transform(
-            samples.begin(),
-            samples.end(),
-            std::back_inserter(data),
-            [] (const auto& rSample) {
-                return rSample.state;
-            });
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "sampleState",
-            {static_cast<int>(samples.size()), 1});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-                <Attribute Name="load" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << samples.size() << R"( 1">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        data.reserve(samples.size());
-        std::transform(
-            samples.begin(),
-            samples.end(),
-            std::back_inserter(data),
-            [] (const auto& rSample) {
-                return rSample.load;
-            });
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "sampleLoad",
-            {static_cast<int>(samples.size()), 1});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-                <Attribute Name="residual" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << samples.size() << R"( 1">
-                        )";
-    {
-        DynamicArray<Scalar> data;
-        data.reserve(samples.size());
-        std::transform(
-            samples.begin(),
-            samples.end(),
-            std::back_inserter(data),
-            [] (const auto& rSample) {
-                return rSample.residual;
-            });
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "sampleResidual",
-            {static_cast<int>(samples.size()), 1});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-
-                <Attribute Name="cellID" Center="Node" AttributeType="Scalar">
-                    <DataItem Format=)" << CIE_HEAVY_DATA_FORMAT << R"( Dimensions=")" << samples.size() << R"( 1">
-                        )";
-    {
-        DynamicArray<int> data;
-        data.reserve(samples.size());
-        std::transform(
-            samples.begin(),
-            samples.end(),
-            std::back_inserter(data),
-            [] (const auto& rSample) {
-                return rSample.cellID;
-            });
-        output.write(
-            std::span<const decltype(data)::value_type>(
-                data.data(),
-                data.size()),
-            "sampleCellID",
-            {static_cast<int>(samples.size()), 1});
-    }
-    output << R"(
-                    </DataItem>
-                </Attribute>
-            </Grid>
-        </Grid>
-    </Domain>
-</Xdmf>
-)";
     CIE_END_EXCEPTION_TRACING
 }
 
