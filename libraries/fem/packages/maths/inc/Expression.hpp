@@ -1,5 +1,4 @@
-#ifndef CIE_MATHS_CONCEPTS_EXPRESSION_HPP
-#define CIE_MATHS_CONCEPTS_EXPRESSION_HPP
+#pragma once
 
 
 /// @defgroup fem Finite Element Library
@@ -26,55 +25,65 @@ namespace cie::fem::maths {
 ///          preallocated contiguous arrays of scalars. The convention is that the input array's size is
 ///          known by both @p T and its user, but the size of the output array may only be known
 ///          to @p T. A query function that exposes this information to the user is thus required.
+///          The @p Expression may require a preallocated chunk of contiguous memory for internal
+///          calculations, whose size it must also provide.
 ///
 ///          Specifically, a class implementing @p Expression must have:
 ///          - An alias for the scalar type: @p Value
 ///          - An alias for an immutable span of the input array: @p ConstSpan.
 ///          - An alias for a mutable span of the output array: @p Span.
+///          - An alias for a mutable span of bytes for internal use: @p BufferSpan.
 ///          - A member function querying the size of the output array with the following signature:
-///            @code
+///            @code{.cpp}
 ///            unsigned T::size() const
+///            @endcode
+///            @code{.cpp}
+///            unsigned T::bufferSize() const
 ///            @endcode
 ///          - A member function for the evaluation of the mathematical function at a specific point.
 ///            - @p input Span over the input array.
-///            - @p output Span over the output array.
-///            @code
-///            void T::evaluate(ConstSpan input, Span output) const
+///            - @p output Span over the adequately sized output array.
+///            - @p buffer Span over an adequately sized buffer.
+///            @code{.cpp}
+///            void T::evaluate(ConstSpan input, Span output, BufferSpan buffer) const
 ///            @endcode
 /// @see cie::fem::maths::ExpressionTraits
+/// @see cie::fem::maths::JacobianExpression
+/// @see cie::fem::maths::SpatialTransform
+/// @see cie::fem::maths::StaticExpression
 /// @ingroup fem
 template <class T>
 concept Expression
-= requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
-    /// @brief Value type to perform numerical operations on (eg: @a double).
+= std::is_same_v<typename std::remove_cvref_t<T>::BufferSpan,std::span<std::byte>>
+&& requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
+    /// @brief Value type to perform numerical operations on (eg: @p double).
     typename std::remove_cvref_t<T>::Value;
 
     /// @brief Span over a contiguous array of value types.
     typename std::remove_cvref_t<T>::Span;
 
-    /// @brief Span over a contiguous array of const value types.
+    /// @brief Span over a contiguous array of immutable value types.
     typename std::remove_cvref_t<T>::ConstSpan;
 
-    // /// @brief Type of the function's derivative; must also be an @p Expression.
-    // typename T::Derivative;
+    /// @brief Span over a contiguous array of immutable value types used as buffer for internal calculations.
+    typename std::remove_cvref_t<T>::BufferSpan;
 
-    /// @brief Require a size function indicating the of scalar components returned by @a evaluate.
+    /// @brief Require a size function indicating the number of scalar components returned by @p evaluate.
     {constInstance.size()} -> concepts::UnsignedInteger;
+
+    /// @brief Require a function indicating the size of the buffer in bytes.
+    {constInstance.bufferSize()} -> concepts::UnsignedInteger;
 
     /// @details Require the evaluation through the following signature:
     ///          @code
-    ///          void Expression::evaluate(ConstIterator itBegin, ConstIterator itEnd, Iterator itOut)
+    ///          void Expression::evaluate(ConstSpan in, Span out, BufferSpan buffer)
     ///          @endcode
     {
         instance.evaluate(
             std::declval<typename std::remove_cvref_t<T>::ConstSpan>(),
-            std::declval<typename std::remove_cvref_t<T>::Span>())
+            std::declval<typename std::remove_cvref_t<T>::Span>(),
+            std::declval<typename std::remove_cvref_t<T>::BufferSpan>())
     } -> std::same_as<void>;
-
-    // /// @brief Require a derivative factory
-    // /// @note Concepts cannot be recursive so the same requirements
-    // ///       cannot be imposed on the returned type unfortunately.
-    // {instance.makeDerivative()};
 }; // concept Expression
 
 
@@ -84,15 +93,18 @@ concept Expression
 ///          adds 1 extra requirement. Namely, the class must be able to compute the determinant of the transformation's
 ///          derivative with the following signature:
 ///          @code{.cpp}
-///          typename T::Value T::evaluateDeterminant(typename T::ConstSpan)
+///          typename T::Value T::evaluateDeterminant(typename T::ConstSpan, typename T::BufferSpan)
 ///          @endcode
+/// @see cie::fem::maths::Expression
 /// @see cie::fem::maths::SpatialTransform
 /// @ingroup fem
 template <class T>
 concept JacobianExpression
 = Expression<T> && requires (const std::remove_cvref_t<T> constInstance) {
     {
-        constInstance.evaluateDeterminant(typename std::remove_cvref_t<T>::ConstSpan())
+        constInstance.evaluateDeterminant(
+            typename std::remove_cvref_t<T>::ConstSpan(),
+            typename std::remove_cvref_t<T>::BufferSpan())
     } -> std::same_as<typename std::remove_cvref_t<T>::Value>;
 }; // concept JacobianExpression
 
@@ -141,59 +153,27 @@ concept SpatialTransform
 }; // concept SpatialTransform
 
 
-/// @brief Static interface for an @ref cie::fem::maths::Expression "Expression" that requires a buffer during its operation.
-/// @details The expression does not own the memory the buffer occupies, nor does it have the
-///          means of manipulating its size. Whoever uses a @p BufferedExpression must ensure
-///          that the instance is provided with an adequately sized buffer before invoking
-///          <tt>T::evaluate</tt>. The purpose of such ownership is to give the option of completely
-///          eliminating memory allocations from expressions for performance or use on accelerators.
-///
-///          On top of the requirements laid out by @ref Expression, @p BufferedExpression adds
-///          2 extra functions:
-///
-///          - A query for the minimum buffer size with the following signature:
-///            @code{.cpp}
-///            unsigned T::getMinBufferSize() const
-///            @endcode
-///
-///          - A setter for the buffer with the following signature:
-///            @code
-///            void T::setBuffer(std::span<typename T::Value>)
-///            @endcode
-///
-/// @note Any class satisfying @p BufferedExpression is not expected to own the memory of its
-///       buffer but rely on external management, and thus may throw exceptions when
-///       provided with insufficiently sized buffers to prevent segmentation faults.
-/// @ingroup fem
-template <class T>
-concept BufferedExpression
-= Expression<T> && requires(T instance, const T constInstance) {
-    /// @brief Require a query for the minimum required buffer size.
-    {constInstance.getMinBufferSize()} -> concepts::UnsignedInteger;
-
-    /// @brief Require setting a contiguous, volatile buffer.
-    {instance.setBuffer(std::span<typename T::Value>())} -> std::same_as<void>;
-}; // concept BufferedExpression
-
-
 /// @brief Static interface for @ref Expression "expressions" with static memory requirements.
-/// @details A static expression must know its output size at compile time.
+/// @details A static expression must know its output size and buffer size at compile time.
 template <class T>
 concept StaticExpression
 = Expression<T> && requires () {
     {T::size()} -> std::same_as<unsigned>;
+    {T::bufferSize()} -> std::same_as<unsigned>;
 };
 
 
 template <class T>
 struct StaticExpressionSize {
-    static inline constexpr unsigned value = 0u;
+    static inline constexpr unsigned size = 0u;
+    static inline constexpr unsigned bufferSize = 0u;
 };
 
 
 template <StaticExpression T>
 struct StaticExpressionSize<T> {
     static inline constexpr unsigned value = T::size();
+    static inline constexpr unsigned bufferSize = T::bufferSize();
 };
 
 
@@ -206,6 +186,8 @@ struct ExpressionTraits {
     using Span = std::span<TValue>;
 
     using ConstSpan = std::span<const TValue>;
+
+    using BufferSpan = std::span<std::byte>;
 }; // struct Traits
 
 
@@ -217,11 +199,18 @@ struct DynamicExpression : ExpressionTraits<TValue> {
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     using Derivative = DynamicExpression;
 
-    unsigned size() const = 0;
+    virtual unsigned size() const = 0;
 
-    virtual void evaluate(ConstSpan input, Span output) = 0;
+    virtual unsigned bufferSize() const = 0;
+
+    virtual void evaluate(
+        ConstSpan input,
+        Span output,
+        BufferSpan buffer) = 0;
 
     virtual std::shared_ptr<Derivative> makeDerivative() const = 0;
 }; // class DynamicExpression
@@ -239,6 +228,8 @@ public:
 
     using typename Base::ConstSpan;
 
+    using typename Base::BufferSpan;
+
     using typename Base::Derivative;
 
     using ExpressionType = TExpression;
@@ -252,7 +243,10 @@ public:
 
     unsigned size() const override;
 
-    void evaluate(ConstSpan input, Span output) override;
+    void evaluate(
+        ConstSpan input,
+        Span output,
+        BufferSpan buffer) override;
 
     std::shared_ptr<Derivative> makeDerivative() const override;
 
@@ -264,5 +258,3 @@ private:
 } // namespace cie::fem::maths
 
 #include "packages/maths/impl/Expression_impl.hpp"
-
-#endif

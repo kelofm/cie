@@ -52,6 +52,8 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     static constexpr unsigned InDimension = 1u;
 
     static constexpr unsigned OutDimension = 2u;
@@ -74,9 +76,14 @@ public:
     requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
     AffineEmbedding(Ref<const std::array<std::array<T,OutDimension>,2>> rTransformed);
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     Inverse makeInverse() const;
 
@@ -102,17 +109,26 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     static constexpr unsigned InDimension = 1u;
 
     static constexpr unsigned OutDimension = 2u;
 
     AffineEmbeddingDerivative() noexcept = default;
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     static constexpr unsigned size() noexcept;
 
-    TValue evaluateDeterminant(ConstSpan in) const;
+    static constexpr unsigned bufferSize() noexcept;
+
+    TValue evaluateDeterminant(
+        ConstSpan in,
+        BufferSpan buffer) const;
 
 private:
     friend class AffineEmbedding<TValue,InDimension,OutDimension>;
@@ -134,6 +150,8 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     static constexpr unsigned InDimension = 2u;
 
     static constexpr unsigned OutDimension = 1u;
@@ -144,9 +162,14 @@ public:
 
     AffineEmbeddingInverse() noexcept = default;
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan) const;
 
     static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     Inverse makeInverse() const;
 
@@ -172,17 +195,26 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     static constexpr unsigned InDimension = 2u;
 
     static constexpr unsigned OutDimension = 1u;
 
     AffineEmbeddingInverseDerivative() noexcept;
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     static constexpr unsigned size() noexcept;
 
-    TValue evaluateDeterminant(ConstSpan in) const;
+    static constexpr unsigned bufferSize() noexcept;
+
+    TValue evaluateDeterminant(
+        ConstSpan in,
+        BufferSpan buffer) const;
 
 private:
     friend class AffineEmbeddingInverse<TValue,InDimension,OutDimension>;

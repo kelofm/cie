@@ -1,9 +1,7 @@
-#ifndef CIE_MATHS_CONCEPTS_EXPRESSION_IMPL_HPP
-#define CIE_MATHS_CONCEPTS_EXPRESSION_IMPL_HPP
+#pragma once
 
 // --- FEM Includes ---
 #include "packages/maths/inc/Expression.hpp"
-
 
 
 namespace cie::fem::maths {
@@ -23,28 +21,34 @@ WrappedExpression<TExpression>::WrappedExpression(const TExpression& rExpression
 
 
 template <Expression TExpression>
-unsigned WrappedExpression<TExpression>::size() const
-{
+unsigned WrappedExpression<TExpression>::size() const {
     return _wrapped.size();
 }
 
 
 template <Expression TExpression>
-void WrappedExpression<TExpression>::evaluate(ConstSpan input, Span output)
-{
-    _wrapped.evaluate(input, output);
+unsigned WrappedExpression<TExpression>::bufferSize() const {
+    return _wrapped.bufferSize();
+}
+
+
+template <Expression TExpression>
+void WrappedExpression<TExpression>::evaluate(
+    ConstSpan input,
+    Span output,
+    BufferSpan buffer) {
+        _wrapped.evaluate(
+            input,
+            output,
+            buffer);
 }
 
 
 template <Expression TExpression>
 std::shared_ptr<typename WrappedExpression<TExpression>::Derivative>
-WrappedExpression<TExpression>::makeDerivative() const
-{
+WrappedExpression<TExpression>::makeDerivative() const {
     return std::shared_ptr<Derivative>(new WrappedExpression<typename TExpression::Derivative>(_wrapped.makeDerivative()));
 }
 
 
 } // namespace cie::fem::maths
-
-
-#endif

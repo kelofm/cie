@@ -16,11 +16,14 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void AffineTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, Span output) const {
-    std::copy_n(
-        this->_matrix.wrapped().data(),
-        Dimension * Dimension,
-        output.data());
+void AffineTransformDerivative<TValue,Dimension>::evaluate(
+    ConstSpan,
+    Span output,
+    BufferSpan) const {
+        std::copy_n(
+            this->_matrix.wrapped().data(),
+            Dimension * Dimension,
+            output.data());
 }
 
 
@@ -31,8 +34,16 @@ constexpr unsigned AffineTransformDerivative<TValue,Dimension>::size() noexcept 
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue AffineTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan) const {
-    return this->_matrix.wrapped().determinant();
+constexpr unsigned AffineTransformDerivative<TValue,Dimension>::bufferSize() noexcept {
+    return 0u;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+TValue AffineTransformDerivative<TValue,Dimension>::evaluateDeterminant(
+    ConstSpan,
+    BufferSpan) const {
+        return this->_matrix.wrapped().determinant();
 }
 
 
@@ -43,27 +54,36 @@ constexpr unsigned AffineTransform<TValue,Dimension>::size() noexcept {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void AffineTransform<TValue,Dimension>::evaluate(ConstSpan input, Span output) const  {
-    CIE_OUT_OF_RANGE_CHECK(Dimension == input.size())
-    CIE_OUT_OF_RANGE_CHECK(Dimension == output.size())
+constexpr unsigned AffineTransform<TValue,Dimension>::bufferSize() noexcept {
+    return 0u;
+}
 
-    // Copy augmented point
-    typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
-    std::copy_n(
-        input.data(),
-        Dimension,
-        augmentedPoint.data());
 
-    augmentedPoint[Dimension] = static_cast<TValue>(1);
+template <concepts::Numeric TValue, unsigned Dimension>
+void AffineTransform<TValue,Dimension>::evaluate(
+    ConstSpan input,
+    Span output,
+    BufferSpan) const  {
+        CIE_OUT_OF_RANGE_CHECK(Dimension == input.size())
+        CIE_OUT_OF_RANGE_CHECK(Dimension == output.size())
 
-    // Transform
-    const auto transformed = this->getTransformationMatrix() * augmentedPoint;
+        // Copy augmented point
+        typename Kernel<Dimension,TValue>::template static_array<Dimension+1> augmentedPoint;
+        std::copy_n(
+            input.data(),
+            Dimension,
+            augmentedPoint.data());
 
-    // Output result components
-    std::copy_n(
-        transformed.data(),
-        Dimension,
-        output.data());
+        augmentedPoint[Dimension] = static_cast<TValue>(1);
+
+        // Transform
+        const auto transformed = this->getTransformationMatrix() * augmentedPoint;
+
+        // Output result components
+        std::copy_n(
+            transformed.data(),
+            Dimension,
+            output.data());
 }
 
 

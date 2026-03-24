@@ -22,8 +22,7 @@ class AffineTransform;
 
 /// @brief Expression representing the derivative of @ref AffineTransform.
 template <concepts::Numeric TValue, unsigned Dimension>
-class AffineTransformDerivative : public ExpressionTraits<TValue>
-{
+class AffineTransformDerivative : public ExpressionTraits<TValue> {
 private:
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension,Dimension>;
 
@@ -34,18 +33,28 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
 public:
     /// @brief Identity by default.
     AffineTransformDerivative() noexcept;
 
     /// @brief This function is constant so the arguments are not necessary.
-    void evaluate(ConstSpan input, Span output) const;
+    void evaluate(
+        ConstSpan input,
+        Span output,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     static constexpr unsigned size() noexcept;
 
+    /// @brief Get the number of scalar components returned by @ref evaluate.
+    static constexpr unsigned bufferSize() noexcept;
+
     /// @brief Compute the determinant of the affine transform's jacobian.
-    TValue evaluateDeterminant(ConstSpan input) const;
+    TValue evaluateDeterminant(
+        ConstSpan input,
+        BufferSpan buffer) const;
 
 private:
     friend class AffineTransform<TValue,Dimension>;
@@ -63,8 +72,7 @@ private:
  *           Implements the @ref SpatialTransform interface.
  */
 template <concepts::Numeric TValue, unsigned Dimension>
-class AffineTransform final : private ExpressionTraits<TValue>
-{
+class AffineTransform final : private ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineTransform)
 
@@ -75,6 +83,8 @@ public:
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
+
+    using typename ExpressionTraits<TValue>::BufferSpan;
 
     using Derivative = AffineTransformDerivative<TValue,Dimension>;
 
@@ -112,10 +122,16 @@ public:
     AffineTransform(std::span<const Point> transformed);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
-    void evaluate(ConstSpan input, Span output) const;
+    void evaluate(
+        ConstSpan input,
+        Span output,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     static constexpr unsigned size() noexcept;
+
+    /// @brief Get the number of scalar components returned by @ref evaluate.
+    static constexpr unsigned bufferSize() noexcept;
 
     /// @brief Construct the derivative of the affine transform.
     Derivative makeDerivative() const noexcept;
