@@ -46,18 +46,27 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
 public:
     /// @brief Identity by default.
     ProjectiveTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     static constexpr unsigned size() noexcept;
 
+    static constexpr unsigned bufferSize() noexcept;
+
     /// @brief Compute the determinant of the projective transform's jacobian.
-    TValue evaluateDeterminant(ConstSpan in) const;
+    TValue evaluateDeterminant(
+        ConstSpan in,
+        BufferSpan buffer) const;
 
 private:
     friend class ProjectiveTransform<TValue,Dimension>;
@@ -93,6 +102,8 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     using Derivative = ProjectiveTransformDerivative<TValue,Dimension>;
 
     using Inverse = ProjectiveTransform;
@@ -122,10 +133,15 @@ public:
     ProjectiveTransform(std::span<const Point> transformed);
 
     /// @brief Apply the transformation on a vector defined by the provided components.
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     /// @brief Construct the inverse transform.
     Inverse makeInverse() const;
@@ -147,8 +163,9 @@ private:
     /// @param[in] pTransformedBegin Ptr to the first component of the homogenized transformed points.
     /// @param[out] rMatrix Transformation matrix to write to.
     /// @warning @a pTransformedBegin is mutated during construction.
-    static void computeTransformationMatrix(Ptr<TValue> pTransformedBegin,
-                                            Ref<TransformationMatrix> rMatrix);
+    static void computeTransformationMatrix(
+        Ptr<TValue> pTransformedBegin,
+        Ref<TransformationMatrix> rMatrix);
 
 private:
     TransformationMatrix _transformationMatrix;

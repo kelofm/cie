@@ -29,9 +29,7 @@ template <maths::Expression TDirichlet,
           maths::Expression TAnsatzSpace,
           maths::Expression TEmbedding,
           CellLike TCell>
-class DirichletPenaltyIntegrand
-    : public maths::ExpressionTraits<typename TAnsatzSpace::Value>
-{
+class DirichletPenaltyIntegrand : public maths::ExpressionTraits<typename TAnsatzSpace::Value> {
 public:
     static constexpr unsigned Dimension = TAnsatzSpace::Dimension;
 
@@ -41,13 +39,9 @@ public:
 
     using typename maths::ExpressionTraits<Value>::Span;
 
-    using CellInverseTransform = typename TCell::SpatialTransform::Inverse;
+    using typename maths::ExpressionTraits<Value>::BufferSpan;
 
-    static inline constexpr bool isBuffered = (
-           maths::BufferedExpression<TDirichlet>
-        || maths::BufferedExpression<TAnsatzSpace>
-        || maths::BufferedExpression<TEmbedding>
-        || maths::BufferedExpression<CellInverseTransform>);
+    using CellInverseTransform = typename TCell::SpatialTransform::Inverse;
 
     static inline constexpr bool isStatic = (
            maths::StaticExpression<TDirichlet>
@@ -73,13 +67,14 @@ public:
         Ref<const CellInverseTransform> rCellInverseTransform,
         std::span<Value> buffer);
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     unsigned size() const;
 
-    unsigned getMinBufferSize() const noexcept;
-
-    void setBuffer(std::span<Value> buffer);
+    unsigned bufferSize() const noexcept;
 
 private:
     Value _penalty;
@@ -91,8 +86,6 @@ private:
     TEmbedding _embedding;
 
     CellInverseTransform _cellInverseTransform;
-
-    std::span<Value> _buffer;
 }; // class DirichletPenaltyIntegrand
 
 
@@ -107,25 +100,13 @@ makeDirichletPenaltyIntegrand(
     const TValue penalty,
     Ref<const TAnsatzSpace> rAnsatzSpace,
     Ref<const TEmbedding> rSpatialTransform,
-    Ref<const TCell> rCell,
-    std::span<TValue> buffer = {})
-{
-    if (buffer.empty()) {
+    Ref<const TCell> rCell) {
         return DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TEmbedding,TCell>(
             rDirichletFunctor,
             penalty,
             rAnsatzSpace,
             rSpatialTransform,
             rCell.makeInverseSpatialTransform());
-    } else {
-        return DirichletPenaltyIntegrand<TDirichlet,TAnsatzSpace,TEmbedding,TCell>(
-            rDirichletFunctor,
-            penalty,
-            rAnsatzSpace,
-            rSpatialTransform,
-            rCell.makeInverseSpatialTransform(),
-            buffer);
-    }
 }
 
 

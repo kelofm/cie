@@ -23,6 +23,8 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     BSpline() noexcept = default;
 
     BSpline(
@@ -30,10 +32,17 @@ public:
         std::span<const TValue> knots)
     requires (ParametricDimension == 1u);
 
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     static constexpr unsigned size() noexcept {
         return PhysicalDimension;
+    }
+
+    static constexpr unsigned bufferSize() noexcept {
+        return 0u;
     }
 
 private:

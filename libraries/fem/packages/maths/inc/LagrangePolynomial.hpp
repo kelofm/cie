@@ -3,9 +3,6 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Polynomial.hpp"
 
-// --- Utility Includes ---
-#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
-
 // --- STL Includes --
 #include <span>
 
@@ -14,9 +11,7 @@ namespace cie::fem::maths {
 
 
 template <class TValue>
-class LagrangePolynomial final
-    : public Polynomial<TValue>
-{
+class LagrangePolynomial final : public Polynomial<TValue> {
 public:
     LagrangePolynomial() noexcept = default;
 

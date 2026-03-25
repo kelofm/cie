@@ -25,10 +25,11 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 Point p2 { x, -y};                                                      \
                 Point p3 { x,  y};                                                      \
                 StaticArray<double,9> results;                                          \
+                std::vector<double> buffer(ANSATZ_SPACE.bufferSize());                  \
                                                                                         \
                 CIE_TEST_REQUIRE(ANSATZ_SPACE.size() == 9);                             \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p0, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p0, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx(  30.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx( -25.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx( 605.0));                           \
@@ -39,7 +40,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_CHECK(results[7] == Approx(-405.0));                           \
                 CIE_TEST_CHECK(results[8] == Approx(9801.0));                           \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p1, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p1, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx( -24.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx(  20.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx(-484.0));                           \
@@ -50,7 +51,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_CHECK(results[7] == Approx(-405.0));                           \
                 CIE_TEST_CHECK(results[8] == Approx(9801.0));                           \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p2, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p2, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx( -25.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx(  30.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx( 605.0));                           \
@@ -61,7 +62,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_CHECK(results[7] == Approx( 486.0));                           \
                 CIE_TEST_CHECK(results[8] == Approx(9801.0));                           \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p3, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p3, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx(  20.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx( -24.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx(-484.0));                           \
@@ -143,10 +144,11 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 Point p2 { x, -y};                                                      \
                 Point p3 { x,  y};                                                      \
                 StaticArray<double,9> results;                                          \
+                std::vector<double> buffer(ANSATZ_SPACE.bufferSize());                  \
                                                                                         \
                 CIE_TEST_REQUIRE(ANSATZ_SPACE.size() == 9);                             \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p0, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p0, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx(  30.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx( -25.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx( 605.0));                           \
@@ -157,7 +159,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_CHECK(results[7] == Approx(-405.0));                           \
                 CIE_TEST_CHECK(results[8] == Approx(9801.0));                           \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p1, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p1, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx( -24.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx(  20.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx(-484.0));                           \
@@ -168,7 +170,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_CHECK(results[7] == Approx(-405.0));                           \
                 CIE_TEST_CHECK(results[8] == Approx(9801.0));                           \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p2, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p2, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx( -25.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx(  30.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx( 605.0));                           \
@@ -179,7 +181,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_CHECK(results[7] == Approx( 486.0));                           \
                 CIE_TEST_CHECK(results[8] == Approx(9801.0));                           \
                                                                                         \
-                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p3, results));             \
+                CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(p3, results, buffer));     \
                 CIE_TEST_CHECK(results[0] == Approx(  20.0));                           \
                 CIE_TEST_CHECK(results[1] == Approx( -24.0));                           \
                 CIE_TEST_CHECK(results[2] == Approx(-484.0));                           \
@@ -262,59 +264,60 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
             Basis(Basis::Coefficients { 0.5, -0.5}),
             Basis(Basis::Coefficients { 0.5,  0.5})};
 
-        #define CIE_TMP_CHECK(ANSATZ_DERIVATIVE)                                                \
-            {                                                                                   \
-                CIE_TEST_REQUIRE(ANSATZ_DERIVATIVE.size() == 8);                                \
-                                                                                                \
-                using Point = Kernel<2,double>::Point;                                          \
-                const double x = 2;                                                             \
-                const double y = 3;                                                             \
-                const Point p0 {-x, -y};                                                        \
-                const Point p1 { x, -y};                                                        \
-                const Point p2 {-x,  y};                                                        \
-                const Point p3 { x,  y};                                                        \
-                                                                                                \
-                Eigen::Matrix<double,4,2> buffer;                                               \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p0, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                  \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p1, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                  \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p2, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                  \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p3, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                  \
+        #define CIE_TMP_CHECK(ANSATZ_DERIVATIVE)                                                    \
+            {                                                                                       \
+                CIE_TEST_REQUIRE(ANSATZ_DERIVATIVE.size() == 8);                                    \
+                                                                                                    \
+                using Point = Kernel<2,double>::Point;                                              \
+                const double x = 2;                                                                 \
+                const double y = 3;                                                                 \
+                const Point p0 {-x, -y};                                                            \
+                const Point p1 { x, -y};                                                            \
+                const Point p2 {-x,  y};                                                            \
+                const Point p3 { x,  y};                                                            \
+                std::vector<double> b(ANSATZ_DERIVATIVE.bufferSize());                              \
+                                                                                                    \
+                Eigen::Matrix<double,4,2> buffer;                                                   \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p0, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                      \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p1, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                      \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p2, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                      \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p3, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                      \
             }
 
         // Check default constructor.
@@ -376,58 +379,59 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
             Basis(Basis::Coefficients { 0.5,  0.5})};
 
         #define CIE_TMP_CHECK(ANSATZ_DERIVATIVE) \
-            {                                                                                   \
-                CIE_TEST_REQUIRE(ANSATZ_DERIVATIVE.size() == 8);                                \
-                                                                                                \
-                using Point = Kernel<2,double>::Point;                                          \
-                const double x = 2;                                                             \
-                const double y = 3;                                                             \
-                const Point p0 {-x, -y};                                                        \
-                const Point p1 { x, -y};                                                        \
-                const Point p2 {-x,  y};                                                        \
-                const Point p3 { x,  y};                                                        \
-                                                                                                \
-                Eigen::Matrix<double,4,2> buffer;                                               \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p0, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                  \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p1, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                  \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p2, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                  \
-                                                                                                \
-                ANSATZ_DERIVATIVE.evaluate(p3, {buffer.data(), buffer.data() + buffer.size()}); \
-                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                  \
-                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                  \
-                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                  \
-                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                  \
-                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                  \
-                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                  \
-                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                  \
-                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                  \
+            {                                                                                       \
+                CIE_TEST_REQUIRE(ANSATZ_DERIVATIVE.size() == 8);                                    \
+                                                                                                    \
+                using Point = Kernel<2,double>::Point;                                              \
+                const double x = 2;                                                                 \
+                const double y = 3;                                                                 \
+                const Point p0 {-x, -y};                                                            \
+                const Point p1 { x, -y};                                                            \
+                const Point p2 {-x,  y};                                                            \
+                const Point p3 { x,  y};                                                            \
+                std::vector<double> b(ANSATZ_DERIVATIVE.bufferSize());                              \
+                                                                                                    \
+                Eigen::Matrix<double,4,2> buffer;                                                   \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p0, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                      \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p1, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                      \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p2, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                      \
+                                                                                                    \
+                ANSATZ_DERIVATIVE.evaluate(p3, {buffer.data(), buffer.data() + buffer.size()}, b);  \
+                CIE_TEST_CHECK(buffer(0, 0) == Approx( 0.50));                                      \
+                CIE_TEST_CHECK(buffer(1, 0) == Approx(-0.50));                                      \
+                CIE_TEST_CHECK(buffer(2, 0) == Approx(-1.00));                                      \
+                CIE_TEST_CHECK(buffer(3, 0) == Approx( 1.00));                                      \
+                CIE_TEST_CHECK(buffer(0, 1) == Approx( 0.25));                                      \
+                CIE_TEST_CHECK(buffer(1, 1) == Approx(-0.75));                                      \
+                CIE_TEST_CHECK(buffer(2, 1) == Approx(-0.25));                                      \
+                CIE_TEST_CHECK(buffer(3, 1) == Approx( 0.75));                                      \
             }
 
         // Check default constructor.

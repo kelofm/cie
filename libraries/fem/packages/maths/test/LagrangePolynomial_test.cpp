@@ -16,13 +16,18 @@ CIE_TEST_CASE("LagrangePolynomial", "[maths]")
     using Test = LagrangePolynomial<double>;
     const DynamicArray<double> nodes {0.0, 1.0/4.0, 3.0/4.0, 1.0};
     double result;
+    std::vector<double> buffer;
 
     for (Size baseIndex=0; baseIndex<nodes.size(); ++baseIndex) {
         CIE_TEST_REQUIRE_NOTHROW(Test(nodes, baseIndex));
         Test polynomial(nodes, baseIndex);
+        CIE_TEST_REQUIRE_NOTHROW(buffer.resize(polynomial.bufferSize()));
 
         for (Size nodeIndex=0; nodeIndex<nodes.size(); ++nodeIndex) {
-            CIE_TEST_CHECK_NOTHROW(polynomial.evaluate({nodes.data() + nodeIndex, nodes.data() + nodeIndex + 1}, {&result, (&result) + 1}));
+            CIE_TEST_CHECK_NOTHROW(polynomial.evaluate(
+                {nodes.data() + nodeIndex, nodes.data() + nodeIndex + 1},
+                {&result, (&result) + 1},
+                buffer));
             CIE_TEST_CHECK(result == (nodeIndex == baseIndex ? Approx(1.0) : Approx(0.0).margin(1e-14)));
         }
     }

@@ -29,8 +29,7 @@ class TranslateScaleTransform;
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-class ScaleTranslateTransformDerivative : public ExpressionTraits<TValue>
-{
+class ScaleTranslateTransformDerivative : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(ScaleTranslateTransformDerivative)
 
@@ -40,18 +39,27 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
 public:
     /// @brief Identity by default.
     ScaleTranslateTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstSpan in, Span out) const noexcept;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const noexcept;
 
     /// @brief Evaluate the determinant of the original transform's jacobian at the provided location.
-    TValue evaluateDeterminant(ConstSpan in) const noexcept;
+    TValue evaluateDeterminant(
+        ConstSpan in,
+        BufferSpan buffer) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     template <concepts::Numeric TTNumeric, unsigned Dim>
     friend Ref<std::ostream> operator<<(
@@ -86,6 +94,8 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     using Inverse = TranslateScaleTransform<TValue,Dimension>;
@@ -105,10 +115,15 @@ public:
         TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of components written by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     /// @brief Construct the derivative of the transform.
     Derivative makeDerivative() const noexcept;
@@ -152,6 +167,8 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     using Inverse = ScaleTranslateTransform<TValue,Dimension>;
@@ -171,10 +188,15 @@ public:
         TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of components written by @ref evaluate.
-    unsigned size() const noexcept;
+    static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     /// @brief Construct the derivative of the transform.
     ScaleTranslateTransformDerivative<TValue,Dimension> makeDerivative() const noexcept;

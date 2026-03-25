@@ -12,30 +12,41 @@ namespace cie::fem::maths {
 
 
 template <class TLambda, concepts::Numeric TValue>
-requires concepts::CallableWith<TLambda,
-                                typename ExpressionTraits<TValue>::ConstSpan,
-                                typename ExpressionTraits<TValue>::Span>
-class LambdaExpression : public ExpressionTraits<TValue>
-{
+requires concepts::CallableWith<
+    TLambda,
+    typename ExpressionTraits<TValue>::ConstSpan,
+    typename ExpressionTraits<TValue>::Span,
+    typename ExpressionTraits<TValue>::BufferSpan>
+class LambdaExpression : public ExpressionTraits<TValue> {
 public:
     using typename ExpressionTraits<TValue>::ConstSpan;
 
     using typename ExpressionTraits<TValue>::Span;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
 public:
-    LambdaExpression(RightRef<TLambda> rLambda,
-                     unsigned size) noexcept
-        : _wrapped(std::move(rLambda)),
-          _size(size)
+    LambdaExpression(
+        RightRef<TLambda> rLambda,
+        unsigned size,
+        unsigned bufferSize) noexcept
+            : _wrapped(std::move(rLambda)),
+              _size(size),
+              _bufferSize(bufferSize)
     {}
 
-    LambdaExpression(Ref<const TLambda> rLambda,
-                     unsigned size)
-        : LambdaExpression(TLambda(rLambda), size)
+    LambdaExpression(
+        Ref<const TLambda> rLambda,
+        unsigned size,
+        unsigned bufferSize)
+            : LambdaExpression(TLambda(rLambda), size, bufferSize)
     {}
 
-    void evaluate(ConstSpan in, Span out) const
-    {this->_wrapped(in, out);}
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const
+    {this->_wrapped(in, out, buffer);}
 
     unsigned size() const noexcept
     {return this->_size;}
@@ -43,13 +54,16 @@ public:
 private:
     TLambda _wrapped;
 
-    unsigned _size;
+    unsigned _size, _bufferSize;
 }; // class LambdaExpression
 
 
 template <class TValue, class TLambda>
-LambdaExpression<TLambda,TValue> makeLambdaExpression(TLambda&& rLambda, unsigned size)
-{return LambdaExpression<TLambda,TValue>(std::forward<TLambda>(rLambda), size);}
+LambdaExpression<TLambda,TValue> makeLambdaExpression(
+    TLambda&& rLambda,
+    unsigned size,
+    unsigned bufferSize)
+{return LambdaExpression<TLambda,TValue>(std::forward<TLambda>(rLambda), size, bufferSize);}
 
 
 } // namespace cie::fem::maths

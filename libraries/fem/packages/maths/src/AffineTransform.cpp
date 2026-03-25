@@ -17,6 +17,7 @@
 // --- STL Includes ---
 #include <algorithm>
 #include <optional>
+#include <mutex>
 
 
 namespace cie::fem::maths {
@@ -90,23 +91,24 @@ private:
 
 
 template <class TValue, unsigned Dimension>
-class AffineCoefficientsSingleton
-{
+class AffineCoefficientsSingleton {
 public:
-    static Ref<const AffineCoefficients<TValue,Dimension>> get() noexcept
-    {
+    static Ref<const AffineCoefficients<TValue,Dimension>> get() noexcept {
+        std::scoped_lock<std::mutex> lock(_mutex);
         if (!_object.has_value()) {
             _object.emplace();
         }
         return _object.value();
     }
 
-    static void clear() noexcept
-    {
+    static void clear() noexcept {
+        std::scoped_lock<std::mutex> lock(_mutex);
         _object.reset();
     }
 
 private:
+    static std::mutex _mutex;
+
     static std::optional<AffineCoefficients<TValue,Dimension>> _object;
 }; // class AffineCoefficientsSingleton
 
@@ -114,6 +116,10 @@ private:
 template <class TValue, unsigned Dimension>
 std::optional<AffineCoefficients<TValue,Dimension>>
 AffineCoefficientsSingleton<TValue,Dimension>::_object;
+
+
+template <class TValue, unsigned Dimension>
+std::mutex AffineCoefficientsSingleton<TValue,Dimension>::_mutex;
 
 
 } // namespace detail
@@ -169,48 +175,45 @@ AffineTransform<TValue,Dimension>::AffineTransform(RightRef<TransformationMatrix
 
 template <concepts::Numeric TValue, unsigned Dimension>
 typename AffineTransform<TValue,Dimension>::Derivative
-AffineTransform<TValue,Dimension>::makeDerivative() const noexcept
-{
+AffineTransform<TValue,Dimension>::makeDerivative() const noexcept {
     return AffineTransformDerivative<TValue,Dimension>(*this);
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 void
-AffineTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<const TValue> pTransformedBegin,
-                                                               Ref<TransformationMatrix> rMatrix)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-    Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
-    rMatrix.wrapped().noalias() = homogeneousPoints * detail::AffineCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
-    CIE_END_EXCEPTION_TRACING
+AffineTransform<TValue,Dimension>::computeTransformationMatrix(
+    Ptr<const TValue> pTransformedBegin,
+    Ref<TransformationMatrix> rMatrix) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
+            rMatrix.wrapped().noalias() = homogeneousPoints * detail::AffineCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
+        CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 typename AffineTransform<TValue,Dimension>::Inverse
-AffineTransform<TValue,Dimension>::makeInverse() const
-{
+AffineTransform<TValue,Dimension>::makeInverse() const {
     CIE_BEGIN_EXCEPTION_TRACING
-    return AffineTransform<TValue,Dimension>(
-        typename AffineTransform<TValue,Dimension>::TransformationMatrix(this->getTransformationMatrix().wrapped().inverse())
-    );
+        return AffineTransform<TValue,Dimension>(
+            typename AffineTransform<TValue,Dimension>::TransformationMatrix(
+                this->getTransformationMatrix().wrapped().inverse())
+        );
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline Ref<const typename AffineTransform<TValue,Dimension>::TransformationMatrix>
-AffineTransform<TValue,Dimension>::getTransformationMatrix() const noexcept
-{
+AffineTransform<TValue,Dimension>::getTransformationMatrix() const noexcept {
     return _transformationMatrix;
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline Ref<typename AffineTransform<TValue,Dimension>::TransformationMatrix>
-AffineTransform<TValue,Dimension>::getTransformationMatrix() noexcept
-{
+AffineTransform<TValue,Dimension>::getTransformationMatrix() noexcept {
     return _transformationMatrix;
 }
 

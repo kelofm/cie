@@ -22,8 +22,7 @@ class OrthogonalScaleTransform;
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-class OrthogonalScaleTransformDerivative : public ExpressionTraits<TValue>
-{
+class OrthogonalScaleTransformDerivative : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(OrthogonalScaleTransformDerivative)
 
@@ -33,25 +32,33 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
 public:
     /// @brief Identity by default.
     OrthogonalScaleTransformDerivative() noexcept;
 
     /// @brief Evaluate the derivative at the provided point.
-    void evaluate(ConstSpan in, Span out) const noexcept;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const noexcept;
 
     /// @brief Evaluate the determinant of the original transform's jacobian at the provided location.
-    TValue evaluateDeterminant(ConstSpan in) const noexcept;
+    TValue evaluateDeterminant(
+        ConstSpan in,
+        BufferSpan buffer) const noexcept;
 
     /// @brief Get the number of components written by @ref evaluate.
     static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
 private:
     friend class OrthogonalScaleTransform<TValue,Dimension>;
 
     OrthogonalScaleTransformDerivative(Ref<const OrthogonalScaleTransform<TValue,Dimension>> rTransform) noexcept;
 
-private:
     StaticArray<TValue,Dimension> _scales;
 }; // class OrthogonalScaleTransformDerivative
 
@@ -61,8 +68,7 @@ private:
 /// @details Uniquely defines a mapping between axis-aligned hyperrectangles in
 ///          D-dimensional space, that have their base vertices at the origin.
 template <concepts::Numeric TValue, unsigned Dimension>
-class OrthogonalScaleTransform : private ExpressionTraits<TValue>
-{
+class OrthogonalScaleTransform : private ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(OrthogonalScaleTransform)
 
@@ -71,6 +77,8 @@ public:
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
+
+    using typename ExpressionTraits<TValue>::BufferSpan;
 
     using Derivative = OrthogonalScaleTransformDerivative<TValue,Dimension>;
 
@@ -86,14 +94,20 @@ public:
      *  @note The number of input components must match the dimension.
      */
     template <concepts::Iterator TPointIt>
-    OrthogonalScaleTransform(TPointIt itTransformedBegin,
-                             TPointIt itTransformedEnd);
+    OrthogonalScaleTransform(
+        TPointIt itTransformedBegin,
+        TPointIt itTransformedEnd);
 
     /// @brief Apply the transformation on a vector defined by the provided components
-    void evaluate(ConstSpan in, Span out) const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const;
 
     /// @brief Get the number of components written by @ref evaluate.
     static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     /// @brief Construct the derivative of the transform.
     Derivative makeDerivative() const noexcept;

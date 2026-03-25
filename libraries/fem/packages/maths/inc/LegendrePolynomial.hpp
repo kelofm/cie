@@ -8,8 +8,7 @@ namespace cie::fem::maths {
 
 
 template <class TValue>
-class LegendrePolynomial : public Polynomial<TValue>
-{
+class LegendrePolynomial : public Polynomial<TValue> {
 public:
     LegendrePolynomial() noexcept = default;
 
@@ -18,8 +17,7 @@ public:
 
 
 template <class TValue>
-class ModifiedLegendrePolynomial : public Polynomial<TValue>
-{
+class ModifiedLegendrePolynomial : public Polynomial<TValue> {
 public:
     ModifiedLegendrePolynomial() noexcept = default;
 
@@ -28,8 +26,7 @@ public:
 
 
 template <class TValue>
-class IntegratedLegendrePolynomial : public Polynomial<TValue>
-{
+class IntegratedLegendrePolynomial : public Polynomial<TValue> {
 public:
     IntegratedLegendrePolynomial() noexcept = default;
 

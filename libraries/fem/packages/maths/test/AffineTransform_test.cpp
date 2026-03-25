@@ -59,12 +59,13 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
             CIE_TEST_CHECK_NOTHROW(transform = Transform({transformed.begin(), 3}));
         }
 
+        std::vector<double> buffer(transform.bufferSize());
         {
             CIE_TEST_CASE_INIT("transformation")
 
             for (Size i_point=0; i_point<locals.size(); ++i_point) {
                 Point point;
-                CIE_TEST_CHECK_NOTHROW(transform.evaluate(locals[i_point], point));
+                CIE_TEST_CHECK_NOTHROW(transform.evaluate(locals[i_point], point, buffer));
                 CIE_TEST_REQUIRE(point.size() == 2);
 
                 for (Size i_component=0; i_component<point.size(); ++i_component)
@@ -103,9 +104,10 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
 
             const auto inverseTransform = transform.makeInverse();
 
+            buffer.resize(inverseTransform.bufferSize());
             for (Size i_point=0; i_point<transformed.size(); ++i_point) {
                 Point point;
-                inverseTransform.evaluate(transformed[i_point], point);
+                inverseTransform.evaluate(transformed[i_point], point, buffer);
                 const auto& r_reference = locals[i_point];
                 for (Size i_component=0; i_component<point.size(); ++i_component)
                     CIE_TEST_CHECK(point[i_component] == Approx(r_reference[i_component]));
@@ -143,12 +145,13 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
             CIE_TEST_CHECK_NOTHROW(transform = Transform({transformed.begin(), 4}));
         }
 
+        std::vector<double> buffer(transform.bufferSize());
         {
             CIE_TEST_CASE_INIT("transformation")
 
             for (Size i_point=0; i_point<locals.size(); ++i_point) {
                 Point point;
-                CIE_TEST_CHECK_NOTHROW(transform.evaluate(locals[i_point], point));
+                CIE_TEST_CHECK_NOTHROW(transform.evaluate(locals[i_point], point, buffer));
                 CIE_TEST_REQUIRE(point.size() == 3);
                 for (Size i_component=0; i_component<point.size(); ++i_component)
                     CIE_TEST_CHECK(point[i_component] == Approx(transformed[i_point][i_component]));
@@ -187,9 +190,10 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
 
             const auto inverseTransform = transform.makeInverse();
 
+            buffer.resize(inverseTransform.bufferSize());
             for (Size i_point=0; i_point<transformed.size(); ++i_point) {
                 Point point;
-                CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[i_point], point));
+                CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[i_point], point, buffer));
                 const auto& r_reference = locals[i_point];
                 for (Size i_component=0; i_component<point.size(); ++i_component)
                     CIE_TEST_CHECK(point[i_component] == Approx(r_reference[i_component]));

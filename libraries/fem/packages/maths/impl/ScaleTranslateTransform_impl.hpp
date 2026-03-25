@@ -19,47 +19,53 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative() noexcept {
-    std::fill(this->_scales.begin(),
-              this->_scales.end(),
-              static_cast<TValue>(1));
+    std::fill(
+        this->_scales.begin(),
+        this->_scales.end(),
+        static_cast<TValue>(1));
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const ScaleTranslateTransform<TValue,Dimension>> rTransform) noexcept {
-    std::copy(rTransform._scales.begin(),
-              rTransform._scales.end(),
-              this->_scales.begin());
+    std::copy(
+        rTransform._scales.begin(),
+        rTransform._scales.end(),
+        this->_scales.begin());
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ScaleTranslateTransformDerivative<TValue,Dimension>::ScaleTranslateTransformDerivative(Ref<const TranslateScaleTransform<TValue,Dimension>> rTransform) noexcept {
-    std::copy(rTransform._scales.begin(),
-              rTransform._scales.end(),
-              this->_scales.begin());
+    std::copy(
+        rTransform._scales.begin(),
+        rTransform._scales.end(),
+        this->_scales.begin());
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(ConstSpan, Span out) const noexcept {
-    // Return a Dimension x Dimension matrix with _scales on the main diagonal.
-    static_assert(0 < Dimension);
-    auto itScale = this->_scales.cbegin();
-    auto itOut = out.data();
+void ScaleTranslateTransformDerivative<TValue,Dimension>::evaluate(
+    ConstSpan,
+    Span out,
+    BufferSpan) const noexcept {
+        // Return a Dimension x Dimension matrix with _scales on the main diagonal.
+        static_assert(0 < Dimension);
+        auto itScale = this->_scales.cbegin();
+        auto itOut = out.data();
 
-    *itOut++ = *itScale++;
-    for (unsigned iColumn=0; iColumn<Dimension-1; ++iColumn) {
-        for (unsigned iNullComponent=0; iNullComponent<Dimension; ++iNullComponent) {
-            *itOut++ = static_cast<TValue>(0);
-        } // for iNullComponent in range(Dimension)
         *itOut++ = *itScale++;
-    } // for iColumn in range(Dimension-1)
+        for (unsigned iColumn=0; iColumn<Dimension-1; ++iColumn) {
+            for (unsigned iNullComponent=0; iNullComponent<Dimension; ++iNullComponent) {
+                *itOut++ = static_cast<TValue>(0);
+            } // for iNullComponent in range(Dimension)
+            *itOut++ = *itScale++;
+        } // for iColumn in range(Dimension-1)
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan) const noexcept {
+TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan, BufferSpan) const noexcept {
     return std::accumulate(
         this->_scales.begin(),
         this->_scales.end(),
@@ -69,8 +75,14 @@ TValue ScaleTranslateTransformDerivative<TValue,Dimension>::evaluateDeterminant(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-unsigned ScaleTranslateTransformDerivative<TValue,Dimension>::size() const noexcept {
+constexpr unsigned ScaleTranslateTransformDerivative<TValue,Dimension>::size() noexcept {
     return Dimension * Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned ScaleTranslateTransformDerivative<TValue,Dimension>::bufferSize() noexcept {
+    return 0u;
 }
 
 
@@ -85,30 +97,33 @@ Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(TPointIt itTransformedBegin,
-                                                                   [[maybe_unused]] TPointIt itTransformedEnd) {
-    CIE_OUT_OF_RANGE_CHECK(
-        std::distance(itTransformedBegin, itTransformedEnd) == 2,
-        "Expecting 2 points, but got " << std::distance(itTransformedBegin, itTransformedEnd)
-    )
+ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(
+    TPointIt itTransformedBegin,
+    [[maybe_unused]] TPointIt itTransformedEnd) {
+        CIE_OUT_OF_RANGE_CHECK(
+            std::distance(itTransformedBegin, itTransformedEnd) == 2,
+            "Expecting 2 points, but got " << std::distance(itTransformedBegin, itTransformedEnd))
 
-    const auto& rBase = *itTransformedBegin;
-    const auto& rOp = *(itTransformedBegin + 1);
-    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        const TValue diff = rOp[iDim] - rBase[iDim];
-        CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
-        this->_scales[iDim] = diff / static_cast<TValue>(2);
-        this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / static_cast<TValue>(2);
-    }
+        const auto& rBase = *itTransformedBegin;
+        const auto& rOp = *(itTransformedBegin + 1);
+        for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+            const TValue diff = rOp[iDim] - rBase[iDim];
+            CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
+            this->_scales[iDim] = diff / static_cast<TValue>(2);
+            this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / static_cast<TValue>(2);
+        }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void ScaleTranslateTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const {
-    CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
-    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        out[iDim] = in[iDim] * this->_scales[iDim] + this->_offset[iDim];
-    }
+void ScaleTranslateTransform<TValue,Dimension>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan) const {
+        CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
+        for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+            out[iDim] = in[iDim] * this->_scales[iDim] + this->_offset[iDim];
+        }
 }
 
 
@@ -123,62 +138,67 @@ ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform() noexcept {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
-TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(TPointIt itTransformedBegin,
-                                                                   [[maybe_unused]] TPointIt itTransformedEnd) {
-    CIE_OUT_OF_RANGE_CHECK(
-        std::distance(itTransformedBegin, itTransformedEnd) == 2,
-        "Expecting 2 points, but got " << std::distance(itTransformedBegin, itTransformedEnd)
-    )
+TranslateScaleTransform<TValue,Dimension>::TranslateScaleTransform(
+    TPointIt itTransformedBegin,
+    [[maybe_unused]] TPointIt itTransformedEnd) {
+        CIE_OUT_OF_RANGE_CHECK(
+            std::distance(itTransformedBegin, itTransformedEnd) == 2,
+            "Expecting 2 points, but got " << std::distance(itTransformedBegin, itTransformedEnd))
 
-    const auto& rBase = *itTransformedBegin;
-    const auto& rOp = *(itTransformedBegin + 1);
-    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        const TValue diff = (rOp[iDim] - rBase[iDim]);
-        CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
-        this->_scales[iDim] = diff / static_cast<TValue>(2);
-        this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / diff;
-    }
+        const auto& rBase = *itTransformedBegin;
+        const auto& rOp = *(itTransformedBegin + 1);
+        for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+            const TValue diff = (rOp[iDim] - rBase[iDim]);
+            CIE_DIVISION_BY_ZERO_CHECK(std::numeric_limits<TValue>::epsilon() < std::abs(diff))
+            this->_scales[iDim] = diff / static_cast<TValue>(2);
+            this->_offset[iDim] = (rOp[iDim] + rBase[iDim]) / diff;
+        }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void TranslateScaleTransform<TValue,Dimension>::evaluate(ConstSpan in, Span out) const {
-    CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
-    for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-        out[iDim] = (in[iDim] + this->_offset[iDim]) * this->_scales[iDim];
-    }
+void TranslateScaleTransform<TValue,Dimension>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan) const {
+        CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
+        for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+            out[iDim] = (in[iDim] + this->_offset[iDim]) * this->_scales[iDim];
+        }
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-unsigned TranslateScaleTransform<TValue,Dimension>::size() const noexcept {
+constexpr unsigned TranslateScaleTransform<TValue,Dimension>::size() noexcept {
     return Dimension;
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                             Ref<const ScaleTranslateTransform<TValue,Dimension>> rObject) {
-    std::array<TValue,Dimension> input, output;
+Ref<std::ostream> operator<<(
+    Ref<std::ostream> rStream,
+    Ref<const ScaleTranslateTransform<TValue,Dimension>> rObject) {
+        std::array<TValue,Dimension> input, output;
 
-    std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
-    rObject.evaluate(input, output);
-    for (const auto c : output) rStream << c << ' ';
+        std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
+        rObject.evaluate(input, output);
+        for (const auto c : output) rStream << c << ' ';
 
-    std::fill(input.begin(), input.end(), static_cast<TValue>(1));
-    rObject.evaluate(input, output);
-    for (const auto c : output) rStream << c << ' ';
+        std::fill(input.begin(), input.end(), static_cast<TValue>(1));
+        rObject.evaluate(input, output);
+        for (const auto c : output) rStream << c << ' ';
 
-    return rStream;
+        return rStream;
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-Ref<std::ostream> operator<<(Ref<std::ostream> rStream,
-                             Ref<const TranslateScaleTransform<TValue,Dimension>> rObject) {
-    for (const auto scale : rObject._scales) rStream << scale << ' ';
-    for (const auto component : rObject._offset) rStream << component << ' ';
-    return rStream;
+Ref<std::ostream> operator<<(
+    Ref<std::ostream> rStream,
+    Ref<const TranslateScaleTransform<TValue,Dimension>> rObject) {
+        for (const auto scale : rObject._scales) rStream << scale << ' ';
+        for (const auto component : rObject._offset) rStream << component << ' ';
+        return rStream;
 }
 
 

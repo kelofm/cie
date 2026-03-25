@@ -25,19 +25,20 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
         // Check default-constructed embedding.
         CIE_TEST_CHECK_NOTHROW(Embedding());
         Embedding embedding;
+        std::vector<double> buffer(embedding.size());
 
         in[0] = -1.0;
-        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
         CIE_TEST_CHECK(out[0] == Approx(-1.0));
         CIE_TEST_CHECK(out[1] == Approx(-1.0));
 
         in[0] = 0.0;
-        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
         CIE_TEST_CHECK(out[0] == Approx(0.0));
         CIE_TEST_CHECK(out[1] == Approx(-1.0));
 
         in[0] = 1.0;
-        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
         CIE_TEST_CHECK(out[0] == Approx(1.0));
         CIE_TEST_CHECK(out[1] == Approx(-1.0));
 
@@ -48,17 +49,17 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
         CIE_TEST_CHECK_NOTHROW(embedding = Embedding(transformed));
 
         in[0] = -1.0;
-        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
         CIE_TEST_CHECK(out[0] == Approx(10.0));
         CIE_TEST_CHECK(out[1] == Approx(5.0));
 
         in[0] = 0.0;
-        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
         CIE_TEST_CHECK(out[0] == Approx(4.0));
         CIE_TEST_CHECK(out[1] == Approx(10.0));
 
         in[0] = 1.0;
-        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+        CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
         CIE_TEST_CHECK(out[0] == Approx(-2.0));
         CIE_TEST_CHECK(out[1] == Approx(15.0));
 
@@ -77,23 +78,24 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
                 segment.begin(),
                 0.0));
 
-            CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out));
+            CIE_TEST_CHECK_NOTHROW(embedding.evaluate(in, out, buffer));
             std::array<double,1> perturbed;
             constexpr double perturbationNorm = 1e0;
             std::array<double,2> transformedPerturbed, reference;
 
             perturbed = in;
             perturbed[0] += perturbationNorm;
-            CIE_TEST_CHECK_NOTHROW(embedding.evaluate(perturbed, transformedPerturbed));
+            CIE_TEST_CHECK_NOTHROW(embedding.evaluate(perturbed, transformedPerturbed, buffer));
             reference[0] = (transformedPerturbed[0] - out[0]) / perturbationNorm;
             reference[1] = (transformedPerturbed[1] - out[1]) / perturbationNorm;
 
             std::array<double,2> test;
-            CIE_TEST_CHECK_NOTHROW(jacobian.evaluate(in, test));
+            buffer.resize(jacobian.bufferSize());
+            CIE_TEST_CHECK_NOTHROW(jacobian.evaluate(in, test, buffer));
             CIE_TEST_CHECK(test[0] == Approx(reference[0]));
             CIE_TEST_CHECK(test[1] == Approx(reference[1]));
 
-            CIE_TEST_CHECK(jacobian.evaluateDeterminant(out) == Approx(segmentNorm / 2.0));
+            CIE_TEST_CHECK(jacobian.evaluateDeterminant(out, buffer) == Approx(segmentNorm / 2.0));
         }
 
         // Check the embedding's inverse.
@@ -101,21 +103,22 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
         const auto projection = embedding.makeInverse();
 
         out = std::array<double,2> { 10.0,  5.0};
-        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
+        buffer.resize(projection.bufferSize());
+        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in, buffer));
         CIE_TEST_CHECK(in[0] == Approx(-1.0));
 
         out = std::array<double,2> {  4.0, 10.0};
-        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
+        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in, buffer));
         CIE_TEST_CHECK(in[0] == Approx(0.0).margin(1e-14));
 
         out = std::array<double,2> { -2.0, 15.0};
-        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
+        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in, buffer));
         CIE_TEST_CHECK(in[0] == Approx(1.0));
 
         // Check the embedding's inverse when the input point
         // does not lie on the transformed line segment.
         out = std::array<double,2> {  0.0,  0.0};
-        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
+        CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in, buffer));
         CIE_TEST_CHECK(in[0] == Approx(-0.42622950819672134));
 
         // Check the derivative of the embedding's inverse.
@@ -127,32 +130,34 @@ CIE_TEST_CASE("AffineEmbedding", "[maths]")
                 transformed[1][0] - transformed[0][0],
                 transformed[1][1] - transformed[0][1]
             };
-            const double segmentNorm = std::sqrt(std::inner_product(segment.begin(),
-                                                                    segment.end(),
-                                                                    segment.begin(),
-                                                                    0.0));
+            const double segmentNorm = std::sqrt(std::inner_product(
+                segment.begin(),
+                segment.end(),
+                segment.begin(),
+                0.0));
 
-            CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in));
+            CIE_TEST_CHECK_NOTHROW(projection.evaluate(out, in, buffer));
             std::array<double,2> reference, perturbed;
             constexpr double perturbationNorm = 1e0;
             std::array<double,1> transformedPerturbed;
 
             perturbed = out;
             perturbed[0] += perturbationNorm;
-            CIE_TEST_CHECK_NOTHROW(projection.evaluate(perturbed, transformedPerturbed));
+            CIE_TEST_CHECK_NOTHROW(projection.evaluate(perturbed, transformedPerturbed, buffer));
             reference[0] = (transformedPerturbed[0] - in[0]) / perturbationNorm;
 
             perturbed = out;
             perturbed[1] += perturbationNorm;
-            CIE_TEST_CHECK_NOTHROW(projection.evaluate(perturbed, transformedPerturbed));
+            CIE_TEST_CHECK_NOTHROW(projection.evaluate(perturbed, transformedPerturbed, buffer));
             reference[1] = (transformedPerturbed[0] - in[0]) / perturbationNorm;
 
             std::array<double,2> test;
-            CIE_TEST_CHECK_NOTHROW(jacobian.evaluate(out, test));
+            buffer.resize(jacobian.bufferSize());
+            CIE_TEST_CHECK_NOTHROW(jacobian.evaluate(out, test, buffer));
             CIE_TEST_CHECK(test[0] == Approx(reference[0]));
             CIE_TEST_CHECK(test[1] == Approx(reference[1]));
 
-            CIE_TEST_CHECK(jacobian.evaluateDeterminant(out) == Approx(2.0 / segmentNorm));
+            CIE_TEST_CHECK(jacobian.evaluateDeterminant(out, buffer) == Approx(2.0 / segmentNorm));
         }
     }
 }

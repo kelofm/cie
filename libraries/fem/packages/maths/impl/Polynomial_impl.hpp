@@ -80,7 +80,10 @@ requires (hasStaticCoefficients) {
 
 
 template <concepts::Numeric TValue, int PolynomialOrder>
-void PolynomialView<TValue,PolynomialOrder>::evaluate(ConstSpan in, Span out) const
+void PolynomialView<TValue,PolynomialOrder>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan) const
 requires (!hasStaticCoefficients) {
     out.front() = utils::evaluatePolynomial<utils::PolynomialEvaluation::Horner>(
         in.front(),
@@ -89,7 +92,10 @@ requires (!hasStaticCoefficients) {
 
 
 template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr void PolynomialView<TValue,PolynomialOrder>::evaluate(ConstSpan in, Span out) const
+constexpr void PolynomialView<TValue,PolynomialOrder>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan) const
 requires (hasStaticCoefficients) {
     out.front() = utils::evaluatePolynomial<utils::PolynomialEvaluation::Horner>(
         in.front(),
@@ -100,6 +106,12 @@ requires (hasStaticCoefficients) {
 template <concepts::Numeric TValue, int PolynomialOrder>
 constexpr unsigned PolynomialView<TValue,PolynomialOrder>::size() noexcept {
     return 1u;
+}
+
+
+template <concepts::Numeric TValue, int PolynomialOrder>
+constexpr unsigned PolynomialView<TValue,PolynomialOrder>::bufferSize() noexcept {
+    return 0u;
 }
 
 
@@ -169,12 +181,11 @@ requires (!hasStaticCoefficients)
 template <concepts::Numeric TValue, int PolynomialOrder>
 constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(std::span<const TValue,coefficientCount> coefficients)
 requires (hasStaticCoefficients)
-    : _coefficients()
-{
-    std::copy_n(
-        coefficients.data(),
-        coefficientCount,
-        _coefficients.data());
+    : _coefficients() {
+        std::copy_n(
+            coefficients.data(),
+            coefficientCount,
+            _coefficients.data());
 }
 
 
@@ -213,22 +224,34 @@ requires (hasStaticCoefficients) {
 
 
 template <concepts::Numeric TValue, int PolynomialOrder>
-void Polynomial<TValue,PolynomialOrder>::evaluate(ConstSpan in, Span out) const
+void Polynomial<TValue,PolynomialOrder>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer) const
 requires (!hasStaticCoefficients) {
-    this->makeView().evaluate(in, out);
+    this->makeView().evaluate(in, out, buffer);
 }
 
 
 template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr void Polynomial<TValue,PolynomialOrder>::evaluate(ConstSpan in, Span out) const noexcept
+constexpr void Polynomial<TValue,PolynomialOrder>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer) const noexcept
 requires (hasStaticCoefficients) {
-    this->makeView().evaluate(in, out);
+    this->makeView().evaluate(in, out, buffer);
 }
 
 
 template <concepts::Numeric TValue, int PolynomialOrder>
 constexpr unsigned Polynomial<TValue,PolynomialOrder>::size() noexcept {
     return View::size();
+}
+
+
+template <concepts::Numeric TValue, int PolynomialOrder>
+constexpr unsigned Polynomial<TValue,PolynomialOrder>::bufferSize() noexcept {
+    return View::bufferSize();
 }
 
 

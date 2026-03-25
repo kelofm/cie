@@ -54,8 +54,7 @@ namespace cie::fem::maths {
 /// @ingroup fem
 template <class T>
 concept Expression
-= std::is_same_v<typename std::remove_cvref_t<T>::BufferSpan,std::span<std::byte>>
-&& requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
+= requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
     /// @brief Value type to perform numerical operations on (eg: @p double).
     typename std::remove_cvref_t<T>::Value;
 
@@ -187,7 +186,7 @@ struct ExpressionTraits {
 
     using ConstSpan = std::span<const TValue>;
 
-    using BufferSpan = std::span<std::byte>;
+    using BufferSpan = std::span<TValue>;
 }; // struct Traits
 
 

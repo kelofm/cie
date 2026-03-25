@@ -7,7 +7,6 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
-#include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 
 // --- STD Includes ---
 #include <span>
@@ -38,11 +37,12 @@ public:
 
     using typename ExpressionTraits<TValue>::ConstSpan;
 
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
     using Derivative = std::conditional_t<
         hasStaticCoefficients,
         PolynomialView<TValue,std::max(0,PolynomialOrder-1)>,
-        PolynomialView<TValue,-1>
-    >;
+        PolynomialView<TValue,-1>>;
 
     using Coefficients = std::conditional_t<
         hasStaticCoefficients,
@@ -54,10 +54,15 @@ public:
     PolynomialView(ConstSpan coefficients) noexcept
     requires (!hasStaticCoefficients);
 
-    void evaluate(ConstSpan in, Span out) const
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const
     requires (!hasStaticCoefficients);
 
     static constexpr unsigned size() noexcept;
+
+    static constexpr unsigned bufferSize() noexcept;
 
     Derivative makeDerivative(Span buffer) const
     requires (!hasStaticCoefficients);
@@ -68,7 +73,10 @@ public:
     constexpr PolynomialView(std::span<const TValue,coefficientCount> coefficients) noexcept
     requires (hasStaticCoefficients);
 
-    constexpr void evaluate(ConstSpan in, Span out) const
+    constexpr void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer) const
     requires (hasStaticCoefficients);
 
     constexpr Derivative makeDerivative(std::span<TValue,Derivative::coefficientCount> buffer) const noexcept
@@ -104,6 +112,8 @@ public:
     using typename ExpressionTraits<TValue>::Span;
 
     using typename ExpressionTraits<TValue>::ConstSpan;
+
+    using typename ExpressionTraits<TValue>::BufferSpan;
 
     using Derivative = std::conditional_t<
         hasStaticCoefficients,
@@ -162,14 +172,22 @@ public:
     constexpr Polynomial& operator=(const Polynomial& rRight) noexcept
     requires (hasStaticCoefficients);
 
-    void evaluate(ConstSpan in, Span out) const
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan) const
     requires (!hasStaticCoefficients);
 
-    constexpr void evaluate(ConstSpan in, Span out) const noexcept
+    constexpr void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan) const noexcept
     requires (hasStaticCoefficients);
 
     /// @brief Get the number of scalar components returned by @ref evaluate.
     constexpr static unsigned size() noexcept;
+
+    constexpr static unsigned bufferSize() noexcept;
 
     /// @brief Construct the derivative of the @ref Polynomial.
     /// @details The returned object is also a @ref Polynomial,
