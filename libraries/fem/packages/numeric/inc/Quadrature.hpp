@@ -15,8 +15,7 @@ namespace cie::fem {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-class Quadrature : public Kernel<Dimension,TValue>
-{
+class Quadrature : public Kernel<Dimension,TValue> {
 public:
     Quadrature(Ref<const QuadratureBase<TValue>> rBase);
 
@@ -28,11 +27,6 @@ public:
     void evaluate(
         Ref<const TExpression> rExpression,
         typename TExpression::Span buffer,
-        typename TExpression::Span out) const;
-
-    template <maths::Expression TExpression>
-    void evaluate(
-        Ref<const TExpression> rExpression,
         typename TExpression::Span out) const;
 
 private:

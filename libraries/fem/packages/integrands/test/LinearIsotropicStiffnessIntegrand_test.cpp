@@ -10,8 +10,7 @@
 namespace cie::fem {
 
 
-CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
-{
+CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
     CIE_TEST_CASE_INIT("LinearIsotropicStiffnessIntegrand")
     using Scalar = double;
     constexpr unsigned Dimension = 2u;
@@ -31,51 +30,26 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
     // Construct the integrand without a buffer.
     constexpr Scalar modulus = 10.0;
     LinearIsotropicStiffnessIntegrand<Ansatz::Derivative> integrand(modulus, *pAnsatzDerivatives);
-    CIE_TEST_CHECK(integrand.size() == 16);
-    CIE_TEST_CHECK(integrand.getMinBufferSize() == 8);
+    CIE_TEST_REQUIRE(integrand.size() == 16);
+    CIE_TEST_REQUIRE(integrand.bufferSize() == 8);
 
     // Set buffer.
-    StaticArray<Scalar,8> buffer;
-    StaticArray<Scalar,16> stiffness;
-
-    #ifdef CIE_ENABLE_OUT_OF_RANGE_CHECKS
-        StaticArray<Scalar,Dimension> dummy;
-        std::fill(dummy.begin(), dummy.end(), 0);
-
-        // Attempt to evaluate without setting a buffer.
-        CIE_TEST_CHECK_THROWS(integrand.evaluate(dummy, {stiffness.data(), stiffness.data() + stiffness.size()}));
-
-        // Attempt to set insufficiently sized buffers.
-        CIE_TEST_CHECK_THROWS(integrand.setBuffer({}));
-
-        for (unsigned bufferSize : {0u, 1u, 7u}) {
-            CIE_TEST_CHECK_THROWS(integrand.setBuffer({buffer.data(), bufferSize}));
-        }
-
-        // Attempt to construct with insufficiently sized buffers.
-        for (unsigned bufferSize : {0u, 1u, 7u}) {
-            CIE_TEST_CHECK_THROWS(integrand = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
-                1.0,
-                pAnsatzDerivatives,
-                {buffer.data(), bufferSize}));
-        }
-    #endif
-
-    CIE_TEST_CHECK_NOTHROW(integrand.setBuffer({buffer.data(), buffer.size()}));
+    std::vector<Scalar> stiffness(integrand.size());
+    std::vector<Scalar> buffer(integrand.bufferSize());
 
     // Check stiffness values.
-    StaticArray<Scalar,16> reference;
+    std::vector<Scalar> reference(integrand.size());
     StaticArray<Scalar,Dimension> location;
 
     DynamicArray<std::pair<
         StaticArray<Scalar,Dimension>,  //< sample point
-        StaticArray<Scalar,16>          //< reference values
+        std::vector<Scalar>             //< reference values
     >> references;
     references.reserve(4);
 
     references.emplace_back(
         StaticArray<Scalar,Dimension> {{-1.0, -1.0}},
-        StaticArray<Scalar,16> {{
+        std::vector<Scalar> {{
              0.00,  0.00,  0.00,  0.00,
              0.00,  0.25,  0.00, -0.25,
              0.00,  0.00,  0.25, -0.25,
@@ -85,7 +59,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
 
     references.emplace_back(
         StaticArray<Scalar,Dimension> {{ 1.0, -1.0}},
-        StaticArray<Scalar,16> {{
+        std::vector<Scalar> {{
              0.25,  0.00, -0.25,  0.00,
              0.00,  0.00,  0.00,  0.00,
             -0.25,  0.00,  0.50, -0.25,
@@ -95,7 +69,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
 
     references.emplace_back(
         StaticArray<Scalar,Dimension> {{-1.0, 1.0}},
-        StaticArray<Scalar,16> {{
+        std::vector<Scalar> {{
              0.25, -0.25,  0.00,  0.00,
             -0.25,  0.50,  0.00, -0.25,
              0.00,  0.00,  0.00,  0.00,
@@ -105,7 +79,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
 
     references.emplace_back(
         StaticArray<Scalar,Dimension> {{ 1.0,  1.0}},
-        StaticArray<Scalar,16> {{
+        std::vector<Scalar> {{
              0.50, -0.25, -0.25,  0.00,
             -0.25,  0.25,  0.00,  0.00,
             -0.25,  0.00,  0.25,  0.00,
@@ -114,8 +88,8 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]")
     );
 
     for (const auto& [rSamplePoint, rReference] : references) {
-        StaticArray<Scalar,16> result;
-        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result));
+        std::vector<Scalar> result(integrand.size());
+        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result, buffer));
         for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
             CIE_TEST_CHECK(result[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-14));
         } // for iComponent in range(rReference.size())

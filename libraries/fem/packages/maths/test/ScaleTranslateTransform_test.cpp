@@ -37,6 +37,7 @@ namespace cie::fem::maths {
         using Transform = TransformType<double,2>;                                                                          \
         using Point = Kernel<2,double>::Point;                                                                              \
         CIE_TEST_CHECK(SpatialTransform<Transform>);                                                                        \
+        std::vector<double> buffer;                                                                                         \
                                                                                                                             \
         const std::vector<Point> locals {                                                                                   \
             {-1.0, -1.0},                                                                                                   \
@@ -64,9 +65,10 @@ namespace cie::fem::maths {
                                                                                                                             \
         {                                                                                                                   \
             CIE_TEST_CASE_INIT("transformation")                                                                            \
+            buffer.resize(transform.bufferSize());                                                                          \
             for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
                 Point point;                                                                                                \
-                transform.evaluate(locals[iPoint], point);                                                                  \
+                transform.evaluate(locals[iPoint], point, buffer);                                                          \
                 const auto& rReference = transformed[iPoint];                                                               \
                 CIE_TEST_REQUIRE(point.size() == rReference.size());                                                        \
                 for (unsigned iComponent=0; iComponent<point.size(); ++iComponent) {                                        \
@@ -79,11 +81,12 @@ namespace cie::fem::maths {
             CIE_TEST_CASE_INIT("derivative")                                                                                \
             decltype(std::declval<Transform>().makeDerivative()) transformDerivative;                                       \
             CIE_TEST_CHECK_NOTHROW(transformDerivative = transform.makeDerivative());                                       \
+            buffer.resize(transformDerivative.bufferSize());                                                                \
                                                                                                                             \
             for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
                 std::array<double,4> jacobian {0.0, 0.0, 0.0, 0.0};                                                         \
                 CIE_TEST_REQUIRE(transformDerivative.size() == jacobian.size());                                            \
-                transformDerivative.evaluate(locals[iPoint], {jacobian.data(), jacobian.data() + jacobian.size()});         \
+                transformDerivative.evaluate(locals[iPoint], {jacobian.data(), jacobian.size()}, buffer);                   \
                 CIE_TEST_CHECK(jacobian[0] == Approx(-2.0));                                                                \
                 CIE_TEST_CHECK(jacobian[1] == Approx(0.0).margin(1e-14));                                                   \
                 CIE_TEST_CHECK(jacobian[2] == Approx(0.0).margin(1e-14));                                                   \
@@ -94,10 +97,11 @@ namespace cie::fem::maths {
         {                                                                                                                   \
             CIE_TEST_CASE_INIT("inverse")                                                                                   \
             const auto inverseTransform = transform.makeInverse();                                                          \
+            buffer.resize(inverseTransform.bufferSize());                                                                   \
                                                                                                                             \
             for (unsigned iPoint=0; iPoint<transformed.size(); ++iPoint) {                                                  \
                 Point inverse;                                                                                              \
-                CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[iPoint], inverse));                            \
+                CIE_TEST_CHECK_NOTHROW(inverseTransform.evaluate(transformed[iPoint], inverse, buffer));                    \
                 const auto& rReference = locals[iPoint];                                                                    \
                 CIE_TEST_REQUIRE(inverse.size() == rReference.size());                                                      \
                 for (unsigned iComponent=0; iComponent<inverse.size(); ++iComponent) {                                      \

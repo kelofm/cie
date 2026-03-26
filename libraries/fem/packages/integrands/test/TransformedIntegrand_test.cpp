@@ -18,6 +18,7 @@ namespace cie::fem {
 CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
     CIE_TEST_CASE_INIT("TransformedIntegrand")
     using Scalar = double;
+    std::vector<Scalar> buffer;
 
     {
         CIE_TEST_CASE_INIT("1D")
@@ -30,11 +31,12 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                 Function({0.0}),
                 maths::IdentityTransform<Scalar,Dimension>().makeDerivative());
 
+            buffer.resize(integrand.bufferSize());
             for (unsigned integrationOrder=1u; integrationOrder<10u; ++integrationOrder) {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}, buffer));
                 CIE_TEST_CHECK(integral == 0.0);
             }
         }
@@ -57,11 +59,12 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                             maths::ScaleTranslateTransform<Scalar,Dimension>(
                                 physicalCorners.begin(),
                                 physicalCorners.end()).makeDerivative());
+                        buffer.resize(integrand.bufferSize());
 
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -77,12 +80,13 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
             const auto integrand = makeTransformedIntegrand(
                 Function({value}),
                 maths::IdentityTransform<Scalar,Dimension>().makeDerivative());
+            buffer.resize(integrand.bufferSize());
 
             for (unsigned integrationOrder=1u; integrationOrder<10u; ++integrationOrder) {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}, buffer));
                 CIE_TEST_CHECK(integral == Approx(2 * value));
             }
         }
@@ -106,11 +110,12 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                             maths::ScaleTranslateTransform<Scalar,Dimension>(
                                 physicalCorners.begin(),
                                 physicalCorners.end()).makeDerivative());
+                        buffer.resize(integrand.bufferSize());
 
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -122,25 +127,27 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
         {
             // Integrate linear function, identity transform.
             const Function referenceIntegral({0.0, 2.71, -3.14});
+            buffer.resize(referenceIntegral.bufferSize());
             Scalar referenceValue = 0.0;
             {
-                Scalar buffer, position = 1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue += buffer;
+                Scalar tmp, position = 1.0;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue += tmp;
                 position = -1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue -= buffer;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue -= tmp;
             }
 
             const auto integrand = makeTransformedIntegrand(
                 Function(referenceIntegral.makeDerivative()),
                 maths::IdentityTransform<Scalar,Dimension>().makeDerivative());
+            buffer.resize(integrand.bufferSize());
 
             for (unsigned integrationOrder=1u; integrationOrder<10u; ++integrationOrder) {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}, buffer));
                 CIE_TEST_CHECK(integral == Approx(referenceValue));
             }
         }
@@ -148,14 +155,15 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
         {
             // Integrate linear function, scale-translate transform
             const Function referenceIntegral({0.0, 2.71, -3.14});
+            buffer.resize(referenceIntegral.bufferSize());
             Scalar referenceValue = 0.0;
             {
-                Scalar buffer, position = 1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue += buffer;
+                Scalar tmp, position = 1.0;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue += tmp;
                 position = -1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue -= buffer;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue -= tmp;
             }
 
             for (unsigned integrationOrder=1u; integrationOrder<10u; ++integrationOrder) {
@@ -173,11 +181,12 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                             maths::ScaleTranslateTransform<Scalar,Dimension>(
                                 physicalCorners.begin(),
                                 physicalCorners.end()).makeDerivative());
+                        buffer.resize(integrand.bufferSize());
 
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -189,14 +198,15 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
         {
             // Integrate quartic function, identity transform.
             const Function referenceIntegral({0.0, 2.71, -3.14, 1.23, -9.1});
+            buffer.resize(referenceIntegral.bufferSize());
             Scalar referenceValue = 0.0;
             {
-                Scalar buffer, position = 1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue += buffer;
+                Scalar tmp, position = 1.0;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue += tmp;
                 position = -1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue -= buffer;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue -= tmp;
             }
 
             const auto integrand = makeTransformedIntegrand(
@@ -215,14 +225,15 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
         {
             // Integrate quartic function, scale-translate transform
             const Function referenceIntegral({0.0, 2.71, -3.14, 1.23, -9.1});
+            buffer.resize(referenceIntegral.bufferSize());
             Scalar referenceValue = 0.0;
             {
-                Scalar buffer, position = 1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue += buffer;
+                Scalar tmp, position = 1.0;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue += tmp;
                 position = -1.0;
-                referenceIntegral.evaluate({&position, 1}, {&buffer, 1});
-                referenceValue -= buffer;
+                referenceIntegral.evaluate({&position, 1}, {&tmp, 1}, buffer);
+                referenceValue -= tmp;
             }
 
             for (unsigned integrationOrder=3u; integrationOrder<10u; ++integrationOrder) {
@@ -240,11 +251,12 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                             maths::ScaleTranslateTransform<Scalar,Dimension>(
                                 physicalCorners.begin(),
                                 physicalCorners.end()).makeDerivative());
+                        buffer.resize(integrand.bufferSize());
 
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 

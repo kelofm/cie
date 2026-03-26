@@ -233,14 +233,16 @@ CIE_TEST_CASE("Polynomial", "[maths]")
                 { 1.0, -1.0},
                 { 2.0, -2.0},
                 {-1.0,  1.0},
-                {-2.0,  2.0}
-            };
+                {-2.0,  2.0}};
+            std::vector<double> buffer;
 
             #define CIE_TMP_CHECK(POLYNOMIAL)                                       \
+                CIE_TEST_REQUIRE_NOTHROW(buffer.resize(POLYNOMIAL.bufferSize()));   \
                 for (const auto& [argument, reference] : argumentValuePairs) {      \
                     CIE_TEST_CHECK_NOTHROW(POLYNOMIAL.evaluate(                     \
                         {&argument, (&argument) + 1},                               \
-                        {&result, (&result) + 1}));                                 \
+                        {&result, (&result) + 1},                                   \
+                        buffer));                                                   \
                     CIE_TEST_CHECK(result == Approx(reference));                    \
                 }
 
@@ -293,6 +295,7 @@ CIE_TEST_CASE("Polynomial", "[maths]")
             // Check derivative construction.
             CIE_TEST_REQUIRE_NOTHROW(polynomial.makeDerivative());
             const auto derivative = polynomial.makeDerivative();
+            CIE_TEST_REQUIRE_NOTHROW(buffer.resize(derivative.bufferSize()));
 
             // Check derivative evalutaion.
             const DynamicArray<std::pair<double,double>> derivativeArgumentValuePairs {
@@ -305,7 +308,8 @@ CIE_TEST_CASE("Polynomial", "[maths]")
             for (const auto& [argument, reference] : derivativeArgumentValuePairs) {
                 CIE_TEST_CHECK_NOTHROW(derivative.evaluate(
                     {&argument, (&argument) + 1},
-                    {&result, (&result) + 1}));
+                    {&result, (&result) + 1},
+                    buffer));
                 CIE_TEST_CHECK(result == Approx(reference));
             }
         }

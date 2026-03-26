@@ -12,8 +12,7 @@
 namespace cie::fem::maths {
 
 
-CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]")
-{
+CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]") {
     CIE_TEST_CASE_INIT("ProjectiveTransform")
 
     {
@@ -24,19 +23,19 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]")
         using Transform = ProjectiveTransform<double,Dimension>;
         CIE_TEST_CHECK(SpatialTransform<Transform>);
 
-        StaticArray<Point,4> transformedPoints {{1.0, 1.0},
-                                                {3.0, 3.0},
-                                                {0.0, 1.0},
-                                                {3.0, 4.0}};
+        StaticArray<Point,4> transformedPoints {
+            {1.0, 1.0},
+            {3.0, 3.0},
+            {0.0, 1.0},
+            {3.0, 4.0}};
 
         CIE_TEST_REQUIRE_NOTHROW(Transform());
         CIE_TEST_REQUIRE_NOTHROW(Transform(transformedPoints));
         Transform transform;
         CIE_TEST_CHECK_NOTHROW(transform = Transform(transformedPoints));
         const auto jacobian = transform.makeDerivative();
-
-
-        const double delta = 1e-8;
+        std::vector<double> buffer;
+        constexpr double delta = 1e-8;
 
         for (const auto& input : {Point {-1.0, -1.0},
                                   Point { 1.0, -1.0},
@@ -54,17 +53,34 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]")
             Eigen::Matrix<double,Dimension,Dimension,Eigen::RowMajor> output;
             Eigen::Matrix<double,Dimension,Dimension> outputBase, outputDelta;
 
-            jacobian.evaluate(input, {output.data(), output.data() + output.size()});
+            buffer.resize(jacobian.bufferSize());
+            jacobian.evaluate(
+                input,
+                {output.data(), output.data() + output.size()},
+                buffer);
 
             inputDelta = input;
             inputDelta[0] += delta;
-            transform.evaluate(input, {outputBase.data(), outputBase.data() + 2});
-            transform.evaluate(inputDelta, {outputDelta.data(), outputDelta.data() + 2});
+            buffer.resize(transform.bufferSize());
+            transform.evaluate(
+                input,
+                {outputBase.data(), outputBase.data() + 2},
+                buffer);
+            transform.evaluate(
+                inputDelta,
+                {outputDelta.data(), outputDelta.data() + 2},
+                buffer);
 
             inputDelta = input;
             inputDelta[1] += delta;
-            transform.evaluate(input, {outputBase.data() + 2, outputBase.data() + 4});
-            transform.evaluate(inputDelta, {outputDelta.data() + 2, outputDelta.data() + 4});
+            transform.evaluate(
+                input,
+                {outputBase.data() + 2, outputBase.data() + 4},
+                buffer);
+            transform.evaluate(
+                inputDelta,
+                {outputDelta.data() + 2, outputDelta.data() + 4},
+                buffer);
 
             // @todo incorrect derivative (impl does what it should, the derivation is wrong)
             const Eigen::Matrix<double,2,2> reference = ((outputDelta - outputBase) / delta);
@@ -83,6 +99,7 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]")
         using Point = Kernel<Dimension,double>::Point;
         using Transform = ProjectiveTransform<double,Dimension>;
         CIE_TEST_CHECK(SpatialTransform<Transform>);
+        std::vector<double> buffer;
 
         StaticArray<Point,8> transformedPoints {{-1.0, -1.0, -1.0},
                                                 { 1.0, -1.0, -1.0},
@@ -113,12 +130,18 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]")
             Eigen::Matrix<double,Dimension,Dimension,Eigen::RowMajor> output;
             Eigen::Matrix<double,Dimension,Dimension> outputBase, outputDelta;
 
-            jacobian.evaluate(input, {output.data(), output.data() + output.size()});
+            buffer.resize(jacobian.bufferSize());
+            jacobian.evaluate(
+                input,
+                {output.data(), output.size()},
+                buffer);
 
+            buffer.resize(transform.bufferSize());
             for (unsigned iDimension=0; iDimension<Dimension; ++iDimension) {
                 CIE_TEST_CHECK_NOTHROW(transform.evaluate(
                     input,
-                    {outputBase.data() + iDimension * Dimension, outputBase.data() + iDimension * Dimension + Dimension}
+                    {outputBase.data() + iDimension * Dimension, iDimension * Dimension + Dimension},
+                    buffer
                 ));
 
                 inputDelta = input;
@@ -126,7 +149,8 @@ CIE_TEST_CASE("ProjectiveTransform", "[maths][!mayfail]")
 
                 CIE_TEST_CHECK_NOTHROW(transform.evaluate(
                     inputDelta,
-                    {outputDelta.data() + iDimension * Dimension, outputDelta.data() + iDimension * Dimension + Dimension}
+                    {outputDelta.data() + iDimension * Dimension, iDimension * Dimension + Dimension},
+                    buffer
                 ));
             } // for iDimension in range(Dimension)
 

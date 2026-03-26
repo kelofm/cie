@@ -59,16 +59,21 @@ public:
 
     template <maths::Expression TExpression>
     requires std::is_same_v<typename TExpression::Value,TValue>
-    void evaluate(Ref<const TExpression> rExpression,
-                  std::span<TValue> out) const noexcept {
-        rExpression.evaluate(Kernel<Dimension,TValue>::decay(this->position()), out);
-        std::transform(
-            out.begin(),
-            out.end(),
-            out.begin(),
-            [weight = this->weight()] (TValue value) -> TValue {
-                return value * weight;
-            });
+    void evaluate(
+        Ref<const TExpression> rExpression,
+        std::span<TValue> out,
+        std::span<TValue> buffer) const noexcept {
+            rExpression.evaluate(
+                Kernel<Dimension,TValue>::decay(this->position()),
+                out,
+                buffer);
+            std::transform(
+                out.begin(),
+                out.end(),
+                out.begin(),
+                [weight = this->weight()] (TValue value) -> TValue {
+                    return value * weight;
+                });
     }
 
     constexpr std::span<const Value,Dim> position() const noexcept {

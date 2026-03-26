@@ -151,23 +151,26 @@ CIE_TEST_CASE("1D", "[systemTests]") {
         DynamicArray<Scalar> derivativeBuffer(pAnsatzDerivatives->size());
         DynamicArray<Scalar> integrandBuffer(pAnsatzSpace->size() * pAnsatzSpace->size());
         DynamicArray<Scalar> productBuffer(integrandBuffer.size());
+        DynamicArray<Scalar> nestedBuffer(pAnsatzDerivatives->bufferSize());
+        DynamicArray<Scalar> quadratureBuffer(integrandBuffer.size() + nestedBuffer.size());
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             const auto jacobian = rCell.data().makeJacobian();
 
             const auto localIntegrand = maths::makeLambdaExpression<Scalar>(
-                [&]
-                        (std::span<const Scalar> in, std::span<Scalar> out) -> void {
-                    const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(in);
-                    pAnsatzDerivatives->evaluate(in, derivativeBuffer);
+                [&] (std::span<const Scalar> in, std::span<Scalar> out, std::span<Scalar> buffer) -> void {
+                    const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(in, buffer);
+                    pAnsatzDerivatives->evaluate(in, derivativeBuffer, buffer);
 
                     using MatrixAdaptor = Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>>;
-                    MatrixAdaptor derivativeAdaptor(derivativeBuffer.data(),
-                                                    Dimension,
-                                                    pAnsatzSpace->size());
-                    MatrixAdaptor productAdaptor(productBuffer.data(),
-                                                 pAnsatzSpace->size(),
-                                                 pAnsatzSpace->size());
+                    MatrixAdaptor derivativeAdaptor(
+                        derivativeBuffer.data(),
+                        Dimension,
+                        pAnsatzSpace->size());
+                    MatrixAdaptor productAdaptor(
+                        productBuffer.data(),
+                        pAnsatzSpace->size(),
+                        pAnsatzSpace->size());
                     productAdaptor = derivativeAdaptor.transpose() * derivativeAdaptor;
 
                     auto itOut = out.data();
@@ -177,9 +180,13 @@ CIE_TEST_CASE("1D", "[systemTests]") {
                         } // for iLocalColumn in range(ansatzBuffer.size)
                     } // for iLocalRow in range(ansatzBuffer.size)
                 },
-                integrandBuffer.size());
+                integrandBuffer.size(),
+                nestedBuffer.size());
 
-            quadrature.evaluate(localIntegrand, integrandBuffer);
+            quadrature.evaluate(
+                localIntegrand,
+                integrandBuffer,
+                quadratureBuffer);
 
             {
                 const auto keys = assembler.keys();
@@ -217,6 +224,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
 
         utils::Comparison<Scalar> comparison(1e-8, 1-6);
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
+        DynamicArray<Scalar> nestedBuffer(pAnsatzSpace->bufferSize());
         StaticArray<Scalar,1> parametricCoordinates, physicalCoordinates;
 
         parametricCoordinates.front() = -1.0;
@@ -231,7 +239,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
             CIE_TEST_REQUIRE(comparison.equal(physicalCoordinates.front(), 0.0));
         }
 
-        pAnsatzSpace->evaluate(parametricCoordinates, ansatzBuffer);
+        pAnsatzSpace->evaluate(parametricCoordinates, ansatzBuffer, nestedBuffer);
         for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
             if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
                 iLeftmostDof = assembler[0][iAnsatz];
@@ -246,6 +254,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
 
         utils::Comparison<Scalar> comparison(1e-8, 1-6);
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
+        DynamicArray<Scalar> nestedBuffer(pAnsatzSpace->bufferSize());
         StaticArray<Scalar,1> parametricCoordinates, physicalCoordinates;
 
         parametricCoordinates.front() = -1.0;
@@ -260,7 +269,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
             CIE_TEST_REQUIRE(comparison.equal(physicalCoordinates.front(), 1.0));
         }
 
-        pAnsatzSpace->evaluate(parametricCoordinates, ansatzBuffer);
+        pAnsatzSpace->evaluate(parametricCoordinates, ansatzBuffer, nestedBuffer);
         for (unsigned iAnsatz=0u; iAnsatz<ansatzBuffer.size(); ++iAnsatz) {
             if (comparison.equal(ansatzBuffer[iAnsatz], 1.0)) {
                 iRightmostDof = assembler[nodeCount - 2][iAnsatz];
@@ -349,6 +358,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
 
     {
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
+        DynamicArray<Scalar> nestedBuffer(pAnsatzSpace->bufferSize());
         DynamicArray<StaticArray<Scalar,1>> sampleCoordinates;
 
         for (unsigned iCoordinate=0u; iCoordinate<samplesPerCell; ++iCoordinate) {
@@ -366,7 +376,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
                     Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates));
                 solutionSamples.emplace_back(physicalCoordinates, 0.0);
                 ansatzBuffer.resize(pAnsatzSpace->size());
-                pAnsatzSpace->evaluate(localCoordinates, ansatzBuffer);
+                pAnsatzSpace->evaluate(localCoordinates, ansatzBuffer, nestedBuffer);
 
                 for (unsigned iFunction=0u; iFunction<ansatzBuffer.size(); ++iFunction) {
                     solutionSamples.back().second += solution[rGlobalIndices[iFunction]] * ansatzBuffer[iFunction];

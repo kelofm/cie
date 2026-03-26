@@ -51,6 +51,9 @@ public:
     unsigned size() const noexcept
     {return this->_size;}
 
+    unsigned bufferSize() const noexcept
+    {return _bufferSize;}
+
 private:
     TLambda _wrapped;
 

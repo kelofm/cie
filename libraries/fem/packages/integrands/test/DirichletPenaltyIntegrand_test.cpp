@@ -11,19 +11,24 @@
 namespace cie::fem {
 
 
-struct DirichletPenaltyTest : maths::ExpressionTraits<double>
-{
+struct DirichletPenaltyTest : maths::ExpressionTraits<double> {
     using ExpressionTraits<double>::ConstSpan;
     using ExpressionTraits<double>::Span;
+    using ExpressionTraits<double>::BufferSpan;
 
-    void evaluate(ConstSpan in, Span out) const {
+    void evaluate(ConstSpan in, Span out, BufferSpan buffer) const {
         CIE_TEST_CHECK(in.size() == 2);
-        CIE_TEST_CHECK(out.size() == 1);
+        CIE_TEST_CHECK(out.size() == this->size());
+        CIE_TEST_CHECK(buffer.size() == this->bufferSize());
         out[0] = in[0] + 2 * in[1];
     }
 
     unsigned size() const noexcept {
         return 1u;
+    }
+
+    unsigned bufferSize() const noexcept {
+        return 5u;
     }
 }; // DirichletPenaltyTest
 
@@ -58,36 +63,13 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
         spatialTransform,
         spatialTransform);
     CIE_TEST_REQUIRE(integrand.size() == 4 * 4 + 4);
-    CIE_TEST_REQUIRE(integrand.getMinBufferSize() == 4 + 2 + 2 + 1);
+    CIE_TEST_CHECK(integrand.bufferSize() == 4 + 2 + 2 + 1 + 5);
 
-    // Set buffer.
-    StaticArray<Scalar,9> buffer;
-    StaticArray<Scalar,20> output;
-
-    #ifdef CIE_ENABLE_OUT_OF_RANGE_CHECKS
-        StaticArray<Scalar,Dimension> dummy;
-        std::fill(dummy.begin(), dummy.end(), 0);
-
-        // Attempt to evaluate without setting a buffer.
-        CIE_TEST_CHECK_THROWS(integrand.evaluate(dummy, {output.data(), output.data() + output.size()}));
-
-        // Attempt to set insufficiently sized buffers.
-        CIE_TEST_CHECK_THROWS(integrand.setBuffer({}));
-
-        for (unsigned bufferSize : {0u, 1u, 6u}) {
-            CIE_TEST_CHECK_THROWS(integrand.setBuffer({buffer.data(), bufferSize}));
-        }
-
-        // Attempt to construct with insufficiently sized buffers.
-        for (unsigned bufferSize : {0u, 1u, 6u}) {
-            CIE_TEST_CHECK_THROWS(integrand = DirichletPenaltyIntegrand<Ansatz::Derivative>(
-                1.0,
-                pAnsatzSpace,
-                {buffer.data(), bufferSize}));
-        }
-    #endif
-
-    CIE_TEST_CHECK_NOTHROW(integrand.setBuffer(buffer));
+    // Set buffers.
+    std::vector<Scalar> output;
+    output.resize(integrand.size());
+    std::vector<Scalar> buffer;
+    buffer.resize(integrand.bufferSize());
 
     // Check mass values.
     DynamicArray<std::pair<
@@ -145,8 +127,9 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
     );
 
     for (const auto& [rSamplePoint, rReference] : references) {
-        StaticArray<Scalar,20> result;
-        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result));
+        std::vector<Scalar> result;
+        result.resize(integrand.size());
+        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result, buffer));
         for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
             CIE_TEST_CHECK(result[iComponent] == Approx(penalty * rReference[iComponent]).margin(1e-14));
         } // for iComponent in range(rReference.size())
