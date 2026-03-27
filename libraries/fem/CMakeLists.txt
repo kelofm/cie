@@ -37,7 +37,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror
                         -Wno-dangling-field
-                        -Wno-unknown-cuda-version)
+                        -Wno-unknown-cuda-version
+                        -Wno-c2y-extensions)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")

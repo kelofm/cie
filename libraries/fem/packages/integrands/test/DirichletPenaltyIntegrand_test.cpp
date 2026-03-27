@@ -57,11 +57,11 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
         Ansatz,
         maths::IdentityTransform<Scalar,Dimension>,
         CellBase<Dimension,Scalar,maths::IdentityTransform<Scalar,Dimension>>> integrand(
-        dirichlet,
-        penalty,
-        *pAnsatzSpace,
-        spatialTransform,
-        spatialTransform);
+            dirichlet,
+            penalty,
+            *pAnsatzSpace,
+            spatialTransform,
+            spatialTransform);
     CIE_TEST_REQUIRE(integrand.size() == 4 * 4 + 4);
     CIE_TEST_CHECK(integrand.bufferSize() == 4 + 2 + 2 + 1 + 5);
 

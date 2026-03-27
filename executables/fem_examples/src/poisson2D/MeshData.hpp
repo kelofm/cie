@@ -7,12 +7,7 @@
 // --- FEM Includes ---
 #include "packages/numeric/inc/MeshBase.hpp"
 #include "packages/numeric/inc/QuadraturePointFactory.hpp"
-#include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/io/inc/GraphML.hpp"
-#include "packages/io/inc/GraphML_specializations.hpp"
-
-// --- Utility Includes ---
-#include "packages/concurrency/inc/sycl.hpp"
 
 
 namespace cie::fem {
@@ -21,67 +16,11 @@ namespace cie::fem {
 /// @brief Data structure common to the entire @ref Graph "mesh".
 class MeshData : public MeshBase<Ansatz> {
 public:
-    MeshData()
-        : MeshBase<Ansatz>(),
-          _quadraturePointSet(),
-          _buffer()
-    {}
+    MeshData();
 
-    MeshData(RightRef<Ansatz> rAnsatzSpace)
-        : MeshBase<Ansatz>(std::span<const Ansatz>(&rAnsatzSpace, 1)),
-          _quadraturePointSet(),
-          _buffer()
-    {
-        // Cache quadrature points.
-        // Generate 1D quadrature points.
-        DynamicArray<QuadraturePoint<1,Scalar>> basePoints;
-        OuterProductQuadraturePointFactory<Dimension,Scalar> generator;
+    MeshData(RightRef<Ansatz> rAnsatzSpace);
 
-        CIE_BEGIN_EXCEPTION_TRACING
-            GaussLegendreQuadrature<Scalar> quadrature(integrationOrder);
-            basePoints.reserve(quadrature.numberOfNodes());
-            for (std::size_t iNode=0ul; iNode<quadrature.numberOfNodes(); ++iNode) {
-                basePoints.emplace_back(
-                    quadrature.nodes()[iNode],
-                    quadrature.weights()[iNode]);
-            }
-            generator = OuterProductQuadraturePointFactory<Dimension,Scalar>(basePoints);
-        CIE_END_EXCEPTION_TRACING
-
-        // Generate nD quadrature points.
-        constexpr std::size_t initialSize = 0x10;
-        constexpr Scalar growFactor = 2.0;
-        std::size_t pointCount = 0ul;
-        _quadraturePointSet.resize(initialSize);
-
-        while (true) {
-            // Extend the container if necessary.
-            if (!(pointCount < _quadraturePointSet.size())) {
-                _quadraturePointSet.resize(growFactor * _quadraturePointSet.size());
-            }
-
-            std::span<QuadraturePoint<Dimension,Scalar>> targetSpan(
-                _quadraturePointSet.data() + pointCount,
-                _quadraturePointSet.data() + _quadraturePointSet.size());
-
-            // Request a new batch of quadrature points.
-            const unsigned newPointCount = generator(targetSpan);
-            pointCount += newPointCount;
-
-            if (!newPointCount) break;
-        }
-
-        _quadraturePointSet.resize(pointCount);
-        _quadraturePointSet.shrink_to_fit();
-    }
-
-    CachedQuadraturePointFactory<Dimension,Scalar> makeQuadratureRule() const {
-        return CachedQuadraturePointFactory<Dimension,Scalar>(
-            std::span<const QuadraturePoint<Dimension,Scalar>>(
-                _quadraturePointSet.data(),
-                _quadraturePointSet.size())
-        );
-    }
+    CachedQuadraturePointFactory<Dimension,Scalar> makeQuadratureRule() const;
 
 private:
     friend struct io::GraphML::Serializer<MeshData>;
@@ -100,21 +39,7 @@ private:
 /// @brief Serializer for @ref MeshData in @p GraphML format.
 template <>
 struct io::GraphML::Serializer<MeshData> {
-    void header(Ref<io::GraphML::XMLElement> rElement) const {
-        // Add default value to the header.
-        io::GraphML::XMLElement defaultElement = rElement.addChild("default");
-        MeshData instance;
-        this->operator()(defaultElement, instance);
-
-        // Add description to the header.
-        io::GraphML::XMLElement descriptionElement = rElement.addChild("desc");
-        std::stringstream description;
-        description << "Data structure shared by all cells and boundaries of the mesh. "
-                    << "In this case, this means the ansatz spaces of the cells as "
-                    << "well as their derivatives. Each cell stores an index referring "
-                    << "to their own ansatz spaces.",
-        descriptionElement.setValue(description.view());
-    }
+    void header(Ref<io::GraphML::XMLElement> rElement) const;
 
     void operator()(
         [[maybe_unused]] Ref<io::GraphML::XMLElement> rElement,
@@ -125,58 +50,24 @@ struct io::GraphML::Serializer<MeshData> {
 /// @brief Deserializer for @ref MeshData in @p GraphML format.
 template <>
 struct io::GraphML::Deserializer<MeshData>
-    : public io::GraphML::DeserializerBase<MeshData>
-{
+    : public io::GraphML::DeserializerBase<MeshData> {
     using io::GraphML::DeserializerBase<MeshData>::DeserializerBase;
 
     /// @brief This function is called when an element opening tag is parsed in the XML document.
-    static void onElementBegin(void* pThis,
-                               std::string_view elementName,
-                               std::span<io::GraphML::AttributePair>) {
-        // TODO
-        (void)(pThis);
-        CIE_THROW(NotImplementedException, elementName)
-//        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-//
-//        // Defer parsing to the array of ansatz spaces.
-//        using SubDeserializer = io::GraphML::Deserializer<DynamicArray<Ansatz>>;
-//        rThis.sax().push({
-//            SubDeserializer::make(rThis._buffer, rThis.sax(), elementName),
-//            SubDeserializer::onElementBegin,
-//            SubDeserializer::onText,
-//            SubDeserializer::onElementEnd
-//        });
-    }
+    static void onElementBegin(
+        Ptr<void> pThis,
+        std::string_view elementName,
+        std::span<io::GraphML::AttributePair>);
 
     /// @brief This function is called when text block is parsed in the XML document.
-    static void onText(void*,
-                       std::string_view) {
-        // No text data is expected for this class.
-        CIE_THROW(Exception, "Unexpected text block while parsing mesh data.")
-    }
+    static void onText(
+        Ptr<void>,
+        std::string_view);
 
     /// @brief This function is called when an element closing tag is parsed in the XML document.
-    static void onElementEnd(void* pThis,
-                             std::string_view elementName) {
-        // TODO
-        (void)(pThis);
-        CIE_THROW(NotImplementedException, elementName)
-//        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-//
-//        // Move the parsed ansatz spaces from the buffer to the mesh data instance.
-//        rThis.instance()._ansatzSpaces = std::move(rThis._buffer);
-//
-//        // Build derivatives from the parsed ansatz spaces.
-//        std::transform(rThis.instance()._ansatzSpaces.begin(),
-//                       rThis.instance()._ansatzSpaces.end(),
-//                       std::back_inserter(rThis.instance()._ansatzDerivatives),
-//                       [] (Ref<const Ansatz> rAnsatz) -> AnsatzDerivative {
-//                            return rAnsatz.makeDerivative();
-//                       });
-//
-//        // The parser's job is done => destroy it.
-//        rThis.template release<Deserializer>(&rThis, elementName);
-    }
+    static void onElementEnd(
+        Ptr<void> pThis,
+        std::string_view elementName);
 
 private:
     DynamicArray<Ansatz> _buffer;

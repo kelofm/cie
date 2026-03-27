@@ -22,9 +22,19 @@ if (NOT TARGET cieutils)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options(-Wall -Wpedantic -Wextra -Wno-dangling-reference -Werror)
+    add_compile_options(
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Wno-dangling-reference
+        -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(-Wall -Wpedantic -Wextra -Werror)
+    add_compile_options(
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Werror
+        -Wno-c2y-extensions)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")

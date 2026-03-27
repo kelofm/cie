@@ -141,13 +141,15 @@ TValue AffineEmbeddingDerivative<TValue,1u,2u>::evaluateDeterminant(
 
 
 template <concepts::Numeric TValue>
-void AffineEmbeddingInverse<TValue,2u,1u>::evaluate(ConstSpan in, Span out) const {
-    CIE_OUT_OF_RANGE_CHECK(in.size() == AffineEmbeddingInverse::InDimension)
-    CIE_OUT_OF_RANGE_CHECK(out.size() == AffineEmbeddingInverse::OutDimension)
-
-    StaticArray<TValue,AffineEmbeddingInverse::InDimension> augmented;
-    _transform.evaluate(in, augmented);
-    out[0] = augmented[0];
+void AffineEmbeddingInverse<TValue,2u,1u>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer) const {
+        assert(in.size() == AffineEmbeddingInverse::InDimension);
+        assert(out.size() == AffineEmbeddingInverse::OutDimension);
+        StaticArray<TValue,AffineEmbeddingInverse::InDimension> augmented;
+        _transform.evaluate(in, augmented, buffer);
+        out.front() = augmented.front();
 }
 
 

@@ -97,12 +97,23 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
                            -Wall -Wpedantic -Wextra -Werror
                            -Wno-dangling-reference -Wno-maybe-uninitialized)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    target_compile_options(${PROJECT_NAME} PUBLIC
-                           -Wall -Wpedantic -Wextra -Werror
-                           -Wno-unknown-cuda-version)
+    target_compile_options(
+        ${PROJECT_NAME}
+        PUBLIC
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror
+            -Wno-unknown-cuda-version
+            -Wno-c2y-extensions)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    target_compile_options(${PROJECT_NAME} PUBLIC
-                           -Wall -Wpedantic -Wextra -Werror)
+    target_compile_options(
+        ${PROJECT_NAME}
+        PUBLIC
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     message(FATAL_ERROR "MSVC is not supported yet")
 endif ()

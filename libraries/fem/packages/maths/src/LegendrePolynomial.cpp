@@ -94,8 +94,7 @@ ModifiedLegendrePolynomial<TValue>::ModifiedLegendrePolynomial(unsigned index)
 
 template <class TValue>
 IntegratedLegendrePolynomial<TValue>::IntegratedLegendrePolynomial(unsigned index)
-    : Polynomial<TValue>()
-{
+    : Polynomial<TValue>() {
     typename Polynomial<TValue>::Coefficients coefficients;
 
     // Special cases.
@@ -119,7 +118,11 @@ IntegratedLegendrePolynomial<TValue>::IntegratedLegendrePolynomial(unsigned inde
         PolynomialView<TValue> homogeneous(coefficients);
         const TValue in = static_cast<TValue>(1);
         TValue out;
-        homogeneous.evaluate({&in, (&in) + 1}, {&out, (&out) + 1});
+        std::vector<TValue> buffer(homogeneous.bufferSize());
+        homogeneous.evaluate(
+            {&in, (&in) + 1},
+            {&out, (&out) + 1},
+            buffer);
         coefficients.front() = -out;
     }
 

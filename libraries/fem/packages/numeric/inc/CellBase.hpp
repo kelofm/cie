@@ -30,18 +30,20 @@ concept CellLike
 =  std::is_same_v<std::remove_cvref_t<decltype(T::ParametricDimension)>,unsigned>
 && std::is_same_v<std::remove_cvref_t<decltype(T::PhysicalDimension)>,unsigned>
 && cie::concepts::Numeric<typename T::Value>
+&& std::is_same_v<typename T::BufferSpan,typename maths::ExpressionTraits<typename T::Value>::BufferSpan>
 && requires (const T& rConstInstance,
              std::span<const ParametricCoordinate<typename T::Value>,T::ParametricDimension> constParametricSpan,
              std::span<ParametricCoordinate<typename T::Value>,T::ParametricDimension> parametricSpan,
              std::span<const PhysicalCoordinate<typename T::Value>,T::PhysicalDimension> constPhysicalSpan,
-             std::span<PhysicalCoordinate<typename T::Value>,T::PhysicalDimension> physicalSpan) {
-    {rConstInstance.transform(constParametricSpan, physicalSpan)}   -> std::same_as<void>;      // <== transform from local to global space
-    {rConstInstance.transform(constPhysicalSpan, parametricSpan)}   -> std::same_as<void>;      // <== transform from global to local space
-    {rConstInstance.makeJacobian()}                                 -> maths::JacobianExpression;
-    {rConstInstance.makeJacobianInverse()}                          -> maths::JacobianExpression;
-    {rConstInstance.id()}                                           -> std::same_as<VertexID>;
-    {rConstInstance.ansatzID()}                                     -> std::same_as<AnsatzID>;
-    {rConstInstance.makeSpatialTransform()}                         -> maths::SpatialTransform;
+             std::span<PhysicalCoordinate<typename T::Value>,T::PhysicalDimension> physicalSpan,
+             typename T::BufferSpan bufferSpan) {
+    {rConstInstance.transform(constParametricSpan, physicalSpan, bufferSpan)}   -> std::same_as<void>;      // <== transform from local to global space
+    {rConstInstance.transform(constPhysicalSpan, parametricSpan, bufferSpan)}   -> std::same_as<void>;      // <== transform from global to local space
+    {rConstInstance.makeJacobian()}                                             -> maths::JacobianExpression;
+    {rConstInstance.makeJacobianInverse()}                                      -> maths::JacobianExpression;
+    {rConstInstance.id()}                                                       -> std::same_as<VertexID>;
+    {rConstInstance.ansatzID()}                                                 -> std::same_as<AnsatzID>;
+    {rConstInstance.makeSpatialTransform()}                                     -> maths::SpatialTransform;
 }; // concept CellLike
 
 
@@ -78,6 +80,8 @@ public:
 
     using SpatialTransform = TSpatialTransform;
 
+    using BufferSpan = typename maths::ExpressionTraits<TValue>::BufferSpan;
+
     CellBase() noexcept;
 
     CellBase(
@@ -97,11 +101,13 @@ public:
 
     void transform(
         Ref<const ConstParametricSpan> in,
-        Ref<const PhysicalSpan> out) const noexcept;
+        Ref<const PhysicalSpan> out,
+        Ref<const BufferSpan> buffer) const noexcept;
 
     void transform(
         Ref<const ConstPhysicalSpan> in,
-        Ref<const ParametricSpan> out) const noexcept;
+        Ref<const ParametricSpan> out,
+        Ref<const BufferSpan> buffer) const noexcept;
 
     [[nodiscard]] typename TSpatialTransform::Derivative makeJacobian() const;
 
@@ -211,6 +217,8 @@ public:
 
     using SpatialTransform = typename TCell::SpatialTransform;
 
+    using BufferSpan = typename TCell::BufferSpan;
+
     constexpr IndirectCell() noexcept
         : _pCell(nullptr)
     {}
@@ -221,14 +229,16 @@ public:
 
     void transform(
         Ref<const ConstParametricSpan> in,
-        Ref<const PhysicalSpan> out) const noexcept {
-        _pCell->transform(in, out);
+        Ref<const PhysicalSpan> out,
+        Ref<const BufferSpan> buffer) const noexcept {
+            _pCell->transform(in, out, buffer);
     }
 
     void transform(
         Ref<const ConstPhysicalSpan> in,
-        Ref<const ParametricSpan> out) const noexcept {
-        _pCell->transform(in, out);
+        Ref<const ParametricSpan> out,
+        Ref<const BufferSpan> buffer) const noexcept {
+            _pCell->transform(in, out, buffer);
     }
 
     [[nodiscard]] typename SpatialTransform::Derivative makeJacobian() const {

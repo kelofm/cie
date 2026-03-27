@@ -22,7 +22,7 @@ void Quadrature<TValue,Dimension>::evaluate(
 
         const unsigned valueSize = rExpression.size();
         const unsigned nestedBufferSize = rExpression.bufferSize();
-        assert(buffer.size() == valueSize + nestedBufferSize);
+        assert(this->bufferSize(rExpression) <= buffer.size());
 
         typename TExpression::Span valueBuffer(
             buffer.data(),
@@ -45,6 +45,13 @@ void Quadrature<TValue,Dimension>::evaluate(
                 out[iOut] += weight * buffer[iOut];
             }
         } // for item in nodesAndWeights
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+template <maths::Expression TExpression>
+unsigned Quadrature<TValue,Dimension>::bufferSize(Ref<const TExpression> rExpression) const noexcept {
+    return rExpression.size() + rExpression.bufferSize();
 }
 
 

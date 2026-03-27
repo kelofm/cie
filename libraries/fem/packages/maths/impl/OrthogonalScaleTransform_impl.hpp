@@ -49,6 +49,12 @@ constexpr unsigned OrthogonalScaleTransform<TValue,Dimension>::size() noexcept {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned OrthogonalScaleTransform<TValue,Dimension>::bufferSize() noexcept {
+    return 0u;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 template <concepts::Iterator TPointIt>
 OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform(
     TPointIt itTransformedBegin,

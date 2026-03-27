@@ -21,13 +21,6 @@ ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform(RightRef<std:
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-unsigned ScaleTranslateTransform<TValue,Dimension>::size() const noexcept
-{
-    return Dimension;
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
 typename ScaleTranslateTransform<TValue,Dimension>::Derivative
 ScaleTranslateTransform<TValue,Dimension>::makeDerivative() const noexcept
 {
@@ -40,14 +33,16 @@ typename ScaleTranslateTransform<TValue,Dimension>::Inverse
 ScaleTranslateTransform<TValue,Dimension>::makeInverse() const noexcept
 {
     std::array<TValue,Dimension> scales, offset;
-    std::transform(_scales.begin(),
-                   _scales.end(),
-                   scales.begin(),
-                   [](TValue scale){return static_cast<TValue>(1) / scale;});
-    std::transform(_offset.begin(),
-                   _offset.end(),
-                   offset.begin(),
-                   [](TValue component){return -component;});
+    std::transform(
+        _scales.begin(),
+        _scales.end(),
+        scales.begin(),
+        [](TValue scale){return static_cast<TValue>(1) / scale;});
+    std::transform(
+        _offset.begin(),
+        _offset.end(),
+        offset.begin(),
+        [](TValue component){return -component;});
     return TranslateScaleTransform<TValue,Dimension>(std::move(scales), std::move(offset));
 }
 

@@ -40,7 +40,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const {
-        assert(this->getMinBufferSize() <= buffer.size());
+        assert(this->bufferSize() <= buffer.size());
 
         // Fetch object output sizes.
         const unsigned ansatzCount = _ansatzSpace.size();

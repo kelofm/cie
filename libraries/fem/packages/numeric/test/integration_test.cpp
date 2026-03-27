@@ -25,8 +25,7 @@
 namespace cie::fem {
 
 
-CIE_TEST_CASE("integration", "[fem]")
-{
+CIE_TEST_CASE("integration", "[fem]") {
     CIE_TEST_CASE_INIT("integration")
 
     using QuadTree = geo::ContiguousSpaceTree<geo::Cube<2,double>,unsigned>;
@@ -55,17 +54,21 @@ CIE_TEST_CASE("integration", "[fem]")
     tree.scan(treePredicate);
 
     // Construct an integrand that will be evaluated over the domain
-    const auto integrand = maths::makeLambdaExpression<double>([&domain] (std::span<const double> in,
-                                                                          std::span<double> out) {
+    const auto integrand = maths::makeLambdaExpression<double>([&domain] (
+            std::span<const double> in,
+            std::span<double> out,
+            std::span<double>) {
         if (domain(in)) {
             // A unit halfsphere
             out.front() = std::sqrt(1.0 - std::pow(in[0], 2) - std::pow(in[1], 2));
         } else {
             out.front() = 0;
         }
-    }, 1);
+    }, 1, 0);
 
     double integral = 0;
+    std::vector<double> buffer;
+
     for (const auto& rNode : tree) {
         if (rNode.isLeaf()) {
             // Recover the node's geometry
@@ -78,21 +81,33 @@ CIE_TEST_CASE("integration", "[fem]")
             StaticArray<double,2> transformed[2];
             transformed[0] = {base[0], base[1]};
             transformed[1] = {base[0] + edge, base[1] + edge};
-            const maths::ScaleTranslateTransform<double,2> transform(transformed, transformed + 2);
-            const double determinant = transform.makeDerivative().evaluateDeterminant({&edge, 0});
+            const maths::ScaleTranslateTransform<double,2> transform(
+                transformed,
+                transformed + 2);
+            const auto jacobian = transform.makeDerivative();
+            buffer.resize(jacobian.bufferSize());
+            const double determinant = jacobian.evaluateDeterminant(
+                {&edge, 0},
+                buffer);
 
             // Construct the transformed integrand
             const auto transformedIntegrand = maths::makeLambdaExpression<double>(
-                [&transform, determinant, &integrand] (std::span<const double> in,
-                                                       std::span<double> out) {
+                [&transform, determinant, &integrand] (
+                    std::span<const double> in,
+                    std::span<double> out,
+                    std::span<double> buffer) {
                 StaticArray<double,2> transformedPoint;
-                transform.evaluate(in, transformedPoint);
-                integrand.evaluate(transformedPoint, out);
+                transform.evaluate(in, transformedPoint, buffer);
+                integrand.evaluate(transformedPoint, out, buffer);
                 out.front() *= determinant;
-            }, integrand.size());
+            }, integrand.size(), std::max<unsigned>(transform.bufferSize(), integrand.bufferSize()));
 
             double term;
-            quadrature.evaluate(transformedIntegrand, {&term, 1});
+            buffer.resize(quadrature.bufferSize(transformedIntegrand));
+            quadrature.evaluate(
+                transformedIntegrand,
+                buffer,
+                {&term, 1});
             integral += term;
         } // if rNode.isLeaf()
     } // for node in tree

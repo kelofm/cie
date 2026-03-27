@@ -128,6 +128,18 @@ void ScaleTranslateTransform<TValue,Dimension>::evaluate(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned ScaleTranslateTransform<TValue,Dimension>::size() noexcept {
+    return Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned ScaleTranslateTransform<TValue,Dimension>::bufferSize() noexcept {
+    return 0u;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 ScaleTranslateTransform<TValue,Dimension>::ScaleTranslateTransform() noexcept {
     std::fill(
         this->_scales.begin(),
@@ -171,6 +183,12 @@ void TranslateScaleTransform<TValue,Dimension>::evaluate(
 template <concepts::Numeric TValue, unsigned Dimension>
 constexpr unsigned TranslateScaleTransform<TValue,Dimension>::size() noexcept {
     return Dimension;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+constexpr unsigned TranslateScaleTransform<TValue,Dimension>::bufferSize() noexcept {
+    return 0u;
 }
 
 
@@ -243,26 +261,33 @@ void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::head
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
-                                                                                       Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept
-{
-    std::array<TValue,Dimension>   input;
-    std::array<TValue,2*Dimension> output;
+void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::operator()(
+    Ref<XMLElement> rElement,
+    Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept {
+        std::array<TValue,Dimension>   input;
+        std::array<TValue,2*Dimension> output;
+        std::vector<TValue> buffer(rObject.bufferSize());
 
-    std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
-    rObject.evaluate(input, {output.data(), output.data() + Dimension});
+        std::fill(input.begin(), input.end(), static_cast<TValue>(-1));
+        rObject.evaluate(
+            input,
+            {output.data(), Dimension},
+            buffer);
 
-    std::fill(input.begin(), input.end(), static_cast<TValue>(1));
-    rObject.evaluate(input, {output.data() + Dimension, output.data() + 2 * Dimension});
+        std::fill(input.begin(), input.end(), static_cast<TValue>(1));
+        rObject.evaluate(
+            input,
+            {output.data() + Dimension, Dimension},
+            buffer);
 
-    GraphML::XMLElement child = rElement.addChild("st-tr");
-    using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
-    SubSerializer subSerializer;
-    //subSerializer.setFormat(tags::Binary::flags());
+        GraphML::XMLElement child = rElement.addChild("st-tr");
+        using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
+        SubSerializer subSerializer;
+        //subSerializer.setFormat(tags::Binary::flags());
 
-    CIE_BEGIN_EXCEPTION_TRACING
-    subSerializer(child, std::span<const TValue>(output));
-    CIE_END_EXCEPTION_TRACING
+        CIE_BEGIN_EXCEPTION_TRACING
+        subSerializer(child, std::span<const TValue>(output));
+        CIE_END_EXCEPTION_TRACING
 }
 
 

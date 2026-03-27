@@ -61,6 +61,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
     using Value = typename TAnsatzSpace::Value;
     constexpr unsigned Dimension = TAnsatzSpace::Dimension;
     static_assert(0 < Dimension);
+    std::vector<typename TAnsatzSpace::Value> ansatzBuffer(rAnsatzSpace.bufferSize());
 
     const Size ansatzSize = rAnsatzSpace.size();
     const Size numberOfSamples = std::distance(pSampleBegin, pSampleEnd);
@@ -94,7 +95,10 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
             } // for i in range(Dimension)
 
             // Evaluate the ansatz space
-            rAnsatzSpace.evaluate(argument, valueBuffer);
+            rAnsatzSpace.evaluate(
+                argument,
+                valueBuffer,
+                ansatzBuffer);
 
             for (Size iAnsatz=0; iAnsatz<ansatzSize; ++iAnsatz) {
                 if (tolerance < valueBuffer[iAnsatz]) {
@@ -123,6 +127,7 @@ AnsatzMap<Dimension>::AnsatzMap(
 
         using Value = typename TAnsatzSpace::Value;
         GaussLegendreQuadrature<Value> quadrature(integrationOrder, comparison);
+        std::vector<typename TAnsatzSpace::Value> ansatzBuffer(rAnsatzSpace.bufferSize());
 
         if (quadrature.nodes().size() && _ansatzCount) {
             // Loop through viable boundary pairs.
@@ -256,7 +261,7 @@ AnsatzMap<Dimension>::AnsatzMap(
 
                         // Negative side
                         rSamplePoint[iBoundaryAxis] = -1;
-                        rAnsatzSpace.evaluate(rSamplePoint, valueBuffer);
+                        rAnsatzSpace.evaluate(rSamplePoint, valueBuffer, ansatzBuffer);
                         for (Size iLeftAnsatz=0u; iLeftAnsatz<_ansatzCount; ++iLeftAnsatz) {
                             negativeSideVanish[iLeftAnsatz] = negativeSideVanish[iLeftAnsatz] && comparison.equal(valueBuffer[iLeftAnsatz], 0);
 
@@ -270,7 +275,7 @@ AnsatzMap<Dimension>::AnsatzMap(
 
                         // Positive side
                         rSamplePoint[iBoundaryAxis] = 1;
-                        rAnsatzSpace.evaluate(rSamplePoint, valueBuffer);
+                        rAnsatzSpace.evaluate(rSamplePoint, valueBuffer, ansatzBuffer);
                         for (Size iLeftAnsatz=0u; iLeftAnsatz<_ansatzCount; ++iLeftAnsatz) {
                             positiveSideVanish[iLeftAnsatz] = positiveSideVanish[iLeftAnsatz] && comparison.equal(valueBuffer[iLeftAnsatz], 0);
 

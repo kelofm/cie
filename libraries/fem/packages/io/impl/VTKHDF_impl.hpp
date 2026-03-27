@@ -222,88 +222,94 @@ void VTKHDF::Output::writeMesh(
                 std::vector<Scalar> points(pointCount * 3);
                 offsets.front() = 0ul;
 
-                const auto kernel = [&] (std::size_t iCell, Ref<const TCell> rCell) {
-                    const std::size_t iCellBegin = pointsPerCell * iCell;
+                const auto kernel = [&] (
+                    std::size_t iCell,
+                    Ref<const TCell> rCell,
+                    Ref<std::vector<typename TCell::Value>> rBuffer) {
+                        const std::size_t iCellBegin = pointsPerCell * iCell;
 
-                    // Get topology.
-                    if constexpr (TCell::ParametricDimension == 1) {
-                        topology[iCellBegin    ] = iCellBegin    ;
-                        topology[iCellBegin + 1] = iCellBegin + 1;
-                    } else if constexpr (TCell::ParametricDimension == 2) {
-                        topology[iCellBegin    ] = iCellBegin    ;
-                        topology[iCellBegin + 1] = iCellBegin + 1;
-                        topology[iCellBegin + 2] = iCellBegin + 3;
-                        topology[iCellBegin + 3] = iCellBegin + 2;
-                    } else if constexpr (TCell::ParametricDimension == 3) {
-                        topology[iCellBegin    ] = iCellBegin    ;
-                        topology[iCellBegin + 1] = iCellBegin + 1;
-                        topology[iCellBegin + 2] = iCellBegin + 3;
-                        topology[iCellBegin + 3] = iCellBegin + 2;
-                        topology[iCellBegin + 4] = iCellBegin + 4;
-                        topology[iCellBegin + 5] = iCellBegin + 5;
-                        topology[iCellBegin + 6] = iCellBegin + 7;
-                        topology[iCellBegin + 7] = iCellBegin + 6;
-                    } else static_assert(TCell::ParametricDimension == 1, "unsupported dimension");
+                        // Get topology.
+                        if constexpr (TCell::ParametricDimension == 1) {
+                            topology[iCellBegin    ] = iCellBegin    ;
+                            topology[iCellBegin + 1] = iCellBegin + 1;
+                        } else if constexpr (TCell::ParametricDimension == 2) {
+                            topology[iCellBegin    ] = iCellBegin    ;
+                            topology[iCellBegin + 1] = iCellBegin + 1;
+                            topology[iCellBegin + 2] = iCellBegin + 3;
+                            topology[iCellBegin + 3] = iCellBegin + 2;
+                        } else if constexpr (TCell::ParametricDimension == 3) {
+                            topology[iCellBegin    ] = iCellBegin    ;
+                            topology[iCellBegin + 1] = iCellBegin + 1;
+                            topology[iCellBegin + 2] = iCellBegin + 3;
+                            topology[iCellBegin + 3] = iCellBegin + 2;
+                            topology[iCellBegin + 4] = iCellBegin + 4;
+                            topology[iCellBegin + 5] = iCellBegin + 5;
+                            topology[iCellBegin + 6] = iCellBegin + 7;
+                            topology[iCellBegin + 7] = iCellBegin + 6;
+                        } else static_assert(TCell::ParametricDimension == 1, "unsupported dimension");
 
-                    // Get topology type.
-                    if constexpr (TCell::ParametricDimension == 1) {
-                        topologyTypes[iCell] = /*VTK_LINE*/ 3;
-                    } else if constexpr (TCell::ParametricDimension == 2) {
-                        topologyTypes[iCell] = /*VTK_QUAD*/ 9;
-                    } else if constexpr (TCell::ParametricDimension == 3) {
-                        topologyTypes[iCell] = /*VTK_HEXAHEDRON*/ 12;
-                    } else static_assert(TCell::ParametricDimension == 1, "unsupported dimension");
+                        // Get topology type.
+                        if constexpr (TCell::ParametricDimension == 1) {
+                            topologyTypes[iCell] = /*VTK_LINE*/ 3;
+                        } else if constexpr (TCell::ParametricDimension == 2) {
+                            topologyTypes[iCell] = /*VTK_QUAD*/ 9;
+                        } else if constexpr (TCell::ParametricDimension == 3) {
+                            topologyTypes[iCell] = /*VTK_HEXAHEDRON*/ 12;
+                        } else static_assert(TCell::ParametricDimension == 1, "unsupported dimension");
 
-                    // Get the index of the cell's topology begin.
-                    offsets[iCell + 1] = offsets[iCell] + pointsPerCell;
+                        // Get the index of the cell's topology begin.
+                        offsets[iCell + 1] = offsets[iCell] + pointsPerCell;
 
-                    // Get node coordinates.
-                    std::array<fem::ParametricCoordinate<Scalar>,TCell::ParametricDimension> parametricCoordinates;
-                    std::array<fem::PhysicalCoordinate<Scalar>,TCell::PhysicalDimension> physicalCoordinates;
-                    std::array<std::uint8_t,TCell::ParametricDimension> state;
-                    std::fill_n(
-                        state.data(),
-                        state.size(),
-                        static_cast<std::uint8_t>(0));
-
-                    std::size_t iComponentBegin = iCell * pointsPerCell * 3;
-                    do {
-                        std::transform(
-                            state.begin(),
-                            state.end(),
-                            parametricCoordinates.begin(),
-                            [] (std::uint8_t state) -> fem::ParametricCoordinate<Scalar> {
-                                return state ? static_cast<Scalar>(1) : static_cast<Scalar>(-1);
-                            });
-
-                        rCell.transform(
-                            fem::Kernel<TCell::ParametricDimension,Scalar>::view(parametricCoordinates),
-                            fem::Kernel<TCell::PhysicalDimension,Scalar>::view(physicalCoordinates));
-
-                        std::copy_n(
-                            physicalCoordinates.data(),
-                            std::min<std::size_t>(3, TCell::PhysicalDimension),
-                            points.data() + iComponentBegin);
+                        // Get node coordinates.
+                        std::array<fem::ParametricCoordinate<Scalar>,TCell::ParametricDimension> parametricCoordinates;
+                        std::array<fem::PhysicalCoordinate<Scalar>,TCell::PhysicalDimension> physicalCoordinates;
+                        std::array<std::uint8_t,TCell::ParametricDimension> state;
                         std::fill_n(
-                            points.data() + iComponentBegin + std::min<std::size_t>(3, TCell::PhysicalDimension),
-                            3 - std::min<std::size_t>(3, TCell::PhysicalDimension),
-                            static_cast<Scalar>(0));
+                            state.data(),
+                            state.size(),
+                            static_cast<std::uint8_t>(0));
 
-                        iComponentBegin += 3;
-                    } while (cie::maths::OuterProduct<TCell::ParametricDimension>::next(2u, state.data()));
+                        std::size_t iComponentBegin = iCell * pointsPerCell * 3;
+                        rBuffer.resize(rCell.makeSpatialTransform().bufferSize());
+                        do {
+                            std::transform(
+                                state.begin(),
+                                state.end(),
+                                parametricCoordinates.begin(),
+                                [] (std::uint8_t state) -> fem::ParametricCoordinate<Scalar> {
+                                    return state ? static_cast<Scalar>(1) : static_cast<Scalar>(-1);
+                                });
+
+                            rCell.transform(
+                                fem::Kernel<TCell::ParametricDimension,Scalar>::view(parametricCoordinates),
+                                fem::Kernel<TCell::PhysicalDimension,Scalar>::view(physicalCoordinates),
+                                rBuffer);
+
+                            std::copy_n(
+                                physicalCoordinates.data(),
+                                std::min<std::size_t>(3, TCell::PhysicalDimension),
+                                points.data() + iComponentBegin);
+                            std::fill_n(
+                                points.data() + iComponentBegin + std::min<std::size_t>(3, TCell::PhysicalDimension),
+                                3 - std::min<std::size_t>(3, TCell::PhysicalDimension),
+                                static_cast<Scalar>(0));
+
+                            iComponentBegin += 3;
+                        } while (cie::maths::OuterProduct<TCell::ParametricDimension>::next(2u, state.data()));
                 }; // kernel
 
                 if (maybeCells.has_value()) {
                     const auto cells = maybeCells.value();
-                    mp::ParallelFor<>(threads).execute(cells.size(),
-                        [&] (std::size_t iCell) {
-                            kernel(iCell, cells[iCell]);
+                    mp::ParallelFor<>(threads).firstPrivate(std::vector<typename TCell::Value>()).execute(cells.size(),
+                        [&] (std::size_t iCell, Ref<std::vector<typename TCell::Value>> rBuffer) {
+                            kernel(iCell, cells[iCell], rBuffer);
                         }); // for rCell in rCells
                 } else if constexpr (fem::DiscretizationLike<TMesh>) {
                     Ref<const TMesh> rMesh = rMaybeMesh.value();
+                    std::vector<typename TCell::Value> buffer;
                     std::size_t iCell = 0ul;
                     for (Ref<const typename TMesh::Vertex> rVertex : rMesh.vertices()) {
-                        kernel(iCell, rVertex.data());
+                        kernel(iCell, rVertex.data(), buffer);
                         ++iCell;
                     }
                 }
@@ -391,10 +397,12 @@ void VTKHDF::Output::writeFieldVariablesImpl(
             const auto kernel = [&] (
                 std::size_t iCell,
                 Ref<const TCell> rCell,
-                Ref<std::vector<TValue>> rAnsatzBuffer) -> void {
+                Ref<std::vector<TValue>> rAnsatzBuffer,
+                Ref<std::vector<TValue>> rExpressionBuffer) -> void {
                     const auto& rGlobalDofIndices = rAssembler[rCell.id()];
                     const auto ansatz = rMesh.data().ansatz(rCell.ansatzID());
                     rAnsatzBuffer.resize(ansatz.size());
+                    rExpressionBuffer.resize(ansatz.bufferSize());
 
                     std::array<TValue,TCell::ParametricDimension> parametricCoordinates;
                     std::array<std::uint8_t,TCell::ParametricDimension> state;
@@ -417,7 +425,8 @@ void VTKHDF::Output::writeFieldVariablesImpl(
                         // Evaluate the ansatz space.
                         ansatz.evaluate(
                             parametricCoordinates,
-                            rAnsatzBuffer);
+                            rAnsatzBuffer,
+                            rExpressionBuffer);
 
                         // Compute field values.
                         const std::size_t iPoint = iCell * pointsPerCell + iLocalPoint;
@@ -441,16 +450,16 @@ void VTKHDF::Output::writeFieldVariablesImpl(
             if (maybeCells.has_value()) {
                 std::span<const TCell> cells = maybeCells.value();
                 mp::ThreadPoolBase threads;
-                mp::ParallelFor<>(threads).firstPrivate(std::vector<TValue>()).execute(
+                mp::ParallelFor<>(threads).firstPrivate(std::vector<TValue>(), std::vector<TValue>()).execute(
                     cells.size(),
-                    [cells, &kernel] (std::size_t iCell, Ref<std::vector<TValue>> rAnsatzBuffer) {
-                        kernel(iCell, cells[iCell], rAnsatzBuffer);
+                    [cells, &kernel] (std::size_t iCell, Ref<std::vector<TValue>> rAnsatzBuffer, Ref<std::vector<TValue>> rExpressionBuffer) {
+                        kernel(iCell, cells[iCell], rAnsatzBuffer, rExpressionBuffer);
                     });
             } else {
                 std::size_t iCell = 0ul;
-                std::vector<TValue> ansatzBuffer;
+                std::vector<TValue> ansatzBuffer, expressionBuffer;
                 for (Ref<const typename TMesh::Vertex> rCell : rMesh.vertices()) {
-                    kernel(iCell, rCell.data(), ansatzBuffer);
+                    kernel(iCell, rCell.data(), ansatzBuffer, expressionBuffer);
                     ++iCell;
                 } // for rCell in rMesh.vertices()
             }

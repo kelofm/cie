@@ -29,6 +29,9 @@ public:
         typename TExpression::Span buffer,
         typename TExpression::Span out) const;
 
+    template <maths::Expression TExpression>
+    unsigned bufferSize(Ref<const TExpression> rExpression) const noexcept;
+
 private:
     DynamicArray<StaticArray<TValue,Dimension+1>> _nodesAndWeights;
 }; // class Quadrature

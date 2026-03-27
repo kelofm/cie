@@ -33,13 +33,14 @@ public:
             static_cast<TValue>(0));
     }
 
-    constexpr QuadraturePoint(Ref<const std::span<const TValue,Dim>> rPosition,
-                              TValue weight) noexcept {
-        std::copy_n(
-            rPosition.data(),
-            Dim,
-            std::get<0>(_data).data());
-        std::get<0>(_data).back() = weight;
+    constexpr QuadraturePoint(
+        Ref<const std::span<const TValue,Dim>> rPosition,
+        TValue weight) noexcept {
+            std::copy_n(
+                rPosition.data(),
+                Dim,
+                std::get<0>(_data).data());
+            std::get<0>(_data).back() = weight;
     }
 
     constexpr QuadraturePoint(
@@ -48,7 +49,7 @@ public:
         typename VoidSafe<TData,int>::RightRef rData) noexcept
     requires (!std::is_same_v<TData,void>)
         : QuadraturePoint(rPosition, weight) {
-        this->data() = std::move(rData);
+            this->data() = std::move(rData);
     }
 
     constexpr QuadraturePoint(Value position, Value weight) noexcept
@@ -118,6 +119,7 @@ concept QuadraturePointLike
 = requires (T& instance, const T& constInstance) {
     {constInstance.evaluate(
         maths::IdentityTransform<typename T::Value::Value,1u>(),
+        std::span<typename T::Value::Value>(),
         std::span<typename T::Value::Value>())};
     {constInstance.position()};
     {constInstance.weight()};

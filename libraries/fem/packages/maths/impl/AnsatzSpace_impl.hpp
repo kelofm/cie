@@ -27,7 +27,7 @@ namespace impl {
 ///              |       + nested buffer required by the ansatz set (max)
 ///              + buffer for the values of the basis functions (@p n scalars)
 ///          @endcode
-template <class TScalarExpression>
+template <class TScalarExpression, unsigned Dimension>
 struct AnsatzTraits {
     using Value = typename TScalarExpression::Value;
 
@@ -36,7 +36,7 @@ struct AnsatzTraits {
     }
 
     static constexpr std::size_t ansatzBufferSize(std::span<const TScalarExpression> set) noexcept {
-        return std::accumulate(
+        return Dimension * std::accumulate(
             set.begin(),
             set.end(),
             0u,
@@ -53,7 +53,9 @@ struct AnsatzTraits {
             : std::max_element(
                 set.begin(),
                 set.end(),
-                [] (Ref<const TScalarExpression> f) {return f.bufferSize();}
+                [] (Ref<const TScalarExpression> left,
+                    Ref<const TScalarExpression> right) {
+                        return left.bufferSize() < right.bufferSize();}
               )->bufferSize();
     }
 
@@ -63,7 +65,7 @@ struct AnsatzTraits {
 
     static constexpr typename ExpressionTraits<Value>::Span getAnsatzBuffer(
         std::span<const TScalarExpression> set,
-        typename ExpressionTraits<Value>::BufferView buffer) noexcept {
+        typename ExpressionTraits<Value>::BufferSpan buffer) noexcept {
             return typename ExpressionTraits<Value>::Span(
                 buffer.data() + AnsatzTraits::ansatzBufferOffset(set),
                 AnsatzTraits::ansatzBufferSize(set));
@@ -71,7 +73,7 @@ struct AnsatzTraits {
 
     static constexpr typename ExpressionTraits<Value>::Span getNestedBuffer(
         std::span<const TScalarExpression> set,
-        typename ExpressionTraits<Value>::BufferView buffer) noexcept {
+        typename ExpressionTraits<Value>::BufferSpan buffer) noexcept {
         return typename ExpressionTraits<Value>::Span(
             buffer.data() + AnsatzTraits::nestedBufferOffset(set),
             AnsatzTraits::nestedBufferSize(set));
@@ -89,7 +91,7 @@ struct AnsatzTraits {
 ///              |       + buffer for the values of ansatz
 ///              + buffer for the values of the basis functions (@p n scalars)
 ///          @endcode
-template <class TScalarExpression>
+template <class TScalarExpression, unsigned Dimension>
 struct AnsatzDerivativeTraits {
     using Value = typename TScalarExpression::Value;
 
@@ -102,7 +104,7 @@ struct AnsatzDerivativeTraits {
     static constexpr std::size_t ansatzBufferSize(
         std::span<const TScalarExpression> set,
         [[maybe_unused]] std::span<const typename TScalarExpression::Derivative> derivativeSet) noexcept {
-        return std::accumulate(
+        return Dimension * std::accumulate(
             set.begin(),
             set.end(),
             0u,
@@ -119,7 +121,7 @@ struct AnsatzDerivativeTraits {
     static constexpr std::size_t derivativeBufferSize(
         [[maybe_unused]] std::span<const TScalarExpression> set,
         std::span<const typename TScalarExpression::Derivative> derivativeSet) noexcept {
-        return std::accumulate(
+        return Dimension * std::accumulate(
             derivativeSet.begin(),
             derivativeSet.end(),
             0u,
@@ -142,14 +144,20 @@ struct AnsatzDerivativeTraits {
                 : std::max_element(
                     set.begin(),
                     set.end(),
-                    [] (Ref<const TScalarExpression> f) {return f.bufferSize();}
+                    [] (
+                        Ref<const TScalarExpression> left,
+                        Ref<const TScalarExpression> right) {
+                            return left.bufferSize() < right.bufferSize();}
                 )->bufferSize(),
             derivativeSet.empty()
                 ? 0u
                 : std::max_element(
                     derivativeSet.begin(),
                     derivativeSet.end(),
-                    [] (Ref<const TScalarExpression> f) {return f.bufferSize();}
+                    [] (
+                        Ref<const TScalarExpression> left,
+                        Ref<const TScalarExpression> right) {
+                            return left.bufferSize() < right.bufferSize();}
                 )->bufferSize()
             );
     }
@@ -164,7 +172,7 @@ struct AnsatzDerivativeTraits {
     static constexpr typename ExpressionTraits<Value>::Span getAnsatzBuffer(
         std::span<const TScalarExpression> set,
         std::span<const typename TScalarExpression::Derivative> derivativeSet,
-        typename ExpressionTraits<Value>::BufferView buffer) noexcept {
+        typename ExpressionTraits<Value>::BufferSpan buffer) noexcept {
             return typename ExpressionTraits<Value>::Span(
                 buffer.data() + AnsatzDerivativeTraits::ansatzBufferOffset(set, derivativeSet),
                 AnsatzDerivativeTraits::ansatzBufferSize(set, derivativeSet));
@@ -173,7 +181,7 @@ struct AnsatzDerivativeTraits {
     static constexpr typename ExpressionTraits<Value>::Span getDerivativeBuffer(
         std::span<const TScalarExpression> set,
         std::span<const typename TScalarExpression::Derivative> derivativeSet,
-        typename ExpressionTraits<Value>::BufferView buffer) noexcept {
+        typename ExpressionTraits<Value>::BufferSpan buffer) noexcept {
             return typename ExpressionTraits<Value>::Span(
                 buffer.data() + AnsatzDerivativeTraits::derivativeBufferOffset(set, derivativeSet),
                 AnsatzDerivativeTraits::derivativeBufferSize(set, derivativeSet));
@@ -182,7 +190,7 @@ struct AnsatzDerivativeTraits {
     static constexpr typename ExpressionTraits<Value>::Span getNestedBuffer(
         std::span<const TScalarExpression> set,
         std::span<const typename TScalarExpression::Derivative> derivativeSet,
-        typename ExpressionTraits<Value>::BufferView buffer) noexcept {
+        typename ExpressionTraits<Value>::BufferSpan buffer) noexcept {
             return typename ExpressionTraits<Value>::Span(
                 buffer.data() + AnsatzDerivativeTraits::nestedBufferOffset(set, derivativeSet),
                 AnsatzDerivativeTraits::nestedBufferSize(set, derivativeSet));
@@ -245,7 +253,7 @@ void AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::evaluate(
         constexpr std::size_t staticNestedBufferSize = std::max<std::size_t>(
             StaticExpressionSize<TScalarExpression>::bufferSize,
             StaticExpressionSize<typename TScalarExpression::Derivative>::bufferSize);
-        [[maybe_unused]] std::array<typename TScalarExpression::Value,SetSize> ansatzBufferArray, derivativeBufferArray;
+        [[maybe_unused]] std::array<typename TScalarExpression::Value,Dimension*SetSize> ansatzBufferArray, derivativeBufferArray;
         [[maybe_unused]] std::array<typename BufferSpan::value_type,staticNestedBufferSize> nestedBufferArray;
 
         // Set the required buffers.
@@ -254,15 +262,15 @@ void AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::evaluate(
             derivativeBuffer    = derivativeBufferArray;
             nestedBuffer        = nestedBufferArray;
         } else {
-            ansatzBuffer = impl::AnsatzDerivativeTraits<TScalarExpression>::getAnsatzBuffer(
+            ansatzBuffer = impl::AnsatzDerivativeTraits<TScalarExpression,Dimension>::getAnsatzBuffer(
                 _ansatzSet,
                 _derivativeSet,
                 buffer);
-            derivativeBuffer = impl::AnsatzDerivativeTraits<TScalarExpression>::getDerivativeBuffer(
+            derivativeBuffer = impl::AnsatzDerivativeTraits<TScalarExpression,Dimension>::getDerivativeBuffer(
                 _ansatzSet,
                 _derivativeSet,
                 buffer);
-            nestedBuffer = impl::AnsatzDerivativeTraits<TScalarExpression>::getNestedBuffer(
+            nestedBuffer = impl::AnsatzDerivativeTraits<TScalarExpression,Dimension>::getNestedBuffer(
                 _ansatzSet,
                 _derivativeSet,
                 buffer);
@@ -337,7 +345,7 @@ requires (hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 unsigned AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::bufferSize() const noexcept
 requires (!hasStaticBasis) {
-    return impl::AnsatzDerivativeTraits<TScalarExpression>::bufferSize(_ansatzSet, _derivativeSet);
+    return impl::AnsatzDerivativeTraits<TScalarExpression,Dimension>::bufferSize(_ansatzSet, _derivativeSet);
 }
 
 
@@ -596,6 +604,7 @@ void AnsatzSpaceView<TScalarExpression,Dim,SetSize>::evaluate(
         // Sanity checks
         assert(in.size() == Dim);
         assert(out.size() == this->size());
+        assert(this->bufferSize() <= buffer.size());
 
         // Construct a buffer for basis indices.
         std::array<std::uint16_t,Dim> indexBuffer;
@@ -608,7 +617,7 @@ void AnsatzSpaceView<TScalarExpression,Dim,SetSize>::evaluate(
         BufferSpan nestedBuffer;
 
         constexpr std::size_t staticNestedBufferSize = StaticExpressionSize<TScalarExpression>::bufferSize;
-        [[maybe_unused]] std::array<typename TScalarExpression::Value,SetSize> ansatzBufferArray;
+        [[maybe_unused]] std::array<typename TScalarExpression::Value,Dimension * SetSize> ansatzBufferArray;
         [[maybe_unused]] std::array<typename BufferSpan::value_type,staticNestedBufferSize> nestedBufferArray;
 
         // Set the required buffers.
@@ -616,10 +625,10 @@ void AnsatzSpaceView<TScalarExpression,Dim,SetSize>::evaluate(
             ansatzBuffer = ansatzBufferArray;
             nestedBuffer = nestedBufferArray;
         } else {
-            ansatzBuffer = impl::AnsatzTraits<TScalarExpression>::getAnsatzBuffer(
+            ansatzBuffer = impl::AnsatzTraits<TScalarExpression,Dimension>::getAnsatzBuffer(
                 _set,
                 buffer);
-            nestedBuffer = impl::AnsatzTraits<TScalarExpression>::getNestedBuffer(
+            nestedBuffer = impl::AnsatzTraits<TScalarExpression,Dimension>::getNestedBuffer(
                 _set,
                 buffer);
         }
@@ -665,7 +674,7 @@ requires (hasStaticBasis) {
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 unsigned AnsatzSpaceView<TScalarExpression,Dim,SetSize>::bufferSize() const noexcept
 requires (!hasStaticBasis) {
-    return impl::AnsatzTraits<TScalarExpression>::bufferSize(_set);
+    return impl::AnsatzTraits<TScalarExpression,Dimension>::bufferSize(_set);
 }
 
 
@@ -785,6 +794,18 @@ AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpace& rRhs) n
 requires (hasStaticBasis) {
     (*this) = AnsatzSpace(rRhs._set);
     return *this;
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+void AnsatzSpace<TScalarExpression,Dim,SetSize>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer) const {
+        return this->makeView().evaluate(
+            in,
+            out,
+            buffer);
 }
 
 

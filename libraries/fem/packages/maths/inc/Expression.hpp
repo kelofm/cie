@@ -171,7 +171,7 @@ struct StaticExpressionSize {
 
 template <StaticExpression T>
 struct StaticExpressionSize<T> {
-    static inline constexpr unsigned value = T::size();
+    static inline constexpr unsigned size = T::size();
     static inline constexpr unsigned bufferSize = T::bufferSize();
 };
 
@@ -241,6 +241,8 @@ public:
     WrappedExpression(const TExpression& rExpression);
 
     unsigned size() const override;
+
+    unsigned bufferSize() const override;
 
     void evaluate(
         ConstSpan input,

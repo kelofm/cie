@@ -62,11 +62,14 @@ template <
     maths::SpatialTransform TSpatialTransform,
     class TData,
     unsigned PhysicalDim>
-void CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::transform(Ref<const ConstParametricSpan> in,
-                                                                                   Ref<const PhysicalSpan> out) const noexcept {
-    this->spatialTransform().evaluate(
-        Kernel<ParametricDimension,Value>::decay(in),
-        Kernel<ParametricDimension,Value>::decay(out));
+void CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::transform(
+    Ref<const ConstParametricSpan> in,
+    Ref<const PhysicalSpan> out,
+    Ref<const BufferSpan> buffer) const noexcept {
+        this->spatialTransform().evaluate(
+            Kernel<ParametricDimension,Value>::decay(in),
+            Kernel<ParametricDimension,Value>::decay(out),
+            buffer);
 }
 
 
@@ -76,11 +79,14 @@ template <
     maths::SpatialTransform TSpatialTransform,
     class TData,
     unsigned PhysicalDim>
-void CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::transform(Ref<const ConstPhysicalSpan> in,
-                                                                                   Ref<const ParametricSpan> out) const noexcept {
-    this->inverseSpatialTransform().evaluate(
-        Kernel<ParametricDimension,Value>::decay(in),
-        Kernel<ParametricDimension,Value>::decay(out));
+void CellBase<ParametricDim,TValue,TSpatialTransform,TData,PhysicalDim>::transform(
+    Ref<const ConstPhysicalSpan> in,
+    Ref<const ParametricSpan> out,
+    Ref<const BufferSpan> buffer) const noexcept {
+        this->inverseSpatialTransform().evaluate(
+            Kernel<ParametricDimension,Value>::decay(in),
+            Kernel<ParametricDimension,Value>::decay(out),
+            buffer);
 }
 
 

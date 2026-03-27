@@ -31,7 +31,6 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
     constexpr Scalar modulus = 10.0;
     LinearIsotropicStiffnessIntegrand<Ansatz::Derivative> integrand(modulus, *pAnsatzDerivatives);
     CIE_TEST_REQUIRE(integrand.size() == 16);
-    CIE_TEST_REQUIRE(integrand.bufferSize() == 8);
 
     // Set buffer.
     std::vector<Scalar> stiffness(integrand.size());

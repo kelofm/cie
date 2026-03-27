@@ -52,9 +52,9 @@ void ProjectiveTransformDerivative<TValue,Dimension>::evaluate(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-TValue ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan in, BufferSpan) const {
+TValue ProjectiveTransformDerivative<TValue,Dimension>::evaluateDeterminant(ConstSpan in, BufferSpan buffer) const {
     StaticArray<TValue,Dimension*Dimension> derivative;
-    this->evaluate(in, derivative);
+    this->evaluate(in, derivative, buffer);
     return Eigen::Map<Eigen::Matrix<TValue,Dimension,Dimension>>(derivative.data()).determinant();
 }
 

@@ -30,6 +30,7 @@ template <concepts::Numeric T>
 std::vector<std::array<T,2>>
 SVG<T>::tesselate(std::size_t segmentsPerCurve) const {
     std::vector<std::array<T,2>> output;
+    std::vector<T> buffer;
 
     if (segmentsPerCurve) {
         CIE_BEGIN_EXCEPTION_TRACING
@@ -47,19 +48,24 @@ SVG<T>::tesselate(std::size_t segmentsPerCurve) const {
 
         for (std::size_t iCurve=0ul; iCurve<_curves.size(); ++iCurve) {
             std::visit(
-                [&in, &out] (const auto& rCurve) {
+                [&in, &out, &buffer] (const auto& rCurve) {
                     using TCurve = std::remove_cvref_t<decltype(rCurve)>;
                     CIE_BEGIN_EXCEPTION_TRACING
                     if constexpr (std::is_same_v<TCurve,maths::BSpline<T,1,2>>) {
-                        rCurve.evaluate(in, out);
+                        buffer.resize(rCurve.bufferSize());
+                        rCurve.evaluate(
+                            in,
+                            out,
+                            buffer);
                     } else if constexpr (std::is_same_v<TCurve,maths::AffineEmbedding<T,1,2>>) {
                         for (std::size_t iIn=0ul; iIn<in.size(); ++iIn) {
-                            std::array<T,2> buffer;
+                            std::array<T,2> tmp;
                             rCurve.evaluate(
                                 {in.data() + iIn, 1},
+                                tmp,
                                 buffer);
-                            out[iIn] = buffer[0];
-                            out[iIn + in.size()] = buffer[1];
+                            out[iIn] = tmp[0];
+                            out[iIn + in.size()] = tmp[1];
                         }
                     } else {
                         CIE_THROW(Exception, "uninitialized curve segment")
@@ -336,6 +342,7 @@ void parsePathElement(Ref<const std::unordered_map<std::string,std::string>> rAt
     char control = '\0'; // <== indicates what's being parsed in "d"
     auto it = data.begin();
     const auto itEnd = data.end();
+    std::vector<T> transformBuffer;
 
     CIE_BEGIN_EXCEPTION_TRACING
         while (it != itEnd) {
@@ -411,7 +418,8 @@ void parsePathElement(Ref<const std::unordered_map<std::string,std::string>> rAt
                 } // for d in range(D)
                 std::array<T,D> point, transformed;
                 for (unsigned d=0u; d<D; ++d) point[d] = points[d].back();
-                rTransform.evaluate(point, transformed);
+                transformBuffer.resize(rTransform.bufferSize());
+                rTransform.evaluate(point, transformed, transformBuffer);
                 for (unsigned d=0u; d<D; ++d) points[d].back() = transformed[d];
                 --it;
             } else if (*it == ' ') {

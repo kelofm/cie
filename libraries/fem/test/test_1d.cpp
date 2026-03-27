@@ -152,7 +152,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
         DynamicArray<Scalar> integrandBuffer(pAnsatzSpace->size() * pAnsatzSpace->size());
         DynamicArray<Scalar> productBuffer(integrandBuffer.size());
         DynamicArray<Scalar> nestedBuffer(pAnsatzDerivatives->bufferSize());
-        DynamicArray<Scalar> quadratureBuffer(integrandBuffer.size() + nestedBuffer.size());
+        DynamicArray<Scalar> quadratureBuffer;
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
             const auto jacobian = rCell.data().makeJacobian();
@@ -183,10 +183,11 @@ CIE_TEST_CASE("1D", "[systemTests]") {
                 integrandBuffer.size(),
                 nestedBuffer.size());
 
+            quadratureBuffer.resize(quadrature.bufferSize(localIntegrand));
             quadrature.evaluate(
                 localIntegrand,
-                integrandBuffer,
-                quadratureBuffer);
+                quadratureBuffer,
+                integrandBuffer);
 
             {
                 const auto keys = assembler.keys();
@@ -225,17 +226,20 @@ CIE_TEST_CASE("1D", "[systemTests]") {
         utils::Comparison<Scalar> comparison(1e-8, 1-6);
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
         DynamicArray<Scalar> nestedBuffer(pAnsatzSpace->bufferSize());
+        DynamicArray<Scalar> transformBuffer(rLeftmostCell.value().data().makeSpatialTransform().bufferSize());
         StaticArray<Scalar,1> parametricCoordinates, physicalCoordinates;
 
         parametricCoordinates.front() = -1.0;
         rLeftmostCell.value().data().transform(
             Kernel<1,Scalar>::castView<ParametricCoordinate<Scalar>>(parametricCoordinates),
-            Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates));
+            Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates),
+            transformBuffer);
         if (!comparison.equal(physicalCoordinates.front(), 0.0)) {
             parametricCoordinates.front() = 1.0;
             rLeftmostCell.value().data().transform(
                 Kernel<1,Scalar>::castView<ParametricCoordinate<Scalar>>(parametricCoordinates),
-                Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates));
+                Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates),
+                transformBuffer);
             CIE_TEST_REQUIRE(comparison.equal(physicalCoordinates.front(), 0.0));
         }
 
@@ -255,17 +259,20 @@ CIE_TEST_CASE("1D", "[systemTests]") {
         utils::Comparison<Scalar> comparison(1e-8, 1-6);
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
         DynamicArray<Scalar> nestedBuffer(pAnsatzSpace->bufferSize());
+        DynamicArray<Scalar> transformBuffer(rRightmostCell.value().data().makeSpatialTransform().bufferSize());
         StaticArray<Scalar,1> parametricCoordinates, physicalCoordinates;
 
         parametricCoordinates.front() = -1.0;
         rRightmostCell.value().data().transform(
             Kernel<1,Scalar>::castView<ParametricCoordinate<Scalar>>(parametricCoordinates),
-            Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates));
+            Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates),
+            transformBuffer);
         if (!comparison.equal(physicalCoordinates.front(), 1.0)) {
             parametricCoordinates.front() = 1.0;
             rRightmostCell.value().data().transform(
                 Kernel<1,Scalar>::castView<ParametricCoordinate<Scalar>>(parametricCoordinates),
-                Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates));
+                Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates),
+                transformBuffer);
             CIE_TEST_REQUIRE(comparison.equal(physicalCoordinates.front(), 1.0));
         }
 
@@ -359,6 +366,7 @@ CIE_TEST_CASE("1D", "[systemTests]") {
     {
         DynamicArray<Scalar> ansatzBuffer(pAnsatzSpace->size());
         DynamicArray<Scalar> nestedBuffer(pAnsatzSpace->bufferSize());
+        DynamicArray<Scalar> transformBuffer(mesh.vertices().front().data().makeSpatialTransform().bufferSize());
         DynamicArray<StaticArray<Scalar,1>> sampleCoordinates;
 
         for (unsigned iCoordinate=0u; iCoordinate<samplesPerCell; ++iCoordinate) {
@@ -373,7 +381,8 @@ CIE_TEST_CASE("1D", "[systemTests]") {
                 StaticArray<Scalar,1> physicalCoordinates;
                 rCell.data().transform(
                     Kernel<1,Scalar>::castView<ParametricCoordinate<Scalar>>(localCoordinates),
-                    Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates));
+                    Kernel<1,Scalar>::castView<PhysicalCoordinate<Scalar>>(physicalCoordinates),
+                    transformBuffer);
                 solutionSamples.emplace_back(physicalCoordinates, 0.0);
                 ansatzBuffer.resize(pAnsatzSpace->size());
                 pAnsatzSpace->evaluate(localCoordinates, ansatzBuffer, nestedBuffer);

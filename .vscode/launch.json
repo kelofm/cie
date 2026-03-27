@@ -5,22 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "2D system test",
+            "name": "geo testrunner",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/build/bin/fem_testrunner",
+            "program": "${workspaceRoot}/build/bin/geo_testrunner",
             "externalConsole": false,
-            "args" : ["2D"],
+            "args" : [],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],
             "cwd" : "${workspaceRoot}"
         },
         {
-            "name": "geo testrunner",
+            "name": "fem testrunner",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/build/bin/geo_testrunner",
+            "program": "${workspaceRoot}/build/bin/fem_testrunner",
             "externalConsole": false,
             "args" : [],
             "environment" : [
@@ -34,7 +34,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/build/bin/poisson2D",
             "externalConsole": false,
-            "args" : ["-r", "12", "--gpu"],
+            "args" : ["-r", "12"],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],

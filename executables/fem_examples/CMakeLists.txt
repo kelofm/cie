@@ -28,29 +28,32 @@ foreach(directory ${directories})
 
     # Configure the compiler.
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        target_compile_options(${driver_name} PRIVATE
-                               -Wall
-                               -Wpedantic
-                               -Wextra
-                               -Wno-dangling-reference
-                               -Wno-maybe-uninitialized
-                               -Wno-uninitialized
-                               -Wno-array-bounds           #< spurious warning for 1-item copies
-                               -Wno-stringop-overflow      #< spurious warning for 1-item copies
-                               -Werror)
+        target_compile_options(
+            ${driver_name} PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Wno-dangling-reference
+            -Wno-maybe-uninitialized
+            -Wno-uninitialized
+            -Wno-array-bounds           #< spurious warning for 1-item copies
+            -Wno-stringop-overflow      #< spurious warning for 1-item copies
+            -Werror)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        target_compile_options(${driver_name} PRIVATE
-                               -Wall
-                               -Wpedantic
-                               -Wextra
-                               -Werror
-                               -Wno-unknown-cuda-version)
+        target_compile_options(
+            ${driver_name} PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror
+            -Wno-unknown-cuda-version)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-        target_compile_options(${driver_name} PRIVATE
-                               -Wall
-                               -Wpedantic
-                               -Wextra
-                               -Werror)
+        target_compile_options(
+            ${driver_name} PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         message(FATAL_ERROR "MSVC is not supported yet")
     endif ()
@@ -93,33 +96,41 @@ endforeach()
 
 # Generate CMake config
 include(CMakePackageConfigHelpers)
-configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in"
-                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-                              INSTALL_DESTINATION "bin/cmake/${PROJECT_NAME}"
-                              NO_SET_AND_CHECK_MACRO
-                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-                                 VERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
-                                 COMPATIBILITY AnyNewerVersion)
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "bin/cmake/${PROJECT_NAME}"
+    NO_SET_AND_CHECK_MACRO
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}"
+    COMPATIBILITY AnyNewerVersion)
 
 # Install targets
-install(TARGETS ${targets}
-        EXPORT ${PROJECT_NAME}Targets
-        RUNTIME DESTINATION "cie/bin"
-        INCLUDES DESTINATION "cie/include")
-install(EXPORT ${PROJECT_NAME}Targets
-        FILE ${PROJECT_NAME}Targets.cmake
-        NAMESPACE cie::
-        DESTINATION "cie/bin/cmake/${PROJECT_NAME}")
+install(
+    TARGETS ${targets}
+    EXPORT ${PROJECT_NAME}Targets
+    RUNTIME DESTINATION "cie/bin"
+    INCLUDES DESTINATION "cie/include")
+install(
+    EXPORT ${PROJECT_NAME}Targets
+    FILE ${PROJECT_NAME}Targets.cmake
+    NAMESPACE cie::
+    DESTINATION "cie/bin/cmake/${PROJECT_NAME}")
 
 # Install CMake config
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-        DESTINATION "cie/bin/cmake/${PROJECT_NAME}")
+install(
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION
+        "cie/bin/cmake/${PROJECT_NAME}")
 
 # Export
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${targets}
-       NAMESPACE cie::
-       FILE ${PROJECT_NAME}Targets.cmake)
+export(
+    TARGETS ${targets}
+    NAMESPACE cie::
+    FILE ${PROJECT_NAME}Targets.cmake)
 export(PACKAGE ${PROJECT_NAME})

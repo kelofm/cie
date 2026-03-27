@@ -36,7 +36,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}, buffer));
+                buffer.resize(quadrature.bufferSize(integrand));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&integral, 1}));
                 CIE_TEST_CHECK(integral == 0.0);
             }
         }
@@ -64,7 +65,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
+                        buffer.resize(quadrature.bufferSize(integrand));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&output, 1}));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -86,7 +88,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}, buffer));
+                buffer.resize(quadrature.bufferSize(integrand));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&integral, 1}));
                 CIE_TEST_CHECK(integral == Approx(2 * value));
             }
         }
@@ -115,7 +118,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
+                        buffer.resize(quadrature.bufferSize(integrand));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&output, 1}));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -147,7 +151,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}, buffer));
+                buffer.resize(quadrature.bufferSize(integrand));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&integral, 1}));
                 CIE_TEST_CHECK(integral == Approx(referenceValue));
             }
         }
@@ -186,7 +191,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
+                        buffer.resize(quadrature.bufferSize(integrand));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&output, 1}));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -217,7 +223,11 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                 Scalar integral;
                 const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                     integrationOrder)));
-                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&integral, 1}));
+                buffer.resize(quadrature.bufferSize(integrand));
+                CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(
+                    integrand,
+                    buffer,
+                    {&integral, 1}));
                 CIE_TEST_CHECK(integral == Approx(referenceValue));
             }
         }
@@ -256,7 +266,8 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
                         Scalar output;
                         const Quadrature<Scalar,Dimension> quadrature((GaussLegendreQuadrature<Scalar>(
                             integrationOrder)));
-                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}, buffer));
+                        buffer.resize(quadrature.bufferSize(integrand));
+                        CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer, {&output, 1}));
                         integral += output;
                     } // for iSegment in range(segmentCount)
 
@@ -324,7 +335,7 @@ CIE_TEST_CASE("TransformedIntegrand", "[integrands]") {
 //                    Scalar output;
 //                    const Quadrature<Scalar,1> quadrature((GaussLegendreQuadrature<Scalar>(
 //                        integrationOrder)));
-//                    CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, {&output, 1}));
+//                    CIE_TEST_CHECK_NOTHROW(quadrature.evaluate(integrand, buffer {&output, 1}));
 //                    integral += output;
 //                } // for iSegment in range(segmentCount)
 //

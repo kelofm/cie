@@ -8,14 +8,12 @@
 #include "poisson2D/definitions.hpp"
 #include "poisson2D/MeshData.hpp"
 #include "poisson2D/CellData.hpp"
-#include "poisson2D/BoundaryData.hpp"
 #include "poisson2D/mesh.hpp"
 #include "poisson2D/integration.hpp"
 #include "poisson2D/constraints.hpp"
-#include "poisson2D/xdmf.hpp"
+#include "poisson2D/postprocessing.hpp"
 
 // --- FEM Includes ---
-#include "packages/graph/inc/connectivity.hpp"
 #include "packages/graph/inc/Assembler.hpp"
 
 // --- Linalg Includes ---
@@ -23,6 +21,8 @@
 
 // --- Utility Includes ---
 #include "packages/io/inc/MatrixMarket.hpp"
+#include "packages/logging/inc/LoggerSingleton.hpp"
+#include "packages/logging/inc/LogBlock.hpp"
 
 
 namespace cie::fem {
