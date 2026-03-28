@@ -33,25 +33,21 @@ struct IterateTags
 
 
 template <class TCurrent>
-struct IterateTags<TCurrent>
-{
-    static constexpr Flags allExcept(Ref<Flags> r_flags) noexcept
-    {
-        r_flags.set(TCurrent::id(), false);
-        return r_flags;
+struct IterateTags<TCurrent> {
+    static constexpr Flags allExcept(Ref<Flags> rFlags) noexcept {
+        rFlags.set(TCurrent::id(), false);
+        return rFlags;
     }
 
     template <class TTag>
-    static constexpr bool isCompatibleWith() noexcept
-    {
+    static constexpr bool isCompatibleWith() noexcept {
         return TCurrent::getCompatibility().test(TTag::id());
     }
 }; // struct IterateTags
 
 
 template <class ...TTags>
-constexpr Flags allExcept() noexcept
-{
+constexpr Flags allExcept() noexcept {
     Flags flags;
     flags.set();
     return IterateTags<TTags...>::allExcept(flags);

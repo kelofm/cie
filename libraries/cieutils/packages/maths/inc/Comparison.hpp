@@ -13,8 +13,7 @@ namespace cie::utils {
 
 /// @ingroup cieutils
 template <class TInteger>
-struct IntegerComparison
-{
+struct IntegerComparison {
     bool equal(const TInteger left,
                const TInteger right) const noexcept;
 
@@ -25,19 +24,21 @@ struct IntegerComparison
 
 /// @ingroup cieutils
 template <class TFloat>
-class FloatComparison
-{
+class FloatComparison {
 public:
     FloatComparison() noexcept;
 
-    FloatComparison(const TFloat absoluteTolerance,
-                    const TFloat relativeTolerance) noexcept;
+    FloatComparison(
+        const TFloat absoluteTolerance,
+        const TFloat relativeTolerance) noexcept;
 
-    bool equal(const TFloat left,
-               const TFloat right) const noexcept;
+    bool equal(
+        const TFloat left,
+        const TFloat right) const noexcept;
 
-    bool less(const TFloat left,
-              const TFloat right) const noexcept;
+    bool less(
+        const TFloat left,
+        const TFloat right) const noexcept;
 
 private:
     TFloat _absoluteTolerance;
@@ -53,8 +54,7 @@ class Comparison {};
 
 /// @ingroup cieutils
 template <std::floating_point TFloat>
-class Comparison<TFloat> : public FloatComparison<TFloat>
-{
+class Comparison<TFloat> : public FloatComparison<TFloat> {
 public:
     using FloatComparison<TFloat>::FloatComparison;
 };
@@ -63,8 +63,7 @@ public:
 /// @ingroup cieutils
 template <class TContainer>
 requires concepts::Container<TContainer>
-class Comparison<TContainer>
-{
+class Comparison<TContainer> {
 public:
     template <class ...TArgs>
     Comparison(TArgs&&... rArgs) noexcept;
@@ -84,8 +83,7 @@ private:
 
 /// @ingroup cieutils
 template <class T>
-class EqualityComparison
-{
+class EqualityComparison {
 public:
     template <class ...TArgs>
     EqualityComparison(TArgs&&... rArgs) noexcept;
@@ -100,8 +98,7 @@ private:
 
 /// @ingroup cieutils
 template <class T>
-class Ordering
-{
+class Ordering {
 public:
     template <class ...TArgs>
     Ordering(TArgs&&... rArgs) noexcept;

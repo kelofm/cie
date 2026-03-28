@@ -58,8 +58,7 @@ bool FloatComparison<TFloat>::equal(const TFloat left,
 
 template <class TFloat>
 bool FloatComparison<TFloat>::less(const TFloat left,
-                                   const TFloat right) const noexcept
-{
+                                   const TFloat right) const noexcept {
     return left < right && !this->equal(left, right);
 }
 

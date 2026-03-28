@@ -7,9 +7,44 @@
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
+#include "packages/maths/inc/OuterProduct.hpp"
+
+// --- STL Includes ---
+#include <cstdint>
 
 
 namespace cie::fem {
+
+
+template <std::size_t D>
+void makeAnsatzMask(
+    std::size_t setSize,
+    std::size_t maskOrder,
+    std::span<std::int8_t> mask) {
+        CIE_CHECK(
+            mask.size() == intPow(setSize, D),
+            std::format(
+                "expecting an ansatz mask with {} components, but got {}",
+                intPow(setSize, D), mask.size()))
+        std::fill(
+            mask.begin(),
+            mask.end(),
+            static_cast<std::int8_t>(0));
+        std::array<std::uint16_t,D> state;
+        std::fill(
+            state.begin(),
+            state.end(),
+            static_cast<std::uint8_t>(0));
+
+        std::size_t iAnsatz = 0ul;
+        do {
+            mask[iAnsatz] = std::all_of(
+                state.begin(),
+                state.end(),
+                [maskOrder] (std::uint8_t order) {return order <= maskOrder;});
+            ++iAnsatz;
+        } while (cie::maths::OuterProduct<Dimension>::next(setSize, state.data()));
+}
 
 
 void postprocess(
@@ -95,72 +130,92 @@ void postprocess(
                     const Scalar postprocessDelta  = 1.0 / (postprocessResolution - 1);
 
                     const std::size_t sampleCount = intPow(postprocessResolution, 2);
-                    std::vector<Scalar>
-                        sampleCoordinates(sampleCount * Dimension),
-                        sampleState(sampleCount),
-                        sampleLoad(sampleCount),
-                        sampleResidual(sampleCount);
+
                     std::vector<unsigned> cellIDs(sampleCount);
+                    std::vector<Scalar> sampleCoordinates(sampleCount * Dimension);
+                    std::vector<std::vector<Scalar>>
+                        sampleState(polynomialOrder),
+                        sampleLoad(polynomialOrder),
+                        sampleResidual(polynomialOrder);
+                    std::vector<std::vector<std::int8_t>> ansatzMasks(polynomialOrder);
+
+                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
+                        sampleState[iOrder].resize(sampleCount);
+                        sampleLoad[iOrder].resize(sampleCount);
+                        sampleResidual[iOrder].resize(sampleCount);
+                        ansatzMasks[iOrder].resize(intPow(polynomialOrder + 1, Dimension));
+                        makeAnsatzMask<Dimension>(
+                            polynomialOrder + 1,
+                            iOrder + 1,
+                            ansatzMasks[iOrder]);
+                    }
+
+
 
                     mp::ParallelFor<std::size_t>(rThreads).firstPrivate(std::vector<Scalar>(), std::vector<Scalar>()).execute(
                         sampleCount,
                         [&](const std::size_t iSample,
                             Ref<std::vector<Scalar>> rBuffer,
                             Ref<std::vector<Scalar>> rResults) -> void {
-                            const std::size_t iSampleY = iSample / postprocessResolution;
-                            const std::size_t iSampleX = iSample % postprocessResolution;
-                            const auto physicalCoordinates = Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(std::span<Scalar,Dimension> {
-                                sampleCoordinates.data() + iSample * Dimension,
-                                Dimension});
-                            physicalCoordinates[0] = meshBase[0] + meshLengths[0] * iSampleX * postprocessDelta;
-                            physicalCoordinates[1] = meshBase[1] + meshLengths[1] * iSampleY * postprocessDelta;
+                                const std::size_t iSampleY = iSample / postprocessResolution;
+                                const std::size_t iSampleX = iSample % postprocessResolution;
+                                const auto physicalCoordinates = Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(std::span<Scalar,Dimension> {
+                                    sampleCoordinates.data() + iSample * Dimension,
+                                    Dimension});
+                                physicalCoordinates[0] = meshBase[0] + meshLengths[0] * iSampleX * postprocessDelta;
+                                physicalCoordinates[1] = meshBase[1] + meshLengths[1] * iSampleY * postprocessDelta;
 
-                            // Find which cell the global point lies in.
-                            const auto iMaybeCellData = rBVH.makeView().find(
-                                Kernel<Dimension,Scalar>::decay(physicalCoordinates),
-                                std::span<const CellData>(contiguousCellData));
+                                // Find which cell the point lies in.
+                                const auto iMaybeCellData = rBVH.makeView().find(
+                                    Kernel<Dimension,Scalar>::decay(physicalCoordinates),
+                                    std::span<const CellData>(contiguousCellData));
 
-                            if (iMaybeCellData != contiguousCellData.size()) {
-                                Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
-                                cellIDs[iSample] = rCellData.id();
+                                if (iMaybeCellData != contiguousCellData.size()) {
+                                    Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
+                                    cellIDs[iSample] = rCellData.id();
 
-                                // Compute sample point in the cell's local space.
-                                StaticArray<ParametricCoordinate<Scalar>,Dimension> parametricCoordinates;
-                                rBuffer.resize(rCellData.makeSpatialTransform().bufferSize());
-                                rCellData.transform(
-                                    physicalCoordinates,
-                                    Kernel<Dimension,Scalar>::view(parametricCoordinates),
-                                    rBuffer);
+                                    // Compute sample point in the cell's parametric space.
+                                    StaticArray<ParametricCoordinate<Scalar>,Dimension> parametricCoordinates;
+                                    rBuffer.resize(rCellData.makeSpatialTransform().bufferSize());
+                                    rCellData.transform(
+                                        physicalCoordinates,
+                                        Kernel<Dimension,Scalar>::view(parametricCoordinates),
+                                        rBuffer);
 
-                                // Evaluate the cell's ansatz functions at the local sample point.
-                                Ref<const Ansatz> rAnsatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
-                                rResults.resize(rAnsatzSpace.size());
-                                rBuffer.resize(rAnsatzSpace.bufferSize());
-                                rAnsatzSpace.evaluate(
-                                    Kernel<Dimension,Scalar>::decayView(
-                                        parametricCoordinates),
-                                    rResults,
-                                    rBuffer);
+                                    // Evaluate the cell's ansatz functions at the parametric sample point.
+                                    Ref<const Ansatz> rAnsatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
+                                    rResults.resize(rAnsatzSpace.size());
+                                    rBuffer.resize(rAnsatzSpace.bufferSize());
+                                    rAnsatzSpace.evaluate(
+                                        Kernel<Dimension,Scalar>::decayView(
+                                            parametricCoordinates),
+                                        rResults,
+                                        rBuffer);
 
-                                // Find the entries of the cell's DoFs in the global state vector.
-                                const auto& rGlobalIndices = rAssembler[rCellData.id()];
+                                    // Find the entries of the cell's DoFs in the global state vector.
+                                    const auto& rGlobalIndices = rAssembler[rCellData.id()];
 
-                                // Compute state as an indirect inner product of the solution vector
-                                // and the ansatz function values at the local corner coordinates.
-                                sampleState[iSample] = 0.0;
-                                sampleLoad[iSample] = 0.0;
-                                sampleResidual[iSample] = 0.0;
-                                for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
-                                    sampleState[iSample] += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                    sampleLoad[iSample] += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                    sampleResidual[iSample] += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                } // for iFunction in range(rGlobalIndices.size())
-                            } else {
-                                // Could not find the cell that contains the current sample point.
-                                sampleState[iSample] = NAN;
-                                sampleLoad[iSample] = NAN;
-                                sampleResidual[iSample] = NAN;
-                            }
+                                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
+                                        // Compute state as an indirect inner product of the solution vector
+                                        // and the ansatz function values at the local corner coordinates.
+                                        sampleState[iOrder][iSample] = 0.0;
+                                        sampleLoad[iOrder][iSample] = 0.0;
+                                        sampleResidual[iOrder][iSample] = 0.0;
+                                        for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
+                                            if (!ansatzMasks[iOrder][iFunction]) continue;
+                                            sampleState[iOrder][iSample] += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                            sampleLoad[iOrder][iSample] += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                            sampleResidual[iOrder][iSample] += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                        } // for iFunction in range(rGlobalIndices.size())
+                                    }
+                                } else {
+                                    // Could not find the cell that contains the current sample point.
+                                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
+                                        sampleState[iOrder][iSample] = NAN;
+                                        sampleLoad[iOrder][iSample] = NAN;
+                                        sampleResidual[iOrder][iSample] = NAN;
+                                    }
+                                }
                         });
 
                     io.writePointCloud<Scalar,Dimension>(
@@ -169,10 +224,23 @@ void postprocess(
                     io.writeFieldVariables<Scalar>(
                         "samples",
                         {
-                            {"state", {1}, sampleState},
-                            {"load",  {1}, sampleLoad},
-                            {"residual", {1}, sampleResidual}
+                            {"state", {1}, sampleState.back()},
+                            {"load",  {1}, sampleLoad.back()},
+                            {"residual", {1}, sampleResidual.back()}
                         });
+
+                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
+                        const std::string stateName = std::format("state_p{}", iOrder + 1);
+                        const std::string loadName = std::format("load_p{}", iOrder + 1);
+                        const std::string residualName = std::format("residual_p{}", iOrder + 1);
+                        io.writeFieldVariables<Scalar>(
+                            "samples",
+                            {
+                                {stateName, {1}, sampleState[iOrder]},
+                                {loadName,  {1}, sampleLoad[iOrder]},
+                                {residualName, {1}, sampleResidual[iOrder]}
+                            });
+                    }
                 }
             }
         CIE_END_EXCEPTION_TRACING
