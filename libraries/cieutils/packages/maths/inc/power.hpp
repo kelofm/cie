@@ -9,8 +9,8 @@ namespace cie {
 
 
 /// @ingroup cieutils
-template <concepts::Integer BaseType, concepts::Integer ExponentType>
-constexpr BaseType intPow(BaseType base, ExponentType exponent);
+template <concepts::Integer TBase, concepts::Integer TExponent>
+constexpr TBase intPow(TBase base, TExponent exponent);
 
 
 } // namespace cie

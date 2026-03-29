@@ -1,8 +1,3 @@
-// --- External Includes ---
-#include "Eigen/Sparse"
-#include "Eigen/IterativeLinearSolvers"
-#include "Eigen/src/SparseCholesky/SimplicialCholesky.h"
-
 // --- Internal Includes ---
 #include "packages/commandline/inc/ArgParse.hpp"
 #include "poisson2D/definitions.hpp"
@@ -11,20 +6,13 @@
 #include "poisson2D/mesh.hpp"
 #include "poisson2D/integration.hpp"
 #include "poisson2D/constraints.hpp"
+#include "poisson2D/solver.hpp"
 #include "poisson2D/postprocessing.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"
 
-// --- Linalg Includes ---
-#include "packages/utilities/inc/reorder.hpp"
-#include "packages/solvers/inc/DefaultSpace.hpp"
-#include "packages/solvers/inc/CSROperator.hpp"
-#include "packages/solvers/inc/JacobiOperator.hpp"
-#include "packages/solvers/inc/ConjugateGradients.hpp"
-
 // --- Utility Includes ---
-#include "packages/io/inc/MatrixMarket.hpp"
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
 
@@ -156,123 +144,30 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("solve linear system");
-        std::vector<int> reordering(solution.size());
-
-        ReorderingStrategy reorderingStrategy = ReorderingStrategy::None;
-        Ref<const std::string> reorderingName = rArguments.get<std::string>("reordering");
-        if (reorderingName == "cuthill-mckee") reorderingStrategy = ReorderingStrategy::CuthillMcKee;
-        else if (reorderingName == "reverse-cuthill-mckee") reorderingStrategy = ReorderingStrategy::ReverseCuthillMcKee;
-        else if (reorderingName != "none") CIE_THROW(Exception, "unknown reordering strategy: " << reorderingName)
-
-        if (reorderingStrategy != ReorderingStrategy::None) {
-            auto logBlock = utils::LoggerSingleton::get().newBlock("reorder");
-            makeReordering<int,Scalar>(
-                reordering,
-                rowExtents,
-                columnIndices,
-                entries,
-                reorderingStrategy,
-                threads);
-            reorder<int,Scalar>(
-                reordering,
-                rowExtents,
-                columnIndices,
-                entries,
-                threads);
-            reorder<int,Scalar>(
-                reordering,
-                rhs,
-                threads);
-        }
-
-        if (rArguments.get<bool>("write-lhs")) {
-            std::ofstream file("lhs.mm");
-            cie::io::MatrixMarket::Output io(file);
-            io(rowCount, columnCount, entries.size(), rowExtents.data(), columnIndices.data(), entries.data());
-        }
-
-//        using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
-//        Eigen::Map<EigenSparseMatrix> lhsAdaptor(
-//            rowCount,
-//            columnCount,
-//            entries.size(),
-//            rowExtents.data(),
-//            columnIndices.data(),
-//            entries.data());
-//        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
-//        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
-//        Eigen::ConjugateGradient<
-//            EigenSparseMatrix,
-//            Eigen::Lower | Eigen::Upper,
-//            Eigen::DiagonalPreconditioner<Scalar>
-//        > solver;
-//        solver.setMaxIterations(int(5e3));
-//        solver.setTolerance(1e-6);
-//        //Eigen::SimplicialLLT<EigenSparseMatrix> solver;
-//
-//        solver.compute(lhsAdaptor);
-//        solutionAdaptor = solver.solve(rhsAdaptor);
-//
-//        std::cout << solver.iterations() << " iterations "
-//                  << solver.error()      << " residual\n";
-        using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
-        auto pLinalgSpace = std::make_shared<LinalgSpace>(threads);
-        linalg::CSROperator<int,Scalar> linearOperator(
-            columnCount,
-            rowExtents,
-            columnIndices,
-            entries,
-            threads);
-        auto preconditioner = linalg::makeJacobiOperator<Scalar,int,Scalar>(
-            rowExtents,
-            columnIndices,
-            entries,
-            pLinalgSpace);
-        linalg::ConjugateGradients<LinalgSpace> solver(pLinalgSpace, &preconditioner, 3);
-        linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = static_cast<std::size_t>(1e3),
-            .absoluteResidual = 1e-6,
-            .relativeResidual = 1e-6};
-        const auto stats = solver.solve(
-            linearOperator,
-            rhs,
+        solve(
+            lhs,
             solution,
-            settings);
-        std::cout
-            << stats.iterationCount << " iterations "
-            << stats.relativeResidual << " residual\n";
-
-        if (reorderingStrategy != ReorderingStrategy::None) {
-            auto logBlock = utils::LoggerSingleton::get().newBlock("reverse reorder");
-            reverseReorder<int,Scalar>(
-                reordering,
-                rowExtents,
-                columnIndices,
-                entries,
-                threads);
-            reverseReorder<int,Scalar>(
-                reordering,
-                rhs,
-                threads);
-            reverseReorder<int,Scalar>(
-                reordering,
-                solution,
-                threads);
-        }
+            rhs,
+            assembler,
+            threads,
+            rArguments);
     } // solve
 
-    postprocess(
-        meshBase,
-        meshLengths,
-        lhs,
-        solution,
-        rhs,
-        mesh,
-        contiguousCellData,
-        bvh,
-        assembler,
-        rArguments,
-        threads);
+    {
+        auto logBlock = utils::LoggerSingleton::get().newBlock("postprocess");
+        postprocess(
+            meshBase,
+            meshLengths,
+            lhs,
+            solution,
+            rhs,
+            mesh,
+            contiguousCellData,
+            bvh,
+            assembler,
+            rArguments,
+            threads);
+    }
 
     return 0;
 }
@@ -318,6 +213,14 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::DefaultValue {"1e-12"},
             cie::utils::ArgParse::validatorFactory<double>(),
             "Minimum size of a boundary segment to integrate.")
+        .addKeyword(
+            {"--solver"},
+            cie::utils::ArgParse::DefaultValue {"cg"},
+            [] (const cie::utils::ArgParse::ValueView& rValue) -> bool {
+                const std::string value(rValue.begin(), rValue.end());
+                return value == "cg" || value == "eigen-cg" || value == "eigen-llt";
+            },
+            "Linear solver.")
         .addKeyword(
             {"--reordering"},
             cie::utils::ArgParse::DefaultValue {"none"},

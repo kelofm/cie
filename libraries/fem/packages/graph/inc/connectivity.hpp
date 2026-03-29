@@ -31,19 +31,19 @@ namespace cie::fem {
  *           @ref BoundaryID - ansatz function index pair exactly once.
  *  @param rAnsatzSpace @ref maths::AnsatzSpace to scan the functions of.
  *  @param rFunctor Functor that gets called with each @ref BoundaryID and non-vanishing
- *                   ansatz function index.
+ *                  ansatz function index.
  *  @param pSampleBegin Ptr to the beginning of the array of sample nodes to evaluate
- *                       the ansatz functions at.
+ *                      the ansatz functions at.
  *  @param pSampleEnd Ptr past the last sample node.
  *  @param tolerance Absolute tolerance to check ansatz function values against.
  */
 template <maths::Expression TAnsatzSpace, cie::concepts::CallableWith<BoundaryID,Size> TFunctor>
-void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
-                        TFunctor&& rFunctor,
-                        Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
-                        Ptr<const typename TAnsatzSpace::Value> pSampleEnd,
-                        typename TAnsatzSpace::Value tolerance);
-
+void scanConnectivities(
+    Ref<const TAnsatzSpace> rAnsatzSpace,
+    TFunctor&& rFunctor,
+    Ptr<const typename TAnsatzSpace::Value> pSampleBegin,
+    Ptr<const typename TAnsatzSpace::Value> pSampleEnd,
+    typename TAnsatzSpace::Value tolerance);
 
 
 /** @brief Utility class for matching ansatz functions on different boundaries to preserve continuity.
@@ -165,6 +165,12 @@ makeAnsatzMap(
     Ref<const TAnsatzSpace> rAnsatzSpace,
     std::size_t integrationOrder,
     utils::Comparison<TValue> comparison = utils::Comparison<typename TAnsatzSpace::Value>());
+
+
+template <unsigned Dimension>
+void makeAnsatzMask(
+    std::size_t setSize,
+    std::span<std::uint8_t> mask);
 
 
 } // namespace cie::fem
