@@ -11,8 +11,7 @@ namespace cie {
 
 
 template <concepts::Integer TBase, concepts::Integer TExponent>
-constexpr TBase intPow(TBase base, TExponent exponent)
-{
+constexpr TBase intPow(TBase base, TExponent exponent) {
     // Negative exponents for integer bases yield non-integer results!
     assert(exponent >= 0);
 

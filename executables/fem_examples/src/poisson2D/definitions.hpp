@@ -30,6 +30,13 @@ using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
 
 
+struct CSRWrapper {
+    const int rowCount, columnCount;
+    std::span<int> rowExtents, columnIndices;
+    std::span<Scalar> entries;
+}; // struct CSRWrapper
+
+
 constexpr unsigned integrationOrder = polynomialOrder + 1;
 constexpr unsigned boundaryIntegrationOrder = Dimension * integrationOrder;
 

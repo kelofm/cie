@@ -16,37 +16,6 @@
 namespace cie::fem {
 
 
-template <std::size_t D>
-void makeAnsatzMask(
-    std::size_t setSize,
-    std::size_t maskOrder,
-    std::span<std::int8_t> mask) {
-        CIE_CHECK(
-            mask.size() == intPow(setSize, D),
-            std::format(
-                "expecting an ansatz mask with {} components, but got {}",
-                intPow(setSize, D), mask.size()))
-        std::fill(
-            mask.begin(),
-            mask.end(),
-            static_cast<std::int8_t>(0));
-        std::array<std::uint16_t,D> state;
-        std::fill(
-            state.begin(),
-            state.end(),
-            static_cast<std::uint8_t>(0));
-
-        std::size_t iAnsatz = 0ul;
-        do {
-            mask[iAnsatz] = std::all_of(
-                state.begin(),
-                state.end(),
-                [maskOrder] (std::uint8_t order) {return order <= maskOrder;});
-            ++iAnsatz;
-        } while (cie::maths::OuterProduct<Dimension>::next(setSize, state.data()));
-}
-
-
 void postprocess(
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths,
@@ -134,23 +103,20 @@ void postprocess(
                     std::vector<unsigned> cellIDs(sampleCount);
                     std::vector<Scalar> sampleCoordinates(sampleCount * Dimension);
                     std::vector<std::vector<Scalar>>
-                        sampleState(polynomialOrder),
-                        sampleLoad(polynomialOrder),
-                        sampleResidual(polynomialOrder);
-                    std::vector<std::vector<std::int8_t>> ansatzMasks(polynomialOrder);
+                        sampleState(polynomialOrder + 1),
+                        sampleLoad(polynomialOrder + 1),
+                        sampleResidual(polynomialOrder + 1);
 
-                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
+                    std::vector<std::uint8_t> ansatzMask(intPow(polynomialOrder + 1, Dimension));
+                    makeAnsatzMask<Dimension>(
+                        polynomialOrder + 1,
+                        ansatzMask);
+
+                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder + 1; ++iOrder) {
                         sampleState[iOrder].resize(sampleCount);
                         sampleLoad[iOrder].resize(sampleCount);
                         sampleResidual[iOrder].resize(sampleCount);
-                        ansatzMasks[iOrder].resize(intPow(polynomialOrder + 1, Dimension));
-                        makeAnsatzMask<Dimension>(
-                            polynomialOrder + 1,
-                            iOrder + 1,
-                            ansatzMasks[iOrder]);
                     }
-
-
 
                     mp::ParallelFor<std::size_t>(rThreads).firstPrivate(std::vector<Scalar>(), std::vector<Scalar>()).execute(
                         sampleCount,
@@ -202,11 +168,16 @@ void postprocess(
                                         sampleLoad[iOrder][iSample] = 0.0;
                                         sampleResidual[iOrder][iSample] = 0.0;
                                         for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
-                                            if (!ansatzMasks[iOrder][iFunction]) continue;
-                                            sampleState[iOrder][iSample] += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                            sampleLoad[iOrder][iSample] += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                            sampleResidual[iOrder][iSample] += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                            if (ansatzMask[iFunction] == static_cast<std::uint8_t>(iOrder + 1)) {
+                                                sampleState[iOrder][iSample] += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                                sampleLoad[iOrder][iSample] += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                                sampleResidual[iOrder][iSample] += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                            }
                                         } // for iFunction in range(rGlobalIndices.size())
+
+                                        sampleState.back()[iSample] += sampleState[iOrder][iSample];
+                                        sampleLoad.back()[iSample] += sampleLoad[iOrder][iSample];
+                                        sampleResidual.back()[iSample] += sampleResidual[iOrder][iSample];
                                     }
                                 } else {
                                     // Could not find the cell that contains the current sample point.
@@ -220,7 +191,8 @@ void postprocess(
 
                     io.writePointCloud<Scalar,Dimension>(
                         "samples",
-                        sampleCoordinates);
+                        sampleCoordinates,
+                        /*gridSize=*/postprocessResolution);
                     io.writeFieldVariables<Scalar>(
                         "samples",
                         {

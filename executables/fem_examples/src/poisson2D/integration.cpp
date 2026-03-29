@@ -104,10 +104,10 @@ void integrateStiffness(
         std::mutex integralSinkMutex;
         const auto integralSink = [&lhs, &rAssembler, &rThreads, &integralSinkMutex] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
             std::scoped_lock<std::mutex> lock(integralSinkMutex);
-            mp::ParallelFor<std::size_t>(rThreads).operator()(
+            mp::ParallelFor<std::size_t>(rThreads).execute(
                 cellIDs.size(),
                 [&lhs, &rAssembler, cellIDs, results] (std::size_t iCell) {
-                    rAssembler.addContribution<tags::SMP>(
+                    rAssembler.addContribution<tags::SMP,int>(
                         std::span<const Scalar>(results.data() + iCell * StiffnessIntegrand::size(), StiffnessIntegrand::size()),
                         cellIDs[iCell],
                         lhs.rowExtents,

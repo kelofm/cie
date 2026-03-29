@@ -349,7 +349,7 @@ imposeBoundaryConditions(
                 for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
                     Ptr<const Scalar> pResultsBegin = results.data() + iCell * (lhsEntryCount +rhsEntryCount);
                     const VertexID cellID = boundary.find(cellIDs[iCell]).value().data().getEmbeddingCell().id();
-                    rAssembler.addContribution<tags::Serial>(
+                    rAssembler.addContribution<tags::Serial,int>(
                         std::span<const Scalar>(pResultsBegin, lhsEntryCount),
                         cellID,
                         lhs.rowExtents,

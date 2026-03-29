@@ -12,12 +12,12 @@ class LinearOperator {
 public:
     /// @brief Compute a scaled matrix-vector product and add it to the provided output vector.
     /// @details Computes @f[
-    ///             r += \alpha * A @ b
+    ///             r += \alpha A b
     ///          @f]
     ///          where
     ///          - @p A is the linear operator represented by this class instance,
     ///          - @p b is the input vector to compute the product of,
-    ///          - @p @f$\alpha@f$ is the constant scaling factor,
+    ///          - @p @f$\alpha@f$ is a scalar factor,
     ///          - @p r is the output vector to add the scaled product to.
     /// @param in Input vector to compute the product of (@f$b@f$).
     /// @param scale Factor to scale the product with (@f$\alpha@f$).

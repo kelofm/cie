@@ -60,8 +60,40 @@ std::size_t AnsatzMap<Dimension>::ansatzCount() const noexcept {
 }
 
 
-#define CIE_INSTANTIATE_ANSATZ_MAP(D)               \
-    template class AnsatzMap<D>;
+template <unsigned D>
+void makeAnsatzMask(
+    std::size_t setSize,
+    std::span<std::uint8_t> mask) {
+        CIE_CHECK(
+            mask.size() == intPow(setSize, D),
+            std::format(
+                "expecting an ansatz mask with {} components, but got {}",
+                intPow(setSize, D), mask.size()))
+        std::fill(
+            mask.begin(),
+            mask.end(),
+            static_cast<std::int8_t>(0));
+        std::array<std::uint16_t,D> state;
+        std::fill(
+            state.begin(),
+            state.end(),
+            static_cast<std::uint8_t>(0));
+
+        std::size_t iAnsatz = 0ul;
+        do {
+            mask[iAnsatz] = std::max<std::uint8_t>(
+                *std::max_element(
+                    state.begin(),
+                    state.end()),
+                1);
+            ++iAnsatz;
+        } while (cie::maths::OuterProduct<D>::next(setSize, state.data()));
+}
+
+
+#define CIE_INSTANTIATE_ANSATZ_MAP(D)                                       \
+    template class AnsatzMap<D>;                                            \
+    template void makeAnsatzMask<D>(std::size_t, std::span<std::uint8_t>);
 
 
 CIE_INSTANTIATE_ANSATZ_MAP(1)
