@@ -12,12 +12,12 @@ namespace cie::linalg {
 
 
 template <LinalgSpaceLike TSpace>
-class JacobiOperator : public LinearOperator<TSpace> {
+class DiagonalOperator : public LinearOperator<TSpace> {
 public:
-    JacobiOperator()
+    DiagonalOperator()
     requires std::is_default_constructible_v<typename TSpace::Vector>;
 
-    JacobiOperator(
+    DiagonalOperator(
         typename TSpace::Vector&& rInverseDiagonal,
         std::shared_ptr<const TSpace> pSpace) noexcept;
 
@@ -30,14 +30,14 @@ private:
     std::shared_ptr<const TSpace> _pSpace;
 
     typename TSpace::Vector _inverseDiagonal;
-}; // class JacobiOperator
+}; // class DiagonalOperator
 
 
 template <
     class TValue,
     class TIndex,
     class TMatrixValue>
-JacobiOperator<DefaultSpace<TValue,tags::SMP>> makeJacobiOperator(
+DiagonalOperator<DefaultSpace<TValue,tags::SMP>> makeDiagonalOperator(
     std::span<const TIndex> rowExtents,
     std::span<const TIndex> columnIndices,
     std::span<const TMatrixValue> entries,

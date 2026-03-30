@@ -102,21 +102,18 @@ void postprocess(
 
                     std::vector<unsigned> cellIDs(sampleCount);
                     std::vector<Scalar> sampleCoordinates(sampleCount * Dimension);
-                    std::vector<std::vector<Scalar>>
-                        sampleState(polynomialOrder + 1),
-                        sampleLoad(polynomialOrder + 1),
-                        sampleResidual(polynomialOrder + 1);
+                    std::vector<Scalar>
+                        sampleStates(polynomialOrder * sampleCount),
+                        sampleLoads(polynomialOrder * sampleCount),
+                        sampleResiduals(polynomialOrder * sampleCount),
+                        sampleState(sampleCount),
+                        sampleLoad(sampleCount),
+                        sampleResidual(sampleCount);
 
                     std::vector<std::uint8_t> ansatzMask(intPow(polynomialOrder + 1, Dimension));
                     makeAnsatzMask<Dimension>(
                         polynomialOrder + 1,
                         ansatzMask);
-
-                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder + 1; ++iOrder) {
-                        sampleState[iOrder].resize(sampleCount);
-                        sampleLoad[iOrder].resize(sampleCount);
-                        sampleResidual[iOrder].resize(sampleCount);
-                    }
 
                     mp::ParallelFor<std::size_t>(rThreads).firstPrivate(std::vector<Scalar>(), std::vector<Scalar>()).execute(
                         sampleCount,
@@ -153,39 +150,43 @@ void postprocess(
                                     rResults.resize(rAnsatzSpace.size());
                                     rBuffer.resize(rAnsatzSpace.bufferSize());
                                     rAnsatzSpace.evaluate(
-                                        Kernel<Dimension,Scalar>::decayView(
-                                            parametricCoordinates),
+                                        Kernel<Dimension,Scalar>::decayView(parametricCoordinates),
                                         rResults,
                                         rBuffer);
 
                                     // Find the entries of the cell's DoFs in the global state vector.
                                     const auto& rGlobalIndices = rAssembler[rCellData.id()];
 
+                                    const std::size_t iSampleBegin = iSample * polynomialOrder;
                                     for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
                                         // Compute state as an indirect inner product of the solution vector
                                         // and the ansatz function values at the local corner coordinates.
-                                        sampleState[iOrder][iSample] = 0.0;
-                                        sampleLoad[iOrder][iSample] = 0.0;
-                                        sampleResidual[iOrder][iSample] = 0.0;
+                                        sampleStates[iSampleBegin + iOrder]      = 0.0;
+                                        sampleLoads[iSampleBegin + iOrder]       = 0.0;
+                                        sampleResiduals[iSampleBegin + iOrder]   = 0.0;
                                         for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
                                             if (ansatzMask[iFunction] == static_cast<std::uint8_t>(iOrder + 1)) {
-                                                sampleState[iOrder][iSample] += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                                sampleLoad[iOrder][iSample] += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                                sampleResidual[iOrder][iSample] += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                                sampleStates[iSampleBegin + iOrder]      += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                                sampleLoads[iSampleBegin + iOrder]       += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
+                                                sampleResiduals[iSampleBegin + iOrder]   += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
                                             }
                                         } // for iFunction in range(rGlobalIndices.size())
 
-                                        sampleState.back()[iSample] += sampleState[iOrder][iSample];
-                                        sampleLoad.back()[iSample] += sampleLoad[iOrder][iSample];
-                                        sampleResidual.back()[iSample] += sampleResidual[iOrder][iSample];
+                                        sampleState[iSample]     += sampleStates[iSampleBegin + iOrder];
+                                        sampleLoad[iSample]      += sampleLoads[iSampleBegin + iOrder];
+                                        sampleResidual[iSample]  += sampleResiduals[iSampleBegin + iOrder];
                                     }
                                 } else {
                                     // Could not find the cell that contains the current sample point.
+                                    const std::size_t iSampleBegin = iSample * (polynomialOrder + 1);
                                     for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
-                                        sampleState[iOrder][iSample] = NAN;
-                                        sampleLoad[iOrder][iSample] = NAN;
-                                        sampleResidual[iOrder][iSample] = NAN;
+                                        sampleStates[iSampleBegin + iOrder] = NAN;
+                                        sampleLoads[iSampleBegin + iOrder] = NAN;
+                                        sampleResiduals[iSampleBegin + iOrder] = NAN;
                                     }
+                                    sampleState[iSample] = NAN;
+                                    sampleLoad[iSample] = NAN;
+                                    sampleResidual[iSample] = NAN;
                                 }
                         });
 
@@ -196,23 +197,18 @@ void postprocess(
                     io.writeFieldVariables<Scalar>(
                         "samples",
                         {
-                            {"state", {1}, sampleState.back()},
-                            {"load",  {1}, sampleLoad.back()},
-                            {"residual", {1}, sampleResidual.back()}
+                            {"state", {1}, sampleState},
+                            {"load",  {1}, sampleLoad},
+                            {"residual", {1}, sampleResidual}
                         });
 
-                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
-                        const std::string stateName = std::format("state_p{}", iOrder + 1);
-                        const std::string loadName = std::format("load_p{}", iOrder + 1);
-                        const std::string residualName = std::format("residual_p{}", iOrder + 1);
-                        io.writeFieldVariables<Scalar>(
-                            "samples",
-                            {
-                                {stateName, {1}, sampleState[iOrder]},
-                                {loadName,  {1}, sampleLoad[iOrder]},
-                                {residualName, {1}, sampleResidual[iOrder]}
-                            });
-                    }
+                    io.writeFieldVariables<Scalar>(
+                        "samples",
+                        {
+                            {"state_p", {polynomialOrder}, sampleStates},
+                            {"load_p",  {polynomialOrder}, sampleLoads},
+                            {"residual_p", {polynomialOrder}, sampleResiduals}
+                        });
                 }
             }
         CIE_END_EXCEPTION_TRACING

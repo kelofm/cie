@@ -388,35 +388,45 @@ imposeBoundaryConditions(
 }
 
 
-BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh, std::span<const Scalar> meshBase, std::span<const Scalar> meshLengths) {
-    auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
+BVH makeBoundingVolumeHierarchy(
+    Ref<Mesh> rMesh,
+    std::span<const Scalar> meshBase,
+    std::span<const Scalar> meshLengths) {
+        auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
 
-    constexpr int targetLeafWidth = 5;
-    constexpr int maxTreeDepth = 5;
+        constexpr int targetLeafWidth = 5;
+        constexpr int maxTreeDepth = 5;
 
-    geo::AABBoxNode<CellData> root;
-    geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
-    std::copy_n(
-        meshBase.data(),
-        meshBase.size(),
-        rootBase.data());
-    std::copy_n(
-        meshLengths.data(),
-        meshLengths.size(),
-        rootLengths.data());
-    root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
+        geo::AABBoxNode<CellData> root;
+        geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
+        std::transform(
+            meshBase.begin(),
+            meshBase.end(),
+            meshLengths.begin(),
+            rootBase.begin(),
+            [] (Scalar base, Scalar length) -> Scalar {
+                return base - 1e-2 * length;
+            });
+        std::transform(
+            meshLengths.begin(),
+            meshLengths.end(),
+            rootLengths.begin(),
+            [] (Scalar length) -> Scalar {
+                return (1 + 2e-2) * length;
+            });
+        root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
 
-    for (auto& rCell : rMesh.vertices()) {
-        root.insert(&rCell.data());
-    }
+        for (auto& rCell : rMesh.vertices()) {
+            root.insert(&rCell.data());
+        }
 
-    root.partition(targetLeafWidth, maxTreeDepth);
-    root.shrink();
+        root.partition(targetLeafWidth, maxTreeDepth);
+        //root.shrink();
 
-    return BVH::flatten(
-        root,
-        [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id();},
-        std::allocator<std::byte>());
+        return BVH::flatten(
+            root,
+            [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id();},
+            std::allocator<std::byte>());
 }
 
 

@@ -1,5 +1,5 @@
 // --- Linalg Includes ---
-#include "packages/solvers/inc/JacobiOperator.hpp"
+#include "packages/solvers/inc/DiagonalOperator.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"
@@ -15,7 +15,7 @@ namespace cie::linalg {
 
 
 template <LinalgSpaceLike TS>
-JacobiOperator<TS>::JacobiOperator()
+DiagonalOperator<TS>::DiagonalOperator()
 requires std::is_default_constructible_v<typename TS::Vector>
     :   _pSpace(),
         _inverseDiagonal()
@@ -23,7 +23,7 @@ requires std::is_default_constructible_v<typename TS::Vector>
 
 
 template <LinalgSpaceLike TS>
-JacobiOperator<TS>::JacobiOperator(
+DiagonalOperator<TS>::DiagonalOperator(
     typename TS::Vector&& rInverseDiagonal,
     std::shared_ptr<const TS> pSpace) noexcept
     :   _pSpace(pSpace),
@@ -32,7 +32,7 @@ JacobiOperator<TS>::JacobiOperator(
 
 
 template <LinalgSpaceLike TS>
-void JacobiOperator<TS>::product(
+void DiagonalOperator<TS>::product(
     typename TS::ConstVectorView in,
     typename TS::Value scale,
     typename TS::VectorView out) const {
@@ -48,7 +48,7 @@ template <
     class TV,
     class TI,
     class TMV>
-JacobiOperator<DefaultSpace<TV,tags::SMP>> makeJacobiOperator(
+DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator(
     std::span<const TI> rowExtents,
     std::span<const TI> columnIndices,
     std::span<const TMV> entries,
@@ -75,19 +75,19 @@ JacobiOperator<DefaultSpace<TV,tags::SMP>> makeJacobiOperator(
             }
         } // for iRow in range(iRow)
 
-        return JacobiOperator<DefaultSpace<TV,tags::SMP>>(
+        return DiagonalOperator<DefaultSpace<TV,tags::SMP>>(
             std::move(inverseDiagonal),
             pSpace);
 }
 
 
-template class JacobiOperator<DefaultSpace<float,tags::Serial>>;
-template class JacobiOperator<DefaultSpace<float,tags::SMP>>;
-template class JacobiOperator<DefaultSpace<double,tags::Serial>>;
-template class JacobiOperator<DefaultSpace<double,tags::SMP>>;
+template class DiagonalOperator<DefaultSpace<float,tags::Serial>>;
+template class DiagonalOperator<DefaultSpace<float,tags::SMP>>;
+template class DiagonalOperator<DefaultSpace<double,tags::Serial>>;
+template class DiagonalOperator<DefaultSpace<double,tags::SMP>>;
 
 #define CIE_DEFINE_JACOBI_OPERATOR_FACTORY(TV, TI, TMV)                                                     \
-    template JacobiOperator<DefaultSpace<TV,tags::SMP>> makeJacobiOperator<TV,TI,TMV>(                      \
+    template DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator<TV,TI,TMV>(                      \
         std::span<const TI>,                                                                                \
         std::span<const TI>,                                                                                \
         std::span<const TMV>,                                                                               \

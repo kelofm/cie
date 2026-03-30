@@ -10,7 +10,7 @@
 #include "packages/utilities/inc/reorder.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/CSROperator.hpp"
-#include "packages/solvers/inc/JacobiOperator.hpp"
+#include "packages/solvers/inc/DiagonalOperator.hpp"
 #include "packages/solvers/inc/ConjugateGradients.hpp"
 
 // --- Utility Includes ---
@@ -85,7 +85,7 @@ void solveCG(
             lhs.columnIndices,
             lhs.entries,
             rThreads);
-        auto preconditioner = linalg::makeJacobiOperator<Scalar,int,Scalar>(
+        auto preconditioner = linalg::makeDiagonalOperator<Scalar,int,Scalar>(
             lhs.rowExtents,
             lhs.columnIndices,
             lhs.entries,

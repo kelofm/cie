@@ -48,7 +48,8 @@ struct VTKHDF {
         template <class TValue, unsigned Dimension>
         void writePointCloud(
             std::string_view groupName,
-            std::span<const TValue> coordinates);
+            std::span<const TValue> coordinates,
+            std::size_t gridSize = 0ul);
 
         template <class TValue, fem::DiscretizationLike TMesh>
         requires std::is_same_v<typename TMesh::Vertex::Data::Value,TValue>

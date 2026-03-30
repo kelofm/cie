@@ -11,6 +11,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"
+#include "packages/maths/inc/OuterProduct.hpp"
 
 // --- STL Includes ---
 #include <array> // std::array
@@ -387,7 +388,8 @@ void VTKHDF::Output::writeDataset(
 template <class T, unsigned D>
 void VTKHDF::Output::writePointCloud(
     std::string_view groupName,
-    std::span<const T> coordinates) {
+    std::span<const T> coordinates,
+    std::size_t gridSize) {
         CIE_BEGIN_EXCEPTION_TRACING
             const Prefix groupPrefix = Prefix("/VTKHDF") / groupName;
             H5::Group group = _pImpl->makeGroup(groupPrefix);
@@ -405,23 +407,103 @@ void VTKHDF::Output::writePointCloud(
             CIE_END_EXCEPTION_TRACING
 
             const std::size_t pointCount = coordinates.size() / D;
-            this->writeDataset<std::size_t,1>(
-                groupPrefix / "NumberOfCells",
-                {1},
-                {&pointCount, 1});
-            this->writeDataset<std::size_t,1>(
-                groupPrefix / "NumberOfConnectivityIds",
-                {1},
-                {&pointCount, 1});
+            const std::size_t cellCount  = 1 < gridSize
+                ? intPow(gridSize - 1, D)
+                : 0ul;
+            const std::size_t pointsPerCell = cellCount
+                ? intPow(2, D)
+                : 1ul;
+
+            if (cellCount) {
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfCells",
+                    {1},
+                    {&cellCount, 1});
+
+                const std::size_t topologySize = cellCount * pointsPerCell;
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfConnectivityIds",
+                    {1},
+                    {&topologySize, 1});
+            } /*if cellCount*/ else {
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfCells",
+                    {1},
+                    {&pointCount, 1});
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfConnectivityIds",
+                    {1},
+                    {&pointCount, 1});
+            } // if cellCount else
 
             this->writeDataset<std::size_t,1>(
                 groupPrefix / "NumberOfPoints",
                 {1},
                 {&pointCount, 1});
 
-            {
+            if (cellCount) {
+                std::vector<int> topology(cellCount * pointsPerCell);
+                std::array<std::size_t,D> state;
+                std::fill(state.begin(), state.end(), 0ul);
+
+                auto itTopology = topology.begin();
+                do {
+                    // Compute the cell index.
+                    std::size_t iCell = 0ul;
+                    for (auto it=state.rbegin(); it!=state.rend(); ++it) {
+                        iCell *= gridSize - 1;
+                        iCell += *it;
+                    }
+
+                    // Define its topology.
+                    if constexpr (D == 1) {
+                        *itTopology++ = state[0]    ;
+                        *itTopology++ = state[0] + 1;
+                    } else if constexpr (D == 2) {
+                        *itTopology++ = (state[0]    ) + gridSize * (state[1]    );
+                        *itTopology++ = (state[0] + 1) + gridSize * (state[1]    );
+                        *itTopology++ = (state[0] + 1) + gridSize * (state[1] + 1);
+                        *itTopology++ = (state[0]    ) + gridSize * (state[1] + 1);
+                    } else if constexpr (D == 3) {
+                        *itTopology++ = (state[0]    ) + gridSize * ((state[1]    ) + gridSize * (state[2]    ));
+                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1]    ) + gridSize * (state[2]    ));
+                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1] + 1) + gridSize * (state[2]    ));
+                        *itTopology++ = (state[0]    ) + gridSize * ((state[1] + 1) + gridSize * (state[2]    ));
+                        *itTopology++ = (state[0]    ) + gridSize * ((state[1]    ) + gridSize * (state[2] + 1));
+                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1]    ) + gridSize * (state[2] + 1));
+                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1] + 1) + gridSize * (state[2] + 1));
+                        *itTopology++ = (state[0]    ) + gridSize * ((state[1] + 1) + gridSize * (state[2] + 1));
+                    } else static_assert(D == 1, "unsupported dimension");
+                } while (maths::OuterProduct<D>::next(gridSize - 1, state.data()));
+
+                this->writeDataset<int,1>(
+                    groupPrefix / "Connectivity",
+                    {topology.size()},
+                    topology);
+
+                std::vector<int> offsets(cellCount + 1);
+                for (std::size_t iCell=0ul; iCell<cellCount + 1; ++iCell) offsets[iCell] = iCell * pointsPerCell;
+                this->writeDataset<int,1>(
+                    groupPrefix / "Offsets",
+                    {offsets.size()},
+                    offsets);
+
+                std::vector<std::uint8_t> types(pointCount);
+                std::uint8_t topologyType = 0;
+                if constexpr (D == 1) {
+                    topologyType = /*VTK_LINE*/ 3;
+                } else if constexpr (D == 2) {
+                    topologyType = /*VTK_QUAD*/ 9;
+                } else if constexpr (D == 3) {
+                    topologyType = /*VTK_HEXAHEDRON*/ 12;
+                } else static_assert(D == 1, "unsupported dimension");
+                std::fill(types.begin(), types.end(), topologyType);
+                this->writeDataset<std::uint8_t,1>(
+                    groupPrefix / "Types",
+                    {types.size()},
+                    types);
+            } /*if cellCount*/ else {
                 std::vector<int> connectivity(pointCount);
-                std::iota(connectivity.begin(), connectivity.end(), 0);
                 this->writeDataset<int,1>(
                     groupPrefix / "Connectivity",
                     {connectivity.size()},
@@ -432,16 +514,14 @@ void VTKHDF::Output::writePointCloud(
                     groupPrefix / "Offsets",
                     {connectivity.size()},
                     connectivity);
-            }
 
-            {
                 std::vector<std::uint8_t> types(pointCount);
                 std::fill(types.begin(), types.end(), static_cast<std::uint8_t>(1));
                 this->writeDataset<std::uint8_t,1>(
                     groupPrefix / "Types",
                     {types.size()},
                     types);
-            }
+            } // if cellCount else
 
 
             CIE_BEGIN_EXCEPTION_TRACING
@@ -531,7 +611,8 @@ CIE_INSTANTIATE_VTKHDF(double)
 #define CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(T, D)        \
     template void VTKHDF::Output::writePointCloud<T,D>( \
         std::string_view,                               \
-        std::span<const T>);
+        std::span<const T>,                             \
+        std::size_t);
 
 CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 1)
 CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 2)
