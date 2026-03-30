@@ -41,7 +41,7 @@ template <class TI, class TV, class TMV>
 void CSROperator<TI,TV,TMV>::product(
     typename Space::ConstVectorView in,
     typename Space::Value scale,
-    typename Space::VectorView out) const {
+    typename Space::VectorView out) {
         // Sanity checks.
         CIE_CHECK(
             _rowExtents.size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_columnCount),

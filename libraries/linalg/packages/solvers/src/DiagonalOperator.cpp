@@ -35,7 +35,7 @@ template <LinalgSpaceLike TS>
 void DiagonalOperator<TS>::product(
     typename TS::ConstVectorView in,
     typename TS::Value scale,
-    typename TS::VectorView out) const {
+    typename TS::VectorView out) {
         _pSpace->assign(out, in);
         _pSpace->scale(
             out,
@@ -86,6 +86,7 @@ template class DiagonalOperator<DefaultSpace<float,tags::SMP>>;
 template class DiagonalOperator<DefaultSpace<double,tags::Serial>>;
 template class DiagonalOperator<DefaultSpace<double,tags::SMP>>;
 
+
 #define CIE_DEFINE_JACOBI_OPERATOR_FACTORY(TV, TI, TMV)                                                     \
     template DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator<TV,TI,TMV>(                      \
         std::span<const TI>,                                                                                \
@@ -93,10 +94,12 @@ template class DiagonalOperator<DefaultSpace<double,tags::SMP>>;
         std::span<const TMV>,                                                                               \
         std::shared_ptr<const DefaultSpace<TV,tags::SMP>>);
 
+
 CIE_DEFINE_JACOBI_OPERATOR_FACTORY(float, int, float)
 CIE_DEFINE_JACOBI_OPERATOR_FACTORY(float, std::size_t, float)
 CIE_DEFINE_JACOBI_OPERATOR_FACTORY(double, int, double)
 CIE_DEFINE_JACOBI_OPERATOR_FACTORY(double, std::size_t, double)
+
 
 #undef CIE_DEFINE_JACOBI_OPERATOR_FACTORY
 

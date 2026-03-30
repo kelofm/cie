@@ -15,6 +15,7 @@
 namespace cie::linalg {
 
 
+/// @brief Linear operator representing a scaled matrix-vector product in CSR format.
 template <class TIndex, class TValue, class TMatrixValue = TValue>
 class CSROperator
     : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
@@ -35,7 +36,7 @@ public:
     void product(
         typename Space::ConstVectorView in,
         typename Space::Value scale,
-        typename Space::VectorView out) const override;
+        typename Space::VectorView out) override;
 
 protected:
     TIndex _columnCount;

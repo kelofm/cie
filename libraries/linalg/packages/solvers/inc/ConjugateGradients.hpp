@@ -20,26 +20,26 @@ private:
 public:
     using typename Base::Statistics;
 
-    using Operator = LinearOperator<TSpace>;
-
     ConjugateGradients()
     requires std::is_default_constructible_v<TSpace>;
 
     ConjugateGradients(
+        std::shared_ptr<LinearOperator<TSpace>> pLhs,
         std::shared_ptr<TSpace> pSpace,
-        Ptr<const Operator> pPreconditioner = nullptr,
+        std::shared_ptr<LinearOperator<TSpace>> pPreconditioner = nullptr,
+        Statistics settings = {},
         int verbosity = 0);
 
-    Statistics solve(
-        Ref<const Operator> rLhs,
-        typename TSpace::ConstVectorView rhs,
-        typename TSpace::VectorView result,
-        Statistics settings = {}) const override;
+    /// @copydoc LinearOperator::product
+    void product(
+        typename TSpace::ConstVectorView in,
+        typename TSpace::Value scale,
+        typename TSpace::VectorView out) override;
 
 protected:
-    std::shared_ptr<TSpace> _pSpace;
+    std::shared_ptr<LinearOperator<TSpace>> _pLhs, _pPreconditioner;
 
-    Ptr<const Operator> _pPreconditioner;
+    std::shared_ptr<TSpace> _pSpace;
 
     int _verbosity;
 }; // class ConjugateGradients

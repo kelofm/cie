@@ -24,7 +24,7 @@ public:
     void product(
         typename TSpace::ConstVectorView in,
         typename TSpace::Value scale,
-        typename TSpace::VectorView out) const override;
+        typename TSpace::VectorView out) override;
 
 private:
     std::shared_ptr<const TSpace> _pSpace;

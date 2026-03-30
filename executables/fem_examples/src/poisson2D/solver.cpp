@@ -79,27 +79,30 @@ void solveCG(
     Ref<mp::ThreadPoolBase> rThreads) {
         using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
         auto pLinalgSpace = std::make_shared<LinalgSpace>(rThreads);
-        linalg::CSROperator<int,Scalar> linearOperator(
+        auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(
             lhs.columnCount,
             lhs.rowExtents,
             lhs.columnIndices,
             lhs.entries,
             rThreads);
-        auto preconditioner = linalg::makeDiagonalOperator<Scalar,int,Scalar>(
+        auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>();
+        *pPreconditioner = linalg::makeDiagonalOperator<Scalar,int,Scalar>(
             lhs.rowExtents,
             lhs.columnIndices,
             lhs.entries,
             pLinalgSpace);
-        linalg::ConjugateGradients<LinalgSpace> solver(pLinalgSpace, &preconditioner, 3);
         linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
             .iterationCount = static_cast<std::size_t>(1e3),
             .absoluteResidual = 1e-6,
             .relativeResidual = 1e-6};
-        const auto stats = solver.solve(
-            linearOperator,
-            rhs,
-            solution,
-            settings);
+        linalg::ConjugateGradients<LinalgSpace> solver(
+            pLinearOperator,
+            pLinalgSpace,
+            pPreconditioner,
+            settings,
+            3);
+        solver.product(rhs, 1, solution);
+        const auto stats = solver.getStats().value();
         std::cout
             << stats.iterationCount << " iterations "
             << stats.relativeResidual << " residual\n";

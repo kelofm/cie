@@ -10,6 +10,8 @@ namespace cie::linalg {
 template <LinalgSpaceLike TSpace>
 class LinearOperator {
 public:
+    virtual ~LinearOperator() = default;
+
     /// @brief Compute a scaled matrix-vector product and add it to the provided output vector.
     /// @details Computes @f[
     ///             r += \alpha A b
@@ -25,7 +27,7 @@ public:
     virtual void product(
         typename TSpace::ConstVectorView in,
         typename TSpace::Value scale,
-        typename TSpace::VectorView out) const = 0;
+        typename TSpace::VectorView out) = 0;
 }; // class LinearOperator
 
 
