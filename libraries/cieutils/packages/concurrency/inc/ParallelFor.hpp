@@ -1,6 +1,6 @@
 #pragma once
 
-// --- Internal Includes ---
+// --- Utility Includes ---
 #include "packages/concurrency/inc/ThreadStorage.hpp"
 #include "packages/concurrency/inc/ThreadPool.hpp"
 #include "packages/concurrency/inc/IndexPartitionFactory.hpp"
@@ -12,8 +12,8 @@ namespace cie::mp {
 
 
 /** @brief Parallel for construct with thread local storage.
- *  @tparam TIndex: Index type used during partitioning and the loops.
- *  @tparam TStorage: @ref ThreadStorage for storing data local to each thread.
+ *  @tparam TIndex Index type used during partitioning and the loops.
+ *  @tparam TStorage @ref ThreadStorage for storing data local to each thread.
  *  @ingroup cieutils
  */
 template <concepts::Integer TIndex = Size,
@@ -40,8 +40,8 @@ public:
     /** @brief Construct a parallel for object with thread local storage.
      *
      *  @tparam TArgs: parameter pack of thread local storage types.
-     *  @param rPool: thread pool to use for execution.
-     *  @param rArgs: initializers for the thread local storages.
+     *  @param rPool thread pool to use for execution.
+     *  @param rArgs initializers for the thread local storages.
      *
      *  @details Each thread's local storage is initialized with the provided values,
      *           which is semantically equivalent to @c firstPrivate in OpenMP.
@@ -82,15 +82,15 @@ public:
      *  @tparam TFunction Function to execute at each iteration. Must be callable
      *          with the index type followed by thread local storage types as
      *          arguments.
-     *  @param indexMin index begin.
-     *  @param indexMax index end.
+     *  @param iMin index begin.
+     *  @param iSentinel index end.
      *  @param stepSize loop index increment value.
      *  @param rFunction target function to execute at each iteration.
      */
     template <class TFunction>
     ParallelFor& operator()(
-        TIndex indexMin,
-        TIndex indexMax,
+        TIndex iMin,
+        TIndex iSentinel,
         long stepSize,
         Ref<const TFunction> rFunction);
 
@@ -98,12 +98,12 @@ public:
      *  @tparam TFunction Function to execute at each iteration. Must be callable
      *          with the index type followed by thread local storage types as
      *          arguments.
-     *  @param indexMax index end.
+     *  @param iSentinel index end.
      *  @param rFunction target function to execute at each iteration.
      */
     template <class TFunction>
     ParallelFor& operator()(
-        TIndex indexMax,
+        TIndex iSentinel,
         Ref<const TFunction> rFunction);
 
     /** @brief Execute a range-based for loop over a container.

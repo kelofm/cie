@@ -37,12 +37,10 @@ concept FunctionWithArgument
 
 namespace detail {
 template <Function TFunction, class ...TArguments>
-class IsFunctionWithArguments
-{
+class IsFunctionWithArguments {
 private:
     template <Size I, bool All>
-    struct IsFunctionWithArgumentAtRecursive
-    {
+    struct IsFunctionWithArgumentAtRecursive {
         static constexpr bool Value = All && std::is_same_v<
             typename std::tuple_element<I,std::tuple<TArguments...>>::type,
             typename std::tuple_element<I,typename FunctionTraits<TFunction>::ArgumentTuple>::type
@@ -52,8 +50,7 @@ private:
     }; // struct IsFunctionWithArgumentAtRecursive
 
     template <bool All>
-    struct IsFunctionWithArgumentAtRecursive<0,All>
-    {
+    struct IsFunctionWithArgumentAtRecursive<0,All> {
         static constexpr bool Value = All && std::is_same_v<
             typename std::tuple_element<0,std::tuple<TArguments...>>::type,
             typename std::tuple_element<0,typename FunctionTraits<TFunction>::ArgumentTuple>::type
