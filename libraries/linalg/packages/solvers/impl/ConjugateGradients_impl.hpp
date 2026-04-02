@@ -47,8 +47,9 @@ ConjugateGradients<TS>::ConjugateGradients(
 
 template <LinalgSpaceLike TS>
 void ConjugateGradients<TS>::product(
+    typename TS::Value inScale,
     typename TS::ConstVectorView in,
-    typename TS::Value scale,
+    typename TS::Value outScale,
     typename TS::VectorView out) {
         const std::size_t systemSize = _pSpace->size(out);
 
@@ -72,7 +73,8 @@ void ConjugateGradients<TS>::product(
         }
 
         typename TS::Vector solution = _pSpace->makeVector(systemSize);
-            _pSpace->fill(solution, 0);
+        //_pSpace->fill(solution, 0);
+        _pSpace->assign(solution, out);
 
         if (settings.iterationCount) {
             CIE_BEGIN_EXCEPTION_TRACING
@@ -84,10 +86,7 @@ void ConjugateGradients<TS>::product(
                 // Compute the initial residual.
                 typename TS::Vector residual = _pSpace->makeVector(systemSize);
                 _pSpace->assign(residual, in);
-                //_pLhs->product(
-                //    solution,
-                //    static_cast<typename TS::Value>(-1),
-                //    residual);
+                _pLhs->product(1, solution, -1, residual);
 
                 utils::Comparison<typename TS::Value> comparison;
 
@@ -107,24 +106,43 @@ void ConjugateGradients<TS>::product(
                 // Compute the initial search direction.
                 if (_pPreconditioner) {
                     maybePreconditionedResidual = _pSpace->makeVector(systemSize);
-                    _pSpace->fill(*maybePreconditionedResidual, 0);
-                    _pPreconditioner->product(residual, 1, *maybePreconditionedResidual);
+                    //_pSpace->fill(*maybePreconditionedResidual, 0);
+                    _pPreconditioner->product(0, residual, 1, *maybePreconditionedResidual);
                     preconditionedNorm = _pSpace->innerProduct(residual, *maybePreconditionedResidual);
                     _pSpace->assign(search, *maybePreconditionedResidual);
+                    CIE_CHECK(
+                        static_cast<typename TS::Value>(0) < preconditionedNorm,
+                        std::format(
+                            "preconditioned norm vanished in iteration {} (r^T @ z = 0)",
+                            0))
                 } else {
                     preconditionedNorm = residualNorm;
                     _pSpace->assign(search, residual);
+                    CIE_CHECK(
+                        static_cast<typename TS::Value>(0) < preconditionedNorm,
+                        std::format(
+                            "residual norm vanished in iteration {} (r^T @ r = 0)",
+                            0))
                 }
 
                 for (; stats.iterationCount<settings.iterationCount; ++stats.iterationCount) {
                     // Compute part of the denominator of the search scale.
-                    _pSpace->fill(searchProduct, 0);
-                    _pLhs->product(search, 1, searchProduct);
+                    //_pSpace->fill(searchProduct, 0);
+                    _pLhs->product(0, search, 1, searchProduct);
 
                     // Compute the search scale.
-                    typename TS::Value searchScale = preconditionedNorm / _pSpace->innerProduct(
-                        search,
-                        searchProduct);
+                    typename TS::Value searchScale = preconditionedNorm;
+                    {
+                        const typename TS::Value denominator = _pSpace->innerProduct(
+                            search,
+                            searchProduct);
+                        CIE_CHECK(
+                            static_cast<TS::Value>(0) < denominator,
+                            std::format(
+                                "p^T @ A @ p vanished in iteration {}",
+                                stats.iterationCount))
+                        searchScale /= denominator;
+                    }
 
                     // Update the solution and residual.
                     _pSpace->add(solution, search, searchScale);
@@ -135,8 +153,8 @@ void ConjugateGradients<TS>::product(
                     const typename TS::Value previousPreconditionedNorm = preconditionedNorm;
 
                     if (maybePreconditionedResidual) {
-                        _pSpace->fill(*maybePreconditionedResidual, 0);
-                        _pPreconditioner->product(residual, 1, *maybePreconditionedResidual);
+                        //_pSpace->fill(*maybePreconditionedResidual, 0);
+                        _pPreconditioner->product(0, residual, 1, *maybePreconditionedResidual);
                         preconditionedNorm = _pSpace->innerProduct(residual, *maybePreconditionedResidual);
                     } else {
                         preconditionedNorm = residualNorm;
@@ -161,9 +179,16 @@ void ConjugateGradients<TS>::product(
             CIE_END_EXCEPTION_TRACING
         }
 
-        // Scale the results if necessary.
-        if (scale != static_cast<typename TS::Value>(1))
-            _pSpace->add(out, solution, scale);
+        if (inScale == static_cast<typename TS::Value>(1)) {
+            _pSpace->add(out, solution, outScale);
+        } else if (inScale == static_cast<typename TS::Value>(0)) {
+            _pSpace->assign(out, solution);
+            _pSpace->scale(out, outScale);
+        } else {
+            _pSpace->scale(out, inScale);
+            _pSpace->add(out, solution, outScale);
+        }
+
 
         if (3 <= _verbosity)
             utils::LoggerSingleton::get().log("+ --------- + ----------------- + ----------------- +");

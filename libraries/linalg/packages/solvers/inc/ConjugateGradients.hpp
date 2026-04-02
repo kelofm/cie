@@ -32,8 +32,9 @@ public:
 
     /// @copydoc LinearOperator::product
     void product(
+        typename TSpace::Value inScale,
         typename TSpace::ConstVectorView in,
-        typename TSpace::Value scale,
+        typename TSpace::Value outScale,
         typename TSpace::VectorView out) override;
 
 protected:

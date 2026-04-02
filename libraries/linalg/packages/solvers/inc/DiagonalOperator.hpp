@@ -22,14 +22,15 @@ public:
         std::shared_ptr<const TSpace> pSpace) noexcept;
 
     void product(
+        typename TSpace::Value inScale,
         typename TSpace::ConstVectorView in,
-        typename TSpace::Value scale,
+        typename TSpace::Value outScale,
         typename TSpace::VectorView out) override;
 
 private:
     std::shared_ptr<const TSpace> _pSpace;
 
-    typename TSpace::Vector _inverseDiagonal;
+    typename TSpace::Vector _buffer, _inverseDiagonal;
 }; // class DiagonalOperator
 
 

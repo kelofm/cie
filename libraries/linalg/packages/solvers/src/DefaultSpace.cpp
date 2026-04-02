@@ -199,6 +199,13 @@ void DefaultSpace<T,TTag>::fill(VectorView view, Value value) const {
 }
 
 
+template <class T, TagLike TTag>
+requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
+OptionalRef<mp::ThreadPoolBase> DefaultSpace<T,TTag>::getThreads() {
+    return _maybeThreads;
+}
+
+
 template class DefaultSpace<float,tags::Serial>;
 template class DefaultSpace<float,tags::SMP>;
 template class DefaultSpace<double,tags::Serial>;

@@ -18,6 +18,7 @@ template <LinalgSpaceLike TS>
 DiagonalOperator<TS>::DiagonalOperator()
 requires std::is_default_constructible_v<typename TS::Vector>
     :   _pSpace(),
+        _buffer(),
         _inverseDiagonal()
 {}
 
@@ -27,20 +28,28 @@ DiagonalOperator<TS>::DiagonalOperator(
     typename TS::Vector&& rInverseDiagonal,
     std::shared_ptr<const TS> pSpace) noexcept
     :   _pSpace(pSpace),
-        _inverseDiagonal(std::move(rInverseDiagonal))
-{}
+        _buffer(),
+        _inverseDiagonal(std::move(rInverseDiagonal)) {
+    _buffer = pSpace->makeVector(pSpace->size(rInverseDiagonal));
+}
 
 
 template <LinalgSpaceLike TS>
 void DiagonalOperator<TS>::product(
+    typename TS::Value inScale,
     typename TS::ConstVectorView in,
-    typename TS::Value scale,
+    typename TS::Value outScale,
     typename TS::VectorView out) {
-        _pSpace->assign(out, in);
-        _pSpace->scale(
-            out,
-            _pSpace->view(_inverseDiagonal),
-            scale);
+        using V = typename TS::Value;
+        if (inScale == static_cast<V>(0)) {
+            _pSpace->assign(out, in);
+            _pSpace->scale(out, _inverseDiagonal, outScale);
+        } else {
+            _pSpace->assign(_buffer, in);
+            _pSpace->scale(_buffer, _inverseDiagonal, outScale);
+            if (inScale != static_cast<V>(1)) _pSpace->scale(out, inScale);
+            _pSpace->add(out, _buffer, 1);
+        }
 }
 
 

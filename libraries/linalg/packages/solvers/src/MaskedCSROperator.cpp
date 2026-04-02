@@ -1,5 +1,5 @@
 // --- Linalg Includes ---
-#include "packages/solvers/inc/CSROperator.hpp"
+#include "packages/solvers/inc/MaskedCSROperator.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
@@ -12,19 +12,22 @@
 namespace cie::linalg {
 
 
-template <class TI, class TV, class TMV>
-CSROperator<TI,TV,TMV>::CSROperator(
+template <class TI, class TV, class TMV, class TMI>
+MaskedCSROperator<TI,TV,TMV,TMI>::MaskedCSROperator(
     TI columnCount,
     std::span<const TI> rowExtents,
     std::span<const TI> columnIndices,
     std::span<const TMV> entries,
+    std::span<const TMI> mask,
+    TMI threshold,
     OptionalRef<mp::ThreadPoolBase> rMaybeThreads)
-        :
-        _columnCount(columnCount),
-        _rowExtents(rowExtents),
-        _columnIndices(columnIndices),
-        _entries(entries),
-        _maybeThreads(rMaybeThreads) {
+        :   _columnCount(columnCount),
+            _rowExtents(rowExtents),
+            _columnIndices(columnIndices),
+            _entries(entries),
+            _mask(mask),
+            _threshold(threshold),
+            _maybeThreads(rMaybeThreads) {
     CIE_CHECK(
         0 < _rowExtents.size(),
         std::format(
@@ -37,8 +40,8 @@ CSROperator<TI,TV,TMV>::CSROperator(
 }
 
 
-template <class TI, class TV, class TMV>
-void CSROperator<TI,TV,TMV>::product(
+template <class TI, class TV, class TMV, class TMI>
+void MaskedCSROperator<TI,TV,TMV,TMI>::product(
     typename Space::Value inScale,
     typename Space::ConstVectorView in,
     typename Space::Value outScale,
@@ -47,19 +50,23 @@ void CSROperator<TI,TV,TMV>::product(
         CIE_CHECK(
             _rowExtents.size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_columnCount),
             std::format(
-                "Incompatible matrix-vector product: [{}x{}] * [{}] = [{}]",
+                "Incompatible masked matrix-vector product: [{}x{}] * [{}] = [{}]",
                 _rowExtents.size() - 1, _columnCount, in.size(), out.size()))
 
         const auto kernel = [this, in, out] (TI iRowBegin, TI iRowEnd, const auto& op) -> void {
             for (TI iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
-                const TI iEntryBegin = _rowExtents[iRow];
-                const TI iEntryEnd   = _rowExtents[iRow + 1];
                 TV contribution = static_cast<TV>(0);
-                for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                    const TI iColumn = _columnIndices[iEntry];
-                    const TV entry   = _entries[iEntry];
-                    contribution += entry * in[iColumn];
-                } // for iEntry in range(iEntryBegin, iEntryEnd)
+                if (_mask[iRow] < _threshold) {
+                    const TI iEntryBegin = _rowExtents[iRow];
+                    const TI iEntryEnd   = _rowExtents[iRow + 1];
+                    for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
+                        const TI iColumn = _columnIndices[iEntry];
+                        if (_mask[iColumn] < _threshold) {
+                            const TV entry = _entries[iEntry];
+                            contribution += entry * in[iColumn];
+                        } // if not masked
+                    } // for iEntry in range(iEntryBegin, iEntryEnd)
+                } // if not masked
                 op(out[iRow], contribution);
             }
         }; // kernel
@@ -75,8 +82,7 @@ void CSROperator<TI,TV,TMV>::product(
                         [&kernel, &op] (
                             std::size_t iRowBegin,
                             std::size_t iRowEnd) -> void {
-                                kernel(iRowBegin, iRowEnd, op);
-                        });
+                                kernel(iRowBegin, iRowEnd, op);});
                 } else {
                     kernel(0, rowCount, op);
                 }
@@ -118,10 +124,12 @@ void CSROperator<TI,TV,TMV>::product(
 }
 
 
-template class CSROperator<int,float,float>;
-template class CSROperator<std::size_t,float,float>;
-template class CSROperator<int,double,double>;
-template class CSROperator<std::size_t,double,double>;
+template class MaskedCSROperator<int,float,float,int>;
+template class MaskedCSROperator<int,float,float,float>;
+template class MaskedCSROperator<std::size_t,float,float,std::size_t>;
+template class MaskedCSROperator<int,double,double,int>;
+template class MaskedCSROperator<int,double,double,double>;
+template class MaskedCSROperator<std::size_t,double,double,std::size_t>;
 
 
 } // namespace cie::linalg

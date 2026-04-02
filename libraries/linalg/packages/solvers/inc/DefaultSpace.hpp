@@ -50,6 +50,8 @@ public:
 
     void fill(VectorView view, Value value) const;
 
+    OptionalRef<mp::ThreadPoolBase> getThreads();
+
 private:
     OptionalRef<mp::ThreadPoolBase> _maybeThreads;
 }; // class DefaultSpace

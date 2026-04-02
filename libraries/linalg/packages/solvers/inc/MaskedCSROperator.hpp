@@ -16,20 +16,22 @@ namespace cie::linalg {
 
 
 /// @brief Linear operator representing a scaled matrix-vector product in CSR format.
-template <class TIndex, class TValue, class TMatrixValue = TValue>
-class CSROperator
+template <class TIndex, class TValue, class TMatrixValue = TValue, class TMaskIndex = TIndex>
+class MaskedCSROperator
     : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
 private:
     using Space = DefaultSpace<TValue,tags::SMP>;
 
 public:
-    constexpr CSROperator() noexcept = default;
+    constexpr MaskedCSROperator() noexcept = default;
 
-    CSROperator(
+    MaskedCSROperator(
         TIndex columnCount,
         std::span<const TIndex> rowExtents,
         std::span<const TIndex> columnIndices,
         std::span<const TMatrixValue> entries,
+        std::span<const TMaskIndex> mask,
+        TMaskIndex threshold,
         OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
 
     /// @copydoc LinearOperator::product
@@ -48,8 +50,12 @@ protected:
 
     std::span<const TMatrixValue> _entries;
 
+    std::span<const TMaskIndex> _mask;
+
+    TMaskIndex _threshold;
+
     OptionalRef<mp::ThreadPoolBase> _maybeThreads;
-}; // class CSROperator
+}; // class MaskedCSROperator
 
 
 } // namespace cie::linalg

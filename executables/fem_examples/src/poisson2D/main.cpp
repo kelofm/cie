@@ -218,7 +218,7 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::DefaultValue {"cg"},
             [] (const cie::utils::ArgParse::ValueView& rValue) -> bool {
                 const std::string value(rValue.begin(), rValue.end());
-                return value == "cg" || value == "eigen-cg" || value == "eigen-llt";
+                return value == "cg"  || value == "jacobi" || value == "p-multigrid" || value == "eigen-cg" || value == "eigen-llt";
             },
             "Linear solver.")
         .addKeyword(
@@ -248,8 +248,8 @@ int main(int argc, const char** argv) {
             {"--sycl"},
             "Use the GPU for integration and postprocessing.")
         .addFlag(
-            {"--write-lhs"},
-            "Write the LHS matrix to a MatrixMarket file.")
+            {"--write-linear-system"},
+            "Write the linear system in matrix market format.")
         .addFlag(
             {"-h", "--help"},
             "Print this help and exit.")

@@ -60,10 +60,10 @@ std::size_t AnsatzMap<Dimension>::ansatzCount() const noexcept {
 }
 
 
-template <unsigned D>
+template <unsigned D, class TIndex>
 void makeAnsatzMask(
     std::size_t setSize,
-    std::span<std::uint8_t> mask) {
+    std::span<TIndex> mask) {
         CIE_CHECK(
             mask.size() == intPow(setSize, D),
             std::format(
@@ -77,11 +77,11 @@ void makeAnsatzMask(
         std::fill(
             state.begin(),
             state.end(),
-            static_cast<std::uint8_t>(0));
+            static_cast<TIndex>(0));
 
         std::size_t iAnsatz = 0ul;
         do {
-            mask[iAnsatz] = std::max<std::uint8_t>(
+            mask[iAnsatz] = std::max<TIndex>(
                 *std::max_element(
                     state.begin(),
                     state.end()),
@@ -91,9 +91,13 @@ void makeAnsatzMask(
 }
 
 
-#define CIE_INSTANTIATE_ANSATZ_MAP(D)                                       \
-    template class AnsatzMap<D>;                                            \
-    template void makeAnsatzMask<D>(std::size_t, std::span<std::uint8_t>);
+#define CIE_INSTANTIATE_ANSATZ_MAP(D)                                                       \
+    template class AnsatzMap<D>;                                                            \
+    template void makeAnsatzMask<D,std::uint8_t>(std::size_t, std::span<std::uint8_t>);     \
+    template void makeAnsatzMask<D,std::size_t>(std::size_t, std::span<std::size_t>);       \
+    template void makeAnsatzMask<D,int>(std::size_t, std::span<int>);                       \
+    template void makeAnsatzMask<D,float>(std::size_t, std::span<float>);                   \
+    template void makeAnsatzMask<D,double>(std::size_t, std::span<double>);
 
 
 CIE_INSTANTIATE_ANSATZ_MAP(1)

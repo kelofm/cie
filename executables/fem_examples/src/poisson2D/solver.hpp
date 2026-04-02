@@ -18,7 +18,7 @@ void solve(
     CSRWrapper lhs,
     std::span<Scalar> solution,
     std::span<Scalar> rhs,
-    Ref<const Assembler> rAssembler,
+    Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
     Ref<const utils::ArgParse::Results> rArguments);
 

@@ -111,7 +111,7 @@ void postprocess(
                         sampleResidual(sampleCount);
 
                     std::vector<std::uint8_t> ansatzMask(intPow(polynomialOrder + 1, Dimension));
-                    makeAnsatzMask<Dimension>(
+                    makeAnsatzMask<Dimension,std::uint8_t>(
                         polynomialOrder + 1,
                         ansatzMask);
 

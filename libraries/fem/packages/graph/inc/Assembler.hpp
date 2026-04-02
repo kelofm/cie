@@ -57,6 +57,9 @@ public:
 
     std::size_t dofCount() const noexcept;
 
+    template <concepts::Integer T>
+    void reorder(std::span<const T> map);
+
     template <class TIndex, class TValue>
     void makeCSRMatrix(
         Ref<TIndex> rRowCount,
@@ -120,6 +123,13 @@ private:
 
     DoFMap _dofMap;
 }; // class Assembler
+
+
+template <unsigned Dimension, class TIndex>
+void makeAnsatzMask(
+    Ref<const Assembler> rAssembler,
+    std::size_t setSize,
+    std::span<TIndex> mask);
 
 
 } // namespace cie::fem

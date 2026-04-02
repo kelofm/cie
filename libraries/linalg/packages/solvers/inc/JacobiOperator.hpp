@@ -8,29 +8,38 @@
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 
-// --- STL Includes ---
-#include <span>
-
 
 namespace cie::linalg {
 
 
-/// @brief Linear operator representing a scaled matrix-vector product in CSR format.
+/// @brief Linear operator representing an iteration of a scaled Jacobi relaxation.
+/// @details Computes @f[
+///             r += D^{-1} (c - (L + U) b)
+///          @f]
+///          where
+///          - @f$A = L + D + U@f$ is a lower-diagonal-upper decomposition of the input matrix @f$A@f$,
+///          - @f$D@f$ is a diagonal matrix,
+///          - @f$L@f$ is a strictly lower triangular matrix,
+///          - @f$U@f$ is a strictly upper triangular matrix,
+///          - @f$c@f$ is the right-hand-side vector,
+///          - @f$b@f$ is the input (solution) vector.
 template <class TIndex, class TValue, class TMatrixValue = TValue>
-class CSROperator
+class JacobiOperator
     : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
 private:
     using Space = DefaultSpace<TValue,tags::SMP>;
 
 public:
-    constexpr CSROperator() noexcept = default;
+    constexpr JacobiOperator() noexcept = default;
 
-    CSROperator(
+    JacobiOperator(
         TIndex columnCount,
         std::span<const TIndex> rowExtents,
         std::span<const TIndex> columnIndices,
         std::span<const TMatrixValue> entries,
-        OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
+        std::size_t iterations,
+        TValue relaxation,
+        std::shared_ptr<Space> pSpace);
 
     /// @copydoc LinearOperator::product
     void product(
@@ -48,8 +57,14 @@ protected:
 
     std::span<const TMatrixValue> _entries;
 
-    OptionalRef<mp::ThreadPoolBase> _maybeThreads;
-}; // class CSROperator
+    typename Space::Vector _previous;
+
+    std::size_t _iterations;
+
+    TValue _relaxation;
+
+    std::shared_ptr<Space> _pSpace;
+}; // class JacobiOperator
 
 
 } // namespace cie::linalg

@@ -27,6 +27,31 @@ std::size_t Assembler::dofCount() const noexcept {
 }
 
 
+template <concepts::Integer T>
+void Assembler::reorder(std::span<const T> map) {
+    CIE_CHECK(_dofCounter <= map.size(), "")
+    CIE_BEGIN_EXCEPTION_TRACING
+        for (auto it=_dofMap.begin(); it!=_dofMap.end(); ++it) {
+            for (auto& rDof : it.value())
+                if (rDof.has_value()) {
+                    rDof = static_cast<std::size_t>(map[*rDof]);
+                }
+        }
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+#define CIE_INSTANTIATE_REORDER(T)                          \
+    template void Assembler::reorder<T>(std::span<const T>);
+
+
+CIE_INSTANTIATE_REORDER(std::size_t)
+CIE_INSTANTIATE_REORDER(int)
+
+
+#undef CIE_INSTANTIATE_REORDER
+
+
 template <class TIndex, class TValue>
 void Assembler::makeCSRMatrix(
     Ref<TIndex> rRowCount,
@@ -165,6 +190,36 @@ CIE_INSTANTIATE_CSR_FACTORY(std::size_t, float)
 CIE_INSTANTIATE_CSR_FACTORY(std::size_t, double)
 
 #undef CIE_INSTANTIATE_CSR_FACTORY
+
+
+template <unsigned D, class T>
+void makeAnsatzMask(
+    Ref<const Assembler> rAssembler,
+    std::size_t setSize,
+    std::span<T> mask) {
+        CIE_CHECK(rAssembler.dofCount() <= mask.size(), "")
+        std::vector<T> localMask(intPow(setSize, D));
+        makeAnsatzMask<D,T>(setSize, localMask);
+        for (const auto& dofs : rAssembler.values()) {
+            assert(dofs.size() == mask.size());
+            for (std::size_t iDoF=0ul; iDoF<dofs.size(); ++iDoF)
+                mask[dofs[iDoF]] = localMask[iDoF];
+        }
+}
+
+
+#define CIE_INSTANTIATE_MASK_FACTORY(TIndex)                                                    \
+    template void makeAnsatzMask<1,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>); \
+    template void makeAnsatzMask<2,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>); \
+    template void makeAnsatzMask<3,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>);
+
+CIE_INSTANTIATE_MASK_FACTORY(std::uint8_t)
+CIE_INSTANTIATE_MASK_FACTORY(std::size_t)
+CIE_INSTANTIATE_MASK_FACTORY(int)
+CIE_INSTANTIATE_MASK_FACTORY(float)
+CIE_INSTANTIATE_MASK_FACTORY(double)
+
+#undef CIE_INSTANTIATE_MASK_FACTORY
 
 
 } // namespace cie::fem
