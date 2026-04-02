@@ -172,6 +172,45 @@ void makeReordering(
 }
 
 
+template <concepts::Integer T>
+void reverseReorder(
+    std::span<T> map,
+    std::span<T> buffer,
+    OptionalRef<mp::ThreadPoolBase> rMaybeThreads) {
+        const auto reorderKernel = [map, buffer] (T i) -> void {
+            buffer[map[i]] = i;
+        };
+        const auto copyKernel = [map, buffer] (T i) -> void {
+            map[i] = buffer[i];
+        };
+        if (rMaybeThreads.has_value()) {
+            mp::DynamicIndexPartitionFactory partitions(
+                {0, map.size(), 1},
+                rMaybeThreads.value().size());
+            mp::ParallelFor<T> loop(rMaybeThreads.value());
+            loop.execute(partitions, reorderKernel);
+            loop.execute(partitions, copyKernel);
+        } else {
+            for (T i=0; i<static_cast<T>(map.size()); ++i) reorderKernel(i);
+            for (T i=0; i<static_cast<T>(map.size()); ++i) copyKernel(i);
+        }
+}
+
+
+#define CIE_DEFINE_REVERSE_REORDER(T)       \
+    template void reverseReorder<T>(        \
+        std::span<T>,                       \
+        std::span<T>,                       \
+        OptionalRef<mp::ThreadPoolBase>);
+
+
+CIE_DEFINE_REVERSE_REORDER(int)
+CIE_DEFINE_REVERSE_REORDER(std::size_t)
+
+
+#undef CIE_DEFINE_REVERSE_REORDER
+
+
 template <concepts::Integer TIndex, concepts::Numeric TValue, bool Reverse>
 void reorder(
     std::span<const TIndex> map,
@@ -287,25 +326,25 @@ void reorder(
     std::span<TValue> array,
     OptionalRef<mp::ThreadPoolBase> rMaybePool) {
         CIE_BEGIN_EXCEPTION_TRACING
-        std::vector<TValue> output(array.size());
-        const auto kernel = [map, array, &output] (TIndex iEntry) -> void {
-            if constexpr (Reverse) {
-                output[map[iEntry]] = array[iEntry];
+            std::vector<TValue> output(array.size());
+            const auto kernel = [map, array, &output] (TIndex iEntry) -> void {
+                if constexpr (Reverse) {
+                    output[map[iEntry]] = array[iEntry];
+                } else {
+                    output[iEntry] = array[map[iEntry]];
+                }
+            };
+
+            if (rMaybePool.has_value()) {
+                mp::ParallelFor<TIndex>(rMaybePool.value()).operator()(array.size(), kernel);
             } else {
-                output[iEntry] = array[map[iEntry]];
+                for (TIndex iEntry=0; iEntry<static_cast<TIndex>(array.size()); ++iEntry) kernel(iEntry);
             }
-        };
 
-        if (rMaybePool.has_value()) {
-            mp::ParallelFor<TIndex>(rMaybePool.value()).operator()(array.size(), kernel);
-        } else {
-            for (TIndex iEntry=0; iEntry<static_cast<TIndex>(array.size()); ++iEntry) kernel(iEntry);
-        }
-
-        std::copy(
-            output.begin(),
-            output.end(),
-            array.begin());
+            std::copy(
+                output.begin(),
+                output.end(),
+                array.begin());
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -318,12 +357,12 @@ void reverseReorder(
     std::span<TValue> entries,
     OptionalRef<mp::ThreadPoolBase> rMaybePool) {
         CIE_BEGIN_EXCEPTION_TRACING
-        reorder<TIndex,TValue,true>(
-            map,
-            rowExtents,
-            columnIndices,
-            entries,
-            rMaybePool);
+            reorder<TIndex,TValue,true>(
+                map,
+                rowExtents,
+                columnIndices,
+                entries,
+                rMaybePool);
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -334,10 +373,10 @@ void reverseReorder(
     std::span<TValue> array,
     OptionalRef<mp::ThreadPoolBase> rMaybePool) {
         CIE_BEGIN_EXCEPTION_TRACING
-        reorder<TIndex,TValue,true>(
-            map,
-            array,
-            rMaybePool);
+            reorder<TIndex,TValue,true>(
+                map,
+                array,
+                rMaybePool);
         CIE_END_EXCEPTION_TRACING
 }
 
