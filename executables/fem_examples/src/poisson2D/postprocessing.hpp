@@ -16,7 +16,7 @@ namespace cie::fem {
 void postprocess(
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths,
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<const Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Mesh> rMesh,

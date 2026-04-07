@@ -30,7 +30,7 @@ DiagonalOperator<TS>::DiagonalOperator(
     :   _pSpace(pSpace),
         _buffer(),
         _inverseDiagonal(std::move(rInverseDiagonal)) {
-    _buffer = pSpace->makeVector(pSpace->size(rInverseDiagonal));
+    _buffer = pSpace->makeVector(pSpace->size(_inverseDiagonal));
 }
 
 
@@ -58,21 +58,19 @@ template <
     class TI,
     class TMV>
 DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator(
-    std::span<const TI> rowExtents,
-    std::span<const TI> columnIndices,
-    std::span<const TMV> entries,
+    CSRView<const TMV,const TI> matrix,
     std::shared_ptr<const DefaultSpace<TV,tags::SMP>> pSpace) {
-        assert(!rowExtents.empty());
-        const TI rowCount = rowExtents.size() - 1;
+        assert(!matrix.rowExtents().empty());
+        const TI rowCount = matrix.rowExtents().size() - 1;
         auto inverseDiagonal = pSpace->makeVector(rowCount);
 
         for (TI iRow=0; iRow<rowCount; ++iRow) {
-            const TI iEntryBegin = rowExtents[iRow];
-            const TI iEntryEnd = rowExtents[iRow + 1];
+            const TI iEntryBegin = matrix.rowExtents()[iRow];
+            const TI iEntryEnd = matrix.rowExtents()[iRow + 1];
             std::optional<TMV> maybeDiagonal;
             for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry)
-                if (columnIndices[iEntry] == iRow) [[unlikely]] {
-                    maybeDiagonal = entries[iEntry];
+                if (matrix.columnIndices()[iEntry] == iRow) [[unlikely]] {
+                    maybeDiagonal = matrix.entries()[iEntry];
                     break;
                 }
             if (maybeDiagonal.has_value()) [[likely]] {
@@ -96,11 +94,9 @@ template class DiagonalOperator<DefaultSpace<double,tags::Serial>>;
 template class DiagonalOperator<DefaultSpace<double,tags::SMP>>;
 
 
-#define CIE_DEFINE_JACOBI_OPERATOR_FACTORY(TV, TI, TMV)                                                     \
-    template DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator<TV,TI,TMV>(                      \
-        std::span<const TI>,                                                                                \
-        std::span<const TI>,                                                                                \
-        std::span<const TMV>,                                                                               \
+#define CIE_DEFINE_JACOBI_OPERATOR_FACTORY(TV, TI, TMV)                                     \
+    template DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator<TV,TI,TMV>(  \
+        CSRView<const TMV,const TI>,                                                        \
         std::shared_ptr<const DefaultSpace<TV,tags::SMP>>);
 
 

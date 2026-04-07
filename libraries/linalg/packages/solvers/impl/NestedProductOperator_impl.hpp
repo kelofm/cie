@@ -26,8 +26,8 @@ void NestedProductOperator<TS>::product(
     typename TS::ConstVectorView in,
     typename TS::Value outScale,
     typename TS::VectorView out) {
-        _pLhs->product(0, in, 1, _buffer);
-        _pRhs->product(inScale, _buffer, outScale, out);
+        _pRhs->product(0, in, 1, _buffer);
+        _pLhs->product(inScale, _buffer, outScale, out);
 }
 
 

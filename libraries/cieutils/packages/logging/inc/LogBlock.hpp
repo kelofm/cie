@@ -17,8 +17,9 @@ class LogBlock
 {
 public:
     LogBlock() = delete;
-    LogBlock(const std::string& r_name,
-             Logger& r_logger);
+    LogBlock(
+        const std::string& r_name,
+        Logger& r_logger);
     ~LogBlock();
 
     LogBlock& log( const std::string& r_message );

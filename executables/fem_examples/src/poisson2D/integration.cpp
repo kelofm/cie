@@ -22,7 +22,7 @@ void integrateStiffness(
     Ref<const Mesh> rMesh,
     std::span<const CellData> contiguousCellData,
     Ref<const Assembler> rAssembler,
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     Ref<const utils::ArgParse::Results> rArguments,
     Ref<mp::ThreadPoolBase> rThreads) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
@@ -110,9 +110,9 @@ void integrateStiffness(
                     rAssembler.addContribution<tags::SMP,int>(
                         std::span<const Scalar>(results.data() + iCell * StiffnessIntegrand::size(), StiffnessIntegrand::size()),
                         cellIDs[iCell],
-                        lhs.rowExtents,
-                        lhs.columnIndices,
-                        lhs.entries);
+                        lhs.rowExtents(),
+                        lhs.columnIndices(),
+                        lhs.entries());
                 });};
 
         IntegrandProcessor<Dimension,StiffnessIntegrand>::Properties executionProperties {

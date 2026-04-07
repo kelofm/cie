@@ -64,42 +64,53 @@ void MaskedJacobiOperator<TI,TV,TMV,TMI>::product(
         if (inScale != static_cast<TV>(0) && _iterations != 1)
             CIE_THROW(NotImplementedException, "")
 
-        const auto kernel = [this, in, out] (TI iRow, const auto& op) -> void {
-            if (_mask[iRow] < _threshold) {
-                TV contribution = static_cast<TV>(0);
-                const TI iEntryBegin = _rowExtents[iRow];
-                const TI iEntryEnd   = _rowExtents[iRow + 1];
-                std::optional<TMV> maybeDiagonal;
-                for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                    const TI iColumn = _columnIndices[iEntry];
-                    const TV entry   = _entries[iEntry];
-                    if (iRow != iColumn) [[likely]] {
-                        if (_mask[iColumn] < _threshold)
-                            contribution += entry * _previous[iColumn];
+        const auto kernel = [this, in, out] (
+            TI iRowBegin,
+            TI iRowEnd,
+            const auto& op) -> void {
+                for (TI iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
+                    if (_mask[iRow] < _threshold) {
+                        TV contribution = static_cast<TV>(0);
+                        const TI iEntryBegin = _rowExtents[iRow];
+                        const TI iEntryEnd   = _rowExtents[iRow + 1];
+                        std::optional<TMV> maybeDiagonal;
+                        for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
+                            const TI iColumn = _columnIndices[iEntry];
+                            const TV entry   = _entries[iEntry];
+                            if (iRow != iColumn) [[likely]] {
+                                if (_mask[iColumn] < _threshold)
+                                    contribution += entry * _previous[iColumn];
+                            } else {
+                                maybeDiagonal = entry;
+                            }
+                        } // for iEntry in range(iEntryBegin, iEntryEnd)
+                        op(out[iRow], _relaxation * (in[iRow] - contribution) / maybeDiagonal.value() + (static_cast<TV>(1) - _relaxation) * _previous[iRow]);
                     } else {
-                        maybeDiagonal = entry;
+                        op(out[iRow], static_cast<TV>(0));
                     }
-                } // for iEntry in range(iEntryBegin, iEntryEnd)
-                op(out[iRow], _relaxation * (in[iRow] - contribution) / maybeDiagonal.value());
-            } else {
-                op(out[iRow], static_cast<TV>(0));
-            }
+                }
         }; // kernel
 
         const TI rowCount = _rowExtents.size() - 1;
         const auto job = [&kernel, rowCount, out, this] (const auto& op) -> void {
             auto maybeThreads = _pSpace->getThreads();
             if (maybeThreads.has_value()) {
+                mp::DynamicIndexPartitionFactory partitions(
+                    {0, static_cast<std::size_t>(rowCount), 1},
+                    0x10 * maybeThreads.value().size());
                 auto loop = mp::ParallelFor<TI>(maybeThreads.value());
                 for (std::size_t iIteration=0ul; iIteration<_iterations; ++iIteration) {
                     _pSpace->assign(_previous, out);
                     loop.execute(
-                        rowCount,
-                        [&kernel, &op] (std::size_t iRow) -> void {kernel(iRow, op);});
+                        partitions,
+                        [&kernel, &op] (
+                            std::size_t iRowBegin,
+                            std::size_t iRowEnd) -> void {
+                                kernel(iRowBegin, iRowEnd, op);});
                 }
                 } else {
                     for (std::size_t iIteration=0ul; iIteration<_iterations; ++iIteration) {
-                        for (TI iRow=0; iRow<rowCount; ++iRow) kernel(iRow, op);
+                        kernel(0, rowCount, op);
                         _pSpace->assign(_previous, out);
                     }
                 }

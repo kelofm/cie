@@ -5,6 +5,9 @@
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 
+// --- Linalg Includes --
+#include "packages/utilities/inc/CSRView.hpp"
+
 
 namespace cie::fem {
 
@@ -28,13 +31,6 @@ using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
 using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
-
-
-struct CSRWrapper {
-    const int rowCount, columnCount;
-    std::span<int> rowExtents, columnIndices;
-    std::span<Scalar> entries;
-}; // struct CSRWrapper
 
 
 constexpr unsigned integrationOrder = polynomialOrder + 1;

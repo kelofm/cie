@@ -19,7 +19,7 @@ namespace cie::fem {
 void postprocess(
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths,
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<const Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Mesh> rMesh,
@@ -34,12 +34,12 @@ void postprocess(
             std::vector<Scalar> residual(rhs.begin(), rhs.end());
             {
                 Eigen::Map<const Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>> lhsAdaptor(
-                    lhs.rowCount,
-                    lhs.columnCount,
-                    lhs.entries.size(),
-                    lhs.rowExtents.data(),
-                    lhs.columnIndices.data(),
-                    lhs.entries.data());
+                    lhs.rowCount(),
+                    lhs.columnCount(),
+                    lhs.entries().size(),
+                    lhs.rowExtents().data(),
+                    lhs.columnIndices().data(),
+                    lhs.entries().data());
                 Eigen::Map<const Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(
                     solution.data(),
                     solution.size());

@@ -309,7 +309,7 @@ imposeBoundaryConditions(
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
     std::span<const CellData> contiguousCellData,
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> rhs,
     Ref<const utils::ArgParse::Results> rArguments) {
         DynamicArray<BoundarySegment> boundarySegments;
@@ -352,9 +352,9 @@ imposeBoundaryConditions(
                     rAssembler.addContribution<tags::Serial,int>(
                         std::span<const Scalar>(pResultsBegin, lhsEntryCount),
                         cellID,
-                        lhs.rowExtents,
-                        lhs.columnIndices,
-                        lhs.entries);
+                        lhs.rowExtents(),
+                        lhs.columnIndices(),
+                        lhs.entries());
                     rAssembler.addContribution<tags::Serial>(
                         std::span<const Scalar>(pResultsBegin + lhsEntryCount, rhsEntryCount),
                         cellID,

@@ -8,6 +8,7 @@
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/maths/inc/Comparison.hpp"
 #include "packages/logging/inc/LoggerSingleton.hpp"
+#include "packages/logging/inc/LogBlock.hpp"
 
 // --- STL Includes ---
 #include <format>
@@ -60,17 +61,15 @@ void ConjugateGradients<TS>::product(
                 _pSpace->size(in), systemSize))
 
         const Statistics settings = this->getConfiguration();
+        std::string report;
         Statistics stats {
             .iterationCount = 0,
             .absoluteResidual = std::numeric_limits<typename TS::Value>::max(),
             .relativeResidual = std::numeric_limits<typename TS::Value>::max()};
 
-        if (3 <= _verbosity) {
-            utils::LoggerSingleton::get().log("ConjugateGradients");
-            utils::LoggerSingleton::get().log("+ --------- + ----------------- + ----------------- +");
-            utils::LoggerSingleton::get().log("| iteration | absolute residual | relative residual |");
-            utils::LoggerSingleton::get().log("+ --------- + ----------------- + ----------------- +");
-        }
+        std::optional<utils::LogBlock> maybeLogBlock;
+        if (2 <= _verbosity)
+            maybeLogBlock.emplace("ConjugateGradients", utils::LoggerSingleton::get());
 
         typename TS::Vector solution = _pSpace->makeVector(systemSize);
         //_pSpace->fill(solution, 0);
@@ -99,6 +98,14 @@ void ConjugateGradients<TS>::product(
                 stats.relativeResidual = 1;
 
                 if (comparison.less(stats.absoluteResidual, settings.absoluteResidual) || comparison.less(stats.relativeResidual, settings.relativeResidual)) {
+                    if (!this->makeIterationReport(
+                        report,
+                        _verbosity,
+                        ConjugateGradients::ReportType::Termination,
+                        stats,
+                        settings).empty())
+                            maybeLogBlock.value().log(report);
+
                     this->report(stats);
                     return;
                 }
@@ -168,10 +175,13 @@ void ConjugateGradients<TS>::product(
                     stats.absoluteResidual = std::sqrt(residualNorm);
                     stats.relativeResidual = stats.absoluteResidual / initialResidualNorm;
 
-                    if (3 <= _verbosity)
-                        utils::LoggerSingleton::get().log(std::format(
-                            "| {:>9} | {:>17.5E} | {:>17.5E} |",
-                            stats.iterationCount, stats.absoluteResidual, stats.relativeResidual));
+                    if (!this->makeIterationReport(
+                        report,
+                        _verbosity,
+                        ConjugateGradients::ReportType::Iteration,
+                        stats,
+                        settings).empty())
+                            maybeLogBlock.value().log(report);
 
                     if (comparison.less(stats.absoluteResidual, settings.absoluteResidual) || comparison.less(stats.relativeResidual, settings.relativeResidual))
                         break;
@@ -188,10 +198,6 @@ void ConjugateGradients<TS>::product(
             _pSpace->scale(out, inScale);
             _pSpace->add(out, solution, outScale);
         }
-
-
-        if (3 <= _verbosity)
-            utils::LoggerSingleton::get().log("+ --------- + ----------------- + ----------------- +");
 
         this->report(stats);
 }

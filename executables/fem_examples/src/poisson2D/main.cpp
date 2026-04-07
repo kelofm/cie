@@ -112,13 +112,11 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             entries);
     }
     DynamicArray<Scalar> rhs(rowCount, 0.0);
-    CSRWrapper lhs {
-        .rowCount = rowCount,
-        .columnCount = columnCount,
-        .rowExtents = rowExtents,
-        .columnIndices = columnIndices,
-        .entries = entries
-    };
+    linalg::CSRView<Scalar,int> lhs (
+        columnCount,
+        rowExtents,
+        columnIndices,
+        entries);
 
     // Compute element contributions and assemble them into the matrix
     integrateStiffness(

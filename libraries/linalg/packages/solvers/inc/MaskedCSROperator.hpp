@@ -3,6 +3,7 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/LinearOperator.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/utilities/inc/CSRView.hpp"
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/OptionalRef.hpp"
@@ -26,10 +27,7 @@ public:
     constexpr MaskedCSROperator() noexcept = default;
 
     MaskedCSROperator(
-        TIndex columnCount,
-        std::span<const TIndex> rowExtents,
-        std::span<const TIndex> columnIndices,
-        std::span<const TMatrixValue> entries,
+        CSRView<const TMatrixValue,const TIndex> lhs,
         std::span<const TMaskIndex> mask,
         TMaskIndex threshold,
         OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
@@ -42,13 +40,7 @@ public:
         typename Space::VectorView out) override;
 
 protected:
-    TIndex _columnCount;
-
-    std::span<const TIndex> _rowExtents;
-
-    std::span<const TIndex> _columnIndices;
-
-    std::span<const TMatrixValue> _entries;
+    CSRView<const TMatrixValue,const TIndex> _lhs;
 
     std::span<const TMaskIndex> _mask;
 

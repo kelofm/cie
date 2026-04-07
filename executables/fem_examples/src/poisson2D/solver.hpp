@@ -15,7 +15,7 @@ namespace cie::fem {
 
 
 void solve(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<Scalar> rhs,
     Ref<Assembler> rAssembler,

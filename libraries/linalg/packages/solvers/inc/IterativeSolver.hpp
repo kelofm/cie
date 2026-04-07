@@ -4,8 +4,12 @@
 #include "packages/solvers/inc/LinearOperator.hpp"
 #include "packages/solvers/inc/LinalgSpace.hpp"
 
+// --- Utility Includes ---
+#include "packages/types/inc/types.hpp"
+
 // --- STL Includes ---
 #include <optional>
+#include <string>
 
 
 namespace cie::linalg {
@@ -31,6 +35,18 @@ public:
     [[nodiscard]] constexpr std::optional<Statistics> getStats() const noexcept;
 
 protected:
+    enum class ReportType {
+        Termination,
+        Iteration
+    }; // enum class ReportType
+
+    Ref<std::string> makeIterationReport(
+        Ref<std::string> rOutput,
+        int verbosity,
+        ReportType reportType,
+        Ref<const Statistics> rStatus,
+        Ref<const Statistics> rSettings) const;
+
     constexpr void report(Statistics stats) noexcept;
 
 private:

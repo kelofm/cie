@@ -5,7 +5,7 @@
 #include <type_traits>
 
 
-namespace cie::fem {
+namespace cie::linalg {
 
 
 template <
@@ -68,6 +68,15 @@ public:
         return {_entries.data(), _entries.size()};
     }
 
+    operator CSRView<const TValue,const TIndex> () const
+    requires (!std::is_const_v<TValue> || !std::is_const_v<TIndex>) {
+        return CSRView<const TValue,const TIndex>(
+            _columnCount,
+            _rowExtents,
+            _columnIndices,
+            _entries);
+    }
+
 private:
     std::size_t _columnCount;
 
@@ -77,4 +86,4 @@ private:
 }; // struct CSRView
 
 
-} // namespace cie::fem
+} // namespace cie::linalg

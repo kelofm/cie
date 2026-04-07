@@ -134,7 +134,7 @@ void DefaultSpace<T,TTag>::scale(VectorView view, Value value) const {
 template <class T, TagLike TTag>
 requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
 void DefaultSpace<T,TTag>::add(VectorView target, ConstVectorView source, Value scale) const {
-    const auto job = [target, source, this] (auto op) -> void {
+    const auto job = [&target, &source, this] (auto op) -> void {
         if (_maybeThreads.has_value()) {
             mp::ParallelFor<>(_maybeThreads.value())
                 .execute(
@@ -168,7 +168,7 @@ void DefaultSpace<T,TTag>::assign(VectorView target, ConstVectorView source) con
         mp::ParallelFor<>(_maybeThreads.value())
             .execute(
                 target.size(),
-                [target, source] (std::size_t iComponent) -> void {
+                [&target, &source] (std::size_t iComponent) -> void {
                     target[iComponent] = source[iComponent];
                 });
     } else {

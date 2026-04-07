@@ -14,29 +14,23 @@ namespace cie::linalg {
 
 template <class TI, class TV, class TMV, class TMI>
 MaskedCSROperator<TI,TV,TMV,TMI>::MaskedCSROperator(
-    TI columnCount,
-    std::span<const TI> rowExtents,
-    std::span<const TI> columnIndices,
-    std::span<const TMV> entries,
+    CSRView<const TMV,const TI> lhs,
     std::span<const TMI> mask,
     TMI threshold,
     OptionalRef<mp::ThreadPoolBase> rMaybeThreads)
-        :   _columnCount(columnCount),
-            _rowExtents(rowExtents),
-            _columnIndices(columnIndices),
-            _entries(entries),
+        :   _lhs(lhs),
             _mask(mask),
             _threshold(threshold),
             _maybeThreads(rMaybeThreads) {
     CIE_CHECK(
-        0 < _rowExtents.size(),
+        0 < _lhs.rowExtents().size(),
         std::format(
             "expecting the row extents of a CSR matrix to have at least 1 entry, but it has none"))
     CIE_CHECK(
-        columnIndices.size() == entries.size(),
+        _lhs.columnIndices().size() == _lhs.entries().size(),
         std::format(
             "number of column indices ({}) is inconsistent with the number of entries ({}) in the provided CSR matrix",
-            columnIndices.size(), entries.size()))
+            _lhs.columnIndices().size(), _lhs.entries().size()))
 }
 
 
@@ -48,21 +42,21 @@ void MaskedCSROperator<TI,TV,TMV,TMI>::product(
     typename Space::VectorView out) {
         // Sanity checks.
         CIE_CHECK(
-            _rowExtents.size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_columnCount),
+            _lhs.rowExtents().size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
             std::format(
                 "Incompatible masked matrix-vector product: [{}x{}] * [{}] = [{}]",
-                _rowExtents.size() - 1, _columnCount, in.size(), out.size()))
+                _lhs.rowExtents().size() - 1, _lhs.columnCount(), in.size(), out.size()))
 
         const auto kernel = [this, in, out] (TI iRowBegin, TI iRowEnd, const auto& op) -> void {
             for (TI iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
                 TV contribution = static_cast<TV>(0);
                 if (_mask[iRow] < _threshold) {
-                    const TI iEntryBegin = _rowExtents[iRow];
-                    const TI iEntryEnd   = _rowExtents[iRow + 1];
+                    const TI iEntryBegin = _lhs.rowExtents()[iRow];
+                    const TI iEntryEnd   = _lhs.rowExtents()[iRow + 1];
                     for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                        const TI iColumn = _columnIndices[iEntry];
+                        const TI iColumn = _lhs.columnIndices()[iEntry];
                         if (_mask[iColumn] < _threshold) {
-                            const TV entry = _entries[iEntry];
+                            const TV entry = _lhs.entries()[iEntry];
                             contribution += entry * in[iColumn];
                         } // if not masked
                     } // for iEntry in range(iEntryBegin, iEntryEnd)
@@ -71,7 +65,7 @@ void MaskedCSROperator<TI,TV,TMV,TMI>::product(
             }
         }; // kernel
 
-        const TI rowCount = _rowExtents.size() - 1;
+        const TI rowCount = _lhs.rowExtents().size() - 1;
         const auto job = [&kernel, rowCount, this] (const auto& op) -> void {
             if (_maybeThreads.has_value()) {
                 mp::ParallelFor<TI>(_maybeThreads.value())

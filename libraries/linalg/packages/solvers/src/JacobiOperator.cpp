@@ -1,5 +1,6 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/JacobiOperator.hpp"
+#include "packages/solvers/inc/DefaultSpace.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
@@ -7,134 +8,62 @@
 
 // --- STL Includes ---
 #include <format>
-#include <optional>
 
 
 
 namespace cie::linalg {
 
 
-template <class TI, class TV, class TMV>
-JacobiOperator<TI,TV,TMV>::JacobiOperator(
-    TI columnCount,
-    std::span<const TI> rowExtents,
-    std::span<const TI> columnIndices,
-    std::span<const TMV> entries,
+template <LinalgSpaceLike TS>
+JacobiOperator<TS>::JacobiOperator(
+    std::shared_ptr<TS> pSpace,
+    std::size_t size,
+    std::shared_ptr<LinearOperator<TS>> pLhs,
+    std::shared_ptr<LinearOperator<TS>> pInverseDiagonal,
     std::size_t iterations,
-    TV relaxation,
-    std::shared_ptr<Space> pSpace)
-        :   _columnCount(columnCount),
-            _rowExtents(rowExtents),
-            _columnIndices(columnIndices),
-            _entries(entries),
-            _previous(),
+    typename TS::Value relaxation)
+        :   _pLhs(pLhs),
+            _pInverseDiagonal(pInverseDiagonal),
             _iterations(iterations),
             _relaxation(relaxation),
-            _pSpace(pSpace) {
-    CIE_CHECK(
-        0 < _rowExtents.size(),
-        std::format(
-            "expecting the row extents of a CSR matrix to have at least 1 entry, but it has none"))
-    CIE_CHECK(
-        columnIndices.size() == entries.size(),
-        std::format(
-            "number of column indices ({}) is inconsistent with the number of entries ({}) in the provided CSR matrix",
-            columnIndices.size(), entries.size()))
-    _previous.resize(rowExtents.size() - 1);
-}
+            _pSpace(pSpace),
+            _previous(pSpace->makeVector(size)),
+            _residual(pSpace->makeVector(size)),
+            _memory(pSpace->makeVector(size))
+{}
 
 
-template <class TI, class TV, class TMV>
-void JacobiOperator<TI,TV,TMV>::product(
-    typename Space::Value inScale,
-    typename Space::ConstVectorView in,
-    typename Space::Value outScale,
-    typename Space::VectorView out) {
-        // Sanity checks.
+template <LinalgSpaceLike TS>
+void JacobiOperator<TS>::product(
+    typename TS::Value inScale,
+    typename TS::ConstVectorView in,
+    typename TS::Value outScale,
+    typename TS::VectorView out) {
         CIE_CHECK(
-            _rowExtents.size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_columnCount),
+            _pSpace->size(in) == _pSpace->size(out) && _pSpace->size(out) == _pSpace->size(_previous),
             std::format(
-                "Incompatible matrix-vector product: [{}x{}] * [{}] = [{}]",
-                _rowExtents.size() - 1, _columnCount, in.size(), out.size()))
+                "inconsistent input vector sizes"))
 
-        if (inScale != static_cast<TV>(0) && _iterations != 1)
-            CIE_THROW(NotImplementedException, "")
+        CIE_BEGIN_EXCEPTION_TRACING
+            _pSpace->assign(_memory, out);
+            _pSpace->fill(out, 0);
+            //_pSpace->assign(_residual, in);
 
-        const auto kernel = [this, in, out] (TI iRow, const auto& op) -> void {
-            const TI iEntryBegin = _rowExtents[iRow];
-            const TI iEntryEnd   = _rowExtents[iRow + 1];
-            std::optional<TMV> maybeDiagonal;
-            TV contribution = static_cast<TV>(0);
-            for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                const TI iColumn = _columnIndices[iEntry];
-                const TV entry   = _entries[iEntry];
-                if (iRow != iColumn) [[likely]]
-                    contribution += entry * _previous[iColumn];
-                else
-                    maybeDiagonal = entry;
-            } // for iEntry in range(iEntryBegin, iEntryEnd)
-            op(out[iRow], _relaxation * (in[iRow] - contribution) / maybeDiagonal.value());
-        }; // kernel
+            for (std::size_t iIteration=0ul; iIteration<_iterations; ++iIteration) {
+                _pSpace->assign(_previous, out);
+                _pSpace->assign(_residual, in);
+                _pLhs->product(1, out, -1, _residual);
+                _pInverseDiagonal->product(1, _residual, _relaxation, out);
+            } // for iIteration in range(_iterations)
 
-        const TI rowCount = _rowExtents.size() - 1;
-        const auto job = [&kernel, rowCount, out, this] (const auto& op) -> void {
-            auto maybeThreads = _pSpace->getThreads();
-            if (maybeThreads.has_value()) {
-                auto loop = mp::ParallelFor<TI>(maybeThreads.value());
-                for (std::size_t iIteration=0ul; iIteration<_iterations; ++iIteration) {
-                    _pSpace->assign(_previous, out);
-                    loop.execute(
-                        rowCount,
-                        [&kernel, &op] (std::size_t iRow) -> void {kernel(iRow, op);});
-                }
-                } else {
-                    for (std::size_t iIteration=0ul; iIteration<_iterations; ++iIteration) {
-                        for (TI iRow=0; iRow<rowCount; ++iRow) kernel(iRow, op);
-                        _pSpace->assign(_previous, out);
-                    }
-                }
-        }; // job
-
-        if (inScale == static_cast<TV>(1)) {
-            if (outScale == static_cast<TV>(1)) {
-                job([] (Ref<TV> rLeft, TV right) -> void {rLeft += right;});
-            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
-                job([] (Ref<TV> rLeft, TV right) -> void {rLeft -= right;});
-            } /*if outScale == -1*/ else {
-                job([outScale] (Ref<TV> rLeft, TV right) -> void {rLeft += outScale * right;});
-            }
-        } /*if inScale == 1*/ else if (inScale == static_cast<TV>(0)) {
-            if (outScale == static_cast<TV>(1)) {
-                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = right;});
-            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
-                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = -right;});
-            } /*if outScale == -1*/ else {
-                job([outScale] (Ref<TV> rLeft, TV right) -> void {rLeft = outScale * right;});
-            }
-        } /*if inScale == 0*/ else if (inScale == static_cast<TV>(-1)) {
-            if (outScale == static_cast<TV>(1)) {
-                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = right - rLeft;});
-            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
-                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = right - rLeft;});
-            } /*if outScale == -1*/ else {
-                job([outScale] (Ref<TV> rLeft, TV right) -> void {rLeft = outScale * right - rLeft;});
-            }
-        } /*if inScale == -1*/ else {
-            if (outScale == static_cast<TV>(1)) {
-                job([inScale] (Ref<TV> rLeft, TV right) -> void {rLeft = inScale * rLeft + right;});
-            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
-                job([inScale] (Ref<TV> rLeft, TV right) -> void {rLeft = inScale * rLeft - right;});
-            } /*if outScale == -1*/ else {
-                job([inScale, outScale] (Ref<TV> rLeft, TV right) -> void {rLeft = inScale * rLeft + outScale * right;});
-            }
-        } // else
+            _pSpace->scale(out, outScale);
+            _pSpace->add(out, _memory, inScale);
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-template class JacobiOperator<int,float,float>;
-template class JacobiOperator<std::size_t,float,float>;
-template class JacobiOperator<int,double,double>;
-template class JacobiOperator<std::size_t,double,double>;
+template class JacobiOperator<DefaultSpace<float>>;
+template class JacobiOperator<DefaultSpace<double>>;
 
 
 } // namespace cie::linalg

@@ -14,7 +14,7 @@ void integrateStiffness(
     Ref<const Mesh> rMesh,
     std::span<const CellData> contiguousCellData,
     Ref<const Assembler> rAssembler,
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     Ref<const utils::ArgParse::Results> rArguments,
     Ref<mp::ThreadPoolBase> rThreads);
 

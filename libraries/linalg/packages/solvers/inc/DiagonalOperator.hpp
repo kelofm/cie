@@ -3,6 +3,7 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/LinearOperator.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/utilities/inc/CSRView.hpp"
 
 // --- STL Includes ---
 #include <memory>
@@ -39,9 +40,7 @@ template <
     class TIndex,
     class TMatrixValue>
 DiagonalOperator<DefaultSpace<TValue,tags::SMP>> makeDiagonalOperator(
-    std::span<const TIndex> rowExtents,
-    std::span<const TIndex> columnIndices,
-    std::span<const TMatrixValue> entries,
+    CSRView<const TMatrixValue,const TIndex> matrix,
     std::shared_ptr<const DefaultSpace<TValue,tags::SMP>> pSpace);
 
 

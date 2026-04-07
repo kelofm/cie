@@ -14,7 +14,7 @@
 #include "packages/solvers/inc/DiagonalOperator.hpp"
 #include "packages/solvers/inc/JacobiOperator.hpp"
 #include "packages/solvers/inc/ConjugateGradients.hpp"
-#include "packages/solvers/inc/MaskedJacobiOperator.hpp"
+#include "packages/solvers/inc/NestedProductOperator.hpp"
 #include "packages/solvers/inc/MaskedIdentityOperator.hpp"
 
 // --- Utility Includes ---
@@ -27,17 +27,17 @@ namespace cie::fem {
 
 
 void solveEigenCG(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs) {
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
-            lhs.rowCount,
-            lhs.columnCount,
-            lhs.entries.size(),
-            lhs.rowExtents.data(),
-            lhs.columnIndices.data(),
-            lhs.entries.data());
+            lhs.rowCount(),
+            lhs.columnCount(),
+            lhs.entries().size(),
+            lhs.rowExtents().data(),
+            lhs.columnIndices().data(),
+            lhs.entries().data());
         Eigen::Map<const Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
         Eigen::ConjugateGradient<
@@ -57,17 +57,17 @@ void solveEigenCG(
 
 
 void solveEigenLLT(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs) {
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
-            lhs.rowCount,
-            lhs.columnCount,
-            lhs.entries.size(),
-            lhs.rowExtents.data(),
-            lhs.columnIndices.data(),
-            lhs.entries.data());
+            lhs.rowCount(),
+            lhs.columnCount(),
+            lhs.entries().size(),
+            lhs.rowExtents().data(),
+            lhs.columnIndices().data(),
+            lhs.entries().data());
         Eigen::Map<const Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
         Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
         Eigen::SimplicialLLT<EigenSparseMatrix> solver;
@@ -77,25 +77,16 @@ void solveEigenLLT(
 
 
 void solveCG(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<mp::ThreadPoolBase> rThreads) {
         using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
-        auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(
-            lhs.columnCount,
-            lhs.rowExtents,
-            lhs.columnIndices,
-            lhs.entries,
-            rThreads);
+        auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
         std::shared_ptr<linalg::LinearOperator<LinalgSpace>> pPreconditioner;
         pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
-            linalg::makeDiagonalOperator<Scalar,int,Scalar>(
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
-                pSpace));
+            linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
         linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
             .iterationCount = static_cast<std::size_t>(1e3),
             .absoluteResidual = 1e-6,
@@ -115,7 +106,7 @@ void solveCG(
 
 
 void solveMultigridd(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Assembler> rAssembler,
@@ -132,20 +123,13 @@ void solveMultigridd(
 
         for (int iOrder=1; iOrder<polynomialOrder + 1; ++iOrder) {
             auto pLinearOperator = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,Scalar>>(
-                lhs.columnCount,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
+                lhs,
                 ansatzMask,
                 iOrder + 1,
                 rThreads);
             std::shared_ptr<linalg::LinearOperator<LinalgSpace>> pPreconditioner;
             pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
-                linalg::makeDiagonalOperator<Scalar,int,Scalar>(
-                    lhs.rowExtents,
-                    lhs.columnIndices,
-                    lhs.entries,
-                    pSpace));
+                linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
             linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
                 .iterationCount = static_cast<std::size_t>(1e3),
                 .absoluteResidual = 1e-6,
@@ -181,7 +165,7 @@ void solveMultigridd(
 
 
 void solveMultigrid(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Assembler> rAssembler,
@@ -196,12 +180,7 @@ void solveMultigrid(
             polynomialOrder + 1,
             ansatzMask);
 
-        auto pLhs = std::make_shared<linalg::CSROperator<int,Scalar>>(
-                lhs.columnCount,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
-                rThreads);
+        auto pLhs = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
         auto residual = pSpace->makeVector(pSpace->size(rhs));
 
         // Compute the initial residual.
@@ -219,33 +198,27 @@ void solveMultigrid(
             std::shared_ptr<Operator> pLhs;};
         std::vector<Grid> grids;
 
+        auto pInverseDiagonal = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
+            linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
+
         // Lowest grid level is a proper linear solver.
         {
             const Scalar threshold = 2; // <== order + 1
             auto pGridLhs = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,Scalar>>(
-                lhs.columnCount,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
+                lhs,
                 ansatzMask,
                 threshold,
                 rThreads);
-            auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
-                linalg::makeDiagonalOperator<Scalar,int,Scalar>(
-                    lhs.rowExtents,
-                    lhs.columnIndices,
-                    lhs.entries,
-                    pSpace));
             linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
                 .iterationCount = static_cast<std::size_t>(1e3),
-                .absoluteResidual = 1e-6,
+                .absoluteResidual = 0,
                 .relativeResidual = 5e-1};
             auto pOperator = std::make_shared<linalg::ConjugateGradients<LinalgSpace>>(
                 pGridLhs,
                 pSpace,
-                pPreconditioner,
+                pInverseDiagonal,
                 settings,
-                /*verbosity=*/1);
+                /*verbosity=*/3);
             auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace>>(
                 pSpace,
                 ansatzMask,
@@ -260,23 +233,26 @@ void solveMultigrid(
         for (std::size_t iOrder=2ul; iOrder<polynomialOrder+1; ++iOrder) {
             const Scalar threshold = iOrder + 1;
             auto pGridLhs = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,Scalar>>(
-                lhs.columnCount,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
+                lhs,
                 ansatzMask,
                 threshold,
                 rThreads);
-            auto pOperator = std::make_shared<linalg::MaskedJacobiOperator<int,Scalar,Scalar,Scalar>>(
-                lhs.columnCount,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
-                /*iterations=*/1,
-                /*relaxation=*/7e-1,
+            auto pMask = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace>>(
+                pSpace,
                 ansatzMask,
-                threshold,
-                pSpace);
+                threshold);
+            auto pSmoother = std::make_shared<linalg::JacobiOperator<LinalgSpace>>(
+                pSpace,
+                pSpace->size(solution),
+                pGridLhs,
+                pInverseDiagonal,
+                /*iterations=*/6,
+                /*relaxation=*/2.0 / 3.0);
+            auto pOperator = std::make_shared<linalg::NestedProductOperator<LinalgSpace>>(
+                pSpace,
+                pSmoother,
+                pMask,
+                pSpace->size(solution));
             auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace>>(
                 pSpace,
                 ansatzMask,
@@ -301,7 +277,7 @@ void solveMultigrid(
                 itGrid->pLhs->product(1, solutionUpdate, -1, residual);
             } // for itOperator
 
-            for (auto itGrid=grids.begin(); itGrid!=grids.end(); ++itGrid) {
+            for (auto itGrid=grids.begin()+1; itGrid!=grids.end(); ++itGrid) {
                 itGrid->pRestriction->product(0, residual, 1, gridResidual);
                 pSpace->fill(solutionUpdate, 0);
                 itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
@@ -316,29 +292,25 @@ void solveMultigrid(
 
 
 void solveJacobi(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<mp::ThreadPoolBase> rThreads) {
         using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
-        auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(
-            lhs.columnCount,
-            lhs.rowExtents,
-            lhs.columnIndices,
-            lhs.entries,
-            rThreads);
+        auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
+        auto pInverseDiagonal = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
+            linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
 
         const std::size_t iterations = 1e3;
         std::shared_ptr<linalg::LinearOperator<LinalgSpace>> pSmoother;
-        pSmoother = std::make_shared<linalg::JacobiOperator<int,Scalar>>(
-            lhs.columnCount,
-            lhs.rowExtents,
-            lhs.columnIndices,
-            lhs.entries,
+        pSmoother = std::make_shared<linalg::JacobiOperator<LinalgSpace>>(
+            pSpace,
+            pSpace->size(solution),
+            pLinearOperator,
+            pInverseDiagonal,
             /*iterations=*/iterations,
-            /*relaxation=*/9e-1,
-            pSpace);
+            /*relaxation=*/2.0 / 3.0);
         pSmoother->product(0, rhs, 1, solution);
 
         // Compute residual.
@@ -355,7 +327,7 @@ void solveJacobi(
 
 
 void solve(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<Scalar> rhs,
     Ref<Assembler> rAssembler,
@@ -373,16 +345,16 @@ void solve(
             std::vector<int> reordering(solution.size());
             makeReordering<int,Scalar>(
                 reordering,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
+                lhs.rowExtents(),
+                lhs.columnIndices(),
+                lhs.entries(),
                 reorderingStrategy,
                 rThreads);
             reorder<int,Scalar>(
                 reordering,
-                lhs.rowExtents,
-                lhs.columnIndices,
-                lhs.entries,
+                lhs.rowExtents(),
+                lhs.columnIndices(),
+                lhs.entries(),
                 rThreads);
             reorder<int,Scalar>(
                 reordering,
@@ -398,12 +370,12 @@ void solve(
                 std::ofstream file("lhs.mm");
                 cie::io::MatrixMarket::Output io(file);
                 io(
-                    lhs.rowCount,
-                    lhs.columnCount,
-                    lhs.entries.size(),
-                    lhs.rowExtents.data(),
-                    lhs.columnIndices.data(),
-                    lhs.entries.data());
+                    lhs.rowCount(),
+                    lhs.columnCount(),
+                    lhs.entries().size(),
+                    lhs.rowExtents().data(),
+                    lhs.columnIndices().data(),
+                    lhs.entries().data());
             }
 
             {

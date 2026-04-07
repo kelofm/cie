@@ -29,12 +29,24 @@
             "cwd" : "${workspaceRoot}"
         },
         {
+            "name": "linalg testrunner",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/bin/linalg_testrunner",
+            "externalConsole": false,
+            "args" : ["SYCLSpace"],
+            "environment" : [
+                {"name" : "OMP_NUM_THREADS", "value" : "1"}
+            ],
+            "cwd" : "${workspaceRoot}"
+        },
+        {
             "name": "poisson2D",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/build/bin/poisson2D",
             "externalConsole": false,
-            "args" : ["-r", "12"],
+            "args" : ["-r", "12", "--solver", "jacobi"],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],
