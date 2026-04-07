@@ -22,6 +22,7 @@ concept LinalgSpaceLike
 
         {space.view(vector)}                                -> std::same_as<typename T::VectorView>;
         {space.view(constVector)}                           -> std::same_as<typename T::ConstVectorView>;
+        {space.size(constView)}                             -> std::same_as<std::size_t>;
         {space.size(view)}                                  -> std::same_as<std::size_t>;
         {space.makeVector(std::size_t())}                   -> std::same_as<typename T::Vector>;
 

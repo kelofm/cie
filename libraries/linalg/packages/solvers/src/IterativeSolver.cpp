@@ -1,6 +1,7 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/IterativeSolver.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/solvers/inc/SYCLSpace.hpp"
 
 // --- Utility Includes ---
 #include "packages/types/inc/Color.hpp"
@@ -67,6 +68,14 @@ CIE_INSTANTIATE_ITERATIVE_SOLVER(double)
 
 
 #undef CIE_INSTANTIATE_ITERATIVE_SOLVER
+
+
+#ifdef CIE_ENABLE_SYCL
+
+template class IterativeSolver<SYCLSpace<float>>;
+template class IterativeSolver<SYCLSpace<double>>;
+
+#endif
 
 
 } // namespace cie::linalg

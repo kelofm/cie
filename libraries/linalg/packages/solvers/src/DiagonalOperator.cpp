@@ -61,7 +61,7 @@ DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator(
     CSRView<const TMV,const TI> matrix,
     std::shared_ptr<const DefaultSpace<TV,tags::SMP>> pSpace) {
         assert(!matrix.rowExtents().empty());
-        const TI rowCount = matrix.rowExtents().size() - 1;
+        const TI rowCount = matrix.rowCount();
         auto inverseDiagonal = pSpace->makeVector(rowCount);
 
         for (TI iRow=0; iRow<rowCount; ++iRow) {
@@ -94,18 +94,90 @@ template class DiagonalOperator<DefaultSpace<double,tags::Serial>>;
 template class DiagonalOperator<DefaultSpace<double,tags::SMP>>;
 
 
-#define CIE_DEFINE_JACOBI_OPERATOR_FACTORY(TV, TI, TMV)                                     \
+#define CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(TV, TI, TMV)                                   \
     template DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator<TV,TI,TMV>(  \
         CSRView<const TMV,const TI>,                                                        \
         std::shared_ptr<const DefaultSpace<TV,tags::SMP>>);
 
 
-CIE_DEFINE_JACOBI_OPERATOR_FACTORY(float, int, float)
-CIE_DEFINE_JACOBI_OPERATOR_FACTORY(float, std::size_t, float)
-CIE_DEFINE_JACOBI_OPERATOR_FACTORY(double, int, double)
-CIE_DEFINE_JACOBI_OPERATOR_FACTORY(double, std::size_t, double)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(float, int, float)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(float, std::size_t, float)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(double, int, double)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(double, std::size_t, double)
 
 
-#undef CIE_DEFINE_JACOBI_OPERATOR_FACTORY
+#undef CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY
+
+
+#ifdef CIE_ENABLE_SYCL
+
+
+template <
+    class TV,
+    class TI,
+    class TMV>
+DiagonalOperator<SYCLSpace<TV>> makeDiagonalOperator(
+    CSRView<const TMV,const TI> matrix,
+    std::shared_ptr<const SYCLSpace<TV>> pSpace) {
+        assert(!matrix.rowExtents().empty());
+
+        // Make sure the matrix is on the device.
+        Ptr<const TI> pRowExtentBegin = matrix.rowExtents().data();
+        CIE_CHECK(
+            sycl::get_pointer_type(pRowExtentBegin, pSpace->getQueue()->get_context()) == sycl::usm::alloc::device,
+            "input matrix is not allocated on a SYCL device")
+
+        const TI rowCount = matrix.rowCount();
+        auto inverseDiagonal = pSpace->makeVector(rowCount);
+        Ptr<TV> pInverseDiagonalBegin = inverseDiagonal.get();
+
+        pSpace->getQueue()->parallel_for(
+            sycl::range<1>(rowCount),
+            [=] (sycl::item<1> it) -> void {
+                const std::size_t iRow = it.get_linear_id();
+                const std::size_t iEntryBegin = matrix.rowExtents()[iRow];
+                const std::size_t iEntryEnd = matrix.rowExtents()[iRow + 1];
+                const Ptr<const TI> pEntryBegin = matrix.columnIndices().data() + iEntryBegin;
+                const Ptr<const TI> pEntryEnd = matrix.columnIndices().data() + iEntryEnd;
+                Ptr<const TI> pEntry = std::upper_bound(
+                    pEntryBegin,
+                    pEntryEnd,
+                    static_cast<TI>(iRow),
+                    [] (TI iRow, TI iColumn) {return iRow < iColumn;});
+                if (pEntry == pEntryEnd || pEntry == pEntryBegin) {
+                    pInverseDiagonalBegin[iRow] = std::numeric_limits<TV>::max();
+                } else {
+                    const std::size_t iEntry = std::distance(matrix.columnIndices().data(), pEntry) - 1;
+                    pInverseDiagonalBegin[iRow] = static_cast<TMV>(1) / matrix.entries()[iEntry];
+                }
+            }).wait_and_throw(); // parallel_for
+
+        return DiagonalOperator<SYCLSpace<TV>>(
+            std::move(inverseDiagonal),
+            pSpace);
+}
+
+
+template class DiagonalOperator<SYCLSpace<float>>;
+template class DiagonalOperator<SYCLSpace<double>>;
+
+
+#define CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(TV, TI, TMV)                       \
+    template DiagonalOperator<SYCLSpace<TV>> makeDiagonalOperator<TV,TI,TMV>(   \
+        CSRView<const TMV,const TI>,                                            \
+        std::shared_ptr<const SYCLSpace<TV>>);
+
+
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(float, int, float)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(float, std::size_t, float)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(double, int, double)
+CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(double, std::size_t, double)
+
+
+#undef CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY
+
+
+#endif
+
 
 } // namespace cie::linalg

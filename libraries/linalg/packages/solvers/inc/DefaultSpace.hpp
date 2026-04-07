@@ -30,25 +30,39 @@ public:
     DefaultSpace(Ref<mp::ThreadPoolBase> rThreads)
     requires std::is_same_v<TTag,tags::SMP>;
 
-    static VectorView view(Ref<Vector> rVector) noexcept;
+    [[nodiscard]] static VectorView view(Ref<Vector> rVector) noexcept;
 
-    static ConstVectorView view(Ref<const Vector> rVector) noexcept;
+    [[nodiscard]] static ConstVectorView view(Ref<const Vector> rVector) noexcept;
 
-    static std::size_t size(ConstVectorView view) noexcept;
+    [[nodiscard]] static std::size_t size(ConstVectorView view) noexcept;
 
-    static Vector makeVector(std::size_t size);
+    [[nodiscard]] static Vector makeVector(std::size_t size);
 
-    Value innerProduct(ConstVectorView left, ConstVectorView right) const;
+    [[nodiscard]] Value innerProduct(
+        ConstVectorView left,
+        ConstVectorView right) const;
 
-    void scale(VectorView target, ConstVectorView source, Value scale) const;
+    void scale(
+        VectorView target,
+        ConstVectorView source,
+        Value scale) const;
 
-    void scale(VectorView view, Value value) const;
+    void scale(
+        VectorView view,
+        Value value) const;
 
-    void add(VectorView target, ConstVectorView source, Value scale) const;
+    void add(
+        VectorView target,
+        ConstVectorView source,
+        Value scale) const;
 
-    void assign(VectorView target, ConstVectorView source) const;
+    void assign(
+        VectorView target,
+        ConstVectorView source) const;
 
-    void fill(VectorView view, Value value) const;
+    void fill(
+        VectorView view,
+        Value value) const;
 
     OptionalRef<mp::ThreadPoolBase> getThreads();
 

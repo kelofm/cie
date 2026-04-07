@@ -2,12 +2,11 @@
 
 // --- Linalg Includes ---
 #include "packages/solvers/inc/LinearOperator.hpp"
-#include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/solvers/inc/SYCLSpace.hpp"
 #include "packages/utilities/inc/CSRView.hpp"
 
-// --- Utility Includes ---
-#include "packages/stl_extension/inc/OptionalRef.hpp"
-#include "packages/concurrency/inc/ThreadPoolBase.hpp"
+// --- STL Includes ---
+#include <memory>
 
 
 namespace cie::linalg {
@@ -15,17 +14,17 @@ namespace cie::linalg {
 
 /// @brief Linear operator representing a scaled matrix-vector product in CSR format.
 template <class TIndex, class TValue, class TMatrixValue = TValue>
-class CSROperator
-    : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
+class SYCLCSROperator
+    : public LinearOperator<SYCLSpace<TValue>> {
 private:
-    using Space = DefaultSpace<TValue,tags::SMP>;
+    using Space = SYCLSpace<TValue>;
 
 public:
-    constexpr CSROperator() noexcept = default;
+    constexpr SYCLCSROperator() noexcept = default;
 
-    CSROperator(
+    SYCLCSROperator(
         CSRView<const TMatrixValue,const TIndex> lhs,
-        OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
+        std::shared_ptr<SYCLSpace<TValue>> pSpace);
 
     /// @copydoc LinearOperator::product
     void product(
@@ -37,8 +36,12 @@ public:
 protected:
     CSRView<const TMatrixValue,const TIndex> _lhs;
 
-    OptionalRef<mp::ThreadPoolBase> _maybeThreads;
-}; // class CSROperator
+    std::shared_ptr<SYCLSpace<TValue>> _pSpace;
+
+    std::size_t _subGroupSize;
+
+    std::size_t _groupSize;
+}; // class SYCLCSROperator
 
 
 } // namespace cie::linalg

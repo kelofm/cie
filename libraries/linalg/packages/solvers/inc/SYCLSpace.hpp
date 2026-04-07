@@ -8,66 +8,76 @@
 namespace cie::linalg {
 
 
+
+template <class T>
+class SYCLSpace;
+
+
+
+template <class T>
+class SYCLVector {
+public:
+    SYCLVector() noexcept = default;
+
+    SYCLVector(
+        DeviceMemory<T>&& rMemory,
+        std::size_t size);
+
+    [[nodiscard]] std::size_t size() const noexcept;
+
+    [[nodiscard]] Ptr<const T> get() const noexcept;
+
+    [[nodiscard]] Ptr<T> get() noexcept;
+
+private:
+    DeviceMemory<T> _pMemory;
+
+    std::size_t _size;
+}; // class SYCLVector
+
+
+
+template <class T>
+class SYCLView {
+public:
+    SYCLView() noexcept = default;
+
+    SYCLView(
+        std::conditional_t<
+            std::is_const_v<T>,
+            Ref<const SYCLVector<std::remove_const_t<T>>>,
+            Ref<SYCLVector<std::remove_const_t<T>>>
+        > rVector) noexcept;
+
+    [[nodiscard]] std::size_t size() const noexcept;
+
+    [[nodiscard]] Ptr<const T> get() const noexcept;
+
+    [[nodiscard]] Ptr<T> get() noexcept
+    requires (!std::is_const_v<T>);
+
+    [[nodiscard]] operator SYCLView<const T> () const noexcept;
+
+private:
+    std::conditional_t<
+        std::is_const_v<T>,
+        Ptr<const SYCLVector<std::remove_const_t<T>>>,
+        Ptr<SYCLVector<std::remove_const_t<T>>>
+    > _pVector;
+}; // class SYCLView
+
+
+
 template <class T>
 class SYCLSpace {
 public:
-    class Vector;
-
-private:
-    template <class TT>
-    class ViewBase {
-    public:
-        ViewBase() noexcept = default;
-
-        ViewBase(
-            std::conditional_t<
-                std::is_const_v<TT>,
-                Ref<const Vector>,
-                Ref<Vector>
-            > rVector) noexcept;
-
-        [[nodiscard]] std::size_t size() const noexcept;
-
-        [[nodiscard]] Ptr<const T> get() const noexcept;
-
-        [[nodiscard]] Ptr<T> get() noexcept
-        requires (!std::is_const_v<TT>);
-
-    private:
-        std::conditional_t<
-            std::is_const_v<TT>,
-            Ptr<const Vector>,
-            Ptr<Vector>
-        > _pVector;
-    }; // class ViewBase
-public:
-    class Vector {
-    public:
-        Vector() noexcept = default;
-
-    private:
-        friend class SYCLSpace<T>;
-
-        Vector(
-            DeviceMemory<T>&& rMemory,
-            std::size_t size);
-
-        [[nodiscard]] std::size_t size() const noexcept;
-
-        [[nodiscard]] Ptr<const T> get() const noexcept;
-
-        [[nodiscard]] Ptr<T> get() noexcept;
-
-        DeviceMemory<T> _pMemory;
-
-        std::size_t _size;
-    }; // class Vector
+    using Vector = SYCLVector<T>;
 
     using Value = T;
 
-    using VectorView = ViewBase<T>;
+    using VectorView = SYCLView<T>;
 
-    using ConstVectorView = ViewBase<const T>;
+    using ConstVectorView = SYCLView<const T>;
 
     SYCLSpace() noexcept = default;
 

@@ -7,6 +7,7 @@
 #include "poisson2D/solver.hpp"
 
 // --- Linalg Includes ---
+#include "hipSYCL/sycl/device_selector.hpp"
 #include "packages/utilities/inc/reorder.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/CSROperator.hpp"
@@ -16,6 +17,8 @@
 #include "packages/solvers/inc/ConjugateGradients.hpp"
 #include "packages/solvers/inc/NestedProductOperator.hpp"
 #include "packages/solvers/inc/MaskedIdentityOperator.hpp"
+#include "packages/solvers/inc/SYCLSpace.hpp"
+#include "packages/solvers/inc/SYCLCSROperator.hpp"
 
 // --- Utility Includes ---
 #include "packages/io/inc/MatrixMarket.hpp"
@@ -105,62 +108,56 @@ void solveCG(
 }
 
 
-void solveMultigridd(
+void solveSYCLCG(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
-    std::span<const Scalar> rhs,
-    Ref<const Assembler> rAssembler,
-    Ref<mp::ThreadPoolBase> rThreads) {
-        using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
-        auto pSpace = std::make_shared<LinalgSpace>(rThreads);
+    std::span<const Scalar> rhs) {
+        using LinalgSpace = linalg::SYCLSpace<Scalar>;
+        auto pSpace = std::make_shared<LinalgSpace>(std::make_shared<sycl::queue>(sycl::default_selector_v));
+        auto pIndexSpace = std::make_shared<linalg::SYCLSpace<int>>(pSpace->getQueue());
 
-        std::vector<Scalar> ansatzMask(rAssembler.dofCount());
-        makeAnsatzMask<Dimension, Scalar>(
-            rAssembler,
-            polynomialOrder + 1,
-            ansatzMask);
-        std::optional<Scalar> initialResidual;
+        // Copy the matrix to the device.
+        auto rowExtents = pIndexSpace->makeVector(lhs.rowExtents().size());
+        auto columnIndices = pIndexSpace->makeVector(lhs.columnIndices().size());
+        auto entries = pSpace->makeVector(lhs.entries().size());
 
-        for (int iOrder=1; iOrder<polynomialOrder + 1; ++iOrder) {
-            auto pLinearOperator = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,Scalar>>(
-                lhs,
-                ansatzMask,
-                iOrder + 1,
-                rThreads);
-            std::shared_ptr<linalg::LinearOperator<LinalgSpace>> pPreconditioner;
-            pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
-                linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
-            linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-                .iterationCount = static_cast<std::size_t>(1e3),
-                .absoluteResidual = 1e-6,
-                .relativeResidual = 1e-6};
+        pIndexSpace->assign(rowExtents, lhs.rowExtents());
+        pIndexSpace->assign(columnIndices, lhs.columnIndices());
+        pSpace->assign(entries, lhs.entries());
 
-            if (initialResidual.has_value()) {
-                settings.absoluteResidual = 1e-6 * initialResidual.value();
-            }
+        linalg::CSRView<const Scalar,const int> deviceLHS(
+            lhs.columnCount(),
+            {rowExtents.get(), rowExtents.size()},
+            {columnIndices.get(), columnIndices.size()},
+            {entries.get(), entries.size()});
 
-            linalg::ConjugateGradients<LinalgSpace> solver(
-                pLinearOperator,
-                pSpace,
-                pPreconditioner,
-                settings,
-                /*verbosity=*/1);
+        // Copy the rhs and solution vectors to the device.
+        auto deviceRHS = pSpace->makeVector(rhs.size());
+        auto deviceSolution = pSpace->makeVector(solution.size());
 
-            auto gridResidual = pSpace->makeVector(pSpace->size(rhs));
-            for (std::size_t i=0; i<rhs.size(); ++i) gridResidual[i] = ansatzMask[i] < iOrder + 1 ? rhs[i] : 0.0;
-            solver.product(0, gridResidual, 1, solution);
-            const auto stats = solver.getStats().value();
+        pSpace->assign(deviceRHS, rhs);
+        pSpace->assign(deviceSolution, solution);
 
-            if (!initialResidual.has_value()) {
-                initialResidual = stats.absoluteResidual / stats.relativeResidual;
-            }
+        // Build operators.
+        auto pLinearOperator = std::make_shared<linalg::SYCLCSROperator<int,Scalar>>(deviceLHS, pSpace);
+        auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
+            linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
+        linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
+            .iterationCount = static_cast<std::size_t>(1e3),
+            .absoluteResidual = 1e-6,
+            .relativeResidual = 1e-6};
+        linalg::ConjugateGradients<LinalgSpace> solver(
+            pLinearOperator,
+            pSpace,
+            pPreconditioner,
+            settings,
+            3);
 
-            std::cout << std::format(
-                "{:>8} iterations {:>10.4E} abs res {:>10.4E} relative res\n",
-                stats.iterationCount,
-                stats.absoluteResidual,
-                stats.relativeResidual);
-        }
+        // Solve the system.
+        solver.product(0, deviceRHS, 1, deviceSolution);
+
+        // Fetch the solution.
+        pSpace->assign(solution, deviceSolution);
 }
 
 
@@ -387,7 +384,8 @@ void solve(
 
         const std::string solver = rArguments.get<std::string>("solver");
         if (solver == "cg") {
-            solveCG(lhs, solution, rhs, rThreads);
+            //solveCG(lhs, solution, rhs, rThreads);
+            solveSYCLCG(lhs, solution, rhs);
         } else if (solver == "p-multigrid") {
             solveMultigrid(lhs, solution, rhs, rAssembler, rThreads);
         } else if (solver == "jacobi") {

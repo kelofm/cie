@@ -3,6 +3,7 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/LinearOperator.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/solvers/inc/SYCLSpace.hpp"
 #include "packages/utilities/inc/CSRView.hpp"
 
 // --- STL Includes ---
@@ -42,6 +43,21 @@ template <
 DiagonalOperator<DefaultSpace<TValue,tags::SMP>> makeDiagonalOperator(
     CSRView<const TMatrixValue,const TIndex> matrix,
     std::shared_ptr<const DefaultSpace<TValue,tags::SMP>> pSpace);
+
+
+#ifdef CIE_ENABLE_SYCL
+
+
+template <
+    class TValue,
+    class TIndex,
+    class TMatrixValue>
+DiagonalOperator<SYCLSpace<TValue>> makeDiagonalOperator(
+    CSRView<const TMatrixValue,const TIndex> matrix,
+    std::shared_ptr<const SYCLSpace<TValue>> pSpace);
+
+
+#endif
 
 
 } // namespace cie::linalg

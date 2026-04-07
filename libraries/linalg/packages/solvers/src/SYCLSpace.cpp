@@ -9,13 +9,14 @@
 // --- STL Includes ---
 #include <array>
 #include <format>
+#include <thread>
 
 
 namespace cie::linalg {
 
 
 template <class T>
-SYCLSpace<T>::Vector::Vector(
+SYCLVector<T>::SYCLVector(
     DeviceMemory<T>&& rMemory,
     std::size_t size)
         :   _pMemory(std::move(rMemory)),
@@ -24,54 +25,56 @@ SYCLSpace<T>::Vector::Vector(
 
 
 template <class T>
-std::size_t SYCLSpace<T>::Vector::size() const noexcept {
+std::size_t SYCLVector<T>::size() const noexcept {
     return _size;
 }
 
 
 template <class T>
-Ptr<const T> SYCLSpace<T>::Vector::get() const noexcept {
+Ptr<const T> SYCLVector<T>::get() const noexcept {
     return _pMemory.get();
 }
 
 
 template <class T>
-Ptr<T> SYCLSpace<T>::Vector::get() noexcept {
+Ptr<T> SYCLVector<T>::get() noexcept {
     return _pMemory.get();
 }
 
 
 template <class T>
-template <class TT>
-SYCLSpace<T>::ViewBase<TT>::ViewBase(
+SYCLView<T>::SYCLView(
     std::conditional_t<
-        std::is_const_v<TT>,
-        Ref<const Vector>,
-        Ref<Vector>
+        std::is_const_v<T>,
+        Ref<const SYCLVector<std::remove_const_t<T>>>,
+        Ref<SYCLVector<std::remove_const_t<T>>>
     > rVector) noexcept
         : _pVector(&rVector)
 {}
 
 
 template <class T>
-template <class TT>
-std::size_t SYCLSpace<T>::ViewBase<TT>::size() const noexcept {
+std::size_t SYCLView<T>::size() const noexcept {
     return _pVector->size();
 }
 
 
 template <class T>
-template <class TT>
-Ptr<const T> SYCLSpace<T>::ViewBase<TT>::get() const noexcept {
+Ptr<const T> SYCLView<T>::get() const noexcept {
     return _pVector->get();
 }
 
 
 template <class T>
-template <class TT>
-Ptr<T> SYCLSpace<T>::ViewBase<TT>::get() noexcept
-requires (!std::is_const_v<TT>) {
+Ptr<T> SYCLView<T>::get() noexcept
+requires (!std::is_const_v<T>) {
     return _pVector->get();
+}
+
+
+template <class T>
+SYCLView<T>::operator SYCLView<const T> () const noexcept {
+    return SYCLView<const T>(*_pVector);
 }
 
 
@@ -137,8 +140,7 @@ typename SYCLSpace<T>::Value SYCLSpace<T>::innerProduct(
 
         CIE_BEGIN_EXCEPTION_TRACING
             const sycl::nd_range<1> range(workItemCount, workGroupSize);
-            T output = 0;
-            sycl::buffer<T> reductionBuffer(&output, 1);
+            sycl::buffer<T> reductionBuffer(1);
             Ptr<const T> pLeftBegin = left.get();
             Ptr<const T> pRightBegin = right.get();
 
@@ -167,7 +169,7 @@ typename SYCLSpace<T>::Value SYCLSpace<T>::innerProduct(
                                 static_cast<T>(0));
                             rReduction += contribution;
                         });
-            });
+            }).wait_and_throw();
             return reductionBuffer.get_host_access()[0];
         CIE_END_EXCEPTION_TRACING
 }
@@ -308,8 +310,7 @@ void SYCLSpace<T>::assign(
                         const std::size_t iComponent = it.get_linear_id();
                         pTargetBegin[iComponent] = pSourceBegin[iComponent];
                     });
-            });
-            _pQueue->wait_and_throw();
+            }).wait_and_throw();
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -342,11 +343,22 @@ void SYCLSpace<T>::assign(
 }
 
 
-#define CIE_DEFINE_SYCL_SPACE(T)                    \
-    template class SYCLSpace<T>;                    \
-    template class SYCLSpace<T>::ViewBase<T>;       \
-    template class SYCLSpace<T>::ViewBase<const T>;
+template <class T>
+std::shared_ptr<sycl::queue> SYCLSpace<T>::getQueue() const {
+    return _pQueue;
+}
 
+
+#define CIE_DEFINE_SYCL_SPACE(T)        \
+    template class SYCLSpace<T>;        \
+    template class SYCLVector<T>;       \
+    template class SYCLView<T>;         \
+    template class SYCLView<const T>;
+
+
+CIE_DEFINE_SYCL_SPACE(int)
+
+CIE_DEFINE_SYCL_SPACE(std::size_t)
 
 CIE_DEFINE_SYCL_SPACE(float)
 
