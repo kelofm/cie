@@ -59,8 +59,7 @@ Ref<std::string> IterativeSolver<TS>::makeIterationReport(
 
 
 #define CIE_INSTANTIATE_ITERATIVE_SOLVER(T)                         \
-    template class IterativeSolver<DefaultSpace<T,tags::Serial>>;   \
-    template class IterativeSolver<DefaultSpace<T,tags::SMP>>;
+    template class IterativeSolver<DefaultSpace<T>>;
 
 
 CIE_INSTANTIATE_ITERATIVE_SOLVER(float)

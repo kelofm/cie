@@ -16,9 +16,9 @@ namespace cie::linalg {
 /// @brief Linear operator representing a scaled matrix-vector product in CSR format.
 template <class TIndex, class TValue, class TMatrixValue = TValue>
 class CSROperator
-    : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
+    : public LinearOperator<DefaultSpace<TValue>> {
 private:
-    using Space = DefaultSpace<TValue,tags::SMP>;
+    using Space = DefaultSpace<TValue>;
 
 public:
     constexpr CSROperator() noexcept = default;

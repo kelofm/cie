@@ -13,50 +13,43 @@
 namespace cie::linalg {
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-DefaultSpace<T,TTag>::DefaultSpace(Ref<mp::ThreadPoolBase> rThreads)
-requires std::is_same_v<TTag,tags::SMP>
+template <class T>
+DefaultSpace<T>::DefaultSpace(Ref<mp::ThreadPoolBase> rThreads)
     : _maybeThreads(rThreads)
 {}
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-typename DefaultSpace<T,TTag>::VectorView
-DefaultSpace<T,TTag>::view(Ref<Vector> rVector) noexcept {
+template <class T>
+typename DefaultSpace<T>::VectorView
+DefaultSpace<T>::view(Ref<Vector> rVector) noexcept {
     return rVector;
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-typename DefaultSpace<T,TTag>::ConstVectorView
-DefaultSpace<T,TTag>::view(Ref<const Vector> rVector) noexcept {
+template <class T>
+typename DefaultSpace<T>::ConstVectorView
+DefaultSpace<T>::view(Ref<const Vector> rVector) noexcept {
     return rVector;
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
+template <class T>
 std::size_t
-DefaultSpace<T,TTag>::size(ConstVectorView view) noexcept {
+DefaultSpace<T>::size(ConstVectorView view) noexcept {
     return view.size();
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-typename DefaultSpace<T,TTag>::Vector
-DefaultSpace<T,TTag>::makeVector(std::size_t size) {
+template <class T>
+typename DefaultSpace<T>::Vector
+DefaultSpace<T>::makeVector(std::size_t size) {
     return Vector(size);
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-typename DefaultSpace<T,TTag>::Value
-DefaultSpace<T,TTag>::innerProduct(ConstVectorView left, ConstVectorView right) const {
+template <class T>
+typename DefaultSpace<T>::Value
+DefaultSpace<T>::innerProduct(ConstVectorView left, ConstVectorView right) const {
     if (_maybeThreads.has_value()) {
         // Do a 2-stage reduction.
         auto loop = mp::ParallelFor<std::size_t>(_maybeThreads.value())
@@ -84,9 +77,8 @@ DefaultSpace<T,TTag>::innerProduct(ConstVectorView left, ConstVectorView right) 
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-void DefaultSpace<T,TTag>::scale(VectorView target, ConstVectorView source, Value scale) const {
+template <class T>
+void DefaultSpace<T>::scale(VectorView target, ConstVectorView source, Value scale) const {
     const auto job = [target, source, this] (const auto& op) -> void {
         if (_maybeThreads.has_value()) {
             mp::ParallelFor<>(_maybeThreads.value())
@@ -114,9 +106,8 @@ void DefaultSpace<T,TTag>::scale(VectorView target, ConstVectorView source, Valu
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-void DefaultSpace<T,TTag>::scale(VectorView view, Value value) const {
+template <class T>
+void DefaultSpace<T>::scale(VectorView view, Value value) const {
     if (_maybeThreads.has_value()) {
         mp::ParallelFor<>(_maybeThreads.value())
             .execute(
@@ -131,9 +122,8 @@ void DefaultSpace<T,TTag>::scale(VectorView view, Value value) const {
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-void DefaultSpace<T,TTag>::add(VectorView target, ConstVectorView source, Value scale) const {
+template <class T>
+void DefaultSpace<T>::add(VectorView target, ConstVectorView source, Value scale) const {
     const auto job = [&target, &source, this] (auto op) -> void {
         if (_maybeThreads.has_value()) {
             mp::ParallelFor<>(_maybeThreads.value())
@@ -161,9 +151,8 @@ void DefaultSpace<T,TTag>::add(VectorView target, ConstVectorView source, Value 
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-void DefaultSpace<T,TTag>::assign(VectorView target, ConstVectorView source) const {
+template <class T>
+void DefaultSpace<T>::assign(VectorView target, ConstVectorView source) const {
     if (_maybeThreads.has_value()) {
         mp::ParallelFor<>(_maybeThreads.value())
             .execute(
@@ -180,9 +169,8 @@ void DefaultSpace<T,TTag>::assign(VectorView target, ConstVectorView source) con
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-void DefaultSpace<T,TTag>::fill(VectorView view, Value value) const {
+template <class T>
+void DefaultSpace<T>::fill(VectorView view, Value value) const {
     if (_maybeThreads.has_value()) {
         mp::ParallelFor<>(_maybeThreads.value())
             .execute(
@@ -199,17 +187,17 @@ void DefaultSpace<T,TTag>::fill(VectorView view, Value value) const {
 }
 
 
-template <class T, TagLike TTag>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
-OptionalRef<mp::ThreadPoolBase> DefaultSpace<T,TTag>::getThreads() {
+template <class T>
+OptionalRef<mp::ThreadPoolBase> DefaultSpace<T>::getThreads() {
     return _maybeThreads;
 }
 
 
-template class DefaultSpace<float,tags::Serial>;
-template class DefaultSpace<float,tags::SMP>;
-template class DefaultSpace<double,tags::Serial>;
-template class DefaultSpace<double,tags::SMP>;
+template class DefaultSpace<std::uint16_t>;
+template class DefaultSpace<int>;
+template class DefaultSpace<std::size_t>;
+template class DefaultSpace<float>;
+template class DefaultSpace<double>;
 
 
 } // namespace cie::linalg

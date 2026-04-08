@@ -57,9 +57,9 @@ template <
     class TV,
     class TI,
     class TMV>
-DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator(
+DiagonalOperator<DefaultSpace<TV>> makeDiagonalOperator(
     CSRView<const TMV,const TI> matrix,
-    std::shared_ptr<const DefaultSpace<TV,tags::SMP>> pSpace) {
+    std::shared_ptr<const DefaultSpace<TV>> pSpace) {
         assert(!matrix.rowExtents().empty());
         const TI rowCount = matrix.rowCount();
         auto inverseDiagonal = pSpace->makeVector(rowCount);
@@ -82,22 +82,20 @@ DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator(
             }
         } // for iRow in range(iRow)
 
-        return DiagonalOperator<DefaultSpace<TV,tags::SMP>>(
+        return DiagonalOperator<DefaultSpace<TV>>(
             std::move(inverseDiagonal),
             pSpace);
 }
 
 
-template class DiagonalOperator<DefaultSpace<float,tags::Serial>>;
-template class DiagonalOperator<DefaultSpace<float,tags::SMP>>;
-template class DiagonalOperator<DefaultSpace<double,tags::Serial>>;
-template class DiagonalOperator<DefaultSpace<double,tags::SMP>>;
+template class DiagonalOperator<DefaultSpace<float>>;
+template class DiagonalOperator<DefaultSpace<double>>;
 
 
 #define CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(TV, TI, TMV)                                   \
-    template DiagonalOperator<DefaultSpace<TV,tags::SMP>> makeDiagonalOperator<TV,TI,TMV>(  \
+    template DiagonalOperator<DefaultSpace<TV>> makeDiagonalOperator<TV,TI,TMV>(  \
         CSRView<const TMV,const TI>,                                                        \
-        std::shared_ptr<const DefaultSpace<TV,tags::SMP>>);
+        std::shared_ptr<const DefaultSpace<TV>>);
 
 
 CIE_DEFINE_DIAGONAL_OPERATOR_FACTORY(float, int, float)

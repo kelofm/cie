@@ -1,5 +1,5 @@
 // --- Linalg Includes ---
-#include "packages/solvers/inc/SYCLCSROperator.hpp"
+#include "packages/solvers/inc/SYCLMaskedCSROperator.hpp"
 
 // --- Utility Includes ---
 #include "hipSYCL/sycl/libkernel/group_functions.hpp"
@@ -9,12 +9,18 @@
 namespace cie::linalg {
 
 
-template <class TI, class TV, class TMV>
-SYCLCSROperator<TI,TV,TMV>::SYCLCSROperator(
-    CSRView<const TMV,const TI> lhs,
-    std::shared_ptr<SYCLSpace<TV>> pSpace)
+template <class TI, class TV, class TMI>
+SYCLMaskedCSROperator<TI,TV,TMI>::SYCLMaskedCSROperator(
+    CSRView<const TV,const TI> lhs,
+    typename MaskSpace::ConstVectorView mask,
+    TMI threshold,
+    std::shared_ptr<Space> pSpace,
+    std::shared_ptr<MaskSpace> pMaskSpace)
         :   _lhs(lhs),
+            _mask(mask),
+            _threshold(threshold),
             _pSpace(pSpace),
+            _pMaskSpace(pMaskSpace),
             _subGroupSize(0),
             _groupSize(0) {
     CIE_BEGIN_EXCEPTION_TRACING
@@ -24,12 +30,18 @@ SYCLCSROperator<TI,TV,TMV>::SYCLCSROperator(
 
         _subGroupSize = *std::max_element(subGroupSizes.begin(), subGroupSizes.end());
         _groupSize = (rQueue.get_device().get_info<sycl::info::device::max_work_group_size>() / _subGroupSize) * _subGroupSize;
+
+        // Make sure the mask and the matrix are on the same device.
+        Ref<const sycl::device>
+            device = pSpace->getQueue()->get_device(),
+            maskDevice = pMaskSpace->getQueue()->get_device();
+        CIE_CHECK(device == maskDevice, "")
     CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TI, class TV, class TMV>
-void SYCLCSROperator<TI,TV,TMV>::product(
+template <class TI, class TV, class TMI>
+void SYCLMaskedCSROperator<TI,TV,TMI>::product(
     typename Space::Value inScale,
     typename Space::ConstVectorView in,
     typename Space::Value outScale,
@@ -59,7 +71,7 @@ void SYCLCSROperator<TI,TV,TMV>::product(
 
                 rHandler.parallel_for(
                     range,
-                    [=, subGroupSize = _subGroupSize, lhs = _lhs] (sycl::nd_item<1> it) -> void {
+                    [=, subGroupSize = _subGroupSize, lhs = _lhs, pMaskBegin = _mask.get(), threshold = _threshold] (sycl::nd_item<1> it) -> void {
                         const std::size_t iItem = it.get_global_linear_id();
                         const std::size_t iSubGroupItem = it.get_local_linear_id();
                         const std::size_t iLane = iSubGroupItem % subGroupSize;
@@ -68,15 +80,17 @@ void SYCLCSROperator<TI,TV,TMV>::product(
 
                         auto subGroup = it.get_sub_group();
 
-                        if (iRow < lhs.rowCount()) {
+                        if (iRow < lhs.rowCount() && pMaskBegin[iRow] < threshold) {
                             const TI iEntryBegin = lhs.rowExtents()[iRow];
                             const TI iEntryEnd = lhs.rowExtents()[iRow + 1];
 
                             TV contribution = 0;
                             for (TI iEntry=iEntryBegin+iLane; iEntry<iEntryEnd; iEntry+=static_cast<TI>(subGroupSize)) {
                                 const TI iColumn = lhs.columnIndices()[iEntry];
-                                const TV entry = lhs.entries()[iEntry];
-                                contribution += entry * pInBegin[iColumn];
+                                if (pMaskBegin[iColumn] < threshold) {
+                                    const TV entry = lhs.entries()[iEntry];
+                                    contribution += entry * pInBegin[iColumn];
+                                }
                             } // for iEntry in range(iEntryBegin, iEntryEnd, subGroupSize)
 
                             contribution = sycl::reduce_over_group(
@@ -96,10 +110,12 @@ void SYCLCSROperator<TI,TV,TMV>::product(
 }
 
 
-template class SYCLCSROperator<int,float,float>;
-template class SYCLCSROperator<std::size_t,float,float>;
-template class SYCLCSROperator<int,double,double>;
-template class SYCLCSROperator<std::size_t,double,double>;
+template class SYCLMaskedCSROperator<int,float,std::uint16_t>;
+template class SYCLMaskedCSROperator<int,float,int>;
+template class SYCLMaskedCSROperator<std::size_t,float,std::size_t>;
+template class SYCLMaskedCSROperator<int,double,std::uint16_t>;
+template class SYCLMaskedCSROperator<int,double,double>;
+template class SYCLMaskedCSROperator<std::size_t,double,double>;
 
 
 } // namespace cie::linalg

@@ -19,6 +19,7 @@
 #include "packages/solvers/inc/MaskedIdentityOperator.hpp"
 #include "packages/solvers/inc/SYCLSpace.hpp"
 #include "packages/solvers/inc/SYCLCSROperator.hpp"
+#include "packages/solvers/inc/SYCLMaskedCSROperator.hpp"
 
 // --- Utility Includes ---
 #include "packages/io/inc/MatrixMarket.hpp"
@@ -84,7 +85,7 @@ void solveCG(
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<mp::ThreadPoolBase> rThreads) {
-        using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
+        using LinalgSpace = linalg::DefaultSpace<Scalar>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
         auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
         std::shared_ptr<linalg::LinearOperator<LinalgSpace>> pPreconditioner;
@@ -167,12 +168,16 @@ void solveMultigrid(
     std::span<const Scalar> rhs,
     Ref<const Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads) {
-        using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
+        using LinalgSpace = linalg::DefaultSpace<Scalar>;
         using Operator = linalg::LinearOperator<LinalgSpace>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
 
-        std::vector<Scalar> ansatzMask(rAssembler.dofCount());
-        makeAnsatzMask<Dimension, Scalar>(
+        using MaskScalar = std::uint16_t;
+        using MaskSpace = linalg::DefaultSpace<MaskScalar>;
+        auto pMaskSpace = std::make_shared<MaskSpace>();
+
+        std::vector<MaskScalar> ansatzMask(rAssembler.dofCount());
+        makeAnsatzMask<Dimension,MaskScalar>(
             rAssembler,
             polynomialOrder + 1,
             ansatzMask);
@@ -187,9 +192,6 @@ void solveMultigrid(
 
         // Construct grids.
         struct Grid {
-            //std::vector<int> rowExtents;
-            //std::vector<int> columnIndices;
-            //std::vector<Scalar> entries;
             std::shared_ptr<Operator> pOperator;
             std::shared_ptr<Operator> pRestriction;
             std::shared_ptr<Operator> pLhs;};
@@ -201,7 +203,7 @@ void solveMultigrid(
         // Lowest grid level is a proper linear solver.
         {
             const Scalar threshold = 2; // <== order + 1
-            auto pGridLhs = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,Scalar>>(
+            auto pGridLhs = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,MaskScalar>>(
                 lhs,
                 ansatzMask,
                 threshold,
@@ -215,9 +217,10 @@ void solveMultigrid(
                 pSpace,
                 pInverseDiagonal,
                 settings,
-                /*verbosity=*/3);
-            auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace>>(
+                /*verbosity=*/1);
+            auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
                 pSpace,
+                pMaskSpace,
                 ansatzMask,
                 threshold);
             grids.push_back(Grid {
@@ -229,13 +232,14 @@ void solveMultigrid(
         // The rest of the grids are jacobi smoothers.
         for (std::size_t iOrder=2ul; iOrder<polynomialOrder+1; ++iOrder) {
             const Scalar threshold = iOrder + 1;
-            auto pGridLhs = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,Scalar>>(
+            auto pGridLhs = std::make_shared<linalg::MaskedCSROperator<int,Scalar,Scalar,MaskScalar>>(
                 lhs,
                 ansatzMask,
                 threshold,
                 rThreads);
-            auto pMask = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace>>(
+            auto pMask = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
                 pSpace,
+                pMaskSpace,
                 ansatzMask,
                 threshold);
             auto pSmoother = std::make_shared<linalg::JacobiOperator<LinalgSpace>>(
@@ -250,13 +254,9 @@ void solveMultigrid(
                 pSmoother,
                 pMask,
                 pSpace->size(solution));
-            auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace>>(
-                pSpace,
-                ansatzMask,
-                threshold);
             grids.push_back(Grid {
                 .pOperator = pOperator,
-                .pRestriction = pRestriction,
+                .pRestriction = pMask,
                 .pLhs = pGridLhs});
         } // for iOrder in range(2, polynomialOrder + 1)
 
@@ -264,7 +264,6 @@ void solveMultigrid(
         auto gridResidual = pSpace->makeVector(pSpace->size(rhs));
         auto solutionUpdate = pSpace->makeVector(pSpace->size(solution));
 
-        //grids = std::vector<Grid>(1, grids.back());
         while (1e-6 * initialResidualNorm < residualNorm) {
             for (auto itGrid=grids.rbegin(); itGrid!=grids.rend(); ++itGrid) {
                 itGrid->pRestriction->product(0, residual, 1, gridResidual);
@@ -288,12 +287,166 @@ void solveMultigrid(
 }
 
 
+void solveSYCLMultigrid(
+    linalg::CSRView<Scalar,int> lhs,
+    std::span<Scalar> solution,
+    std::span<const Scalar> rhs,
+    Ref<const Assembler> rAssembler) {
+        using LinalgSpace = linalg::SYCLSpace<Scalar>;
+        using Operator = linalg::LinearOperator<LinalgSpace>;
+
+        auto pQueue = std::make_shared<sycl::queue>(sycl::default_selector_v);
+        auto pSpace = std::make_shared<LinalgSpace>(pQueue);
+
+        using MaskScalar = std::uint16_t;
+        using MaskSpace = linalg::SYCLSpace<MaskScalar>;
+        auto pMaskSpace = std::make_shared<MaskSpace>(pQueue);
+
+        std::vector<MaskScalar> mask(rAssembler.dofCount());
+        makeAnsatzMask<Dimension,MaskScalar>(
+            rAssembler,
+            polynomialOrder + 1,
+            mask);
+
+        // Copy the LHS matrix to the device.
+        auto pIndexSpace = std::make_shared<linalg::SYCLSpace<int>>(pQueue);
+        auto deviceRowExtents = pIndexSpace->makeVector(lhs.rowExtents().size());
+        pIndexSpace->assign(deviceRowExtents, lhs.rowExtents());
+
+        auto deviceColumnIndices = pIndexSpace->makeVector(lhs.columnIndices().size());
+        pIndexSpace->assign(deviceColumnIndices, lhs.columnIndices());
+
+        auto deviceEntries = pSpace->makeVector(lhs.entries().size());
+        pSpace->assign(deviceEntries, lhs.entries());
+
+        linalg::CSRView<const Scalar,const int> deviceLHS(
+            lhs.columnCount(),
+            {deviceRowExtents.get(), deviceRowExtents.size()},
+            {deviceColumnIndices.get(), deviceColumnIndices.size()},
+            {deviceEntries.get(), deviceEntries.size()});
+
+        // Define arrays on the device.
+        auto deviceResidual = pSpace->makeVector(rhs.size());
+        pSpace->assign(deviceResidual, rhs);
+
+        auto deviceSolution = pSpace->makeVector(solution.size());
+        pSpace->assign(deviceSolution, solution);
+
+        auto deviceMask = pMaskSpace->makeVector(mask.size());
+        pMaskSpace->assign(deviceMask, mask);
+
+        auto pLhs = std::make_shared<linalg::SYCLCSROperator<int,Scalar>>(lhs, pSpace);
+
+        // Compute the initial residual.
+        const Scalar initialResidualNorm = std::sqrt(pSpace->innerProduct(deviceResidual, deviceResidual));
+        std::cout << std::format("initial abs {:.4E}\n", initialResidualNorm);
+
+        // Construct grids.
+        struct Grid {
+            std::shared_ptr<Operator> pOperator;
+            std::shared_ptr<Operator> pRestriction;
+            std::shared_ptr<Operator> pLhs;};
+        std::vector<Grid> grids;
+
+        auto pInverseDiagonal = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
+            linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
+
+        // Lowest grid level is a proper linear solver.
+        {
+            const Scalar threshold = 2; // <== order + 1
+            auto pGridLhs = std::make_shared<linalg::SYCLMaskedCSROperator<int,Scalar,MaskScalar>>(
+                deviceLHS,
+                deviceMask,
+                threshold,
+                pSpace,
+                pMaskSpace);
+            linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
+                .iterationCount = static_cast<std::size_t>(5e3),
+                .absoluteResidual = 0,
+                .relativeResidual = 5e-1};
+            auto pOperator = std::make_shared<linalg::ConjugateGradients<LinalgSpace>>(
+                pGridLhs,
+                pSpace,
+                pInverseDiagonal,
+                settings,
+                /*verbosity=*/1);
+            auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
+                pSpace,
+                pMaskSpace,
+                deviceMask,
+                threshold);
+            grids.push_back(Grid {
+                .pOperator = pOperator,
+                .pRestriction = pRestriction,
+                .pLhs = pGridLhs});
+        }
+
+        // The rest of the grids are jacobi smoothers.
+        for (std::size_t iOrder=2ul; iOrder<polynomialOrder+1; ++iOrder) {
+            const Scalar threshold = iOrder + 1;
+            auto pGridLhs = std::make_shared<linalg::SYCLMaskedCSROperator<int,Scalar,MaskScalar>>(
+                deviceLHS,
+                deviceMask,
+                threshold,
+                pSpace,
+                pMaskSpace);
+            auto pMask = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
+                pSpace,
+                pMaskSpace,
+                deviceMask,
+                threshold);
+            auto pSmoother = std::make_shared<linalg::JacobiOperator<LinalgSpace>>(
+                pSpace,
+                pSpace->size(deviceSolution),
+                pGridLhs,
+                pInverseDiagonal,
+                /*iterations=*/6,
+                /*relaxation=*/2.0 / 3.0);
+            auto pOperator = std::make_shared<linalg::NestedProductOperator<LinalgSpace>>(
+                pSpace,
+                pSmoother,
+                pMask,
+                pSpace->size(deviceSolution));
+            grids.push_back(Grid {
+                .pOperator = pOperator,
+                .pRestriction = pMask,
+                .pLhs = pGridLhs});
+        } // for iOrder in range(2, polynomialOrder + 1)
+
+        Scalar residualNorm = initialResidualNorm;
+        auto gridResidual = pSpace->makeVector(rhs.size());
+        auto solutionUpdate = pSpace->makeVector(solution.size());
+
+        while (1e-6 * initialResidualNorm < residualNorm) {
+            for (auto itGrid=grids.rbegin(); itGrid!=grids.rend(); ++itGrid) {
+                itGrid->pRestriction->product(0, deviceResidual, 1, gridResidual);
+                pSpace->fill(solutionUpdate, 0);
+                itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
+                pSpace->add(deviceSolution, solutionUpdate, 1);
+                itGrid->pLhs->product(1, solutionUpdate, -1, deviceResidual);
+            } // for itOperator
+
+            for (auto itGrid=grids.begin()+1; itGrid!=grids.end(); ++itGrid) {
+                itGrid->pRestriction->product(0, deviceResidual, 1, gridResidual);
+                pSpace->fill(solutionUpdate, 0);
+                itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
+                pSpace->add(deviceSolution, solutionUpdate, 1);
+                itGrid->pLhs->product(1, solutionUpdate, -1, deviceResidual);
+            } // for itOperator
+
+            residualNorm = std::sqrt(pSpace->innerProduct(deviceResidual, deviceResidual));
+            pSpace->assign(solution, deviceSolution);
+            std::cout << std::format("abs {:>10.4E} rel {:>10.4E}\n", residualNorm, residualNorm / initialResidualNorm);
+        } // while not converged
+}
+
+
 void solveJacobi(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<mp::ThreadPoolBase> rThreads) {
-        using LinalgSpace = linalg::DefaultSpace<Scalar,tags::SMP>;
+        using LinalgSpace = linalg::DefaultSpace<Scalar>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
         auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
         auto pInverseDiagonal = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
@@ -387,8 +540,10 @@ void solve(
             solveCG(lhs, solution, rhs, rThreads);
         } else if (solver == "cg-sycl") {
             solveSYCLCG(lhs, solution, rhs);
-        } else if (solver == "p-multigrid") {
+        } else if (solver == "multigrid") {
             solveMultigrid(lhs, solution, rhs, rAssembler, rThreads);
+        } else if (solver == "multigrid-sycl") {
+            solveSYCLMultigrid(lhs, solution, rhs, rAssembler);
         } else if (solver == "jacobi") {
             solveJacobi(lhs, solution, rhs, rThreads);
         } else if (solver == "cg-eigen") {

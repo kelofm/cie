@@ -356,6 +356,8 @@ std::shared_ptr<sycl::queue> SYCLSpace<T>::getQueue() const {
     template class SYCLView<const T>;
 
 
+CIE_DEFINE_SYCL_SPACE(std::uint16_t)
+
 CIE_DEFINE_SYCL_SPACE(int)
 
 CIE_DEFINE_SYCL_SPACE(std::size_t)

@@ -1,7 +1,6 @@
 #pragma once
 
 // --- Utility Includes ---
-#include "packages/types/inc/tags.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 
@@ -13,8 +12,7 @@
 namespace cie::linalg {
 
 
-template <class T, TagLike TTag = tags::SMP>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
+template <class T>
 class DefaultSpace {
 public:
     using Value = T;
@@ -27,8 +25,7 @@ public:
 
     constexpr DefaultSpace() noexcept = default;
 
-    DefaultSpace(Ref<mp::ThreadPoolBase> rThreads)
-    requires std::is_same_v<TTag,tags::SMP>;
+    DefaultSpace(Ref<mp::ThreadPoolBase> rThreads);
 
     [[nodiscard]] static VectorView view(Ref<Vector> rVector) noexcept;
 

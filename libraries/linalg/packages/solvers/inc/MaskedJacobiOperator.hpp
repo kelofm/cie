@@ -25,9 +25,9 @@ namespace cie::linalg {
 ///          - @f$b@f$ is the input (solution) vector.
 template <class TIndex, class TValue, class TMatrixValue = TValue, class TMaskIndex = TIndex>
 class MaskedJacobiOperator
-    : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
+    : public LinearOperator<DefaultSpace<TValue>> {
 private:
-    using Space = DefaultSpace<TValue,tags::SMP>;
+    using Space = DefaultSpace<TValue>;
 
 public:
     constexpr MaskedJacobiOperator() noexcept = default;

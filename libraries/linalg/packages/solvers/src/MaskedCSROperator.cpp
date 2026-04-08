@@ -118,9 +118,11 @@ void MaskedCSROperator<TI,TV,TMV,TMI>::product(
 }
 
 
+template class MaskedCSROperator<int,float,float,std::uint16_t>;
 template class MaskedCSROperator<int,float,float,int>;
 template class MaskedCSROperator<int,float,float,float>;
 template class MaskedCSROperator<std::size_t,float,float,std::size_t>;
+template class MaskedCSROperator<int,double,double,std::uint16_t>;
 template class MaskedCSROperator<int,double,double,int>;
 template class MaskedCSROperator<int,double,double,double>;
 template class MaskedCSROperator<std::size_t,double,double,std::size_t>;

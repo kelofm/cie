@@ -214,6 +214,7 @@ void makeAnsatzMask(
     template void makeAnsatzMask<3,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>);
 
 CIE_INSTANTIATE_MASK_FACTORY(std::uint8_t)
+CIE_INSTANTIATE_MASK_FACTORY(std::uint16_t)
 CIE_INSTANTIATE_MASK_FACTORY(std::size_t)
 CIE_INSTANTIATE_MASK_FACTORY(int)
 CIE_INSTANTIATE_MASK_FACTORY(float)

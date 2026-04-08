@@ -1,10 +1,10 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/JacobiOperator.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/solvers/inc/SYCLSpace.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
-#include "packages/concurrency/inc/ParallelFor.hpp"
 
 // --- STL Includes ---
 #include <format>
@@ -64,6 +64,14 @@ void JacobiOperator<TS>::product(
 
 template class JacobiOperator<DefaultSpace<float>>;
 template class JacobiOperator<DefaultSpace<double>>;
+
+
+#ifdef CIE_ENABLE_SYCL
+
+template class JacobiOperator<SYCLSpace<float>>;
+template class JacobiOperator<SYCLSpace<double>>;
+
+#endif
 
 
 } // namespace cie::linalg

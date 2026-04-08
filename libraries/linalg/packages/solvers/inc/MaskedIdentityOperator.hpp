@@ -11,15 +11,16 @@
 namespace cie::linalg {
 
 
-template <LinalgSpaceLike TSpace>
+template <LinalgSpaceLike TSpace, LinalgSpaceLike TMaskSpace>
 class MaskedIdentityOperator : public LinearOperator<TSpace> {
 public:
     constexpr MaskedIdentityOperator() noexcept = default;
 
     MaskedIdentityOperator(
         std::shared_ptr<TSpace> pSpace,
-        typename TSpace::ConstVectorView mask,
-        typename TSpace::Value threshold);
+        std::shared_ptr<TMaskSpace> pMaskSpace,
+        typename TMaskSpace::ConstVectorView mask,
+        typename TMaskSpace::Value threshold);
 
     void product(
         typename TSpace::Value inScale,
@@ -28,11 +29,13 @@ public:
         typename TSpace::VectorView out) override;
 
 private:
-    typename TSpace::ConstVectorView _mask;
+    typename TMaskSpace::ConstVectorView _mask;
 
     std::shared_ptr<TSpace> _pSpace;
 
-    typename TSpace::Value _threshold;
+    std::shared_ptr<TMaskSpace> _pMaskSpace;
+
+    typename TMaskSpace::Value _threshold;
 }; // class MaskedIdentityOperator
 
 

@@ -220,7 +220,8 @@ int main(int argc, const char** argv) {
                     "cg",
                     "cg-sycl",
                     "cg-eigen",
-                    "p-multigrid",
+                    "multigrid",
+                    "multigrid-sycl",
                     "jacobi",
                     "llt-eigen"};
                 return std::any_of(

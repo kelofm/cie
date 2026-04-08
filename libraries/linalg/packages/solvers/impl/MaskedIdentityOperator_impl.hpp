@@ -7,13 +7,15 @@
 namespace cie::linalg {
 
 
-template <LinalgSpaceLike TSpace>
-MaskedIdentityOperator<TSpace>::MaskedIdentityOperator(
+template <LinalgSpaceLike TSpace, LinalgSpaceLike TMaskSpace>
+MaskedIdentityOperator<TSpace,TMaskSpace>::MaskedIdentityOperator(
     std::shared_ptr<TSpace> pSpace,
-    typename TSpace::ConstVectorView mask,
-    typename TSpace::Value threshold)
+    std::shared_ptr<TMaskSpace> pMaskSpace,
+    typename TMaskSpace::ConstVectorView mask,
+    typename TMaskSpace::Value threshold)
         :   _mask(mask),
             _pSpace(pSpace),
+            _pMaskSpace(pMaskSpace),
             _threshold(threshold)
 {}
 

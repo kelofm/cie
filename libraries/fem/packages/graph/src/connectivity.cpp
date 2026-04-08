@@ -72,7 +72,7 @@ void makeAnsatzMask(
         std::fill(
             mask.begin(),
             mask.end(),
-            static_cast<std::int8_t>(0));
+            static_cast<TIndex>(0));
         std::array<std::uint16_t,D> state;
         std::fill(
             state.begin(),
@@ -94,6 +94,7 @@ void makeAnsatzMask(
 #define CIE_INSTANTIATE_ANSATZ_MAP(D)                                                       \
     template class AnsatzMap<D>;                                                            \
     template void makeAnsatzMask<D,std::uint8_t>(std::size_t, std::span<std::uint8_t>);     \
+    template void makeAnsatzMask<D,std::uint16_t>(std::size_t, std::span<std::uint16_t>);   \
     template void makeAnsatzMask<D,std::size_t>(std::size_t, std::span<std::size_t>);       \
     template void makeAnsatzMask<D,int>(std::size_t, std::span<int>);                       \
     template void makeAnsatzMask<D,float>(std::size_t, std::span<float>);                   \

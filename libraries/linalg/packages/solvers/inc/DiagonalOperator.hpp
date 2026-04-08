@@ -40,9 +40,9 @@ template <
     class TValue,
     class TIndex,
     class TMatrixValue>
-DiagonalOperator<DefaultSpace<TValue,tags::SMP>> makeDiagonalOperator(
+DiagonalOperator<DefaultSpace<TValue>> makeDiagonalOperator(
     CSRView<const TMatrixValue,const TIndex> matrix,
-    std::shared_ptr<const DefaultSpace<TValue,tags::SMP>> pSpace);
+    std::shared_ptr<const DefaultSpace<TValue>> pSpace);
 
 
 #ifdef CIE_ENABLE_SYCL
