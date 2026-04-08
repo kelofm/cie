@@ -9,6 +9,7 @@ string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 # Declare all CMake settings
 set(CIE_ENABLE_SYCL                                         OFF CACHE BOOL "Build CiE projects with SYCL support.")
 set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
+set(CIE_ENABLE_EXCEPTION_TRACING                            OFF CACHE BOOL "Catch and rethrow exceptions to build a traceback for runtime errors.")
 set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
 set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
 set(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS                      OFF CACHE BOOL "Enable macros for checking division by zero errors.")
@@ -77,16 +78,20 @@ foreach(source_template ${source_templates})
 endforeach()
 
 # Compile definitions
+if(CIE_ENABLE_EXCEPTION_TRACING)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_EXCEPTION_TRACING=1)
+endif()
+
 if(CIE_ENABLE_PROFILING)
-    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_PROFILING=1)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_PROFILING=1)
 endif()
 
 if(CIE_ENABLE_OUT_OF_RANGE_CHECKS)
-    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
 endif()
 
 if(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
