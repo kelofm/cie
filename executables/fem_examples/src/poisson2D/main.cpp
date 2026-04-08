@@ -213,10 +213,20 @@ int main(int argc, const char** argv) {
             "Minimum size of a boundary segment to integrate.")
         .addKeyword(
             {"--solver"},
-            cie::utils::ArgParse::DefaultValue {"cg"},
+            cie::utils::ArgParse::DefaultValue {"cg-eigen"},
             [] (const cie::utils::ArgParse::ValueView& rValue) -> bool {
                 const std::string value(rValue.begin(), rValue.end());
-                return value == "cg"  || value == "jacobi" || value == "p-multigrid" || value == "eigen-cg" || value == "eigen-llt";
+                const std::vector<std::string> choices {
+                    "cg",
+                    "cg-sycl",
+                    "cg-eigen",
+                    "p-multigrid",
+                    "jacobi",
+                    "llt-eigen"};
+                return std::any_of(
+                    choices.begin(),
+                    choices.end(),
+                    [&value] (cie::Ref<const std::string> rChoice) {return value == rChoice;});
             },
             "Linear solver.")
         .addKeyword(

@@ -137,19 +137,25 @@ DiagonalOperator<SYCLSpace<TV>> makeDiagonalOperator(
                 const std::size_t iRow = it.get_linear_id();
                 const std::size_t iEntryBegin = matrix.rowExtents()[iRow];
                 const std::size_t iEntryEnd = matrix.rowExtents()[iRow + 1];
-                const Ptr<const TI> pEntryBegin = matrix.columnIndices().data() + iEntryBegin;
-                const Ptr<const TI> pEntryEnd = matrix.columnIndices().data() + iEntryEnd;
-                Ptr<const TI> pEntry = std::upper_bound(
-                    pEntryBegin,
-                    pEntryEnd,
-                    static_cast<TI>(iRow),
-                    [] (TI iRow, TI iColumn) {return iRow < iColumn;});
-                if (pEntry == pEntryEnd || pEntry == pEntryBegin) {
+
+                if (iEntryEnd == iEntryBegin) {
                     pInverseDiagonalBegin[iRow] = std::numeric_limits<TV>::max();
                 } else {
-                    const std::size_t iEntry = std::distance(matrix.columnIndices().data(), pEntry) - 1;
-                    pInverseDiagonalBegin[iRow] = static_cast<TMV>(1) / matrix.entries()[iEntry];
+                    const Ptr<const TI> pColumnIndexBegin = matrix.columnIndices().data() + iEntryBegin;
+                    const Ptr<const TI> pColumnIndexEnd = matrix.columnIndices().data() + iEntryEnd;
+                    Ptr<const TI> pColumnIndex = std::upper_bound(
+                        pColumnIndexBegin,
+                        pColumnIndexEnd,
+                        static_cast<TI>(iRow),
+                        [] (TI iRow, TI iColumn) {return iRow < iColumn;});
+                    if (pColumnIndex == pColumnIndexBegin) {
+                        pInverseDiagonalBegin[iRow] = std::numeric_limits<TV>::max();
+                    } else {
+                        const std::size_t iEntry = std::distance(matrix.columnIndices().data(), pColumnIndex) - 1;
+                        pInverseDiagonalBegin[iRow] = static_cast<TMV>(1) / matrix.entries()[iEntry];
+                    }
                 }
+
             }).wait_and_throw(); // parallel_for
 
         return DiagonalOperator<SYCLSpace<TV>>(

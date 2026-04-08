@@ -48,7 +48,7 @@ void solveEigenCG(
             Eigen::Lower | Eigen::Upper,
             Eigen::DiagonalPreconditioner<Scalar>
         > solver;
-        solver.setMaxIterations(int(1e3));
+        solver.setMaxIterations(int(5e3));
         solver.setTolerance(1e-6);
 
         solver.compute(lhsAdaptor);
@@ -91,7 +91,7 @@ void solveCG(
         pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
             linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
         linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = static_cast<std::size_t>(1e3),
+            .iterationCount = static_cast<std::size_t>(5e3),
             .absoluteResidual = 1e-6,
             .relativeResidual = 1e-6};
         linalg::ConjugateGradients<LinalgSpace> solver(
@@ -143,7 +143,7 @@ void solveSYCLCG(
         auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
             linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
         linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = static_cast<std::size_t>(1e3),
+            .iterationCount = static_cast<std::size_t>(5e3),
             .absoluteResidual = 1e-6,
             .relativeResidual = 1e-6};
         linalg::ConjugateGradients<LinalgSpace> solver(
@@ -207,7 +207,7 @@ void solveMultigrid(
                 threshold,
                 rThreads);
             linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-                .iterationCount = static_cast<std::size_t>(1e3),
+                .iterationCount = static_cast<std::size_t>(5e3),
                 .absoluteResidual = 0,
                 .relativeResidual = 5e-1};
             auto pOperator = std::make_shared<linalg::ConjugateGradients<LinalgSpace>>(
@@ -384,15 +384,16 @@ void solve(
 
         const std::string solver = rArguments.get<std::string>("solver");
         if (solver == "cg") {
-            //solveCG(lhs, solution, rhs, rThreads);
+            solveCG(lhs, solution, rhs, rThreads);
+        } else if (solver == "cg-sycl") {
             solveSYCLCG(lhs, solution, rhs);
         } else if (solver == "p-multigrid") {
             solveMultigrid(lhs, solution, rhs, rAssembler, rThreads);
         } else if (solver == "jacobi") {
             solveJacobi(lhs, solution, rhs, rThreads);
-        } else if (solver == "eigen-cg") {
+        } else if (solver == "cg-eigen") {
             solveEigenCG(lhs, solution, rhs);
-        } else if (solver == "eigen-llt") {
+        } else if (solver == "llt-eigen") {
             solveEigenLLT(lhs, solution, rhs);
         } else CIE_THROW(Exception, std::format("unknown solver \"{}\"", solver))
 

@@ -262,8 +262,8 @@ BoundaryMesh generateBoundaryMesh(
                 if (minBoundarySegmentNorm < segmentNorm) {
                     const auto id = boundary.vertices().size();
                     const std::array<Scalar,2> state {
-                        rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentBegin + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentBegin + 1.0)),
-                        rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentEnd + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentEnd + 1.0))};
+                        Scalar(rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentBegin + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentBegin + 1.0))),
+                        Scalar(rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentEnd + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentEnd + 1.0)))};
                     boundary.insert(BoundaryMesh::Vertex(
                         id,
                         {},
