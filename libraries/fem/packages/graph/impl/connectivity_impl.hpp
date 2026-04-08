@@ -317,16 +317,18 @@ AnsatzMap<Dimension>::AnsatzMap(
 
                             DynamicArray<std::pair<Size,Size>> value;
                             value.reserve(it->second.size());
-                            std::transform(it->second.begin(),
-                                        it->second.end(),
-                                        std::back_inserter(value),
-                                        [iAnsatz](const Size iOtherAnsatz) -> std::pair<Size,Size> {
-                                                return std::make_pair(iAnsatz, iOtherAnsatz);
-                                        });
+                            std::transform(
+                                it->second.begin(),
+                                it->second.end(),
+                                std::back_inserter(value),
+                                [iAnsatz](const Size iOtherAnsatz) -> std::pair<Size,Size> {
+                                    return std::make_pair(iAnsatz, iOtherAnsatz);
+                                });
 
-                            std::copy(value.begin(),
-                                    value.end(),
-                                    std::back_inserter(itPositiveBoundaryConnectivities.value()));
+                            std::copy(
+                                value.begin(),
+                                value.end(),
+                                std::back_inserter(itPositiveBoundaryConnectivities.value()));
                         } // if !positiveSideVanish[iAnsatz]
                     } // for iAnsatz in range(_ansatzCount)
                 } // for iBoundaryAxis in range(dimension)

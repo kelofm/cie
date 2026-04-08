@@ -72,8 +72,8 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         mesh.data().ansatz(0ul),
         /*integrationOrder=*/5,
         utils::Comparison<Scalar>(
-            /*absoluteTolerance =*/ 1e-8,
-            /*relativeTolerance =*/ 1e-6));
+            /*absoluteTolerance =*/ std::numeric_limits<Scalar>::epsilon(),
+            /*relativeTolerance =*/ 1e2 * std::numeric_limits<Scalar>::epsilon()));
 
     // Build a factory detects the topology of the mesh and issues indices to DoFs.
     Assembler assembler;
