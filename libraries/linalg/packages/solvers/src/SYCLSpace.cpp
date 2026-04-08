@@ -7,9 +7,7 @@
 #include "packages/macros/inc/checks.hpp"
 
 // --- STL Includes ---
-#include <array>
 #include <format>
-#include <thread>
 
 
 namespace cie::linalg {
@@ -126,36 +124,32 @@ typename SYCLSpace<T>::Value SYCLSpace<T>::innerProduct(
         const std::size_t componentCount = left.size();
         if (componentCount == 0) return 0;
 
-        std::array<std::size_t,3> workGroupSizeCandidates {
-            _maxWorkGroupSize,
-            componentCount,
-            0x1000ul};
-        const std::size_t workGroupSize = *std::min_element(
-            workGroupSizeCandidates.begin(),
-            workGroupSizeCandidates.end());
         const std::size_t componentsPerItem = std::min<std::size_t>(
             0x10,
             componentCount);
         const std::size_t workItemCount = (componentCount + componentsPerItem - 1) / componentsPerItem;
 
         CIE_BEGIN_EXCEPTION_TRACING
-            const sycl::nd_range<1> range(workItemCount, workGroupSize);
-            sycl::buffer<T> reductionBuffer(1);
+            const sycl::range<1> range(workItemCount);
             Ptr<const T> pLeftBegin = left.get();
             Ptr<const T> pRightBegin = right.get();
 
+            // Initialize the result on the device.
+            auto deviceResult = this->makeVector(1);
+            this->fill(deviceResult, 0);
+
+            // Compute the inner product.
             _pQueue->submit([&] (Ref<sycl::handler> rHandler) {
                 auto reduction = sycl::reduction(
-                    reductionBuffer,
-                    rHandler,
+                    deviceResult.get(),
                     sycl::plus<T>());
                 rHandler.parallel_for(
                     range,
                     reduction,
                     [componentsPerItem, componentCount, pLeftBegin, pRightBegin] (
-                        sycl::nd_item<1> it,
+                        sycl::item<1> it,
                         auto& rReduction) {
-                            const std::size_t iItem = it.get_global_id();
+                            const std::size_t iItem = it.get_linear_id();
                             const std::size_t iComponentBegin = std::min<std::size_t>(
                                 iItem * componentsPerItem,
                                 componentCount);
@@ -165,12 +159,16 @@ typename SYCLSpace<T>::Value SYCLSpace<T>::innerProduct(
                             const T contribution = std::inner_product(
                                 pLeftBegin + iComponentBegin,
                                 pLeftBegin + iComponentEnd,
-                                pRightBegin,
+                                pRightBegin + iComponentBegin,
                                 static_cast<T>(0));
                             rReduction += contribution;
                         });
             }).wait_and_throw();
-            return reductionBuffer.get_host_access()[0];
+
+            // Fetch the result from the device.
+            T result = 0;
+            this->assign({&result, 1}, deviceResult);
+            return result;
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -192,18 +190,18 @@ void SYCLSpace<T>::scale(
                     sycl::range<1>(size),
                     [pTargetBegin, pSourceBegin, op] (sycl::item<1> it) {
                         const std::size_t iComponent = it.get_linear_id();
-                        op(pTargetBegin[iComponent], pSourceBegin[iComponent]);
+                        pTargetBegin[iComponent] = op(pTargetBegin[iComponent], pSourceBegin[iComponent]);
                     }).wait_and_throw();
             }; // job
 
             if (scale == static_cast<T>(1)) {
-                job([] (Ref<T> rTarget, T source) {rTarget = source;});
+                job([] (T t, T s) -> T {return t * s;});
             } else if (scale == static_cast<T>(-1)) {
-                job([] (Ref<T> rTarget, T source) {rTarget = -source;});
+                job([] (T t, T s) {return -t * s;});
             } else if (scale == static_cast<T>(0)) {
-                job([] (Ref<T> rTarget, T) {rTarget = 0;});
+                job([] (T, T) {return 0;});
             } else {
-                job([scale] (Ref<T> rTarget, T source) {rTarget = scale * source;});
+                job([scale] (T t, T s) {return scale * t * s;});
             }
         CIE_END_EXCEPTION_TRACING
 }
@@ -223,18 +221,18 @@ void SYCLSpace<T>::scale(
                     sycl::range<1>(size),
                     [pTargetBegin, op] (sycl::item<1> it) {
                         const std::size_t iComponent = it.get_linear_id();
-                        op(pTargetBegin[iComponent]);
+                        pTargetBegin[iComponent] = op(pTargetBegin[iComponent]);
                     }).wait_and_throw();
             }; // job
 
             if (scale == static_cast<T>(1)) {
                 return;
             } else if (scale == static_cast<T>(-1)) {
-                job([] (Ref<T> rTarget) {rTarget = -rTarget;});
+                job([] (T target) -> T {return -target;});
             } else if (scale == static_cast<T>(0)) {
-                job([] (Ref<T> rTarget) {rTarget = 0;});
+                job([] (T) -> T {return 0;});
             } else {
-                job([scale] (Ref<T> rTarget) {rTarget *= scale;});
+                job([scale] (T target) -> T {return target * scale;});
             }
         CIE_END_EXCEPTION_TRACING
 }
@@ -301,7 +299,7 @@ void SYCLSpace<T>::assign(
             Ptr<T> pTargetBegin = target.get();
             Ptr<const T> pSourceBegin = source.get();
             const std::size_t size = target.size();
-            if (pTargetBegin == pSourceBegin) return;
+            if (pTargetBegin == pSourceBegin || !size) return;
 
             _pQueue->submit([pTargetBegin, pSourceBegin, size] (Ref<sycl::handler> rHandler) {
                 rHandler.parallel_for(
@@ -324,7 +322,8 @@ void SYCLSpace<T>::assign(
             _pQueue->copy(
                 source.data(),
                 target.get(),
-                source.size()).wait_and_throw();
+                source.size()
+            ).wait_and_throw();
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -338,7 +337,8 @@ void SYCLSpace<T>::assign(
             _pQueue->copy(
                 source.get(),
                 target.data(),
-                source.size()).wait_and_throw();
+                source.size()
+            ).wait_and_throw();
         CIE_END_EXCEPTION_TRACING
 }
 

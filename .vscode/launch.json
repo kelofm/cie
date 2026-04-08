@@ -46,7 +46,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/build/bin/poisson2D",
             "externalConsole": false,
-            "args" : ["-r", "12", "--solver", "cg"],
+            "args" : ["-r", "12", "--solver", "cg-sycl"],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],
