@@ -109,7 +109,8 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             columnCount,
             rowExtents,
             columnIndices,
-            entries);
+            entries,
+            threads);
     }
     DynamicArray<Scalar> rhs(rowCount, 0.0);
     linalg::CSRView<Scalar,int> lhs (

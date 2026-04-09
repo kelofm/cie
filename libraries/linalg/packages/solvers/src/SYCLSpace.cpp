@@ -264,7 +264,7 @@ void SYCLSpace<T>::add(
             } else if (scale == static_cast<T>(-1)) {
                 job([] (T t, T s) -> T {return t - s;});
             } else if (scale == static_cast<T>(0)) {
-                job([] (T, T s) -> T {return s;});
+                job([] (T t, T) -> T {return t;});
             } else {
                 job([scale] (T t, T s) -> T {return t + scale * s;});
             }

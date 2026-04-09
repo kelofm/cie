@@ -105,7 +105,7 @@ CIE_INSTANTIATE_MASKED_IDENTITY_OPERATOR(double, std::size_t)
                         sycl::range<1>(in.size()),                                                                  \
                         [=] (sycl::item<1> it) -> void {                                                            \
                             const std::size_t iRow = it.get_linear_id();                                            \
-                            op(                                                                                     \
+                            pOutBegin[iRow] = op(                                                                   \
                                 pOutBegin[iRow],                                                                    \
                                 pMaskBegin[iRow] < threshold ? pInBegin[iRow] : static_cast<T>(0));                 \
                         }).wait_and_throw();                                                                        \

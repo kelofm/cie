@@ -120,7 +120,7 @@ void Assembler::makeCSRMatrix(
                 for (const auto& rDofIndices : this->values()) job(rDofIndices);
             } else {
                 const auto& rDofIndexContainers = this->values();
-                mp::ParallelFor<>(rThreadPool.value())(
+                mp::ParallelFor<>(rThreadPool.value()).execute(
                     rDofIndexContainers.begin(),
                     rDofIndexContainers.end(),
                     job);

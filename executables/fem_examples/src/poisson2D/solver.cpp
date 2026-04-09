@@ -135,7 +135,6 @@ void solveMultigrid(
         // Compute the initial residual.
         pSpace->assign(residual, rhs);
         const Scalar initialResidualNorm = std::sqrt(pSpace->innerProduct(residual, residual));
-        std::cout << std::format("initial abs {:.4E}\n", initialResidualNorm);
 
         // Construct grids.
         struct Grid {
@@ -339,7 +338,6 @@ void solveSYCLMultigrid(
 
         // Compute the initial residual.
         const Scalar initialResidualNorm = std::sqrt(pSpace->innerProduct(deviceResidual, deviceResidual));
-        std::cout << std::format("initial abs {:.4E}\n", initialResidualNorm);
 
         // Construct grids.
         struct Grid {
@@ -353,7 +351,7 @@ void solveSYCLMultigrid(
 
         // Lowest grid level is a proper linear solver.
         {
-            const Scalar threshold = 2; // <== order + 1
+            const MaskScalar threshold = 2; // <== order + 1
             auto pGridLhs = std::make_shared<linalg::SYCLMaskedCSROperator<int,Scalar,MaskScalar>>(
                 deviceLHS,
                 deviceMask,
@@ -375,15 +373,15 @@ void solveSYCLMultigrid(
                 pMaskSpace,
                 deviceMask,
                 threshold);
-            //grids.push_back(Grid {
-            //    .pOperator = pOperator,
-            //    .pRestriction = pRestriction,
-            //    .pLhs = pGridLhs});
+            grids.push_back(Grid {
+                .pOperator = pOperator,
+                .pRestriction = pRestriction,
+                .pLhs = pGridLhs});
         }
 
         // The rest of the grids are jacobi smoothers.
         for (std::size_t iOrder=2ul; iOrder<polynomialOrder+1; ++iOrder) {
-            const Scalar threshold = iOrder + 1;
+            const MaskScalar threshold = iOrder + 1;
             auto pGridLhs = std::make_shared<linalg::SYCLMaskedCSROperator<int,Scalar,MaskScalar>>(
                 deviceLHS,
                 deviceMask,
