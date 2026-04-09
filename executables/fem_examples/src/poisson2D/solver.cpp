@@ -109,59 +109,6 @@ void solveCG(
 }
 
 
-void solveSYCLCG(
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> solution,
-    std::span<const Scalar> rhs) {
-        using LinalgSpace = linalg::SYCLSpace<Scalar>;
-        auto pSpace = std::make_shared<LinalgSpace>(std::make_shared<sycl::queue>(sycl::default_selector_v));
-        auto pIndexSpace = std::make_shared<linalg::SYCLSpace<int>>(pSpace->getQueue());
-
-        // Copy the matrix to the device.
-        auto rowExtents = pIndexSpace->makeVector(lhs.rowExtents().size());
-        auto columnIndices = pIndexSpace->makeVector(lhs.columnIndices().size());
-        auto entries = pSpace->makeVector(lhs.entries().size());
-
-        pIndexSpace->assign(rowExtents, lhs.rowExtents());
-        pIndexSpace->assign(columnIndices, lhs.columnIndices());
-        pSpace->assign(entries, lhs.entries());
-
-        linalg::CSRView<const Scalar,const int> deviceLHS(
-            lhs.columnCount(),
-            {rowExtents.get(), rowExtents.size()},
-            {columnIndices.get(), columnIndices.size()},
-            {entries.get(), entries.size()});
-
-        // Copy the rhs and solution vectors to the device.
-        auto deviceRHS = pSpace->makeVector(rhs.size());
-        auto deviceSolution = pSpace->makeVector(solution.size());
-
-        pSpace->assign(deviceRHS, rhs);
-        pSpace->assign(deviceSolution, solution);
-
-        // Build operators.
-        auto pLinearOperator = std::make_shared<linalg::SYCLCSROperator<int,Scalar>>(deviceLHS, pSpace);
-        auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
-            linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
-        linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = static_cast<std::size_t>(5e3),
-            .absoluteResidual = 1e-6,
-            .relativeResidual = 1e-6};
-        linalg::ConjugateGradients<LinalgSpace> solver(
-            pLinearOperator,
-            pSpace,
-            pPreconditioner,
-            settings,
-            3);
-
-        // Solve the system.
-        solver.product(0, deviceRHS, 1, deviceSolution);
-
-        // Fetch the solution.
-        pSpace->assign(solution, deviceSolution);
-}
-
-
 void solveMultigrid(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
@@ -287,6 +234,59 @@ void solveMultigrid(
 }
 
 
+void solveSYCLCG(
+    linalg::CSRView<Scalar,int> lhs,
+    std::span<Scalar> solution,
+    std::span<const Scalar> rhs) {
+        using LinalgSpace = linalg::SYCLSpace<Scalar>;
+        auto pSpace = std::make_shared<LinalgSpace>(std::make_shared<sycl::queue>(sycl::default_selector_v));
+        auto pIndexSpace = std::make_shared<linalg::SYCLSpace<int>>(pSpace->getQueue());
+
+        // Copy the matrix to the device.
+        auto rowExtents = pIndexSpace->makeVector(lhs.rowExtents().size());
+        auto columnIndices = pIndexSpace->makeVector(lhs.columnIndices().size());
+        auto entries = pSpace->makeVector(lhs.entries().size());
+
+        pIndexSpace->assign(rowExtents, lhs.rowExtents());
+        pIndexSpace->assign(columnIndices, lhs.columnIndices());
+        pSpace->assign(entries, lhs.entries());
+
+        linalg::CSRView<const Scalar,const int> deviceLHS(
+            lhs.columnCount(),
+            {rowExtents.get(), rowExtents.size()},
+            {columnIndices.get(), columnIndices.size()},
+            {entries.get(), entries.size()});
+
+        // Copy the rhs and solution vectors to the device.
+        auto deviceRHS = pSpace->makeVector(rhs.size());
+        auto deviceSolution = pSpace->makeVector(solution.size());
+
+        pSpace->assign(deviceRHS, rhs);
+        pSpace->assign(deviceSolution, solution);
+
+        // Build operators.
+        auto pLinearOperator = std::make_shared<linalg::SYCLCSROperator<int,Scalar>>(deviceLHS, pSpace);
+        auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
+            linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
+        linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
+            .iterationCount = static_cast<std::size_t>(5e3),
+            .absoluteResidual = 1e-6,
+            .relativeResidual = 1e-6};
+        linalg::ConjugateGradients<LinalgSpace> solver(
+            pLinearOperator,
+            pSpace,
+            pPreconditioner,
+            settings,
+            3);
+
+        // Solve the system.
+        solver.product(0, deviceRHS, 1, deviceSolution);
+
+        // Fetch the solution.
+        pSpace->assign(solution, deviceSolution);
+}
+
+
 void solveSYCLMultigrid(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
@@ -375,10 +375,10 @@ void solveSYCLMultigrid(
                 pMaskSpace,
                 deviceMask,
                 threshold);
-            grids.push_back(Grid {
-                .pOperator = pOperator,
-                .pRestriction = pRestriction,
-                .pLhs = pGridLhs});
+            //grids.push_back(Grid {
+            //    .pOperator = pOperator,
+            //    .pRestriction = pRestriction,
+            //    .pLhs = pGridLhs});
         }
 
         // The rest of the grids are jacobi smoothers.

@@ -255,18 +255,18 @@ void SYCLSpace<T>::add(
                     sycl::range<1>(size),
                     [pTargetBegin, pSourceBegin, op] (sycl::item<1> it) {
                         const std::size_t iComponent = it.get_linear_id();
-                        op(pTargetBegin[iComponent], pSourceBegin[iComponent]);
+                        pTargetBegin[iComponent] = op(pTargetBegin[iComponent], pSourceBegin[iComponent]);
                     }).wait_and_throw();
             }; // job
 
             if (scale == static_cast<T>(1)) {
-                job([] (Ref<T> rTarget, T source) {rTarget += source;});
+                job([] (T t, T s) -> T {return t + s;});
             } else if (scale == static_cast<T>(-1)) {
-                job([] (Ref<T> rTarget, T source) {rTarget -= source;});
+                job([] (T t, T s) -> T {return t - s;});
             } else if (scale == static_cast<T>(0)) {
-                job([] (Ref<T> rTarget, T source) {rTarget = source;});
+                job([] (T, T s) -> T {return s;});
             } else {
-                job([scale] (Ref<T> rTarget, T source) {rTarget += scale * source;});
+                job([scale] (T t, T s) -> T {return t + scale * s;});
             }
         CIE_END_EXCEPTION_TRACING
 }

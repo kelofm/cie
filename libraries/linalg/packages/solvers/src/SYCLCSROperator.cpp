@@ -36,10 +36,10 @@ void SYCLCSROperator<TI,TV,TMV>::product(
     typename Space::VectorView out) {
         // Sanity checks.
         CIE_CHECK(
-            _lhs.rowExtents().size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
+            _lhs.rowCount() == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
             std::format(
                 "Incompatible matrix-vector product: [{}x{}] * [{}] = [{}]",
-                _lhs.rowExtents().size() - 1, _lhs.columnCount(), in.size(), out.size()))
+                _lhs.rowCount(), _lhs.columnCount(), in.size(), out.size()))
 
         CIE_BEGIN_EXCEPTION_TRACING
             Ref<sycl::queue> rQueue = *_pSpace->getQueue();
@@ -50,16 +50,10 @@ void SYCLCSROperator<TI,TV,TMV>::product(
             rQueue.submit([&, this] (Ref<sycl::handler> rHandler) {
                 Ptr<const TV> pInBegin = in.get();
                 Ptr<TV> pOutBegin = out.get();
-                sycl::accessor<
-                    TV,
-                    1,
-                    sycl::access_mode::read_write,
-                    sycl::access::target::local
-                > groupMemory(_groupSize, rHandler);
 
                 rHandler.parallel_for(
                     range,
-                    [=, subGroupSize = _subGroupSize, lhs = _lhs] (sycl::nd_item<1> it) -> void {
+                    [inScale, pInBegin, outScale, pOutBegin, subGroupSize = _subGroupSize, lhs = _lhs] (sycl::nd_item<1> it) -> void {
                         const std::size_t iItem = it.get_global_linear_id();
                         const std::size_t iSubGroupItem = it.get_local_linear_id();
                         const std::size_t iLane = iSubGroupItem % subGroupSize;
@@ -85,9 +79,7 @@ void SYCLCSROperator<TI,TV,TMV>::product(
                                 sycl::plus<TV>());
 
                             if (subGroup.leader()) {
-                                Ref<TV> ref = pOutBegin[iRow];
-                                ref *= inScale;
-                                ref += outScale * contribution;
+                                pOutBegin[iRow] = inScale * pOutBegin[iRow] + outScale * contribution;
                             } // if subGroup.leader()
                         } // if iRow < lhs.rowCount()
                     }); // rHandler.parallel_for

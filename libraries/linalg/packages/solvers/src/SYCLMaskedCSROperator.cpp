@@ -80,29 +80,32 @@ void SYCLMaskedCSROperator<TI,TV,TMI>::product(
 
                         auto subGroup = it.get_sub_group();
 
-                        if (iRow < lhs.rowCount() && pMaskBegin[iRow] < threshold) {
-                            const TI iEntryBegin = lhs.rowExtents()[iRow];
-                            const TI iEntryEnd = lhs.rowExtents()[iRow + 1];
+                        if (iRow < lhs.rowCount()) {
+                            if (pMaskBegin[iRow] < threshold) {
+                                const TI iEntryBegin = lhs.rowExtents()[iRow];
+                                const TI iEntryEnd = lhs.rowExtents()[iRow + 1];
 
-                            TV contribution = 0;
-                            for (TI iEntry=iEntryBegin+iLane; iEntry<iEntryEnd; iEntry+=static_cast<TI>(subGroupSize)) {
-                                const TI iColumn = lhs.columnIndices()[iEntry];
-                                if (pMaskBegin[iColumn] < threshold) {
-                                    const TV entry = lhs.entries()[iEntry];
-                                    contribution += entry * pInBegin[iColumn];
-                                }
-                            } // for iEntry in range(iEntryBegin, iEntryEnd, subGroupSize)
+                                TV contribution = 0;
+                                for (TI iEntry=iEntryBegin+iLane; iEntry<iEntryEnd; iEntry+=static_cast<TI>(subGroupSize)) {
+                                    const TI iColumn = lhs.columnIndices()[iEntry];
+                                    if (pMaskBegin[iColumn] < threshold) {
+                                        const TV entry = lhs.entries()[iEntry];
+                                        contribution += entry * pInBegin[iColumn];
+                                    }
+                                } // for iEntry in range(iEntryBegin, iEntryEnd, subGroupSize)
 
-                            contribution = sycl::reduce_over_group(
-                                subGroup,
-                                contribution,
-                                sycl::plus<TV>());
+                                contribution = sycl::reduce_over_group(
+                                    subGroup,
+                                    contribution,
+                                    sycl::plus<TV>());
 
-                            if (subGroup.leader()) {
-                                Ref<TV> ref = pOutBegin[iRow];
-                                ref *= inScale;
-                                ref += outScale * contribution;
-                            } // if subGroup.leader()
+                                if (subGroup.leader()) {
+                                    pOutBegin[iRow] = inScale * pOutBegin[iRow] + outScale * contribution;
+                                } // if subGroup.leader()
+                            } /*if not masked*/ else {
+                                if (subGroup.leader())
+                                    pOutBegin[iRow] = inScale * pOutBegin[iRow];
+                            }
                         } // if iRow < lhs.rowCount()
                     }); // rHandler.parallel_for
             }).wait_and_throw(); // rQueue.submit

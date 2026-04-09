@@ -105,46 +105,45 @@ CIE_INSTANTIATE_MASKED_IDENTITY_OPERATOR(double, std::size_t)
                         sycl::range<1>(in.size()),                                                                  \
                         [=] (sycl::item<1> it) -> void {                                                            \
                             const std::size_t iRow = it.get_linear_id();                                            \
-                            if (pMaskBegin[iRow] < threshold)                                                       \
-                                pOutBegin[iRow] = op(pOutBegin[iRow], pInBegin[iRow]);                              \
-                            else                                                                                    \
-                                pOutBegin[iRow] = 0;                                                                \
+                            op(                                                                                     \
+                                pOutBegin[iRow],                                                                    \
+                                pMaskBegin[iRow] < threshold ? pInBegin[iRow] : static_cast<T>(0));                 \
                         }).wait_and_throw();                                                                        \
                 }; /*job*/                                                                                          \
                                                                                                                     \
                 if (inScale == static_cast<T>(1)) {                                                                 \
-                if (outScale == static_cast<T>(1)) {                                                                \
-                    job([] (T, T right) -> T {return right;});                                                      \
-                } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                                   \
-                    job([] (T, T right) -> T {return right;});                                                      \
-                } /*if outScale == -1*/ else {                                                                      \
-                    job([outScale] (T, T right) -> T {return outScale * right;});                                   \
-                }                                                                                                   \
-            } /*if inScale == 1*/ else if (inScale == static_cast<T>(0)) {                                          \
-                if (outScale == static_cast<T>(1)) {                                                                \
-                    job([] (T, T right) -> T {return right;});                                                      \
-                } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                                   \
-                    job([] (T, T right) -> T {return -right;});                                                     \
-                } /*if outScale == -1*/ else {                                                                      \
-                    job([outScale] (T, T right) -> T {return outScale * right;});                                   \
-                }                                                                                                   \
-            } /*if inScale == 0*/ else if (inScale == static_cast<T>(-1)) {                                         \
-                if (outScale == static_cast<T>(1)) {                                                                \
-                    job([] (T left, T right) -> T {return right - left;});                                          \
-                } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                                   \
-                    job([] (T left, T right) -> T {return right - left;});                                          \
-                } /*if outScale == -1*/ else {                                                                      \
-                    job([outScale] (T left, T right) -> T {return outScale * right - left;});                       \
-                }                                                                                                   \
-            } /*if inScale == -1*/ else {                                                                           \
-                if (outScale == static_cast<T>(1)) {                                                                \
-                    job([inScale] (T left, T right) -> T {return inScale * left + right;});                         \
-                } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                                   \
-                    job([inScale] (T left, T right) -> T {return inScale * left - right;});                         \
-                } /*if outScale == -1*/ else {                                                                      \
-                    job([inScale, outScale] (T left, T right) -> T {return inScale * left + outScale * right;});    \
-                }                                                                                                   \
-            } /*else*/                                                                                              \
+                    if (outScale == static_cast<T>(1)) {                                                            \
+                        job([] (T, T right) -> T {return right;});                                                  \
+                    } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                               \
+                        job([] (T, T right) -> T {return right;});                                                  \
+                    } /*if outScale == -1*/ else {                                                                  \
+                        job([outScale] (T, T right) -> T {return outScale * right;});                               \
+                    }                                                                                               \
+                } /*if inScale == 1*/ else if (inScale == static_cast<T>(0)) {                                      \
+                    if (outScale == static_cast<T>(1)) {                                                            \
+                        job([] (T, T right) -> T {return right;});                                                  \
+                    } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                               \
+                        job([] (T, T right) -> T {return -right;});                                                 \
+                    } /*if outScale == -1*/ else {                                                                  \
+                        job([outScale] (T, T right) -> T {return outScale * right;});                               \
+                    }                                                                                               \
+                } /*if inScale == 0*/ else if (inScale == static_cast<T>(-1)) {                                     \
+                    if (outScale == static_cast<T>(1)) {                                                            \
+                        job([] (T left, T right) -> T {return right - left;});                                      \
+                    } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                               \
+                        job([] (T left, T right) -> T {return right - left;});                                      \
+                    } /*if outScale == -1*/ else {                                                                  \
+                        job([outScale] (T left, T right) -> T {return outScale * right - left;});                   \
+                    }                                                                                               \
+                } /*if inScale == -1*/ else {                                                                       \
+                    if (outScale == static_cast<T>(1)) {                                                            \
+                        job([inScale] (T left, T right) -> T {return inScale * left + right;});                     \
+                    } /*if outScale == 1*/ else if (outScale == static_cast<T>(-1)) {                               \
+                        job([inScale] (T left, T right) -> T {return inScale * left - right;});                     \
+                    } /*if outScale == -1*/ else {                                                                  \
+                        job([inScale, outScale] (T left, T right) -> T {return inScale * left + outScale * right;});\
+                    }                                                                                               \
+                } /*else*/                                                                                          \
             CIE_END_EXCEPTION_TRACING                                                                               \
         }                                                                                                           \
         template class MaskedIdentityOperator<SYCLSpace<T>,SYCLSpace<TMask>>;

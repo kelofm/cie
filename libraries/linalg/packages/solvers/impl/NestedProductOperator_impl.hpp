@@ -16,8 +16,9 @@ NestedProductOperator<TS>::NestedProductOperator(
         :   _pSpace(pSpace),
             _pLhs(pLhs),
             _pRhs(pRhs),
-            _buffer(pSpace->makeVector(rowCount))
-{}
+            _buffer(pSpace->makeVector(rowCount)) {
+    pSpace->fill(_buffer, 0);
+}
 
 
 template <LinalgSpaceLike TS>

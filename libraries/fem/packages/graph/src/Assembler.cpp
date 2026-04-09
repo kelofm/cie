@@ -200,8 +200,15 @@ void makeAnsatzMask(
         CIE_CHECK(rAssembler.dofCount() <= mask.size(), "")
         std::vector<T> localMask(intPow(setSize, D));
         makeAnsatzMask<D,T>(setSize, localMask);
-        for (const auto& dofs : rAssembler.values()) {
-            assert(dofs.size() == mask.size());
+
+        for (const auto& [cellID, dofs] : rAssembler.items()) {
+            CIE_CHECK(
+                dofs.size() == localMask.size(),
+                std::format(
+                    "DoF set belonging to cell {} has an incompatible number of ansatz functions ({}) with the input mask ({})",
+                    (unsigned)cellID,
+                    dofs.size(),
+                    mask.size()))
             for (std::size_t iDoF=0ul; iDoF<dofs.size(); ++iDoF)
                 mask[dofs[iDoF]] = localMask[iDoF];
         }

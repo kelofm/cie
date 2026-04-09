@@ -80,6 +80,7 @@ void ConjugateGradients<TS>::product(
                 // Define buffers.
                 typename TS::Vector search = _pSpace->makeVector(systemSize);
                 typename TS::Vector searchProduct = _pSpace->makeVector(systemSize);
+                _pSpace->fill(searchProduct, 0);
                 std::optional<typename TS::Vector> maybePreconditionedResidual;
 
                 // Compute the initial residual.
@@ -134,7 +135,6 @@ void ConjugateGradients<TS>::product(
 
                 for (; stats.iterationCount<settings.iterationCount; ++stats.iterationCount) {
                     // Compute part of the denominator of the search scale.
-                    //_pSpace->fill(searchProduct, 0);
                     _pLhs->product(0, search, 1, searchProduct);
 
                     // Compute the search scale.
@@ -143,6 +143,7 @@ void ConjugateGradients<TS>::product(
                         const typename TS::Value denominator = _pSpace->innerProduct(
                             search,
                             searchProduct);
+
                         CIE_CHECK(
                             static_cast<TS::Value>(0) < denominator,
                             std::format(
