@@ -9,7 +9,7 @@
 namespace cie::mpi {
 
 
-#ifdef CIEUTILS_COMPILE_MPI
+#ifdef CIE_ENABLE_MPI
 
 
 MPIDistributedImpl::MPIDistributedImpl(Ptr<MPI_Comm> p_comm)
@@ -183,7 +183,7 @@ inline void MPIDistributedImpl::checkBlockingMessage(RankID targetRankID)
 }
 
 
-#endif // CIEUTILS_COMPILE_MPI
+#endif // CIE_ENABLE_MPI
 
 
 } // namespace cie::mpi

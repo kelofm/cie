@@ -53,7 +53,7 @@ get_site_packages_dir() {
 package=0
 buildType="Release"
 buildDir="$scriptDir/build"
-installDir=$(get_site_packages_dir)
+installDir="$HOME/.local"
 generator="Unix Makefiles"
 cCacheFlag=""
 cxx="g++"

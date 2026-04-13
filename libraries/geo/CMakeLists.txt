@@ -19,7 +19,7 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
 if (NOT TARGET linalg)
     find_package(linalg CONFIG REQUIRED)
 endif()
@@ -71,7 +71,7 @@ add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME} PUBLIC cie::linalg)
 target_include_directories(${PROJECT_NAME}
                            PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           INTERFACE "$<INSTALL_INTERFACE:cie/include>"
+                           INTERFACE "$<INSTALL_INTERFACE:include/cie>"
                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -111,14 +111,14 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
         if (IS_DIRECTORY "${child}")
             get_filename_component(module_name "${child}" NAME)
             install(DIRECTORY "${child}"
-                    DESTINATION "cie")
+                    DESTINATION "lib/cie")
         endif()
     endforeach()
 
     # Install bindings
     install(TARGETS ${PROJECT_NAME}_python_bindings
             EXPORT ${PROJECT_NAME}Targets
-            LIBRARY DESTINATION "cie/lib")
+            LIBRARY DESTINATION "lib/cie")
 endif()
 
 # Package
@@ -152,24 +152,24 @@ write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Con
 # Install targets
 install(TARGETS ${PROJECT_NAME}
         EXPORT ${PROJECT_NAME}Targets
-        LIBRARY DESTINATION "cie/lib"
-        ARCHIVE DESTINATION "cie/lib"
-        RUNTIME DESTINATION "cie/bin"
-        INCLUDES DESTINATION "cie/include")
+        LIBRARY DESTINATION "lib"
+        ARCHIVE DESTINATION "lib"
+        RUNTIME DESTINATION "bin"
+        INCLUDES DESTINATION "include/cie")
 install(EXPORT ${PROJECT_NAME}Targets
         FILE ${PROJECT_NAME}Targets.cmake
         NAMESPACE cie::
-        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+        DESTINATION "lib/cmake/${PROJECT_NAME}")
 
 # Install headers
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
-        DESTINATION "cie/include"
+        DESTINATION "include/cie"
         FILES_MATCHING PATTERN "*.hpp")
 
 # Install CMake config
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+        DESTINATION "lib/cmake/${PROJECT_NAME}")
 
 # Export
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)

@@ -40,13 +40,13 @@ Ref<std::string> IterativeSolver<TS>::makeIterationReport(
                     "| {}{:>9}{} | {}{:>17.5E}{} | {}{:>17.5E}{} |",
                     converged ? RGBAColor::TUMGreen.ANSI() : RGBAColor::TUMOrange.ANSI(),
                     rStatus.iterationCount,
-                    RGBAColor::White.ANSI(),
+                    "\033[0m",
                     rStatus.absoluteResidual < rSettings.absoluteResidual ? RGBAColor::TUMGreen.ANSI() : RGBAColor::TUMOrange.ANSI(),
                     rStatus.absoluteResidual,
-                    RGBAColor::White.ANSI(),
+                    "\033[0m",
                     rStatus.relativeResidual < rSettings.relativeResidual ? RGBAColor::TUMGreen.ANSI() : RGBAColor::TUMOrange.ANSI(),
                     rStatus.relativeResidual,
-                    RGBAColor::White.ANSI());
+                    "\033[0m");
             }
 
             if (converged)

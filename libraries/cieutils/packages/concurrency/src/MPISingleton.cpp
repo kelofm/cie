@@ -1,5 +1,5 @@
 // --- External Includes ---
-#ifdef CIEUTILS_COMPILE_MPI
+#ifdef CIE_ENABLE_MPI
     #include "mpi.h"
 #endif
 
@@ -75,7 +75,7 @@ void MPISingleton::ensureInitialized(bool req, Ptr<MPI_Comm> p_comm)
             CIE_END_EXCEPTION_TRACING
         } else {
             CIE_BEGIN_EXCEPTION_TRACING
-            #ifdef CIEUTILS_COMPILE_MPI
+            #ifdef CIE_ENABLE_MPI
             auto zaWarudo = MPI_COMM_WORLD;
             p_comm = &zaWarudo;
             #else

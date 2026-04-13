@@ -2,7 +2,7 @@
 #define CIE_UTILS_MPI_DISTRIBUTED_IMPL_HPP
 
 // --- External Includes ---
-#ifdef CIEUTILS_COMPILE_MPI
+#ifdef CIE_ENABLE_MPI
     #include "mpi.h"
 #endif
 
@@ -14,7 +14,7 @@
 namespace cie::mpi {
 
 
-#ifdef CIEUTILS_COMPILE_MPI
+#ifdef CIE_ENABLE_MPI
 
 
 class MPIDistributedImpl final : public MPIImpl
