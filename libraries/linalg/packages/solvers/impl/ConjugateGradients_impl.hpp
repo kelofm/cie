@@ -72,7 +72,6 @@ void ConjugateGradients<TS>::product(
             maybeLogBlock.emplace("ConjugateGradients", utils::LoggerSingleton::get());
 
         typename TS::Vector solution = _pSpace->makeVector(systemSize);
-        //_pSpace->fill(solution, 0);
         _pSpace->assign(solution, out);
 
         if (settings.iterationCount) {
@@ -114,7 +113,6 @@ void ConjugateGradients<TS>::product(
                 // Compute the initial search direction.
                 if (_pPreconditioner) {
                     maybePreconditionedResidual = _pSpace->makeVector(systemSize);
-                    //_pSpace->fill(*maybePreconditionedResidual, 0);
                     _pPreconditioner->product(0, residual, 1, *maybePreconditionedResidual);
                     preconditionedNorm = _pSpace->innerProduct(residual, *maybePreconditionedResidual);
                     _pSpace->assign(search, *maybePreconditionedResidual);
@@ -161,7 +159,6 @@ void ConjugateGradients<TS>::product(
                     const typename TS::Value previousPreconditionedNorm = preconditionedNorm;
 
                     if (maybePreconditionedResidual) {
-                        //_pSpace->fill(*maybePreconditionedResidual, 0);
                         _pPreconditioner->product(0, residual, 1, *maybePreconditionedResidual);
                         preconditionedNorm = _pSpace->innerProduct(residual, *maybePreconditionedResidual);
                     } else {
