@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <vector>
 #include <deque>
+#include <numeric>
 
 
 namespace cie {
@@ -280,26 +281,70 @@ void reorder(
         } // for iRow in range(rowCount)
 
         // Define the reordering kernel.
-        const auto reorderingKernel = [&] (TIndex iRow) -> void {
-            const TIndex iOldRow = mapView[iRow];
+        const auto reorderingKernel = [&] (
+            TIndex iRow,
+            Ref<std::vector<TIndex>> rIndexBuffer,
+            Ref<std::vector<TValue>> rValueBuffer) -> void {
+                const TIndex iOldRow = mapView[iRow];
 
-            const TIndex iOldEntryBegin = rowExtents[iOldRow];
-            const TIndex iNewEntryBegin = newRowExtents[iRow];
-            const TIndex iOldEntryEnd = rowExtents[iOldRow + 1];
+                const TIndex iOldEntryBegin = rowExtents[iOldRow];
+                const TIndex iNewEntryBegin = newRowExtents[iRow];
+                const TIndex iOldEntryEnd = rowExtents[iOldRow + 1];
 
-            for (TIndex iOldEntry=iOldEntryBegin, iNewEntry=iNewEntryBegin; iOldEntry<iOldEntryEnd; ++iOldEntry, ++iNewEntry) {
-                newColumnIndices[iNewEntry] = reverseMapView[columnIndices[iOldEntry]];
-                newEntries[iNewEntry] = entries[iOldEntry];
-            } // for iOldEntry, iNewEntry
+                for (TIndex iOldEntry=iOldEntryBegin, iNewEntry=iNewEntryBegin; iOldEntry<iOldEntryEnd; ++iOldEntry, ++iNewEntry) {
+                    newColumnIndices[iNewEntry] = reverseMapView[columnIndices[iOldEntry]];
+                    newEntries[iNewEntry] = entries[iOldEntry];
+                } // for iOldEntry, iNewEntry
+
+                // Indirectly sort the new row.
+                rIndexBuffer.resize(iOldEntryEnd - iOldEntryBegin);
+                rValueBuffer.resize(iOldEntryEnd - iOldEntryBegin);
+                std::iota(
+                    rIndexBuffer.begin(),
+                    rIndexBuffer.end(),
+                    iNewEntryBegin);
+                std::sort(
+                    rIndexBuffer.begin(),
+                    rIndexBuffer.end(),
+                    [&newColumnIndices] (TIndex left, TIndex right) -> bool {
+                        return newColumnIndices[left] < newColumnIndices[right];
+                    });
+                std::transform(
+                    rIndexBuffer.begin(),
+                    rIndexBuffer.end(),
+                    rValueBuffer.begin(),
+                    [&newEntries] (TIndex i) -> TValue {return newEntries[i];});
+                std::copy(
+                    rValueBuffer.begin(),
+                    rValueBuffer.end(),
+                    newEntries.begin() + iNewEntryBegin);
+                std::transform(
+                    rIndexBuffer.begin(),
+                    rIndexBuffer.end(),
+                    rIndexBuffer.begin(),
+                    [&newColumnIndices] (TIndex i) -> TIndex {return newColumnIndices[i];});
+                std::copy(
+                    rIndexBuffer.begin(),
+                    rIndexBuffer.end(),
+                    newColumnIndices.begin() + iNewEntryBegin);
         }; // reorderingKernel
 
         // Execute the reordering kernel.
         if (rMaybePool.has_value()) {
-            mp::ParallelFor<TIndex>(rMaybePool.value()).operator()(
-                rowCount,
-                reorderingKernel);
+            mp::ParallelFor<TIndex>(rMaybePool.value()).firstPrivate(
+                std::vector<TIndex>(),
+                std::vector<TValue>())
+                    .execute(
+                        rowCount,
+                        reorderingKernel);
         } /*if rMaybePool.has_value()*/ else {
-            for (TIndex iRow=0; iRow<static_cast<TIndex>(rowCount); ++iRow) reorderingKernel(iRow);
+            std::vector<TIndex> indexBuffer;
+            std::vector<TValue> valueBuffer;
+            for (TIndex iRow=0; iRow<static_cast<TIndex>(rowCount); ++iRow)
+                reorderingKernel(
+                    iRow,
+                    indexBuffer,
+                    valueBuffer);
         }
 
         // Overwrite input arrays.

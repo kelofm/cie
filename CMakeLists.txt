@@ -13,7 +13,7 @@ foreach(project_name ${library_names})
     endif()
 endforeach()
 
-set(executable_names "benchmarks;bad_apple;fem_examples")
+set(executable_names "benchmarks;bad_apple;fem_examples;geo_examples")
 foreach(project_name ${executable_names})
     string(TOUPPER ${project_name} project_name_upper)
     set(CIE_ENABLE_${project_name_upper} OFF CACHE BOOL "Configure ${project_name}.")

@@ -28,14 +28,14 @@ void integrateStiffness(
         auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
         const std::size_t quadratureBatchSize = rArguments.get<std::size_t>("integrand-batch-size");
 
-        using StiffnessIntegrand = TransformedIntegrand<
+        using Integrand = TransformedIntegrand<
             LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>,
             SpatialTransform::Inverse::Derivative>;
-        static_assert(maths::StaticExpression<StiffnessIntegrand>);
+        static_assert(maths::StaticExpression<Integrand>);
 
         std::vector<std::unique_ptr<IntegrandProcessor<
             Dimension,
-            StiffnessIntegrand
+            Integrand
         >>> integrandProcessors;
         std::vector<std::size_t> partitions;
         partitions.push_back(0ul);
@@ -45,11 +45,6 @@ void integrateStiffness(
             if (rArguments.get<bool>("sycl")) {
                 auto logBlock = utils::LoggerSingleton::get().newBlock("discover SYCL devices");
                 std::vector<sycl::device> devices;
-                //for (auto device : sycl::device::get_devices(sycl::info::device_type::cpu)) {
-                //    std::cout << device.get_info<sycl::info::device::name>() << std::endl;
-                //    devices.push_back(device);
-                //    break;
-                //} // for device
                 for (auto device : sycl::device::get_devices(sycl::info::device_type::gpu)) {
                     std::cout << device.get_info<sycl::info::device::name>() << std::endl;
                     devices.push_back(device);
@@ -60,7 +55,7 @@ void integrateStiffness(
                         contiguousCellData.size()));
                     integrandProcessors.emplace_back(std::make_unique<SYCLIntegrandProcessor<
                         Dimension,
-                        StiffnessIntegrand>>(std::make_shared<sycl::queue>(device)));
+                        Integrand>>(std::make_shared<sycl::queue>(device)));
                 } // for device in devices
                 partitions.back() = contiguousCellData.size();
             } else {
@@ -68,11 +63,11 @@ void integrateStiffness(
                 if (rThreads.size() == 1) {
                     integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                             Dimension,
-                            StiffnessIntegrand>>());
+                            Integrand>>());
                 } else {
                     integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
                         Dimension,
-                        StiffnessIntegrand>>(rThreads));
+                        Integrand>>(rThreads));
                 }
             }
         #else
@@ -80,12 +75,12 @@ void integrateStiffness(
             if (rThreads.size() == 1) {
                 integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                         Dimension,
-                        StiffnessIntegrand
+                        Integrand
                     >>());
             } else {
                 integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
                     Dimension,
-                    StiffnessIntegrand>>(rThreads));
+                    Integrand>>(rThreads));
             }
         #endif
         CIE_END_EXCEPTION_TRACING
@@ -95,7 +90,7 @@ void integrateStiffness(
             return rMesh.data().makeQuadratureRule();};
 
         const auto integrandFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
-            return StiffnessIntegrand(
+            return Integrand(
                 LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
                     rCell.diffusivity(),
                     Ansatz::Derivative(rMesh.data().ansatzDerivative(rCell.ansatzID()))),
@@ -108,14 +103,14 @@ void integrateStiffness(
                 cellIDs.size(),
                 [&lhs, &rAssembler, cellIDs, results] (std::size_t iCell) {
                     rAssembler.addContribution<tags::SMP,int>(
-                        std::span<const Scalar>(results.data() + iCell * StiffnessIntegrand::size(), StiffnessIntegrand::size()),
+                        std::span<const Scalar>(results.data() + iCell * Integrand::size(), Integrand::size()),
                         cellIDs[iCell],
                         lhs.rowExtents(),
                         lhs.columnIndices(),
                         lhs.entries());
                 });};
 
-        IntegrandProcessor<Dimension,StiffnessIntegrand>::Properties executionProperties {
+        IntegrandProcessor<Dimension,Integrand>::Properties executionProperties {
             .integrandBatchSize = quadratureBatchSize,
             .integrandsPerItem = {},
             .verbosity = 3};

@@ -68,13 +68,13 @@ public:
             : _value(value)
         {}
 
-        constexpr ArgumentCount(ArgumentCount&& r_rhs) = default;
+        constexpr ArgumentCount(ArgumentCount&& rRhs) = default;
 
-        constexpr ArgumentCount(const ArgumentCount& r_rhs) = default;
+        constexpr ArgumentCount(const ArgumentCount& rRhs) = default;
 
-        constexpr ArgumentCount& operator=(ArgumentCount&& r_rhs) = default;
+        constexpr ArgumentCount& operator=(ArgumentCount&& rRhs) = default;
 
-        constexpr ArgumentCount& operator=(const ArgumentCount& r_rhs) = default;
+        constexpr ArgumentCount& operator=(const ArgumentCount& rRhs) = default;
 
         friend bool operator==(const ArgumentCount lhs, const ArgumentCount rhs)
         {return lhs._value == rhs._value;}
@@ -140,15 +140,15 @@ public:
         bool empty() const;
 
         /// Check whether the internal container has a value for the specified key.
-        bool has(const Key& r_key) const;
+        bool has(const Key& rKey) const;
 
-        std::ranges::subrange<const_iterator> at(const Key& r_key) const;
+        std::ranges::subrange<const_iterator> at(const Key& rKey) const;
 
-        std::ranges::subrange<const_iterator> operator[](const Key& r_key) const;
+        std::ranges::subrange<const_iterator> operator[](const Key& rKey) const;
 
         /** Search for a key and convert its associated value to the specified type.
         *
-        *  @param r_key: key to be searched for in the internal container. An exception is thrown
+        *  @param rKey: key to be searched for in the internal container. An exception is thrown
         *                if the key is not found.
         *  @details This function redirectrects to @ref ArgParse::Results::ValueConverter::convert,
         *  which has specializations for a number of types. Missing specializations
@@ -157,7 +157,7 @@ public:
         *  For implemented specializations, see @ref ArgParse::Results::ValueConverter::convert.
         */
         template <class T>
-        T get(const Key& r_key) const;
+        T get(const Key& rKey) const;
 
         /** Convert a value to the desired type.
         *
@@ -202,51 +202,51 @@ public:
     /// @brief Default constructor initializing pimpl.
     ArgParse();
 
-    ArgParse(std::string&& r_name);
+    ArgParse(std::string&& rName);
 
-    ArgParse(const std::string& r_name);
+    ArgParse(const std::string& rName);
 
-    ArgParse(ArgParse&& r_rhs) = default;
+    ArgParse(ArgParse&& rRhs) = default;
 
-    ArgParse& operator=(ArgParse&& r_rhs) = default;
+    ArgParse& operator=(ArgParse&& rRhs) = default;
 
     /// @brief Explicit constructor required by pimpl.
     ~ArgParse();
 
     /// @brief Check whether an argument with the specified name exists
-    bool has(const Key& r_key) const;
+    bool has(const Key& rKey) const;
 
     /** @brief Add a positional argument.
      *
-     *  @param r_name name of the argument. Must not be empty.
-     *  @param r_optionals optional arguments (in any order):
+     *  @param rName name of the argument. Must not be empty.
+     *  @param rOptionals optional arguments (in any order):
      *                     - @p nArgs number of expected values. Must not be @ref ArgumentCount::None but may
      *                                be variable (@ref ArgumentCount::Any or @ref ArgumentCount::NonZero).
-     *                     - @p r_validator functor that validates each parsed value.
-     *                     - @p r_docString description/help for the variable.
+     *                     - @p rValidator functor that validates each parsed value.
+     *                     - @p rDocString description/help for the variable.
      *
      *  @details A positional argument is a required argument that expects at least one value before
      *           any keywords or flags are specified. Since they are not optional, positional arguments
      *           have no default arguments.
      */
     template <class ...TArgs>
-    ArgParse& addPositional(std::string&& r_name, TArgs&&... r_optionals);
+    ArgParse& addPositional(std::string&& rName, TArgs&&... rOptionals);
 
     /** @brief Add a keyword argument.
      *
-     *  @param r_keys container of keys with at least one item.
-     *  @param r_optionals optional arguments (in any order):
+     *  @param rKeys container of keys with at least one item.
+     *  @param rOptionals optional arguments (in any order):
      *                     - @p isOptional indicates whether the argument is optional.
                                         If false, @ref parseArguments throws an error if the argument
      *                                     is not found in the input.
      *                     - @p nArgs indicates how many values the argument expects. Pass @ref ArgumentCount::Any
      *                                or @ref ArgumentCount::NonZero for a variable number of values.
-     *                     - @p r_validator functor that validates each parsed value.
+     *                     - @p rValidator functor that validates each parsed value.
      *                     - @p r_defaultValue container of default values which are used if the argument
      *                                         is not found during parsing. Non-optional arguments must not
      *                                         have default values. If the argument is optional, the number
      *                                         of default values must match @p nArgs.
-     *                     - @p r_docString description/help for the variable.
+     *                     - @p rDocString description/help for the variable.
      *
      *  @details A keyword is an optional or required argument that is identified by at least one key,
      *           and may expect any number of values except 0. Values of keyword arguments must follow
@@ -255,13 +255,13 @@ public:
      *           - beginning with '--' followed by a single English character [a-zA-Z] then any number of alphanumeric characters [a-zA-Z0-9]
      */
     template <class ...TArgs>
-    ArgParse& addKeyword(KeyContainer&& r_keys, TArgs&&... r_optionals);
+    ArgParse& addKeyword(KeyContainer&& rKeys, TArgs&&... rOptionals);
 
     /** @brief Add a flag.
      *
-     *  @param r_keys a container of keys with at least one item.
-     *  @param r_optionals optional arguments (in any order):
-     *                     - @p r_docString description/help for the variable.
+     *  @param rKeys a container of keys with at least one item.
+     *  @param rOptionals optional arguments (in any order):
+     *                     - @p rDocString description/help for the variable.
      *
      *  @details A flag is an optional variable that must not expect explicit values,
      *           but has a binary true/false value depending whether it is set or not respectively.
@@ -270,7 +270,7 @@ public:
      *           - beginning with '--' followed by a single English character [a-zA-Z] then any number of alphanumeric characters [a-zA-Z0-9]
      */
     template <class ...TArgs>
-    ArgParse& addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals);
+    ArgParse& addFlag(KeyContainer&& rKeys, TArgs&&... rOptionals);
 
     /** @brief Deduce the argument type and add it to the list
      *
@@ -292,8 +292,8 @@ public:
      *               - does not have a default value (but has a built-in false value if not set)
      *               - does not have any arguments
      *
-     *  @param r_name unique name of the argument
-     *  @param r_keys container of keys
+     *  @param rName unique name of the argument
+     *  @param rKeys container of keys
      *  @param isOptional indicates whether the argument is optional.
      *                    If false, @ref parseArguments throws an error if the argument
      *                    is not found in the input.
@@ -301,20 +301,20 @@ public:
      *               or @ref ArgumentCount::NonZero for a variable number of values, in which case
      *               values will be consumed greedily during parsing. Only one positional argument
      *               is allowed to have a variable number of arguments.
-     *  @param r_validator functor that validates each parsed value
+     *  @param rValidator functor that validates each parsed value
      *  @param r_defaultValue container of default values which are used if the argument
      *                        is not found during parsing. Non-optional arguments must not
      *                        have default values. If the argument is optional, the number
      *                        of default values must match @p nArgs.
-     *  @param r_docString description/help for the argument
+     *  @param rDocString description/help for the argument
      */
-    ArgParse& addArgument(std::string&& r_name,
-                          KeyContainer&& r_keys,
+    ArgParse& addArgument(std::string&& rName,
+                          KeyContainer&& rKeys,
                           bool isOptional,
                           ArgumentCount nArgs,
-                          const Validator& r_validator,
+                          const Validator& rValidator,
                           DefaultValue&& r_defaultValue,
-                          std::string&& r_docString);
+                          std::string&& rDocString);
 
     /** @brief Parse the input arguments and return a map containing all parsed and default values
      *
@@ -333,9 +333,9 @@ public:
     std::ostream& help(std::ostream& r_stream) const;
 
 private:
-    ArgParse(const ArgParse& r_rhs) = delete;
+    ArgParse(const ArgParse& rRhs) = delete;
 
-    ArgParse& operator=(const ArgParse& r_rhs) = delete;
+    ArgParse& operator=(const ArgParse& rRhs) = delete;
 
 public:
     /** @brief Return a regex-based validator checking basic types.

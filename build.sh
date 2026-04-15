@@ -80,7 +80,7 @@ esac
 while getopts ":a: h p t: b: c: i: j: o:" arg; do
     case "$arg" in
         a)  # Add a project to the list of compiled ones.
-            [[ "$OPTARG" = "cieutils" || "$OPTARG" = "linalg" || "$OPTARG" = "geo" || "$OPTARG" = "fem" || "$OPTARG" = "ciegl" || "$OPTARG" = "bad_apple" || "$OPTARG" = "benchmarks" || "$OPTARG" = "fem_examples" ]] || (print_help && echo "Invalid project name: '$OPTARG'" && exit 1)
+            [[ "$OPTARG" = "cieutils" || "$OPTARG" = "linalg" || "$OPTARG" = "geo" || "$OPTARG" = "fem" || "$OPTARG" = "ciegl" || "$OPTARG" = "bad_apple" || "$OPTARG" = "benchmarks" || "$OPTARG" = "fem_examples" || "$OPTARG" = "geo_examples" ]] || (print_help && echo "Invalid project name: '$OPTARG'" && exit 1)
             projectNameUpper=$(printf '%s\n' "$OPTARG" | awk '{ print toupper($0) }')
             projects+=("-DCIE_ENABLE_$projectNameUpper=ON")
             ;;
