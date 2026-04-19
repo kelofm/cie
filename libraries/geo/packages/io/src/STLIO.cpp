@@ -43,7 +43,7 @@ STLIO::Input<TV,D>::Input(Ref<std::istream> rStream)
 
 
 template <class TV, unsigned D>
-STLIO::Input<TV,D>::~Input<TV,D>() = default;
+STLIO::Input<TV,D>::~Input() = default;
 
 
 template <class TV, unsigned D>
@@ -62,16 +62,6 @@ void readSTL(
         [[maybe_unused]] Ptr<TV> itNormal = normals.data();
         std::array<float,3> buffer;
         for (std::size_t iTriangle=0ul; iTriangle<triangleCount; ++iTriangle) {
-            rStream.read(
-                reinterpret_cast<Ptr<char>>(buffer.data()),
-                D * sizeof(float));
-            std::copy_n(
-                buffer.data(),
-                D,
-                itCoordinate);
-            if (D != 3) rStream.ignore((3 - D) * sizeof(float));
-            itCoordinate += D;
-
             if constexpr (ReadNormals) {
                 rStream.read(
                     reinterpret_cast<Ptr<char>>(buffer.data()),
@@ -81,7 +71,23 @@ void readSTL(
                     3,
                     itNormal);
                 itNormal += 3;
+            } else {
+                rStream.ignore(3 * sizeof(float));
             }
+
+            for (std::size_t iVertex=0ul; iVertex<3; ++iVertex) {
+                rStream.read(
+                    reinterpret_cast<Ptr<char>>(buffer.data()),
+                    D * sizeof(float));
+                std::copy_n(
+                    buffer.data(),
+                    D,
+                    itCoordinate);
+                if (D != 3) rStream.ignore((3 - D) * sizeof(float));
+                itCoordinate += D;
+            }
+
+            rStream.ignore(sizeof(std::uint16_t));
         }
 }
 
@@ -91,15 +97,15 @@ void STLIO::Input<TV,D>::execute(
     std::span<TV> coordinates,
     std::span<TV> normals) {
         CIE_CHECK(
-            coordinates.size() == D * _pImpl->triangleCount,
+            coordinates.size() == 3 * D * _pImpl->triangleCount,
             std::format(
                 "expecting coordinate array of size {} for {} {}D triangles, but got {}",
-                D * _pImpl->triangleCount,
+                3 * D * _pImpl->triangleCount,
                 _pImpl->triangleCount,
                 D,
                 coordinates.size()))
         CIE_CHECK(
-            normals.size() == 3 * _pImpl->triangleCount,
+            normals.empty() || normals.size() == 3 * _pImpl->triangleCount,
             std::format(
                 "expecting normal array of size {} for {} {}D triangles, but got {}",
                 3 * _pImpl->triangleCount,
@@ -144,7 +150,7 @@ STLIO::Output<TV,D>::Output(Ref<std::ostream> rStream)
 
 
 template <class TV, unsigned D>
-STLIO::Output<TV,D>::~Output<TV,D>() = default;
+STLIO::Output<TV,D>::~Output() = default;
 
 
 template <class TV, unsigned D, bool WriteNormals>

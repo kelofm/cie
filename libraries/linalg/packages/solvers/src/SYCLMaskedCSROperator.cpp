@@ -1,8 +1,9 @@
+#ifdef CIE_ENABLE_SYCL
+
 // --- Linalg Includes ---
 #include "packages/solvers/inc/SYCLMaskedCSROperator.hpp"
 
 // --- Utility Includes ---
-#include "hipSYCL/sycl/libkernel/group_functions.hpp"
 #include "packages/macros/inc/checks.hpp"
 
 
@@ -122,3 +123,5 @@ template class SYCLMaskedCSROperator<std::size_t,double,double>;
 
 
 } // namespace cie::linalg
+
+#endif

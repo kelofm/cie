@@ -114,7 +114,7 @@ public:
 
     auto operator[](VertexID vertexID) const {
         const auto it = _dofMap.find(vertexID);
-        CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end())
+        CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end(), vertexID)
         return this->makeIndexView(it->second);
     }
 

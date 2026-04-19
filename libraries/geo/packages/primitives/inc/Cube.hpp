@@ -10,7 +10,6 @@
 
 // --- STL Includes ---
 #include <tuple>
-#include <array>
 
 
 namespace cie::geo {
@@ -19,8 +18,7 @@ namespace cie::geo {
 /// Cube template
 template < Size Dimension,
            concepts::Numeric CoordinateType = Double>
-class Cube : public AbsPrimitive<Dimension,CoordinateType>
-{
+class Cube : public AbsPrimitive<Dimension,CoordinateType> {
 public:
     using primitive_constructor_arguments
         = std::tuple<typename Cube::Point, typename Cube::Coordinate>;
@@ -52,14 +50,24 @@ protected:
 };
 
 
+template <class T>
+concept CubeLike
+= cie::concepts::Primitive<T>
+  && requires ( T instance, const T constInstance ) {
+    { instance.base() }         -> std::same_as<typename T::Point&>;
+    { constInstance.base() }    -> std::same_as<const typename T::Point&>;
+    { instance.length() }       -> std::same_as<typename T::Coordinate&>;
+    { constInstance.length() }  -> std::same_as<const typename T::Coordinate&>;
+};
+
+
 namespace boolean {
 
 /// Cube with point membership test
 template <Size Dimension, concepts::Numeric CoordinateType = Double>
 class Cube :
     public cie::geo::Cube<Dimension,CoordinateType>,
-    public Object<Dimension,Bool,CoordinateType>
-{
+    public Object<Dimension,Bool,CoordinateType> {
 public:
     Cube( const typename Cube<Dimension,CoordinateType>::Point& r_base,
           CoordinateType length );
@@ -76,23 +84,6 @@ public:
 
 
 } // namespace cie::geo
-
-
-
-namespace cie::concepts {
-
-template <class T>
-concept Cube
-= Primitive<T>
-  && requires ( T instance, const T constInstance )
-{
-    { instance.base() }         -> std::same_as<typename T::Point&>;
-    { constInstance.base() }    -> std::same_as<const typename T::Point&>;
-    { instance.length() }       -> std::same_as<typename T::Coordinate&>;
-    { constInstance.length() }  -> std::same_as<const typename T::Coordinate&>;
-};
-
-} // namespace cie::concepts
 
 
 

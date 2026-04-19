@@ -19,7 +19,7 @@ namespace cie::geo {
 
 
 namespace detail {
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 typename TPrimitive::Point getVertexOnPrimitive(const TPrimitive& r_primitive,
                                                 Size vertexIndex);
 
@@ -32,7 +32,7 @@ typename TPrimitive::Point getVertexOnPrimitive(const TPrimitive& r_primitive,
 
 template < concepts::Object TTarget,
            class TPrimitive = geo::Cube<TTarget::Dimension,typename TTarget::Coordinate> >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 class UnstructuredMarchingCubes : public UnstructuredMarchingPrimitives<TTarget,TPrimitive>
 {
 public:
@@ -65,7 +65,7 @@ protected:
 
 template <concepts::Object TTarget,
           class TPrimitive = geo::Cube<TTarget::Dimension,typename TTarget::Coordinate>>
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 class StructuredMarchingCubes : public StructuredMarchingPrimitives<TTarget,TPrimitive>
 {
 private:
@@ -108,7 +108,7 @@ public:
 
 private:
     /// Check whether the mesh domain can be discretized with cubes
-    template <concepts::Cube T>
+    template <geo::CubeLike T>
     void checkMesh() const;
 
     /// Do nothing

@@ -140,7 +140,10 @@ concept JacobianExpression
 /// @ingroup fem
 template <class T>
 concept SpatialTransform
-= Expression<T> && requires (const std::remove_cvref_t<T> constInstance) {
+=  Expression<T>
+&& concepts::Integer<std::remove_cvref_t<decltype(std::remove_cvref_t<T>::ParametricDimension)>>
+&& concepts::Integer<std::remove_cvref_t<decltype(std::remove_cvref_t<T>::PhysicalDimension)>>
+&& requires (const std::remove_cvref_t<T> constInstance) {
     /// @details Require a derivative factory. The derivative type need not be a @p SpatialTransform,
     ///          but it must satisfy @ref JacobianExpression that is used for computing
     ///          @ref IntegrandTransform "transformed integrals" (they require the Jacobian's determinant).

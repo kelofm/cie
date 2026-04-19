@@ -7,7 +7,6 @@
 #include "poisson2D/solver.hpp"
 
 // --- Linalg Includes ---
-#include "hipSYCL/sycl/device_selector.hpp"
 #include "packages/utilities/inc/reorder.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/CSROperator.hpp"
@@ -233,6 +232,9 @@ void solveMultigrid(
 }
 
 
+#ifdef CIE_ENABLE_SYCL
+
+
 void solveSYCLCG(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
@@ -439,6 +441,9 @@ void solveSYCLMultigrid(
 }
 
 
+#endif
+
+
 void solveJacobi(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
@@ -536,12 +541,16 @@ void solve(
         const std::string solver = rArguments.get<std::string>("solver");
         if (solver == "cg") {
             solveCG(lhs, solution, rhs, rThreads);
+
+        #ifdef CIE_ENABLE_SYCL
         } else if (solver == "cg-sycl") {
             solveSYCLCG(lhs, solution, rhs);
-        } else if (solver == "multigrid") {
-            solveMultigrid(lhs, solution, rhs, rAssembler, rThreads);
         } else if (solver == "multigrid-sycl") {
             solveSYCLMultigrid(lhs, solution, rhs, rAssembler);
+        #endif
+
+        } else if (solver == "multigrid") {
+            solveMultigrid(lhs, solution, rhs, rAssembler, rThreads);
         } else if (solver == "jacobi") {
             solveJacobi(lhs, solution, rhs, rThreads);
         } else if (solver == "cg-eigen") {

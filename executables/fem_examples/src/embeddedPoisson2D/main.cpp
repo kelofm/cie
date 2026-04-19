@@ -12,6 +12,9 @@
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"
 
+// --- GEO Includes ---
+#include "packages/io/inc/STLIO.hpp"
+
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
@@ -24,7 +27,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
 
-    // Read the boundary input and set mesh boundaries.
+    // Read the dirichlet input and set mesh boundaries.
     const auto tesselatedBoundary = makeBoundary(rArguments);
     std::array<Scalar,2> meshBase {
             std::numeric_limits<Scalar>::max(),
@@ -44,6 +47,44 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             }
         }
     }
+
+    // Read domain input and extend mesh boundaries if necessary.
+    std::vector<std::pair<
+        MeshData::DomainData,
+        std::vector<Scalar>
+    >> domainTriangles;
+    std::vector<std::pair<MeshData::DomainData,Scalar>> domainMap;
+    domainMap.emplace_back(
+        0,
+        rArguments.get<double>("default-domain-scale"));
+    {
+        for ([[maybe_unused]] const auto& [_, rDomainFileName] : rArguments["domain-file-path"]) {
+            std::cout << "reading " << rDomainFileName << std::endl;
+            domainTriangles.push_back({
+                static_cast<MeshData::DomainData>(domainTriangles.size() + 1),
+                {}});
+            const std::filesystem::path domainFilePath(rDomainFileName);
+            std::ifstream domainFile(domainFilePath, std::ios::binary);
+            cie::io::STLIO::Input<Scalar,Dimension> io(domainFile);
+            domainTriangles.back().second.resize(io.triangleCount() * 3 * Dimension);
+            io.execute(domainTriangles.back().second);
+
+            for (std::size_t iVertex=0ul; iVertex<3*io.triangleCount(); ++iVertex) {
+                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
+                    meshBase[iDimension] = std::min<Scalar>(
+                        meshBase[iDimension],
+                        domainTriangles.back().second[iVertex * Dimension + iDimension]);
+                    meshLengths[iDimension] = std::max<Scalar>(
+                        meshLengths[iDimension],
+                        domainTriangles.back().second[iVertex * Dimension + iDimension]);
+                }
+            }
+
+            domainMap.emplace_back(domainTriangles.back().first, 1);
+        }
+    }
+
+    // Extend the mesh domain.
     meshLengths.front() = (1.0 + 2e-2) * (meshLengths.front() - meshBase.front());
     meshLengths.back()  = (1.0 + 2e-2) * (meshLengths.back() - meshBase.back());
     meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (meshLengths.front());
@@ -58,6 +99,8 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         mesh,
         meshBase,
         meshLengths,
+        std::move(domainTriangles),
+        domainMap,
         rArguments);
 
     {
@@ -86,17 +129,19 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             mesh.data().ansatz(0ul).size());
     } // parse mesh topology
 
+    DynamicArray<CellData> contiguousCellData;
+    contiguousCellData.reserve(mesh.vertices().size());
+    std::ranges::transform(
+        mesh.vertices(),
+        std::back_inserter(contiguousCellData),
+        [](Ref<const Mesh::Vertex> rCell){return rCell.data();});
+
     // Construct a bounding volume hierarchy over the cells to accelerate
     // point membership tests. Running on accelerator devices also requires
     // - the cell data to be available in a contiguous array
     // - the cell data to be self contained (no pointers and heap storage)
-    auto bvh = makeBoundingVolumeHierarchy(mesh, meshBase, meshLengths);
+    auto bvh = makeBoundingVolumeHierarchy(contiguousCellData, meshBase, meshLengths);
     const auto bvhView = bvh.makeView();
-    DynamicArray<CellData> contiguousCellData(mesh.vertices().size());
-    std::ranges::transform(
-        mesh.vertices(),
-        contiguousCellData.data(),
-        [](Ref<const Mesh::Vertex> rCell){return rCell.data();});
 
     // Create empty CSR matrix
     int rowCount, columnCount;
@@ -180,9 +225,13 @@ int main(int argc, const char** argv) {
     parser
         .addKeyword(
             {"--boundary-file-path"},
-            cie::utils::ArgParse::DefaultValue {"boundary.csv"},
-            //cie::utils::ArgParse::validatorFactory<std::filesystem::path>(),
+            cie::utils::ArgParse::DefaultValue {"dirichlet.csv"},
             "Path to the boundary definition file.")
+        .addKeyword(
+            {"--domain-file-path"},
+            cie::utils::ArgParse::DefaultValue {"domain.stl"},
+            cie::utils::ArgParse::ArgumentCount::NonZero,
+            "Paths to STL files defining the domain(s).")
         .addKeyword(
             {"-r", "--resolution"},
             cie::utils::ArgParse::DefaultValue {"31"},
@@ -249,6 +298,11 @@ int main(int argc, const char** argv) {
             cie::utils::ArgParse::DefaultValue {"1e6"},
             cie::utils::ArgParse::validatorFactory<double>(),
             "Penalty value for the weak imposition of Dirichlet boundary conditions.")
+        .addKeyword(
+            {"--default-domain-scale"},
+            cie::utils::ArgParse::DefaultValue {std::to_string(std::numeric_limits<cie::fem::Scalar>::epsilon())},
+            cie::utils::ArgParse::validatorFactory<double>(),
+            "Material property scale of the default domain.")
         .addKeyword(
             {"--integrand-batch-size"},
             cie::utils::ArgParse::DefaultValue {"0x8000"},

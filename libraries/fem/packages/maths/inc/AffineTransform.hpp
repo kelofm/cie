@@ -27,6 +27,10 @@ private:
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension,Dimension>;
 
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(AffineTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Span;

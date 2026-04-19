@@ -177,7 +177,7 @@ void Assembler::addContribution(
                     rDofMap[iLocalColumn]);
                 CIE_OUT_OF_RANGE_CHECK(
                     itColumnIndex != columnIndices.begin() + iRowEnd
-                    && *itColumnIndex == rDofMap[iLocalColumn]);
+                    && *itColumnIndex == static_cast<TIndex>(rDofMap[iLocalColumn]));
                 const auto iEntry = std::distance(columnIndices.begin(), itColumnIndex);
 
                 if constexpr (TParallelism::id() == tags::SMP::id()) {

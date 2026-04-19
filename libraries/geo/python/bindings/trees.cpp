@@ -44,7 +44,7 @@ public:
         // Get node geometry from the tree
         typename TTree::Coordinate base[TTree::Dimension], edges[TTree::Dimension];
         this->_p_tree->getNodeGeometry(*this->_p_node, base, edges);
-        if constexpr (concepts::Cube<TTree>) { // <== all edges of a cube are of equal length
+        if constexpr (geo::CubeLike<TTree>) { // <== all edges of a cube are of equal length
             std::fill(edges + 1, edges + TTree::Dimension, *edges);
         }
 

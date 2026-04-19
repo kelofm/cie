@@ -18,7 +18,7 @@ namespace cie::gl {
 
 
 template <concepts::MarchingPrimitives TObject>
-requires concepts::Cube<typename TObject::primitive_type>
+requires geo::CubeLike<typename TObject::primitive_type>
 Plot2<TObject>::Plot2(TObject& r_marchingCubes) :
     AbsPlot2<std::true_type>()
 {
@@ -64,7 +64,7 @@ Plot2<TObject>::Plot2(TObject& r_marchingCubes) :
 
 
 template <concepts::MarchingPrimitives TObject>
-requires concepts::Cube<typename TObject::primitive_type>
+requires geo::CubeLike<typename TObject::primitive_type>
 void plot2(TObject& r_marchingCubes)
 {
     Plot2<TObject>(r_marchingCubes).show();

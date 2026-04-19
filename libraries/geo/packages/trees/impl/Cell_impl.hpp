@@ -2,6 +2,7 @@
 #define CIE_GEO_TREES_CELL_IMPL_HPP
 
 // --- Utility Includes ---
+#include "packages/trees/inc/Cell.hpp"
 #include "packages/exceptions/inc/exception.hpp"
 #include "packages/stl_extension/inc/resize.hpp"
 #include "packages/maths/inc/power.hpp"
@@ -14,12 +15,12 @@ namespace cie::geo {
 /* --- Cube cell --- */
 
 // 2 children per dimension
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 const typename Cell<TPrimitive>::IndexConverter
     Cell<TPrimitive>::_childIndexConverter(2);
 
 
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 Cell<TPrimitive>::Cell(const typename Cell<TPrimitive>::Point& base,
                        typename Cell<TPrimitive>::Coordinate length) :
     Cell<TPrimitive>::CellBase(base, length)
@@ -27,7 +28,7 @@ Cell<TPrimitive>::Cell(const typename Cell<TPrimitive>::Point& base,
 }
 
 
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 inline typename Cell<TPrimitive>::primitive_constructor_container
 Cell<TPrimitive>::split_internal(const typename Cell<TPrimitive>::Point&)
 {
@@ -56,7 +57,7 @@ Cell<TPrimitive>::split_internal(const typename Cell<TPrimitive>::Point&)
 
 
 
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 inline typename Cell<TPrimitive>::primitive_constructor_container
 Cell<TPrimitive>::split(const typename Cell<TPrimitive>::Point& r_point)
 {
@@ -64,7 +65,7 @@ Cell<TPrimitive>::split(const typename Cell<TPrimitive>::Point& r_point)
 }
 
 
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 inline typename Cell<TPrimitive>::primitive_constructor_container
 Cell<TPrimitive>::split()
 {

@@ -42,6 +42,11 @@ void generateMesh(
     Ref<Mesh> rMesh,
     std::span<const Scalar,2> meshBase,
     std::span<const Scalar,2> meshLengths,
+    RightRef<std::vector<std::pair<
+        MeshData::DomainData,
+        std::vector<Scalar>>>
+    > rDomainTriangles,
+    std::span<const std::pair<MeshData::DomainData,Scalar>> domainMap,
     Ref<const utils::ArgParse::Results> rArguments);
 
 

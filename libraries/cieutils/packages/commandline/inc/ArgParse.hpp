@@ -24,8 +24,7 @@ class AbsAggregateArgument;
 
 
 ///@ingroup cieutils
-class ArgParse : utils::NamedObject
-{
+class ArgParse : utils::NamedObject {
 public:
     CIE_DEFINE_CLASS_POINTERS(ArgParse)
 
@@ -101,8 +100,7 @@ public:
         int _value;
     }; // class ArgumentCount
 
-    class Results
-    {
+    class Results {
     public:
         using Key = ArgParse::Key;
 

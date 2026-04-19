@@ -51,6 +51,18 @@
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],
             "cwd" : "${workspaceRoot}"
+        },
+        {
+            "name": "embeddedPoisson2D",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/bin/embeddedPoisson2D",
+            "externalConsole": false,
+            "args" : [],
+            "environment" : [
+                {"name" : "OMP_NUM_THREADS", "value" : "1"}
+            ],
+            "cwd" : "${workspaceRoot}"
         }
     ]
 }

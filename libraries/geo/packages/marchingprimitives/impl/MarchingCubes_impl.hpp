@@ -20,7 +20,7 @@ namespace cie::geo {
 
 
 namespace detail {
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 inline typename TPrimitive::Point
 getVertexOnPrimitive( const TPrimitive& r_primitive,
                       Size vertexIndex )
@@ -60,7 +60,7 @@ getVertexOnPrimitive( const TPrimitive& r_primitive,
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 UnstructuredMarchingCubes<TTarget,TPrimitive>::UnstructuredMarchingCubes(target_ptr p_target,
                                                                          primitive_container_ptr p_primitives,
                                                                          output_functor outputFunctor ) :
@@ -76,7 +76,7 @@ UnstructuredMarchingCubes<TTarget,TPrimitive>::UnstructuredMarchingCubes(target_
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 inline Size
 UnstructuredMarchingCubes<TTarget,TPrimitive>::primitiveVertexCount() const
 {
@@ -86,7 +86,7 @@ UnstructuredMarchingCubes<TTarget,TPrimitive>::primitiveVertexCount() const
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 inline typename UnstructuredMarchingCubes<TTarget,TPrimitive>::Point
 UnstructuredMarchingCubes<TTarget,TPrimitive>::getVertexOnPrimitive(const TPrimitive& r_primitive,
                                                                     Size vertexIndex) const
@@ -101,7 +101,7 @@ UnstructuredMarchingCubes<TTarget,TPrimitive>::getVertexOnPrimitive(const TPrimi
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 StructuredMarchingCubes<TTarget,TPrimitive>::StructuredMarchingCubes( typename StructuredMarchingCubes<TTarget,TPrimitive>::target_ptr p_target,
                                                                             const typename StructuredMarchingCubes<TTarget,TPrimitive>::Domain& r_domain,
                                                                             const typename StructuredMarchingCubes<TTarget,TPrimitive>::Resolution& r_numberOfPoints,
@@ -117,7 +117,7 @@ StructuredMarchingCubes<TTarget,TPrimitive>::StructuredMarchingCubes( typename S
 
 
 template <concepts::Object TTarget, class TPrimitive>
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 inline void
 StructuredMarchingCubes<TTarget,TPrimitive>::getVertices(Size primitiveIndex,
                                                          Ref<DynamicArray<Point>> r_vertexContainer) const
@@ -141,7 +141,7 @@ StructuredMarchingCubes<TTarget,TPrimitive>::getVertices(Size primitiveIndex,
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 inline void
 StructuredMarchingCubes<TTarget,TPrimitive>::getGlobalVertexIndex(Size primitiveIndex,
                                                                   Size vertexIndex,
@@ -167,7 +167,7 @@ StructuredMarchingCubes<TTarget,TPrimitive>::getGlobalVertexIndex(Size primitive
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 inline Size
 StructuredMarchingCubes<TTarget,TPrimitive>::primitiveVertexCount() const
 {
@@ -177,7 +177,7 @@ StructuredMarchingCubes<TTarget,TPrimitive>::primitiveVertexCount() const
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 inline Size
 StructuredMarchingCubes<TTarget,TPrimitive>::numberOfRemainingPrimitives() const
 {
@@ -192,7 +192,7 @@ StructuredMarchingCubes<TTarget,TPrimitive>::numberOfRemainingPrimitives() const
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 typename StructuredMarchingCubes<TTarget,TPrimitive>::Point
 StructuredMarchingCubes<TTarget,TPrimitive>::getVertexOnPrimitive(const TPrimitive& r_primitive,
                                                                   Size vertexIndex) const
@@ -207,8 +207,8 @@ StructuredMarchingCubes<TTarget,TPrimitive>::getVertexOnPrimitive(const TPrimiti
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
-template <concepts::Cube T>
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
+template <geo::CubeLike T>
 void
 StructuredMarchingCubes<TTarget,TPrimitive>::checkMesh() const
 {
@@ -221,7 +221,7 @@ StructuredMarchingCubes<TTarget,TPrimitive>::checkMesh() const
 
 template < concepts::Object TTarget,
            class TPrimitive >
-requires (concepts::Cube<TPrimitive> || concepts::Box<TPrimitive>)
+requires (geo::CubeLike<TPrimitive> || concepts::Box<TPrimitive>)
 template <concepts::Box T>
 void
 StructuredMarchingCubes<TTarget,TPrimitive>::checkMesh() const

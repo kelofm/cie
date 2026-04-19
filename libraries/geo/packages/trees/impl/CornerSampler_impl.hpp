@@ -9,7 +9,7 @@
 namespace cie::geo {
 
 
-template <concepts::Cube PrimitiveType>
+template <geo::CubeLike PrimitiveType>
 CornerSampler<PrimitiveType>::CornerSampler()
 {
     CIE_BEGIN_EXCEPTION_TRACING
@@ -24,7 +24,7 @@ CornerSampler<PrimitiveType>::CornerSampler()
 }
 
 
-template <concepts::Cube PrimitiveType>
+template <geo::CubeLike PrimitiveType>
 inline Size
 CornerSampler<PrimitiveType>::size() const
 {
@@ -32,7 +32,7 @@ CornerSampler<PrimitiveType>::size() const
 }
 
 
-template <concepts::Cube PrimitiveType>
+template <geo::CubeLike PrimitiveType>
 typename PrimitiveType::Point
 CornerSampler<PrimitiveType>::getSamplePoint(const PrimitiveType& r_primitive,
                                              const Size index) const

@@ -13,7 +13,7 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue>
-AffineEmbedding<TValue,1u,2u>::AffineEmbedding(RightRef<AffineTransform<TValue,OutDimension>> rTransform) noexcept
+AffineEmbedding<TValue,1u,2u>::AffineEmbedding(RightRef<AffineTransform<TValue,PhysicalDimension>> rTransform) noexcept
     : _transform(std::move(rTransform))
 {
 }
@@ -36,14 +36,14 @@ AffineEmbedding<TValue,1u,2u>::makeDerivative() const
 
 
 template <concepts::Numeric TValue>
-AffineEmbeddingDerivative<TValue,1u,2u>::AffineEmbeddingDerivative(RightRef<typename AffineTransform<TValue,OutDimension>::Derivative> rTransformDerivative) noexcept
+AffineEmbeddingDerivative<TValue,1u,2u>::AffineEmbeddingDerivative(RightRef<typename AffineTransform<TValue,PhysicalDimension>::Derivative> rTransformDerivative) noexcept
     : _transformDerivative(std::move(rTransformDerivative))
 {
 }
 
 
 template <concepts::Numeric TValue>
-AffineEmbeddingInverse<TValue,2u,1u>::AffineEmbeddingInverse(RightRef<typename AffineTransform<TValue,InDimension>::Inverse> rTransform) noexcept
+AffineEmbeddingInverse<TValue,2u,1u>::AffineEmbeddingInverse(RightRef<typename AffineTransform<TValue,ParametricDimension>::Inverse> rTransform) noexcept
     : _transform(std::move(rTransform))
 {
 }
@@ -58,7 +58,7 @@ AffineEmbeddingInverse<TValue,2u,1u>::makeDerivative() const
 
 
 template <concepts::Numeric TValue>
-AffineEmbeddingInverseDerivative<TValue,2u,1u>::AffineEmbeddingInverseDerivative(RightRef<typename AffineTransform<TValue,InDimension>::Inverse::Derivative> rTransformDerivative) noexcept
+AffineEmbeddingInverseDerivative<TValue,2u,1u>::AffineEmbeddingInverseDerivative(RightRef<typename AffineTransform<TValue,ParametricDimension>::Inverse::Derivative> rTransformDerivative) noexcept
     : _transformDerivative(std::move(rTransformDerivative))
 {
 }

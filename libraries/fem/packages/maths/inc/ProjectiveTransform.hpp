@@ -40,6 +40,10 @@ private:
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
 
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Span;
@@ -48,7 +52,6 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-public:
     /// @brief Identity by default.
     ProjectiveTransformDerivative() noexcept;
 
@@ -92,6 +95,10 @@ private:
 template <concepts::Numeric TValue, unsigned Dimension>
 class ProjectiveTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransform)
 
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
@@ -110,7 +117,6 @@ public:
 
     using Point = typename Kernel<Dimension,TValue>::Point;
 
-public:
     /// @brief Identity transform by default
     ProjectiveTransform() noexcept;
 

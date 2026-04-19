@@ -100,7 +100,7 @@ PointContainer makeCartesianMesh( const typename GetTraitsT<TPoint>::Domain& r_d
 }
 
 
-template < concepts::Cube TPrimitive,
+template < geo::CubeLike TPrimitive,
            concepts::Container PrimitiveContainer >
 void makeCartesianMesh( const typename GetTraitsT<TPrimitive>::Resolution& r_numberOfPrimitives,
                         typename GetTraitsT<TPrimitive>::Coordinate edgeLength,
@@ -155,7 +155,7 @@ void makeCartesianMesh( const typename GetTraitsT<TPrimitive>::Resolution& r_num
 }
 
 
-template < concepts::Cube TPrimitive,
+template < geo::CubeLike TPrimitive,
            concepts::Container PrimitiveContainer >
 PrimitiveContainer makeCartesianMesh( const typename GetTraitsT<TPrimitive>::Resolution& r_numberOfPrimitives,
                                       typename GetTraitsT<TPrimitive>::Coordinate edgeLength,

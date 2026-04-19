@@ -1,3 +1,5 @@
+#ifdef CIE_ENABLE_SYCL
+
 #pragma once
 
 // --- Linalg Includes ---
@@ -56,3 +58,5 @@ protected:
 
 
 } // namespace cie::linalg
+
+#endif

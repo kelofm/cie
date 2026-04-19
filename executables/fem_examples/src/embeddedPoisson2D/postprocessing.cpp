@@ -103,9 +103,9 @@ void postprocess(
                     std::vector<unsigned> cellIDs(sampleCount);
                     std::vector<Scalar> sampleCoordinates(sampleCount * Dimension);
                     std::vector<Scalar>
-                        sampleStates(polynomialOrder * sampleCount),
-                        sampleLoads(polynomialOrder * sampleCount),
-                        sampleResiduals(polynomialOrder * sampleCount),
+                        sampleStates((polynomialOrder+1) * sampleCount),
+                        sampleLoads((polynomialOrder+1) * sampleCount),
+                        sampleResiduals((polynomialOrder+1) * sampleCount),
                         sampleState(sampleCount),
                         sampleLoad(sampleCount),
                         sampleResidual(sampleCount);

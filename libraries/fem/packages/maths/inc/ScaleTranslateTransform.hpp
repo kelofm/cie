@@ -31,6 +31,10 @@ class TranslateScaleTransform;
 template <concepts::Numeric TValue, unsigned Dimension>
 class ScaleTranslateTransformDerivative : public ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ScaleTranslateTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -86,6 +90,10 @@ private:
 template <concepts::Numeric TValue, unsigned Dimension>
 class ScaleTranslateTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ScaleTranslateTransform)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -156,9 +164,12 @@ private:
 /// @brief Class representing a translation followed by an independent scaling along orthogonal coordinate axes.
 /// @details Uniquely defines a mapping between axis-aligned hyperrectangles in D-dimensional space.
 template <concepts::Numeric TValue, unsigned Dimension>
-class TranslateScaleTransform : private ExpressionTraits<TValue>
-{
+class TranslateScaleTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(TranslateScaleTransform)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -242,7 +253,7 @@ template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
-    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) noexcept;
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject);
 }; // struct io::GraphML::Serializer<ScaleTranslateTransformDerivative<TValue,Dimension>>
 
 
@@ -250,7 +261,7 @@ template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
-    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept;
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject);
 }; // struct io::GraphML::Serializer<ScaleTranslateTransform<TValue,Dimension>>
 
 
@@ -261,15 +272,18 @@ struct GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
 
     using GraphML::DeserializerBase<Value>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view elementName,
-                               std::span<GraphML::AttributePair> attributes);
+    static void onElementBegin(
+        Ptr<void> pThis,
+        std::string_view elementName,
+        std::span<GraphML::AttributePair> attributes);
 
-    static void onText(Ptr<void> pThis,
-                       std::string_view data);
+    static void onText(
+        Ptr<void> pThis,
+        std::string_view data);
 
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName);
+    static void onElementEnd(
+        Ptr<void> pThis,
+        std::string_view elementName);
 
 private:
     std::array<TValue,Dimension * 2> _buffer;
@@ -278,9 +292,9 @@ private:
 
 template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>> {
-    void header(Ref<XMLElement> rElement) noexcept;
+    void header(Ref<XMLElement> rElement);
 
-    void operator()(Ref<XMLElement> rElement, Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) noexcept;
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject);
 }; // struct io::GraphML::Serializer<TranslateScaleTransform<TValue,Dimension>>
 
 

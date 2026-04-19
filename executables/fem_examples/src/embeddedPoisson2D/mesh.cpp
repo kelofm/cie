@@ -5,10 +5,6 @@
 #include "packages/maths/inc/LegendrePolynomial.hpp"
 #include "packages/maths/inc/LagrangePolynomial.hpp"
 
-// ---- GEO Includes ---
-#include "packages/partitioning/inc/AABBoxNode.hpp"
-#include "packages/trees/inc//ContiguousSpaceTree.hpp"
-
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
@@ -21,6 +17,11 @@ void generateMesh(
     Ref<Mesh> rMesh,
     std::span<const Scalar,2> meshBase,
     std::span<const Scalar,2> meshLengths,
+    RightRef<std::vector<std::pair<
+        MeshData::DomainData,
+        std::vector<Scalar>>>
+    > rDomainTriangles,
+    std::span<const std::pair<MeshData::DomainData,Scalar>> domainMap,
     Ref<const utils::ArgParse::Results> rArguments) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("generate mesh");
         const unsigned nodesPerDirection = rArguments.get<std::size_t>("r");
@@ -109,7 +110,10 @@ void generateMesh(
                 ansatzSpace = Ansatz(basisFunctions);
             }
 
-            rMesh.data() = MeshData(std::move(ansatzSpace));
+            rMesh.data() = MeshData(
+                std::move(ansatzSpace),
+                std::move(rDomainTriangles),
+                domainMap);
         }
 
         // Insert cells into the adjacency graph
@@ -144,6 +148,43 @@ void generateMesh(
                     transformed[1][1] = meshBase[1] + (iCellColumn + 1.0) * edgeLengths[1];
                 }
 
+                SpatialTransform transform(transformed.begin(), transformed.end());
+                bool isInDefaultDomain = false;
+                {
+                    // Ignore the cell if it lies completely inside the default domain.
+                    std::array<Scalar,Dimension*intPow(2,Dimension)> corners;
+                    std::vector<Scalar> buffer;
+                    buffer.resize(transform.bufferSize());
+                    std::size_t iCorner = 0ul;
+                    ParametricSpace<Dimension,Scalar,ParametricSpaceType::Cartesian>::iterateCorners(
+                        [&] (std::span<const std::uint8_t,Dimension> state) -> bool {
+                            CIE_CHECK(iCorner < intPow(2,Dimension), "")
+                            std::array<Scalar,Dimension> parametricCorner;
+                            std::transform(
+                                state.begin(),
+                                state.end(),
+                                parametricCorner.begin(),
+                                [] (std::uint8_t c) -> Scalar {return c ? 1 : -1;});
+                            transform.evaluate(
+                                parametricCorner,
+                                {corners.data() + iCorner * Dimension, Dimension},
+                                buffer);
+                            ++iCorner;
+                            return true;
+                        });
+
+                    std::array<MeshData::DomainData,intPow(2,Dimension)> subdomains;
+                    rMesh.data().subdomain(
+                        corners,
+                        subdomains);
+                    isInDefaultDomain = std::none_of(
+                        subdomains.begin(),
+                        subdomains.end(),
+                        [] (auto s) -> bool {return s;});
+                }
+
+                if (isInDefaultDomain) continue;
+
                 // Insert the cell into the adjacency graph (mesh) as a vertex
                 const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
                 Mesh::Vertex::Data data (
@@ -151,13 +192,11 @@ void generateMesh(
                     0ul,
                     1.0,
                     axes,
-                    SpatialTransform(transformed.begin(), transformed.end())
-                );
+                    std::move(transform));
                 rMesh.insert(Mesh::Vertex(
                     VertexID(iCell),
                     {}, ///< edges of the adjacency graph are added automatically during edge insertion
-                    std::move(data)
-                ));
+                    std::move(data)));
 
                 // Insert the current cell's connections to other cells already in the mesh.
                 // The rule here is that cells with lower manhattan distance from the origin
@@ -165,26 +204,33 @@ void generateMesh(
                 if (iCellRow) {
                     const Size iSourceCell = iCell - (nodesPerDirection - 1);
                     const Size iTargetCell = iCell;
-                    BoundaryID sharedBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
-                    rMesh.insert(Mesh::Edge(
-                        EdgeID(iBoundary++),
-                        {iSourceCell, iTargetCell},
-                        {sharedBoundary}
-                    ));
+
+                    if (rMesh.findVertex(iSourceCell).has_value()) {
+                        BoundaryID sharedBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
+                        rMesh.insert(Mesh::Edge(
+                            EdgeID(iBoundary++),
+                            {iSourceCell, iTargetCell},
+                            {sharedBoundary}));
+                    }
                 } // if iCellRow
 
                 if (iCellColumn) {
                     const Size iSourceCell = iCell - 1ul;
                     const Size iTargetCell = iCell;
-                    BoundaryID sharedBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
-                    rMesh.insert(Mesh::Edge(
-                        EdgeID(iBoundary++),
-                        {iSourceCell, iTargetCell},
-                        {sharedBoundary}
-                    ));
+
+                    if (rMesh.findVertex(iSourceCell).has_value()) {
+                        BoundaryID sharedBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
+                        rMesh.insert(Mesh::Edge(
+                            EdgeID(iBoundary++),
+                            {iSourceCell, iTargetCell},
+                            {sharedBoundary}
+                        ));
+                    }
                 } // if iCellColumn
             } // for iCellColumn in range(nodesPerDirection -1)
         } // for iCellRow in range(nodesPerDirection - 1)
+
+        std::cout << "generated " << rMesh.vertices().size() << " cells\n";
 }
 
 

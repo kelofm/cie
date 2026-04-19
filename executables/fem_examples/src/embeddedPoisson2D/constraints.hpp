@@ -8,6 +8,7 @@
 #include "packages/graph/inc/Assembler.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
+#include "packages/numeric/inc/QuadraturePointFactory.hpp"
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
@@ -70,7 +71,7 @@ using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
 
 
 BVH makeBoundingVolumeHierarchy(
-    Ref<Mesh> rMesh,
+    std::span<CellData> cells,
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths);
 

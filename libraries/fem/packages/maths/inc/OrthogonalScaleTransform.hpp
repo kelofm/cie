@@ -24,6 +24,10 @@ class OrthogonalScaleTransform;
 template <concepts::Numeric TValue, unsigned Dimension>
 class OrthogonalScaleTransformDerivative : public ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(OrthogonalScaleTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -70,6 +74,10 @@ private:
 template <concepts::Numeric TValue, unsigned Dimension>
 class OrthogonalScaleTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(OrthogonalScaleTransform)
 
     using typename ExpressionTraits<TValue>::Value;

@@ -182,6 +182,7 @@ std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rA
 
     CIE_BEGIN_EXCEPTION_TRACING
     const std::filesystem::path boundaryFile    = rArguments.get<std::filesystem::path>("boundary-file-path");
+    std::cout << "reading " << boundaryFile << std::endl;
     std::ifstream file(boundaryFile);
     const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
     const std::regex pattern(std::format(
@@ -349,13 +350,13 @@ imposeBoundaryConditions(
                 for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
                     Ptr<const Scalar> pResultsBegin = results.data() + iCell * (lhsEntryCount +rhsEntryCount);
                     const VertexID cellID = boundary.find(cellIDs[iCell]).value().data().getEmbeddingCell().id();
-                    rAssembler.addContribution<tags::Serial,int>(
+                    rAssembler.addContribution<tags::SMP,int>(
                         std::span<const Scalar>(pResultsBegin, lhsEntryCount),
                         cellID,
                         lhs.rowExtents(),
                         lhs.columnIndices(),
                         lhs.entries());
-                    rAssembler.addContribution<tags::Serial>(
+                    rAssembler.addContribution<tags::SMP>(
                         std::span<const Scalar>(pResultsBegin + lhsEntryCount, rhsEntryCount),
                         cellID,
                         std::span<Scalar>(rhs));
@@ -389,7 +390,7 @@ imposeBoundaryConditions(
 
 
 BVH makeBoundingVolumeHierarchy(
-    Ref<Mesh> rMesh,
+    std::span<CellData> cells,
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
@@ -416,8 +417,8 @@ BVH makeBoundingVolumeHierarchy(
             });
         root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
 
-        for (auto& rCell : rMesh.vertices()) {
-            root.insert(&rCell.data());
+        for (auto& rCell : cells) {
+            root.insert(&rCell);
         }
 
         root.partition(targetLeafWidth, maxTreeDepth);
@@ -425,7 +426,8 @@ BVH makeBoundingVolumeHierarchy(
 
         return BVH::flatten(
             root,
-            [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id();},
+            [&cells] (Ref<const CellData> rCellData) -> unsigned {
+                return std::distance<Ptr<const CellData>>(cells.data(), &rCellData);},
             std::allocator<std::byte>());
 }
 

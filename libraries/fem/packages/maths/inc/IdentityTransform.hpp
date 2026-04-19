@@ -14,9 +14,12 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-class IdentityTransform : public ExpressionTraits<TValue>
-{
+class IdentityTransform : public ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     using typename ExpressionTraits<TValue>::ConstSpan;
 
     using typename ExpressionTraits<TValue>::Span;

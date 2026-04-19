@@ -95,19 +95,20 @@ void integrateStiffness(
         CIE_END_EXCEPTION_TRACING
 
         CIE_BEGIN_EXCEPTION_TRACING
-        const auto quadratureRuleFactory = [&rMesh] (Ref<const Mesh::Vertex::Data>) {
-            return rMesh.data().makeQuadratureRule();};
+        const auto quadratureRuleFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
+            return rMesh.data().makeQuadratureRule(rCell);};
 
         const auto integrandFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
-            const std::array<std::pair<Scalar,Scalar>,2> materialMap {
-                std::pair<Scalar,Scalar> {0, std::numeric_limits<Scalar>::epsilon()},
-                std::pair<Scalar,Scalar> {1, 1}};
+            CIE_CHECK(rMesh.data().domainMap().size() == 2, "")
+            std::span<const std::pair<MeshData::DomainData,Scalar>,2> domainData(
+                rMesh.data().domainMap().data(),
+                2);
             return Integrand(
                 EmbeddedIntegrand(
                     IntegrandBase(
                         rCell.diffusivity(),
                         Ansatz::Derivative(rMesh.data().ansatzDerivative(rCell.ansatzID()))),
-                    materialMap),
+                    domainData),
                 rCell.makeJacobianInverse());};
 
         const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
@@ -122,7 +123,7 @@ void integrateStiffness(
                         lhs.entries());
                 });};
 
-        IntegrandProcessor<Dimension,Integrand>::Properties executionProperties {
+        IntegrandProcessor<Dimension,Integrand,Scalar>::Properties executionProperties {
             .integrandBatchSize = quadratureBatchSize,
             .integrandsPerItem = {},
             .verbosity = 3};

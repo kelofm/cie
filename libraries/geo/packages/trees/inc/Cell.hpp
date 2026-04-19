@@ -11,7 +11,7 @@
 namespace cie::geo {
 
 
-template <concepts::Cube PrimitiveType>
+template <geo::CubeLike PrimitiveType>
 class Cell<PrimitiveType> : public AbsCell<PrimitiveType> {
 private:
     using IndexConverter = CartesianIndexConverter<PrimitiveType::Dimension,Size,Size,tags::Eager>;

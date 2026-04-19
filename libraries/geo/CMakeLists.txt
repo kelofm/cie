@@ -51,7 +51,8 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         -Wpedantic
         -Wextra
         -Werror
-        -Wno-c2y-extensions)
+        -Wno-c2y-extensions
+        -Wno-dtor-name)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     add_compile_options(-Wall -Wpedantic -Wextra -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")

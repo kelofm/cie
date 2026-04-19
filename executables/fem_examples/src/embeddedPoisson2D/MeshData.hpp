@@ -20,7 +20,10 @@ public:
 
     MeshData();
 
-    MeshData(RightRef<Ansatz> rAnsatzSpace);
+    MeshData(
+        RightRef<Ansatz> rAnsatzSpace,
+        RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> domainTriangles,
+        std::span<const std::pair<DomainData,Scalar>> domainMap);
 
     KDTreeQuadraturePointFactory<
         Dimension,
@@ -28,9 +31,14 @@ public:
         CellData,
         Scalar> makeQuadratureRule(Ref<const CellData> rCell) const;
 
-    void subdomains(
+    void subdomain(
         std::span<const Scalar> points,
         std::span<DomainData> subdomains) const;
+
+    std::span<const std::pair<
+        DomainData,
+        Scalar>
+    > domainMap() const noexcept;
 
 private:
     friend struct io::GraphML::Serializer<MeshData>;
@@ -41,6 +49,16 @@ private:
     /// @details These quadrature points are used while constructing
     ///          cell-specific quadrature rules.
     std::vector<QuadraturePoint<Dimension,Scalar,Scalar>> _quadraturePointSet;
+
+    std::vector<std::pair<
+        DomainData,
+        std::vector<Scalar>>
+    > _domainTriangles;
+
+    std::vector<std::pair<
+        DomainData,
+        Scalar>
+    > _domainMap;
 }; // class MeshData
 
 

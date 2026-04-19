@@ -45,12 +45,12 @@ void ScaledMultiMaterialIntegrand<TI,MID,MC>::evaluate(
             materialID,
             [] (MID materialID, const auto& rPair) {return materialID < rPair.first;});
         if (itMaterialSentinel == _materialMap.begin()) {
-            scale = _materialMap.front();
+            scale = _materialMap.front().second;
         } else if (itMaterialSentinel == _materialMap.end()) {
-            scale = _materialMap.back();
+            scale = _materialMap.back().second;
         } else if constexpr (1 < MC) {
             const auto itMaterial = itMaterialSentinel - 1;
-            scale = (materialID - itMaterial->first) * itMaterial->second + (itMaterialSentinel->second - materialID) * itMaterialSentinel->second;
+            scale = itMaterial->second + (itMaterialSentinel->second - itMaterial->second) / (itMaterialSentinel->first - itMaterial->first) * (materialID - itMaterial->first);
         } else static_assert(MC == 1, "invalid material map");
         _integrand.evaluate(
             {in.data(), in.size() - 1},
