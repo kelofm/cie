@@ -371,7 +371,6 @@ imposeBoundaryConditions(
             maths::AffineEmbedding<Scalar,1u,Dimension>::Derivative>;
         const IntegrandProcessor<1,Integrand>::Properties executionProperties{
             .integrandBatchSize = rArguments.get<std::size_t>("integrand-batch-size"),
-            .integrandsPerItem = {},
             .verbosity = 3};
         auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
         const auto& rBoundaryCells = boundary.vertices();

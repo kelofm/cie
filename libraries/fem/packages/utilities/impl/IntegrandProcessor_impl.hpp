@@ -335,7 +335,6 @@ std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::Properties>
 IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
     return std::make_unique<Properties>(Properties {
         .integrandBatchSize = 0x8000,
-        .integrandsPerItem = 0x8,
         .verbosity = 1
     });
 }
@@ -537,9 +536,6 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         // Parse execution properties.
         auto pDefaultExecutionProperties = this->makeDefaultProperties();
-        const std::size_t integrandsPerItem = rExecutionProperties.integrandsPerItem.has_value()
-            ? rExecutionProperties.integrandsPerItem.value()
-            : pDefaultExecutionProperties->integrandsPerItem.value();
 
         // Allocate memory on the device.
         if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
@@ -586,7 +582,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         // Perform integration on the device.
         CIE_BEGIN_EXCEPTION_TRACING
-        const std::size_t workItemCount = rQuadraturePoints.size() / integrandsPerItem + bool(rQuadraturePoints.size() % integrandsPerItem);
+        const std::size_t workItemCount = rQuadraturePoints.size();
         const std::size_t itemsPerWorkGroup = std::min<std::size_t>(
             workItemCount,
             rQueue.get_device().get_info<sycl::info::device::max_work_group_size>());
@@ -604,57 +600,43 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                     pExtentEnd              = pDeviceExtents.get() + extentView.size(),
                     pQuadraturePointBegin   = pDeviceQuadraturePoints.get(),
                     pOutputBegin            = pDeviceOutput.get(),
-                    quadraturePointCount    = rQuadraturePoints.size(),
-                    integrandsPerItem
+                    quadraturePointCount    = rQuadraturePoints.size()
                 ] (sycl::nd_item<1> item) {
                     // Get work item index.
-                    //const std::size_t iItem = item.get(0);
                     const std::size_t iItem = item.get_global_linear_id();
-
-                    // Map to quadrature point range.
-                    const std::size_t iQuadraturePointBegin = std::min<std::size_t>(
-                        iItem * integrandsPerItem,
-                        quadraturePointCount);
-                    const std::size_t iQuadraturePointEnd   = std::min<std::size_t>(
-                        iQuadraturePointBegin + integrandsPerItem,
-                        quadraturePointCount);
 
                     // Find which integrand the first quadrature point belongs to.
                     Ptr<const typename Base::Impl::Extents::Value> pExtent = std::upper_bound(
                         pExtentBegin,
                         pExtentEnd,
-                        iQuadraturePointBegin,
+                        iItem,
                         [](std::size_t iQuadraturePoint, Ref<const typename Base::Impl::Extents::Value> rExtent) -> bool {
                             return iQuadraturePoint < rExtent.iQuadraturePointBegin;
                         }) - 1;
                     std::array<typename TIntegrand::Value,TIntegrand::size()> results;
                     std::array<typename TIntegrand::Value,TIntegrand::bufferSize()> integrandBuffer;
 
-                    // Loop through assigned quadrature points and evaluate their corresponding integrands.
-                    for (std::size_t iQuadraturePoint=iQuadraturePointBegin; iQuadraturePoint<iQuadraturePointEnd; ++iQuadraturePoint) {
-                        // Find which integrand the current quadrature point belongs to.
-                        for (; (pExtent + 1)->iQuadraturePointBegin <= iQuadraturePoint; ++pExtent) {}
-                        Ref<const TIntegrand> rIntegrand = pExtent->integrand;
+                    // Find which integrand the current quadrature point belongs to.
+                    Ref<const TIntegrand> rIntegrand = pExtent->integrand;
 
-                        // Evaluate the integrand at the current quadrature point.
-                        pQuadraturePointBegin[iQuadraturePoint].evaluate(
-                            rIntegrand,
-                            results,
-                            integrandBuffer);
+                    // Evaluate the integrand at the current quadrature point.
+                    pQuadraturePointBegin[iItem].evaluate(
+                        rIntegrand,
+                        results,
+                        integrandBuffer);
 
-                        // Reduce the results.
-                        std::span<typename TIntegrand::Value> output(
-                            pOutputBegin + std::distance<decltype(pExtent)>(pExtentBegin, pExtent) * TIntegrand::size(),
-                            TIntegrand::size());
-                        for (std::size_t iComponent=0ul; iComponent<TIntegrand::size(); ++iComponent) {
-                            sycl::atomic_ref<
-                                typename TIntegrand::Value,
-                                sycl::memory_order::relaxed,
-                                sycl::memory_scope::device,
-                                sycl::access::address_space::local_space
-                            >(output[iComponent]) += results[iComponent];
-                        } // for iComponent in range(TIntegrand::size())
-                    } // for iQuadraturePoint in range(iQuadraturePointBegin, iQuadraturePointEnd)
+                    // Reduce the results.
+                    std::span<typename TIntegrand::Value> output(
+                        pOutputBegin + std::distance<decltype(pExtent)>(pExtentBegin, pExtent) * TIntegrand::size(),
+                        TIntegrand::size());
+                    for (std::size_t iComponent=0ul; iComponent<TIntegrand::size(); ++iComponent) {
+                        sycl::atomic_ref<
+                            typename TIntegrand::Value,
+                            sycl::memory_order::relaxed,
+                            sycl::memory_scope::device,
+                            sycl::access::address_space::local_space
+                        >(output[iComponent]) += results[iComponent];
+                    } // for iComponent in range(TIntegrand::size())
                 });
             });
         rQueue.wait_and_throw();

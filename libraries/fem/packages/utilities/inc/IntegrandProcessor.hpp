@@ -29,7 +29,6 @@ public:
 
     struct Properties {
         std::optional<std::size_t>  integrandBatchSize;
-        std::optional<std::size_t>  integrandsPerItem;
         std::optional<std::uint8_t> verbosity;
     };
 

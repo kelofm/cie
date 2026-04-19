@@ -125,7 +125,6 @@ void integrateStiffness(
 
         IntegrandProcessor<Dimension,Integrand,Scalar>::Properties executionProperties {
             .integrandBatchSize = quadratureBatchSize,
-            .integrandsPerItem = {},
             .verbosity = 3};
 
         {
