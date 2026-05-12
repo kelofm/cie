@@ -1,0 +1,16 @@
+{
+    "$id" : "/cie/linalg/jacobi-sycl",
+    "description" : "Settings for Jacobi iterations using a SYCL backend.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/jacobi"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "jacobi-sycl"
+                }
+            }
+        }
+    ],
+    "required" : ["type"]
+}

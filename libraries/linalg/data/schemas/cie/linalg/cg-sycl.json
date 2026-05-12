@@ -1,0 +1,16 @@
+{
+    "$id" : "/cie/linalg/cg-sycl",
+    "description" : "Settings for a conjugate gradient solver with a SYCL backend.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/cg"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "cg-sycl"
+                }
+            }
+        }
+    ],
+    "required" : ["type"]
+}

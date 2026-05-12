@@ -82,37 +82,37 @@ Profiler<T>::Profiler()
 
 
 template <class T>
-Profiler<T>::Profiler(std::filesystem::path&& r_outputPath)
+Profiler<T>::Profiler(std::filesystem::path&& rOutputPath)
     : _itemContainerMap(),
       _p_scope(),
-      _outputPath(std::move(r_outputPath))
+      _outputPath(std::move(rOutputPath))
 {
     // Reserve thread map
     const auto numberOfThreads = std::thread::hardware_concurrency();
     std::vector<std::thread> threads;
     threads.reserve(numberOfThreads);
     std::atomic<unsigned> threadCounter = 0;
-    for (unsigned i_thread=0; i_thread<numberOfThreads; ++i_thread) {
-        threads.emplace_back([i_thread, &threadCounter, this](){
-            while (threadCounter < i_thread) {} // <== wait until the previous thread finishes
+    for (unsigned iThread=0; iThread<numberOfThreads; ++iThread) {
+        threads.emplace_back([iThread, &threadCounter, this](){
+            while (threadCounter < iThread) {} // <== wait until the previous thread finishes
             _itemContainerMap.emplace(std::this_thread::get_id(), std::list<Item> {});
             ++threadCounter;
         });
     }
-    for (auto& r_thread : threads)
-        r_thread.join();
+    for (auto& rThreads : threads)
+        rThreads.join();
 
     // Insert first item measuring the total runtime
-    auto& r_item = this->create(std::source_location());
-    _p_scope.reset(new Scope(r_item));
+    auto& rItem = this->create(std::source_location());
+    _p_scope.reset(new Scope(rItem));
 }
 
 
 template <class T>
-typename Profiler<T>::Item& Profiler<T>::create(std::source_location&& r_item)
+typename Profiler<T>::Item& Profiler<T>::create(std::source_location&& rItem)
 {
     auto& r_list = _itemContainerMap[std::this_thread::get_id()];
-    r_list.emplace_back(std::move(r_item));
+    r_list.emplace_back(std::move(rItem));
     return r_list.back();
 }
 
@@ -139,12 +139,18 @@ struct SourceLocationEquals
 
 
 template <class T>
-Profiler<T>::~Profiler()
-{
+Profiler<T>::~Profiler() {
     // Stop the total timer
     _p_scope.reset();
-    const auto totalTime = _itemContainerMap[std::this_thread::get_id()].front()._time;
-    _itemContainerMap[std::this_thread::get_id()].pop_front();
+
+    Duration totalTime;
+    {
+        const auto itItems = _itemContainerMap.find(std::this_thread::get_id());
+        if (itItems != _itemContainerMap.end()) {
+            totalTime = _itemContainerMap[std::this_thread::get_id()].front()._time;
+            _itemContainerMap[std::this_thread::get_id()].pop_front();
+        }
+    }
 
     std::unordered_map<
         std::source_location,
@@ -156,13 +162,13 @@ Profiler<T>::~Profiler()
     // Combine maps from all threads
     for (const auto& r_threadMapPair : _itemContainerMap)
     {
-        for (const auto& r_item : r_threadMapPair.second)
+        for (const auto& rItem : r_threadMapPair.second)
         {
-            auto it = aggregateMap.find(r_item._location);
+            auto it = aggregateMap.find(rItem._location);
             if (it == aggregateMap.end())
-                it = aggregateMap.emplace(r_item._location, r_item).first;
+                it = aggregateMap.emplace(rItem._location, rItem).first;
             else
-                it->second += r_item;
+                it->second += rItem;
         } // for item in vector
     } // for (location, vector) in map
 
@@ -202,19 +208,18 @@ Profiler<T>::~Profiler()
     }
 
     // Add all items
-    for (const auto& r_item : items)
-    {
+    for (const auto& rItem : items) {
         objects.emplace_back();
-        auto& r_object = objects.back();
-        const auto& r_location = std::get<0>(r_item);
-        r_object.add("file", std::string(r_location.file_name()));
-        r_object.add("line", int(r_location.line()));
-        r_object.add("function", std::string(std::get<0>(r_item).function_name()));
-        r_object.add("callCount", std::get<1>(r_item));
+        auto& rObject = objects.back();
+        const auto& r_location = std::get<0>(rItem);
+        rObject.add("file", std::string(r_location.file_name()));
+        rObject.add("line", int(r_location.line()));
+        rObject.add("function", std::string(std::get<0>(rItem).function_name()));
+        rObject.add("callCount", std::get<1>(rItem));
 
         std::stringstream stream;
-        stream << std::get<2>(r_item);
-        r_object.add("time", stream.str());
+        stream << std::get<2>(rItem);
+        rObject.add("time", stream.str());
     }
     root.add("results", objects);
 
@@ -224,12 +229,10 @@ Profiler<T>::~Profiler()
 
 
 template <class T>
-Profiler<T>& ProfilerSingleton<T>::get() noexcept
-{
+Profiler<T>& ProfilerSingleton<T>::get() noexcept {
     std::scoped_lock<std::mutex> lock(_mutex);
     if (!_profiler.has_value())
         _profiler.emplace();
-
     return _profiler.value();
 }
 

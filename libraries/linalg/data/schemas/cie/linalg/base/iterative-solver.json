@@ -1,0 +1,25 @@
+{
+    "$id" : "/cie/linalg/iterative-solver",
+    "description" : "Settings for configuring an iterative linear solver.",
+    "type" : "object",
+    "properties" : {
+        "max-iterations" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 1,
+            "description" : "Maximum number of iterations to perform."
+        },
+        "absolute-residual" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 0,
+            "description" : "Stop iterating once the residual's 2-norm drops below this value."
+        },
+        "relative-residual" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 0,
+            "description" : "Stop iterating once the residual's 2-norm divided by the initial residual's 2-norm drops below this value."
+        }
+    }
+}

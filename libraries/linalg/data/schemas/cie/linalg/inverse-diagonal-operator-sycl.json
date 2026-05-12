@@ -1,0 +1,12 @@
+{
+    "$id" : "/cie/linalg/inverse-diagonal-operator-sycl",
+    "description" : "Settings for an inverse diagonal operator using a SYCL backend.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "inverse-diagonal-operator-sycl"
+        }
+    },
+    "required" : ["type"],
+    "additionalProperties" : false
+}

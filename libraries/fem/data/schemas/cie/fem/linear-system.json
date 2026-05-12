@@ -1,0 +1,24 @@
+{
+    "$id" : "/cie/fem/linear-system",
+    "description" : "Settings related to the solution of the linear system.",
+    "type" : "object",
+    "properties" : {
+        "solver" : {"$ref" : "/cie/fem/linear-solver"},
+        "write-lhs" : {
+            "type" : ["string", "null"],
+            "default" : null,
+            "description" : "Path to write the LHS matrix to, or null."
+        },
+        "write-rhs" : {
+            "type" : ["string", "null"],
+            "default" : null,
+            "description" : "Path to write the RHS vector to, or null."
+        },
+        "write-solution" : {
+            "type" : ["string", "null"],
+            "default" : null,
+            "description" : "Path to write the solution vector to after execution, or null."
+        }
+    },
+    "additionalProperties" : false
+}

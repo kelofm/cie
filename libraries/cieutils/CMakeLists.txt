@@ -183,13 +183,16 @@ target_include_directories(
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/valijson/include>"
     INTERFACE
         "$<INSTALL_INTERFACE:include/cie>"
         "$<INSTALL_INTERFACE:include/cie/inc>"
         "$<INSTALL_INTERFACE:include/cie/external/tessil/include>"
+        "$<INSTALL_INTERFACE:include/cie/external/valijson/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/valijson/include>")
 set_target_properties(
     ${PROJECT_NAME}
     PROPERTIES

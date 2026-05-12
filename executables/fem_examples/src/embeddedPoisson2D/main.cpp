@@ -1,6 +1,6 @@
 // --- Internal Includes ---
-#include "packages/commandline/inc/ArgParse.hpp"
 #include "embeddedPoisson2D/definitions.hpp"
+#include "embeddedPoisson2D/configuration.hpp"
 #include "embeddedPoisson2D/MeshData.hpp"
 #include "embeddedPoisson2D/CellData.hpp"
 #include "embeddedPoisson2D/mesh.hpp"
@@ -16,8 +16,10 @@
 #include "packages/io/inc/STLIO.hpp"
 
 // --- Utility Includes ---
+#include "packages/commandline/inc/ArgParse.hpp"
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
@@ -26,6 +28,28 @@ namespace cie::fem {
 int main(Ref<const utils::ArgParse::Results> rArguments) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
+
+    const std::filesystem::path configPath = rArguments.get<std::filesystem::path>("config-path");
+    cie::io::JSONObject configuration;
+
+    // Read the provided configuration file.
+    CIE_BEGIN_EXCEPTION_TRACING
+        std::cout << "Read input configuration from " << configPath << ".\n";
+        std::ifstream configFile(configPath);
+        configuration = cie::io::JSONObject(configFile);
+    CIE_END_EXCEPTION_TRACING
+
+    // Validate the provided configuration and apply defaults to it.
+    CIE_BEGIN_EXCEPTION_TRACING
+        cie::io::JSONSchema configSchema;
+        makeSchema(configSchema);
+        configSchema.validate(configuration);
+        configSchema.fillFromDefaults(configuration);
+        std::cout << "Applied configuration:\n";
+        configuration.prettyPrint(std::cout);
+        std::cout << "\n";
+        return 0;
+    CIE_END_EXCEPTION_TRACING
 
     // Read the dirichlet input and set mesh boundaries.
     const auto tesselatedBoundary = makeBoundary(rArguments);
@@ -224,6 +248,9 @@ int main(int argc, const char** argv) {
     cie::utils::ArgParse parser("2D Poisson Example");
     parser
         .addKeyword(
+            {"--config-path", "-c"},
+            cie::utils::ArgParse::DefaultValue {"config.json"})
+        .addKeyword(
             {"--boundary-file-path"},
             cie::utils::ArgParse::DefaultValue {"dirichlet.csv"},
             "Path to the boundary definition file.")
@@ -248,12 +275,12 @@ int main(int argc, const char** argv) {
             "Type of basis polynomials to use (lagrange or integrated legendre)")
         .addKeyword(
             {"--min-boundary-tree-depth"},
-            cie::utils::ArgParse::DefaultValue {"3"},
+            cie::utils::ArgParse::DefaultValue {"0"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
             "Minimum number of splits before considering boundary segments for integration.")
         .addKeyword(
             {"--max-boundary-tree-depth"},
-            cie::utils::ArgParse::DefaultValue {"15"},
+            cie::utils::ArgParse::DefaultValue {"6"},
             cie::utils::ArgParse::validatorFactory<std::size_t>(),
             "Maximum number of segment splits on the boundary.")
         .addKeyword(
@@ -300,7 +327,7 @@ int main(int argc, const char** argv) {
             "Penalty value for the weak imposition of Dirichlet boundary conditions.")
         .addKeyword(
             {"--default-domain-scale"},
-            cie::utils::ArgParse::DefaultValue {std::to_string(std::numeric_limits<cie::fem::Scalar>::epsilon())},
+            cie::utils::ArgParse::DefaultValue {std::format("{:.6E}", std::numeric_limits<cie::fem::Scalar>::epsilon())},
             cie::utils::ArgParse::validatorFactory<double>(),
             "Material property scale of the default domain.")
         .addKeyword(

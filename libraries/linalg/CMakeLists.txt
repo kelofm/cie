@@ -137,3 +137,8 @@ export(TARGETS ${PROJECT_NAME}
        NAMESPACE cie::
        FILE ${PROJECT_NAME}Targets.cmake)
 export(PACKAGE ${PROJECT_NAME})
+
+# Install data
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/share/cie")

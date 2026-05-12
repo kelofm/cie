@@ -1,0 +1,26 @@
+{
+    "description" : "Settings related to a cartesian discretization.",
+    "type" : "object",
+    "properties" : {
+        "resolution" : {
+            "type" : "number",
+            "minimum" : 1,
+            "default" : 30,
+            "description" : "Number of cells to generate in each direction to cover the domain's bounding box."
+        },
+        "basis" : {
+            "type" : "string",
+            "enum" : ["legendre", "lagrange"],
+            "default" : "legendre",
+            "description" : "Type of basis functions to discretize the domain with."
+        },
+        "integration" : {
+            "$ref" : "/cie/fem/integration"
+        },
+        "postprocessing" : {
+            "$ref" : "/cie/fem/postprocessing"
+        }
+    },
+    "required" : [],
+    "additionalProperties" : false
+}

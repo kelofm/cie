@@ -1,0 +1,18 @@
+{
+    "$id" : "/cie/fem/postprocessing",
+    "type" : "object",
+    "description" : "Settings related to generating output depending on state variables.",
+    "properties" : {
+        "resolution" : {
+            "type" : "number",
+            "description" : "Number of sample points to generate per direction.",
+            "minimum" : 2,
+            "default" : 1e2
+        },
+        "replace-nans" : {
+            "type" : ["number", "null"],
+            "description" : "Replace NaNs during postprocessing with this value (do nothing if null).",
+            "default" : null
+        }
+    }
+}

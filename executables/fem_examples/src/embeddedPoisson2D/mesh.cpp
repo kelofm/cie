@@ -113,7 +113,11 @@ void generateMesh(
             rMesh.data() = MeshData(
                 std::move(ansatzSpace),
                 std::move(rDomainTriangles),
-                domainMap);
+                domainMap,
+                {
+                    static_cast<unsigned>(rArguments.get<std::size_t>("min-boundary-tree-depth")),
+                    static_cast<unsigned>(rArguments.get<std::size_t>("max-boundary-tree-depth"))
+                });
         }
 
         // Insert cells into the adjacency graph

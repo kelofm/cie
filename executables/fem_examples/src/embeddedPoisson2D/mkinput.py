@@ -25,8 +25,8 @@ with open("domain_hull.csv", "w") as domainHullFile:
             domainHullFile.write(f"{begin[0]:.4E},{begin[1]:.4E},{end[0]:.4E},{end[1]:.4E}\n")
 
             # Dirichlet conditions on a curve.
-            valueBegin: float   = math.sin(angleBegin)
-            valueEnd: float     = math.sin(angleEnd)
+            valueBegin: float   = math.sin(3 * angleBegin)
+            valueEnd: float     = math.sin(3 * angleEnd)
             begin: tuple[float,float] = (
                 offset[0] + dirichletRadius * math.cos(angleBegin),
                 offset[1] + dirichletRadius * math.sin(angleBegin))

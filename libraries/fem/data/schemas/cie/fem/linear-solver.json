@@ -1,0 +1,25 @@
+{
+    "$id" : "/cie/fem/linear-solver",
+    "description" : "Settings configuring a linear solver.",
+    "type" : ["null", "object"],
+    "anyOf" : [
+        {"type" : "null"},
+
+        {"$ref" : "/cie/fem/pmg"},
+        {"$ref" : "/cie/linalg/cg"},
+        {"$ref" : "/cie/linalg/jacobi"},
+
+        {"$ref" : "/cie/fem/pmg-sycl"},
+        {"$ref" : "/cie/linalg/cg-sycl"},
+        {"$ref" : "/cie/linalg/jacobi-sycl"}
+    ],
+    "default" : {
+        "type" : "cg",
+        "preconditioner" : {
+            "type" : "inverse-diagonal-operator"
+        },
+        "max-iterations" : 1e3,
+        "absolute-residual" : 0,
+        "relative-residual" : 1e-6
+    }
+}

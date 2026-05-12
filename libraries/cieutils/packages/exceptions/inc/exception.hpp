@@ -41,7 +41,7 @@ public:
 
     Exception(const String& location, const String& message, Size stackLevel);
 
-    Exception(const Exception& r_base, const String& r_location, const String& r_additionalMessage);
+    Exception(const Exception& r_base, const String& rLocation, const String& r_additionalMessage);
 
     Exception(const String& location, const String& message);
 
@@ -49,13 +49,13 @@ public:
 
     Exception(const String& r_what);
 
-    Exception(Exception&& r_rhs) = default;
+    Exception(Exception&& rRHS) = default;
 
-    Exception(const Exception& r_rhs);
+    Exception(const Exception& rRHS);
 
-    Exception& operator=(Exception&& r_rhs) = delete;
+    Exception& operator=(Exception&& rRHS) = delete;
 
-    Exception& operator=(const Exception& r_rhs) = delete;
+    Exception& operator=(const Exception& rRHS) = delete;
 
     virtual ~Exception() {}
 
@@ -66,15 +66,15 @@ public:
     Size stackLevel() const;
 
     template <concepts::CIEException TException>
-    friend TException exceptionFactory(const String& r_location, const String& r_message, const String& r_name) noexcept;
+    friend TException exceptionFactory(const String& rLocation, const String& rMessage, const String& rName) noexcept;
 
     template <concepts::CIEException TException>
-    friend TException exceptionFactory(TException& r_exception, const String& r_location, const String& r_additionalMessage) noexcept;
+    friend TException exceptionFactory(TException& rException, const String& rLocation, const String& r_additionalMessage) noexcept;
 
 private:
     void setStackLevel(Size stackLevel);
 
-    void setMessage(std::string&& r_message);
+    void setMessage(std::string&& rMessage);
 
 private:
     Size _stackLevel;
@@ -86,11 +86,11 @@ private:
 /// @ingroup cieutils
 struct NullPtrException : public Exception
 {
-    NullPtrException(const String& r_location, const String& r_message);
+    NullPtrException(const String& rLocation, const String& rMessage);
 
-    NullPtrException(NullPtrException&& r_rhs) = default;
+    NullPtrException(NullPtrException&& rRHS) = default;
 
-    NullPtrException(const NullPtrException& r_rhs) = default;
+    NullPtrException(const NullPtrException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -99,11 +99,11 @@ struct NullPtrException : public Exception
 /// @ingroup cieutils
 struct AbstractCallException : public Exception
 {
-    AbstractCallException(const String& r_location, const String& r_message);
+    AbstractCallException(const String& rLocation, const String& rMessage);
 
-    AbstractCallException(AbstractCallException&& r_rhs) = default;
+    AbstractCallException(AbstractCallException&& rRHS) = default;
 
-    AbstractCallException(const AbstractCallException& r_rhs) = default;
+    AbstractCallException(const AbstractCallException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -112,11 +112,11 @@ struct AbstractCallException : public Exception
 /// @ingroup cieutils
 struct NotImplementedException : public Exception
 {
-    NotImplementedException(const String& r_location, const String& r_message);
+    NotImplementedException(const String& rLocation, const String& rMessage);
 
-    NotImplementedException(NotImplementedException&& r_rhs) = default;
+    NotImplementedException(NotImplementedException&& rRHS) = default;
 
-    NotImplementedException(const NotImplementedException& r_rhs) = default;
+    NotImplementedException(const NotImplementedException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -125,11 +125,11 @@ struct NotImplementedException : public Exception
 /// @ingroup cieutils
 struct OutOfRangeException : public Exception
 {
-    OutOfRangeException(const String& r_location, const String& r_message);
+    OutOfRangeException(const String& rLocation, const String& rMessage);
 
-    OutOfRangeException(OutOfRangeException&& r_rhs) = default;
+    OutOfRangeException(OutOfRangeException&& rRHS) = default;
 
-    OutOfRangeException(const OutOfRangeException& r_rhs) = default;
+    OutOfRangeException(const OutOfRangeException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -138,11 +138,11 @@ struct OutOfRangeException : public Exception
 /// @ingroup cieutils
 struct DivisionByZeroException : public Exception
 {
-    DivisionByZeroException(const String& r_location, const String& r_message);
+    DivisionByZeroException(const String& rLocation, const String& rMessage);
 
-    DivisionByZeroException(DivisionByZeroException&& r_rhs) = default;
+    DivisionByZeroException(DivisionByZeroException&& rRHS) = default;
 
-    DivisionByZeroException(const DivisionByZeroException& r_rhs) = default;
+    DivisionByZeroException(const DivisionByZeroException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -151,11 +151,11 @@ struct DivisionByZeroException : public Exception
 /// @ingroup cieutils
 struct GeometryException : public Exception
 {
-    GeometryException(const String& r_location, const String& r_message);
+    GeometryException(const String& rLocation, const String& rMessage);
 
-    GeometryException(GeometryException&& r_rhs) = default;
+    GeometryException(GeometryException&& rRHS) = default;
 
-    GeometryException(const GeometryException& r_rhs) = default;
+    GeometryException(const GeometryException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -164,11 +164,11 @@ struct GeometryException : public Exception
 /// @ingroup cieutils
 struct MemoryException : public Exception
 {
-    MemoryException(const String& r_location, const String& r_message);
+    MemoryException(const String& rLocation, const String& rMessage);
 
-    MemoryException(MemoryException&& r_rhs) = default;
+    MemoryException(MemoryException&& rRHS) = default;
 
-    MemoryException(const MemoryException& r_rhs) = default;
+    MemoryException(const MemoryException& rRHS) = default;
 
     virtual std::string name() const override;
 };
@@ -176,12 +176,18 @@ struct MemoryException : public Exception
 
 /// @ingroup cieutils
 template <concepts::STLException TException>
-TException exceptionFactory(const String& r_location, const String& r_message, const String& r_name) noexcept;
+TException exceptionFactory(
+    const String& rLocation,
+    const String& rMessage,
+    const String& rName) noexcept;
 
 
 /// @ingroup cieutils
 template <concepts::STLException TException>
-TException exceptionFactory(TException& r_exception, const String& r_location, const String& r_additionalMessage) noexcept;
+TException exceptionFactory(
+    TException& rException,
+    const String& rLocation,
+    const String& rAdditionalMessage) noexcept;
 
 
 } // namespace cie

@@ -1,0 +1,20 @@
+{
+    "$id" : "/cie/linalg/jacobi",
+    "description" : "Settings for Jacobi iterations.",
+    "type" : "object",
+    "properties" : {
+        "iterations" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 1,
+            "description" : "Number of iterations to perform."
+        },
+        "relaxation" : {
+            "type" : "number",
+            "minimum" : 0,
+            "maximum" : 1,
+            "default" : 1,
+            "description" : "Relaxation to apply in each iteration."
+        }
+    }
+}

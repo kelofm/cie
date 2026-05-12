@@ -15,8 +15,7 @@ namespace cie::io {
 
 
 template <Size Index>
-void checkJSONObject( JSONObject& r_json )
-{
+void checkJSONObject( JSONObject& r_json ) {
     // Existence
     CIE_TEST_CHECK( r_json.hasKey("bool") );
     CIE_TEST_CHECK( r_json.hasKey("string") );
@@ -146,8 +145,7 @@ void checkJSONObject( JSONObject& r_json )
 }
 
 
-CIE_TEST_CASE( "JSONObject", "[io]" )
-{
+CIE_TEST_CASE( "JSONObject", "[io]" ) {
     CIE_TEST_CASE_INIT( "JSONObject" )
 
     const std::string contents = R"({
