@@ -6,6 +6,7 @@
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/RuntimeConst.hpp"
 #include "packages/compile_time/packages/concepts/inc/container_concepts.hpp"
+#include "packages/compile_time/packages/parameter_pack/inc/Match.hpp"
 #include "packages/macros/inc/checks.hpp"
 #include "packages/types/inc/modifiers.hpp"
 #include "packages/stl_extension/inc/StaticArray.hpp"
@@ -25,16 +26,17 @@ class JSONObject;
 namespace cie::concepts::io {
 
 template <class T>
-concept SupportedBase
-=  std::same_as<std::decay_t<T>, bool>
-|| std::same_as<std::decay_t<T>, int>
-|| std::same_as<std::decay_t<T>, long int>
-|| std::same_as<std::decay_t<T>, long long>
-|| std::same_as<std::decay_t<T>, Size>
-|| std::same_as<std::decay_t<T>, float>
-|| std::same_as<std::decay_t<T>, double>
-|| std::same_as<std::decay_t<T>, std::string>
-|| std::same_as<std::decay_t<T>, cie::io::JSONObject>;
+concept SupportedBase = ct::Match<std::decay_t<T>>::template Any<
+    bool,
+    int,
+    long int,
+    long long,
+    Size,
+    float,
+    double,
+    std::string,
+    cie::io::JSONObject,
+    std::nullptr_t>;
 
 template <class T>
 concept SupportedType
@@ -55,6 +57,7 @@ namespace cie::io {
  *           - double
  *           - std::string
  *           - JSONObject
+ *           - nullptr
  *           - std::vector of any above except bool
  *           - StaticArray of any above with size 1, 2, or 3
  *  @ingroup cieutils
@@ -288,8 +291,6 @@ public:
 
     ~JSONSchemaLoader();
 
-    JSONSchemaLoader& operator=(JSONSchemaLoader&& rRHS);
-
     void addLibraryRoot(Ref<const std::filesystem::path> rLibraryRoot);
 
     JSONObject load(Ref<const std::string> rURI) const;
@@ -304,27 +305,23 @@ class JSONSchema {
 public:
     JSONSchema();
 
-    JSONSchema(Ref<const JSONObject> rSchema);
-
-    JSONSchema(RightRef<JSONObject> rSchema);
+    JSONSchema(
+        Ref<const JSONObject> rSchema,
+        Ref<const JSONSchemaLoader> rLoader = {});
 
     JSONSchema(
         RightRef<JSONObject> rSchema,
-        Ref<const JSONSchemaLoader> rLoader);
+        RightRef<JSONSchemaLoader> rLoader);
 
     ~JSONSchema();
 
-    JSONSchema& operator=(JSONSchema&& rRHS);
+    JSONSchema& operator=(JSONSchema&& rRHS) noexcept;
 
     void resolve(Ref<const JSONSchemaLoader> rLoader = {});
 
     void validate(Ref<const JSONObject> rJSON) const;
 
-    JSONObject json() const;
-
-    void fillFromDefaults(
-        Ref<JSONObject> rJSON,
-        Ref<const JSONSchemaLoader> rLoader = {}) const;
+    void validateAndFillDefaults(Ref<JSONObject> rJSON) const;
 
 private:
     struct Impl;

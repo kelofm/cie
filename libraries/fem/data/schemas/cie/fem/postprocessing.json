@@ -14,5 +14,10 @@
             "description" : "Replace NaNs during postprocessing with this value (do nothing if null).",
             "default" : null
         }
-    }
+    },
+    "default" : {
+        "resolution" : 1e2,
+        "replace-nans" : null
+    },
+    "additionalProperties" : false
 }

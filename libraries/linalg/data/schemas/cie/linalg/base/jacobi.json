@@ -1,5 +1,5 @@
 {
-    "$id" : "/cie/linalg/jacobi",
+    "$id" : "/cie/linalg/base/jacobi",
     "description" : "Settings for Jacobi iterations.",
     "type" : "object",
     "properties" : {

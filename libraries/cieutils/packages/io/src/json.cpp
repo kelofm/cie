@@ -1,8 +1,6 @@
 // --- External Includes ---
 #include "nlohmann/json.hpp"
-
-#define VALIJSON_USE_EXCEPTIONS 1
-#include "valijson/valijson.hpp"
+#include "nlohmann/json-schema.hpp"
 
 // --- Utiltity Includes ---
 #include "packages/macros/inc/exceptions.hpp"
@@ -288,14 +286,14 @@ struct TypeQueryTemplate<bool>
     { return rJSON.contents().is_boolean(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = false;
+        rContents[rKey] = false;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -311,14 +309,14 @@ struct TypeQueryTemplate<int>
     { return rJSON.contents().is_number_integer(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = 0;
+        rContents[rKey] = 0;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -334,14 +332,14 @@ struct TypeQueryTemplate<long int>
     { return rJSON.contents().is_number_integer(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = 0;
+        rContents[rKey] = 0;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -357,14 +355,14 @@ struct TypeQueryTemplate<long long>
     { return rJSON.contents().is_number_integer(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                 JSONObject::content_type& r_contents,
+                                 JSONObject::content_type& rContents,
                                  const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = 0;
+        rContents[rKey] = 0;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -380,14 +378,14 @@ struct TypeQueryTemplate<Size>
     { return rJSON.contents().is_number_unsigned() && rJSON.contents().is_number_integer(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = 0;
+        rContents[rKey] = 0;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -403,14 +401,14 @@ struct TypeQueryTemplate<float>
     { return rJSON.contents().is_number_float(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = 0;
+        rContents[rKey] = 0;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -426,14 +424,14 @@ struct TypeQueryTemplate<double>
     { return rJSON.contents().is_number_float(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = 0;
+        rContents[rKey] = 0;
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -449,14 +447,14 @@ struct TypeQueryTemplate<std::string>
     { return rJSON.contents().is_string(); }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = "";
+        rContents[rKey] = "";
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -472,12 +470,31 @@ struct TypeQueryTemplate<JSONObject> {
 
     static JSONObject addDefault(
         JSONObject& rJSON,
-        JSONObject::content_type& r_contents,
+        JSONObject::content_type& rContents,
         const std::string& rKey) {
             CIE_BEGIN_EXCEPTION_TRACING
-                r_contents[rKey] = {};
+                rContents[rKey] = {};
                 return JSONObject(
-                    &r_contents[rKey],
+                    &rContents[rKey],
+                    &rJSON.root());
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<std::nullptr_t> {
+    static bool is(const JSONObject& rJSON)
+    { return rJSON.contents().is_null(); }
+
+    static JSONObject addDefault(
+        JSONObject& rJSON,
+        JSONObject::content_type& rContents,
+        const std::string& rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = JSONObject::content_type();
+                return JSONObject(
+                    &rContents[rKey],
                     &rJSON.root());
             CIE_END_EXCEPTION_TRACING
     }
@@ -664,14 +681,14 @@ struct TypeQueryTemplate<std::vector<ValueType>>
     }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = JSONObject::content_type::array();
+        rContents[rKey] = JSONObject::content_type::array();
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -694,14 +711,14 @@ struct TypeQueryTemplate<StaticArray<ValueType,ArraySize>>
     }
 
     static JSONObject addDefault(JSONObject& rJSON,
-                                  JSONObject::content_type& r_contents,
+                                  JSONObject::content_type& rContents,
                                   const std::string& rKey)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_contents[rKey] = JSONObject::content_type::array();
+        rContents[rKey] = JSONObject::content_type::array();
         return JSONObject(
-            &r_contents[rKey],
+            &rContents[rKey],
             &rJSON.root()
         );
 
@@ -1065,16 +1082,24 @@ void JSONObject::prettyPrint(
 
 
 struct JSONSchema::Impl {
-    JSONObject json;
+    nlohmann::json_schema::json_validator validator;
 
-    valijson::Schema schema;
+    JSONSchemaLoader loader;
+
+    nlohmann::json_schema::schema_loader makeLoader() {
+            return [this] (
+                const nlohmann::json_uri& rURI,
+                nlohmann::json& rResource) {
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        JSONObject loadedResource = this->loader.load(rURI.path());
+                        rResource = std::move(loadedResource.contents());
+                    CIE_END_EXCEPTION_TRACING
+                };
+    }
 }; // struct JSONSchema::Impl
 
 
 JSONSchema::~JSONSchema() = default;
-
-
-JSONSchema& JSONSchema::operator=(JSONSchema&& rRHS) = default;
 
 
 JSONSchema::JSONSchema()
@@ -1082,128 +1107,45 @@ JSONSchema::JSONSchema()
 {}
 
 
-JSONSchema::JSONSchema(Ref<const JSONObject> rSchema)
-    : JSONSchema(JSONObject(rSchema))
-{}
-
-
-JSONSchema::JSONSchema(RightRef<JSONObject> rSchema)
-    : JSONSchema(std::move(rSchema), {})
+JSONSchema::JSONSchema(
+    Ref<const JSONObject> rSchema,
+    Ref<const JSONSchemaLoader> rLoader)
+    : JSONSchema(JSONObject(rSchema), JSONSchemaLoader(rLoader))
 {}
 
 
 JSONSchema::JSONSchema(
     RightRef<JSONObject> rSchema,
-    Ref<const JSONSchemaLoader> rLoader)
+    RightRef<JSONSchemaLoader> rLoader)
         : _pImpl(new Impl) {
             CIE_BEGIN_EXCEPTION_TRACING
-                _pImpl->json = std::move(rSchema);
-                valijson::adapters::NlohmannJsonAdapter adaptor(_pImpl->json.contents());
-                valijson::SchemaParser schemaParser;
-
-                std::list<JSONObject> buffer;
-                const auto loader = [&rLoader, &buffer] (const std::string& rURI) -> JSONObject::content_type* {
-                    buffer.push_back(rLoader.load(rURI));
-                    return &buffer.back().contents();
-                };
-                const auto unloader = [] (const JSONObject::content_type*) -> void {};
-
-                schemaParser.populateSchema(
-                    adaptor,
-                    _pImpl->schema,
-                    loader,
-                    unloader);
+                _pImpl->loader = std::move(rLoader);
+                _pImpl->validator = nlohmann::json_schema::json_validator(_pImpl->makeLoader());
+                _pImpl->validator.set_root_schema(std::move(rSchema.contents()));
             CIE_END_EXCEPTION_TRACING
 }
 
 
+JSONSchema& JSONSchema::operator=(JSONSchema&&) noexcept = default;
+
+
 void JSONSchema::validate(Ref<const JSONObject> rJSON) const {
-    valijson::Validator validator(
-        valijson::Validator::kStrongTypes,
-        valijson::Validator::kStrictDateTime);
-    valijson::adapters::NlohmannJsonAdapter adaptor(rJSON.contents());
-    valijson::ValidationResults results;
-    if (!validator.validate(_pImpl->schema, adaptor, &results)) {
-        std::stringstream message;
-        message << "JSON validation failed.\n";
-
-        valijson::ValidationResults::Error error;
-        while (results.popError(error)) {
-            message << std::format(
-                "  in {}\n    {}\n",
-                error.jsonPointer,
-                error.description);
-        }
-
-        CIE_THROW(Exception, message.view());
-    }
+    CIE_BEGIN_EXCEPTION_TRACING
+        _pImpl->validator.validate(rJSON.contents());
+    CIE_END_EXCEPTION_TRACING
 }
 
 
-JSONObject JSONSchema::json() const {
-    return _pImpl->json;
+void JSONSchema::validateAndFillDefaults(Ref<JSONObject> rJSON) const {
+    CIE_BEGIN_EXCEPTION_TRACING
+       const auto defaults = _pImpl->validator.validate(rJSON.contents());
+       rJSON.contents() = rJSON.contents().patch(defaults);
+    CIE_END_EXCEPTION_TRACING
 }
 
 
-void fillJSONFromSchemaDefaults(
-    JSONObject::content_type schema,
-    Ref<JSONObject> rJSON,
-    Ref<std::unordered_map<std::string,JSONObject::content_type>> rCache,
-    Ref<const JSONSchemaLoader> rLoader) {
-        for (const auto& [rKey, rValue] : schema["properties"].items()) {
-            Ptr<JSONObject::content_type> pValue = &rValue;
-            if (rValue.contains("$ref")) {
-                const std::string uri = rValue["$ref"].get<std::string>();
-                auto itCache = rCache.find(uri);
-                if (itCache == rCache.end()) {
-                    itCache = rCache.emplace(
-                        uri,
-                        rLoader.load(uri).contents()).first;
-                }
-                pValue = &itCache->second;
-            }
-            Ref<JSONObject::content_type> rLocalValue = *pValue;
-
-            if (!rJSON.hasKey(rKey)) {
-                const auto& rType = rLocalValue["type"];
-                if (rType.is_string() && rType.get<std::string>() == "object") {
-                    rJSON.add(rKey, JSONObject(std::string {"{}"}));
-                    JSONObject child = rJSON[rKey];
-                    fillJSONFromSchemaDefaults(
-                        rLocalValue,
-                        child,
-                        rCache,
-                        rLoader);
-                } else {
-                    CIE_CHECK(rLocalValue.contains("default"), "schema does not provide a default value for '" << rKey << "'")
-                    std::stringstream buffer;
-                    buffer << rLocalValue["default"];
-                    rJSON.add(rKey, JSONObject(buffer.str()));
-                }
-            } /*!rJSON.hasKey(rKey)*/ else if (rJSON[rKey].isObject()) {
-                JSONObject child = rJSON[rKey];
-                fillJSONFromSchemaDefaults(
-                    rLocalValue,
-                    child,
-                    rCache,
-                    rLoader);
-            }
-        } // for rKey, rValue in rSchema
-}
-
-
-void JSONSchema::fillFromDefaults(
-    Ref<JSONObject> rJSON,
-    Ref<const JSONSchemaLoader> rLoader) const {
-        std::unordered_map<std::string,JSONObject::content_type> cache;
-        CIE_BEGIN_EXCEPTION_TRACING
-            fillJSONFromSchemaDefaults(
-                _pImpl->json.contents(),
-                rJSON,
-                cache,
-                rLoader);
-            this->validate(rJSON);
-        CIE_END_EXCEPTION_TRACING
+void JSONSchema::resolve(Ref<const JSONSchemaLoader>) {
+    CIE_THROW(NotImplementedException, "")
 }
 
 
@@ -1232,9 +1174,6 @@ JSONSchemaLoader::JSONSchemaLoader(std::span<const std::filesystem::path> librar
 
 
 JSONSchemaLoader::~JSONSchemaLoader() = default;
-
-
-JSONSchemaLoader& JSONSchemaLoader::operator=(JSONSchemaLoader&& rRHS) = default;
 
 
 void JSONSchemaLoader::addLibraryRoot(Ref<const std::filesystem::path> rLibraryRoot) {
@@ -1328,11 +1267,9 @@ std::ostream& operator<<(
 
 
 std::ostream& operator<<(
-    std::ostream& rStream,
-    Ref<const JSONSchema> rSchema) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            return rStream << rSchema.json().contents();
-        CIE_END_EXCEPTION_TRACING
+    [[maybe_unused]] std::ostream& rStream,
+    [[maybe_unused]] Ref<const JSONSchema> rSchema) {
+        CIE_THROW(NotImplementedException, "")
 }
 
 

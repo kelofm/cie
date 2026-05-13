@@ -43,8 +43,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     CIE_BEGIN_EXCEPTION_TRACING
         cie::io::JSONSchema configSchema;
         makeSchema(configSchema);
-        configSchema.validate(configuration);
-        configSchema.fillFromDefaults(configuration);
+        configSchema.validateAndFillDefaults(configuration);
         std::cout << "Applied configuration:\n";
         configuration.prettyPrint(std::cout);
         std::cout << "\n";

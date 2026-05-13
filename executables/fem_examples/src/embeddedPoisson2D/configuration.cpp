@@ -18,11 +18,23 @@ void makeSchema(Ref<cie::io::JSONSchema> rSchema) {
             "type" : "object",
             "properties" : {
                 "dirichlet-1d" : {"$ref" : "/cie/fem/dirichlet-condition-1d"},
-                "domain" : {"$ref" : "/cie/fem/embedded-domain"},
+                "domains" : {
+                    "type" : "array",
+                    "minSize" : 1,
+                    "items" : {
+                        "$ref" : "/cie/fem/embedded-domain"
+                    }
+                },
                 "discretization" : {"$ref" : "/cie/fem/discretization"},
                 "linear-system" : {"$ref" : "/cie/fem/linear-system"}
             },
-            "required" : ["domain"],
+            "default" : {
+                "dirichlet-1d" : {},
+                "domains" : [{"type" : "default"}],
+                "discretization" : {},
+                "linear-system" : {}
+            },
+            "required" : ["domains"],
             "additionalProperties" : false
         })"});
         rSchema = cie::io::JSONSchema(std::move(json));

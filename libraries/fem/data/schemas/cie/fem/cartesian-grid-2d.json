@@ -1,0 +1,42 @@
+{
+    "$id" : "/cie/fem/cartesian-grid",
+    "description" : "Settings related to a 2D cartesian mesh.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "cartesian-grid-2d"
+        },
+        "range" : {
+            "anyOf" : [
+                {
+                    "type" : "null"
+                },
+                {
+                    "type" : "array",
+                    "minItems" : 2,
+                    "maxItems" : 2,
+                    "items" : {
+                        "type" : "array",
+                        "minItems" : 2,
+                        "maxItems" : 2,
+                        "items" : {
+                            "type" : "number"
+                        }
+                    }
+                }
+            ],
+            "type" : ["null", "array"],
+            "default" : null
+        },
+        "resolution" : {
+            "type" : "array",
+            "minItems" : 2,
+            "maxItems" : 2,
+            "items" : {
+                "type" : "number"
+            },
+            "default" : [1, 1]
+        }
+    },
+    "additionalProperties" : false
+}

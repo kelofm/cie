@@ -35,6 +35,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
 find_package(nlohmann_json REQUIRED)
+find_package(nlohmann_json_schema_validator REQUIRED)
 
 # Get the current commit hash
 find_package(Git)
@@ -176,23 +177,21 @@ target_sources(
 target_link_libraries(
     ${PROJECT_NAME}
     PRIVATE
-    nlohmann_json)
+    nlohmann_json
+    nlohmann_json_schema_validator::validator)
 target_include_directories(
     ${PROJECT_NAME}
     PRIVATE
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/valijson/include>"
     INTERFACE
         "$<INSTALL_INTERFACE:include/cie>"
         "$<INSTALL_INTERFACE:include/cie/inc>"
         "$<INSTALL_INTERFACE:include/cie/external/tessil/include>"
-        "$<INSTALL_INTERFACE:include/cie/external/valijson/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/valijson/include>")
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
 set_target_properties(
     ${PROJECT_NAME}
     PROPERTIES

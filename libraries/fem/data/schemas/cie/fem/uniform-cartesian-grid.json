@@ -1,0 +1,18 @@
+{
+    "$id" : "/cie/fem/uniform-cartesian-grid",
+    "description" : "Defines a cartesian grid with uniform resolution in any dimensions.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "uniform-cartesian-grid"
+        },
+        "resolution" : {
+            "type" : "number",
+            "minimum" : 1,
+            "description" : "Number of cells in each direction.",
+            "default" : 1
+        }
+    },
+    "required" : ["type"],
+    "additionalProperties" : false
+}

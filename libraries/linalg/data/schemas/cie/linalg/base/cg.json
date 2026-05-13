@@ -1,5 +1,5 @@
 {
-    "$id" : "/cie/linalg/cg",
+    "$id" : "/cie/linalg/base/cg",
     "description" : "Settings for a conjugate gradient solver.",
     "type" : "object",
     "allOf" : [

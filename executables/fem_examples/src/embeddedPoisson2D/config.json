@@ -1,0 +1,17 @@
+{
+    "domains" : [
+        {
+            "type" : "default",
+            "scale" : 1e-6
+        },
+        {
+            "type" : "tesselated",
+            "file-path" : "domain.stl"
+        }
+    ],
+    "dirichlet-1d" : {
+        "file-path" : "dirichlet.csv"
+    },
+    "discretization" : {},
+    "linear-system" : {}
+}

@@ -22,6 +22,11 @@
             "description" : "Device to evaluate integrands on."
         }
     },
+    "default" : {
+        "order" : 3,
+        "batch-size" : 1e4,
+        "device" : "host"
+    },
     "required" : [],
     "additionalProperties" : false
 }
