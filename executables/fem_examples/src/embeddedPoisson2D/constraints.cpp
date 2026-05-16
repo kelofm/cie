@@ -13,6 +13,7 @@
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
+#include "packages/io/inc/json.hpp"
 
 // --- STL Includes ---
 #include <regex>
@@ -177,35 +178,39 @@ void partitionBoundaryCell(Ref<maths::AffineEmbedding<Scalar,1u,Dimension>> rTra
 }
 
 
-std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rArguments) {
+std::vector<BoundarySegment> makeBoundary(Ref<const cie::io::JSONObject> configuration) {
     std::vector<BoundarySegment> output;
 
     CIE_BEGIN_EXCEPTION_TRACING
-    const std::filesystem::path boundaryFile    = rArguments.get<std::filesystem::path>("boundary-file-path");
-    std::cout << "reading " << boundaryFile << std::endl;
-    std::ifstream file(boundaryFile);
-    const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
-    const std::regex pattern(std::format(
-        "^({}),({}),({}),({}),({}),({}).*",
-        floatingPointRegex, floatingPointRegex, floatingPointRegex,
-        floatingPointRegex, floatingPointRegex, floatingPointRegex));
-    std::string line, component;
-    while (std::getline(file, line)) {
-        std::match_results<std::string::iterator> match;
-        if (std::regex_match(line.begin(), line.end(), match, pattern)) {
-            CIE_CHECK(match.size() == 6 + 1, "invalid line in boundary file: '" << line << "'" << "(" << match.size() << " matches)")
-            BoundarySegment segment;
-            std::transform(
-                match.begin() + 1,
-                match.end(),
-                segment.begin(),
-                [] (const auto& rSubMatch) -> Scalar {
-                    const std::string& rString = rSubMatch.str();
-                    return static_cast<Scalar>(std::stold(rString));
-                });
-            output.push_back(segment);
-        } // if regex_match
-    } // while getline
+        const std::filesystem::path boundaryFile = configuration["file-path"].as<std::string>();
+        std::cout << "reading " << boundaryFile << std::endl;
+        std::ifstream file(boundaryFile);
+        const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
+        const std::regex pattern(std::format(
+            "^({}),({}),({}),({}),({}),({}).*",
+            floatingPointRegex, floatingPointRegex, floatingPointRegex,
+            floatingPointRegex, floatingPointRegex, floatingPointRegex));
+        std::string line, component;
+        while (std::getline(file, line)) {
+            std::match_results<std::string::iterator> match;
+            if (std::regex_match(line.begin(), line.end(), match, pattern)) {
+                CIE_CHECK(
+                    match.size() == 6 + 1,
+                    std::format(
+                        "invalid lin in boundary file: '{}' ({} matches)",
+                        line, match.size()))
+                BoundarySegment segment;
+                std::transform(
+                    match.begin() + 1,
+                    match.end(),
+                    segment.begin(),
+                    [] (const auto& rSubMatch) -> Scalar {
+                        const std::string& rString = rSubMatch.str();
+                        return static_cast<Scalar>(std::stold(rString));
+                    });
+                output.push_back(segment);
+            } // if regex_match
+        } // while getline
     CIE_END_EXCEPTION_TRACING
 
     return output;
@@ -216,14 +221,14 @@ BoundaryMesh generateBoundaryMesh(
     std::span<const BoundarySegment> tesselatedBoundary,
     BVH::View bvh,
     std::span<const CellData> contiguousCellData,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<DynamicArray<BoundarySegment>> rBoundarySegments) {
         BoundaryMesh boundary;
 
         // Parse user input.
-        const std::size_t minBoundaryTreeDepth      = rArguments.get<std::size_t>("min-boundary-tree-depth");
-        const std::size_t maxBoundaryTreeDepth      = rArguments.get<std::size_t>("max-boundary-tree-depth");
-        const Scalar minBoundarySegmentNorm         = rArguments.get<double>("min-boundary-segment-norm");
+        const std::size_t minBoundaryTreeDepth      = rConfiguration["integration"]["min-tree-depth"].as<std::size_t>();
+        const std::size_t maxBoundaryTreeDepth      = rConfiguration["integration"]["max-tree-depth"].as<std::size_t>();
+        const Scalar minBoundarySegmentNorm         = rConfiguration["integration"]["min-domain-norm"].as<std::size_t>();
 
         // Generate edges for the non-conforming boundary mesh,
         // and cut them by the cells they're located in.
@@ -312,7 +317,7 @@ imposeBoundaryConditions(
     std::span<const CellData> contiguousCellData,
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> rhs,
-    Ref<const utils::ArgParse::Results> rArguments) {
+    Ref<const cie::io::JSONObject> rConfiguration) {
         DynamicArray<BoundarySegment> boundarySegments;
 
         CIE_BEGIN_EXCEPTION_TRACING
@@ -323,13 +328,13 @@ imposeBoundaryConditions(
             tesselatedBoundary,
             bvh,
             contiguousCellData,
-            rArguments,
+            rConfiguration,
             boundarySegments);
 
         const auto quadratureRuleFactory = [&boundary] (Ref<const BoundaryMesh::Vertex::Data>) {
             return boundary.data().makeQuadratureRule();};
 
-        const Scalar penaltyFactor = rArguments.get<double>("penalty-factor");
+        const Scalar penaltyFactor =rConfiguration["penalty-factor"].as<double>();
         const auto integrandFactory = [&rMesh, penaltyFactor] (Ref<const BoundaryMesh::Vertex::Data> rBoundaryCell) {
             auto integrand = makeTransformedIntegrand(
                 makeDirichletPenaltyIntegrand(
@@ -371,7 +376,7 @@ imposeBoundaryConditions(
                 CellData>,
             maths::AffineEmbedding<Scalar,1u,Dimension>::Derivative>;
         const IntegrandProcessor<1,Integrand>::Properties executionProperties{
-            .integrandBatchSize = rArguments.get<std::size_t>("integrand-batch-size"),
+            .integrandBatchSize = rConfiguration["integration"]["batch-size"].as<std::size_t>(),
             .verbosity = 3};
         auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
         const auto& rBoundaryCells = boundary.vertices();

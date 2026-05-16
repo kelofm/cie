@@ -1,0 +1,18 @@
+{
+    "$id" : "/cie/fem/integrand-processor",
+    "properties" : {
+        "batch-size" : {
+            "type" : "number",
+            "minimum" : 1,
+            "default" : 1e4,
+            "description" : "Number of quadrature points at which to evaluate the integrand at once."
+        },
+        "device" : {
+            "type" : "string",
+            "enum" : ["host", "sycl"],
+            "default" : "host",
+            "description" : "Device to evaluate integrands on."
+        }
+    },
+    "required" : []
+}

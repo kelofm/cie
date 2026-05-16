@@ -485,13 +485,16 @@ void solve(
     std::span<Scalar> rhs,
     Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
-    Ref<const utils::ArgParse::Results> rArguments) {
+    Ref<const cie::io::JSONObject> rConfiguration) {
 
         ReorderingStrategy reorderingStrategy = ReorderingStrategy::None;
-        Ref<const std::string> reorderingName = rArguments.get<std::string>("reordering");
-        if (reorderingName == "cuthill-mckee") reorderingStrategy = ReorderingStrategy::CuthillMcKee;
-        else if (reorderingName == "reverse-cuthill-mckee") reorderingStrategy = ReorderingStrategy::ReverseCuthillMcKee;
-        else if (reorderingName != "none") CIE_THROW(Exception, "unknown reordering strategy: " << reorderingName)
+        const auto reorderingConfiguration = rConfiguration["reordering"];
+        if (!reorderingConfiguration.is<std::nullptr_t>()) {
+            const std::string reorderingName = reorderingConfiguration.as<std::string>();
+            if (reorderingName == "cuthill-mckee") reorderingStrategy = ReorderingStrategy::CuthillMcKee;
+            else if (reorderingName == "reverse-cuthill-mckee") reorderingStrategy = ReorderingStrategy::ReverseCuthillMcKee;
+            else if (reorderingName != "none") CIE_THROW(Exception, "unknown reordering strategy: " << reorderingName)
+        }
 
         if (reorderingStrategy != ReorderingStrategy::None) {
             auto logBlock = utils::LoggerSingleton::get().newBlock("reorder");
@@ -518,27 +521,27 @@ void solve(
             rAssembler.reorder<int>(reordering);
         }
 
-        if (rArguments.get<bool>("write-linear-system")) {
-            {
-                std::ofstream file("lhs.mm");
-                cie::io::MatrixMarket::Output io(file);
-                io(
-                    lhs.rowCount(),
-                    lhs.columnCount(),
-                    lhs.entries().size(),
-                    lhs.rowExtents().data(),
-                    lhs.columnIndices().data(),
-                    lhs.entries().data());
-            }
-
-            {
-                std::ofstream file("rhs.mm");
-                cie::io::MatrixMarket::Output io(file);
-                io(rhs.data(), rhs.size());
-            }
+        if (!rConfiguration["write-lhs"].is<std::nullptr_t>()) {
+            std::ofstream file(rConfiguration["write-lhs"].as<std::string>());
+            cie::io::MatrixMarket::Output io(file);
+            io(
+                lhs.rowCount(),
+                lhs.columnCount(),
+                lhs.entries().size(),
+                lhs.rowExtents().data(),
+                lhs.columnIndices().data(),
+                lhs.entries().data());
         }
 
-        const std::string solver = rArguments.get<std::string>("solver");
+        if (!rConfiguration["write-rhs"].is<std::nullptr_t>()) {
+            std::ofstream file("rhs.mm");
+            cie::io::MatrixMarket::Output io(file);
+            io(rhs.data(), rhs.size());
+        }
+
+        // @todo Parse solver configuration properly.
+        const auto solverConfiguration = rConfiguration["solver"];
+        const std::string solver = solverConfiguration["type"].as<std::string>();
         if (solver == "cg") {
             solveCG(lhs, solution, rhs, rThreads);
 
@@ -559,7 +562,7 @@ void solve(
             solveEigenLLT(lhs, solution, rhs);
         } else CIE_THROW(Exception, std::format("unknown solver \"{}\"", solver))
 
-        if (rArguments.get<bool>("write-linear-system")) {
+        if (!rConfiguration["write-solution"].is<std::nullptr_t>()) {
             std::ofstream file("solution.mm");
             cie::io::MatrixMarket::Output io(file);
             io(solution.data(), solution.size());

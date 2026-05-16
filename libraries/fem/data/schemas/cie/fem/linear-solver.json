@@ -4,6 +4,11 @@
     "type" : ["null", "object"],
     "anyOf" : [
         {"type" : "null"},
+        {
+            "type" : "object",
+            "properties" : {},
+            "additionalProperties" : false
+        },
 
         {"$ref" : "/cie/fem/pmg"},
         {"$ref" : "/cie/linalg/cg"},

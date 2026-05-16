@@ -4,6 +4,19 @@
     "type" : "object",
     "properties" : {
         "solver" : {"$ref" : "/cie/fem/linear-solver"},
+        "reordering" : {
+            "oneOf" : [
+                {
+                    "type" : "null"
+                },
+                {
+                    "type" : "string",
+                    "enum" : ["cuthill-mckee", "reverse-cuthill-mckee"]
+                }
+            ],
+            "default" : null,
+            "description" : "Reordering strategy to execute before passing the system to the linear solver."
+        },
         "write-lhs" : {
             "type" : ["string", "null"],
             "default" : null,
@@ -20,5 +33,13 @@
             "description" : "Path to write the solution vector to after execution, or null."
         }
     },
+    "default" : {
+        "solver" : {},
+        "reordering" : null,
+        "write-lhs" : null,
+        "write-rhs" : null,
+        "write-solution" : null
+    },
+    "required" : [],
     "additionalProperties" : false
 }

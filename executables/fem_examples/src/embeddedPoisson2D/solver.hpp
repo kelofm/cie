@@ -8,7 +8,7 @@
 
 // --- Utility Includes ---
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
-#include "packages/commandline/inc/ArgParse.hpp"
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
@@ -20,7 +20,7 @@ void solve(
     std::span<Scalar> rhs,
     Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
-    Ref<const utils::ArgParse::Results> rArguments);
+    Ref<const cie::io::JSONObject> rConfiguration);
 
 
 } // namespace cie::fem

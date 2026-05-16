@@ -2,29 +2,90 @@
 #include "embeddedPoisson2D/mesh.hpp"
 
 // --- FEM Includes ---
+#include "definitions.hpp"
 #include "packages/maths/inc/LegendrePolynomial.hpp"
 #include "packages/maths/inc/LagrangePolynomial.hpp"
 
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/logging/inc/LogBlock.hpp"
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
 
 
+void parseGeometricDiscretization(
+    Ref<const cie::io::JSONObject> rConfiguration,
+    std::span<const Scalar> bboxBase,
+    std::span<const Scalar> bboxLengths,
+    std::span<Scalar,Dimension> meshBase,
+    std::span<Scalar,Dimension> meshLengths,
+    std::span<std::size_t,Dimension> meshResolution) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            const std::string discretizationType = rConfiguration["type"].as<std::string>();
+
+            // The configuration defines a uniform cartesian grid.
+            if (discretizationType == "uniform-cartesian-grid") {
+                meshLengths.front() = (1.0 + 2e-2) * (bboxLengths.front() - bboxBase.front());
+                meshLengths.back()  = (1.0 + 2e-2) * (bboxLengths.back() - bboxBase.back());
+                meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.front());
+                meshBase.back() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.back());
+                meshResolution.front() = rConfiguration["resolution"].as<std::size_t>();
+                meshResolution.back() = rConfiguration["resolution"].as<std::size_t>();
+            } // if discretizationType == "uniform-cartesian-grid"
+
+            // The configuration defines a cartesian grid with potentially
+            // different number of cells in each coordinate direction.
+            else if (discretizationType == "cartesian-grid-2d") {
+                const auto rangeConfiguration = rConfiguration["range"];
+                if (rangeConfiguration.is<std::nullptr_t>()) {
+                    meshLengths.front() = (1.0 + 2e-2) * (bboxLengths.front() - bboxBase.front());
+                    meshLengths.back()  = (1.0 + 2e-2) * (bboxLengths.back() - bboxBase.back());
+                    meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.front());
+                    meshBase.back() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.back());
+                } /*adaptive range*/ else {
+                    meshBase[0] = rangeConfiguration[0][0].as<double>();
+                    meshBase[1] = rangeConfiguration[1][0].as<double>();
+                    meshLengths[0] = rangeConfiguration[0][1].as<double>() - meshBase[0];
+                    meshLengths[1] = rangeConfiguration[1][1].as<double>() - meshBase[1];
+                }
+                meshResolution.front() = rConfiguration["resolution"][0].as<std::size_t>();
+                meshResolution.back() = rConfiguration["resolution"][1].as<std::size_t>();
+            } // if discretizationType == "cartesian-grid-2d"
+
+            else CIE_THROW(Exception, std::format(
+                "unsupported geometric discretization type \"{}\"",
+                discretizationType))
+        CIE_END_EXCEPTION_TRACING
+}
+
+
 void generateMesh(
     Ref<Mesh> rMesh,
-    std::span<const Scalar,2> meshBase,
-    std::span<const Scalar,2> meshLengths,
+    std::span<const Scalar,Dimension> bboxBase,
+    std::span<const Scalar,Dimension> bboxLengths,
     RightRef<std::vector<std::pair<
         MeshData::DomainData,
         std::vector<Scalar>>>
     > rDomainTriangles,
     std::span<const std::pair<MeshData::DomainData,Scalar>> domainMap,
-    Ref<const utils::ArgParse::Results> rArguments) {
+    Ref<const cie::io::JSONObject> rConfiguration) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("generate mesh");
-        const unsigned nodesPerDirection = rArguments.get<std::size_t>("r");
+
+        std::array<std::size_t,Dimension> meshResolution {0ul, 0ul};
+        std::array<Scalar,Dimension> meshBase, meshLengths;
+        parseGeometricDiscretization(
+            rConfiguration["geometric"],
+            bboxBase,
+            bboxLengths,
+            meshBase,
+            meshLengths,
+            meshResolution);
+        std::cout << std::format(
+            "mesh covers\n\tx in [{}, {}]\n\ty in [{}, {}]\n",
+            meshBase.front(), meshBase.front() + meshLengths.front(),
+            meshBase.back(), meshBase.back() + meshLengths.back());
 
         {
             // Define an ansatz space and its derivatives.
@@ -42,8 +103,15 @@ void generateMesh(
                     Lagrange};
                 BasisType basisType = BasisType::IntegratedLegendre;
 
+                CIE_CHECK(
+                    rConfiguration["functional"]["order"].as<std::size_t>() == polynomialOrder,
+                    std::format(
+                        "requesting a basis with a polynomial order of {}, but it is statically set to {}",
+                        rConfiguration["functional"]["order"].as<std::size_t>(),
+                        polynomialOrder))
+
                 {
-                    const std::string basisName = rArguments.get<std::string>("basis");
+                    const std::string basisName = rConfiguration["functional"]["type"].as<std::string>();
                     if (basisName == "legendre") basisType = BasisType::IntegratedLegendre;
                     else if (basisName == "lagrange") basisType = BasisType::Lagrange;
                     else CIE_THROW(Exception, "unhandled basis type '" << basisName << "'")
@@ -115,19 +183,19 @@ void generateMesh(
                 std::move(rDomainTriangles),
                 domainMap,
                 {
-                    static_cast<unsigned>(rArguments.get<std::size_t>("min-boundary-tree-depth")),
-                    static_cast<unsigned>(rArguments.get<std::size_t>("max-boundary-tree-depth"))
+                    static_cast<unsigned>(rConfiguration["integration"]["min-tree-depth"].as<std::size_t>()),
+                    static_cast<unsigned>(rConfiguration["integration"]["max-tree-depth"].as<std::size_t>())
                 });
         }
 
         // Insert cells into the adjacency graph
         const std::array<Scalar,2> edgeLengths {
-            meshLengths.front() / (nodesPerDirection - 1),
-            meshLengths.back()  / (nodesPerDirection - 1)};
+            meshLengths.front() / (meshResolution[0] - 1),
+            meshLengths.back()  / (meshResolution[1] - 1)};
         Size iBoundary = 0ul;
 
-        for (Size iCellRow : std::ranges::views::iota(0ul, nodesPerDirection - 1)) {
-            for (Size iCellColumn : std::ranges::views::iota(0ul, nodesPerDirection - 1)) {
+        for (Size iCellRow : std::ranges::views::iota(0ul, meshResolution[0] - 1)) {
+            for (Size iCellColumn : std::ranges::views::iota(0ul, meshResolution[1] - 1)) {
                 StaticArray<StaticArray<Scalar,Dimension>,2> transformed;
                 OrientedAxes<Dimension> axes;
 
@@ -190,7 +258,7 @@ void generateMesh(
                 if (isInDefaultDomain) continue;
 
                 // Insert the cell into the adjacency graph (mesh) as a vertex
-                const Size iCell = iCellRow * (nodesPerDirection - 1u) + iCellColumn;
+                const std::size_t iCell = iCellRow * (meshResolution[0] - 1u) + iCellColumn;
                 Mesh::Vertex::Data data (
                     VertexID(iCell), // <= todo: remove duplicate id
                     0ul,
@@ -206,8 +274,8 @@ void generateMesh(
                 // The rule here is that cells with lower manhattan distance from the origin
                 // are sources, while those with a higher norm are targets.
                 if (iCellRow) {
-                    const Size iSourceCell = iCell - (nodesPerDirection - 1);
-                    const Size iTargetCell = iCell;
+                    const std::size_t iSourceCell = iCell - (meshResolution[0] - 1);
+                    const std::size_t iTargetCell = iCell;
 
                     if (rMesh.findVertex(iSourceCell).has_value()) {
                         BoundaryID sharedBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
@@ -219,8 +287,8 @@ void generateMesh(
                 } // if iCellRow
 
                 if (iCellColumn) {
-                    const Size iSourceCell = iCell - 1ul;
-                    const Size iTargetCell = iCell;
+                    const std::size_t iSourceCell = iCell - 1ul;
+                    const std::size_t iTargetCell = iCell;
 
                     if (rMesh.findVertex(iSourceCell).has_value()) {
                         BoundaryID sharedBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");

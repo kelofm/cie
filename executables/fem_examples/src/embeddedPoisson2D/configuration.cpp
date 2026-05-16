@@ -17,14 +17,13 @@ void makeSchema(Ref<cie::io::JSONSchema> rSchema) {
             "description" : "",
             "type" : "object",
             "properties" : {
-                "dirichlet-1d" : {"$ref" : "/cie/fem/dirichlet-condition-1d"},
                 "domains" : {
                     "type" : "array",
-                    "minSize" : 1,
                     "items" : {
                         "$ref" : "/cie/fem/embedded-domain"
                     }
                 },
+                "dirichlet-1d" : {"$ref" : "/cie/fem/dirichlet-condition-1d"},
                 "discretization" : {"$ref" : "/cie/fem/discretization"},
                 "linear-system" : {"$ref" : "/cie/fem/linear-system"}
             },

@@ -13,6 +13,9 @@
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
 
+// --- Utility Includes ---
+#include "packages/io/inc/json.hpp"
+
 
 namespace cie::fem {
 
@@ -79,15 +82,7 @@ BVH makeBoundingVolumeHierarchy(
 using BoundarySegment = StaticArray<Scalar,2*Dimension+2>;
 
 
-std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rArguments);
-
-
-BoundaryMesh generateBoundaryMesh(
-    std::span<const BoundarySegment> tesselatedBoundary,
-    BVH::View bvh,
-    std::span<const CellData> contiguousCellData,
-    Ref<const utils::ArgParse::Results> rArguments,
-    Ref<DynamicArray<BoundarySegment>> rBoundarySegments);
+std::vector<BoundarySegment> makeBoundary(Ref<const cie::io::JSONObject> configuration);
 
 
 [[nodiscard]] DynamicArray<BoundarySegment>
@@ -99,7 +94,7 @@ imposeBoundaryConditions(
     std::span<const CellData> contiguousCellData,
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> rhs,
-    Ref<const utils::ArgParse::Results> rArguments);
+    Ref<const cie::io::JSONObject> rConfiguration);
 
 
 } // namespace cie::fem

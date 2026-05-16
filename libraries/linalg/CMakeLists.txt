@@ -96,7 +96,10 @@ set(CPACK_SOURCE_IGNORE_FILES
     /.git
     /build
     *.gitignore)
-include(CPack)
+
+if (NOT DEFINED CPack_CMake_INCLUDED)
+    include(CPack)
+endif()
 
 # Generate CMake config
 include(CMakePackageConfigHelpers)

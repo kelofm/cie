@@ -7,11 +7,20 @@
             "const" : "uniform-cartesian-grid"
         },
         "resolution" : {
-            "type" : "number",
-            "minimum" : 1,
+            "oneOf" : [
+                {"type" : "null"},
+                {
+                    "type" : ["number"],
+                    "minimum" : 1
+                }
+            ],
             "description" : "Number of cells in each direction.",
-            "default" : 1
+            "default" : null
         }
+    },
+    "default" : {
+        "type" : "uniform-cartesian-grid",
+        "resolution" : null
     },
     "required" : ["type"],
     "additionalProperties" : false

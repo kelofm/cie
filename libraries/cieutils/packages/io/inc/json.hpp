@@ -104,34 +104,29 @@ private:
 
         IteratorBase operator--(int);
 
-        //IteratorBase& operator+=(difference_type difference);
+        bool operator!=(const IteratorBase& rRhs) const;
 
-        //IteratorBase& operator-=(difference_type difference);
+        bool operator<(const IteratorBase& rRhs) const;
 
-        //IteratorBase operator+(difference_type rhs);
+        bool operator<=(const IteratorBase& rRhs) const;
 
-        //IteratorBase operator-(difference_type rhs);
+        bool operator>(const IteratorBase& rRhs) const;
 
-        //bool operator==(const IteratorBase& rRhs);
-
-        bool operator!=(const IteratorBase& rRhs);
-
-        bool operator<(const IteratorBase& rRhs);
-
-        bool operator<=(const IteratorBase& rRhs);
-
-        bool operator>(const IteratorBase& rRhs);
-
-        bool operator>=(const IteratorBase& rRhs);
+        bool operator>=(const IteratorBase& rRhs) const;
 
         std::string key() const;
 
         value_type value();
 
-        const value_type value() const;
+        value_type value() const;
 
     private:
+        value_type* get();
+
+        const value_type* get() const;
+
         value_type*     _p_base;
+
         difference_type _index;
     }; // class IteratorBase
 
@@ -159,14 +154,10 @@ public:
     JSONObject(std::istream& r_stream);
 
     /// Constructor for operator[]
-    JSONObject(
-        content_type* p_contents,
-        const JSONObject* p_root);
+    JSONObject(content_type* pContents);
 
     /// Constructor for operator[] const
-    JSONObject(
-        const content_type* p_contents,
-        const JSONObject* p_root);
+    JSONObject(const content_type* pContents);
 
     ~JSONObject();
 
@@ -240,9 +231,6 @@ public:
     /// Get wrapped object
     content_type& contents();
 
-    /// Get the root that holds the resources
-    const JSONObject& root() const;
-
     void prettyPrint(
         Ref<std::ostream> rStream,
         int indentation = 4) const;
@@ -276,7 +264,7 @@ protected:
     utils::RuntimeConst<content_type> _pContents;
 
 private:
-    const JSONObject* _pRoot;
+    bool _isRoot;
 }; // class JSONObject
 
 

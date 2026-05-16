@@ -6,24 +6,6 @@
         "file-path" : {
             "$ref" : "/cie/fem/path"
         },
-        "min-tree-depth" : {
-            "type" : "integer",
-            "minimum" : 0,
-            "default" : 0,
-            "description" : "Minimum depth of the binary tree before generating quadrature points."
-        },
-        "max-tree-depth" : {
-            "type" : "integer",
-            "minimum" : 0,
-            "default" : 6,
-            "description" : "Maximum depth of the binary tree to generate quadrature points from."
-        },
-        "min-segment-norm" : {
-            "type" : "number",
-            "minimum" : 0,
-            "default" : 1e-10,
-            "description" : "Minimum segment length to generate quadrature points for."
-        },
         "penalty-factor" : {
             "type" : "number",
             "minimum" : 0,

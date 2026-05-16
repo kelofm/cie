@@ -24,10 +24,10 @@ void integrateStiffness(
     std::span<const CellData> contiguousCellData,
     Ref<const Assembler> rAssembler,
     linalg::CSRView<Scalar,int> lhs,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
-        const std::size_t quadratureBatchSize = rArguments.get<std::size_t>("integrand-batch-size");
+        const std::size_t quadratureBatchSize = rConfiguration["batch-size"].as<std::size_t>();
 
         using IntegrandBase = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>;
         using EmbeddedIntegrand = ScaledMultiMaterialIntegrand<IntegrandBase,Scalar,2>;
@@ -44,9 +44,11 @@ void integrateStiffness(
         std::vector<std::size_t> partitions;
         partitions.push_back(0ul);
 
+        const std::string integrandProcessorDeviceName = rConfiguration["device"].as<std::string>();
+
         CIE_BEGIN_EXCEPTION_TRACING
         #ifdef CIE_ENABLE_SYCL
-            if (rArguments.get<bool>("sycl")) {
+            if (integrandProcessorDeviceName == "sycl") {
                 auto logBlock = utils::LoggerSingleton::get().newBlock("discover SYCL devices");
                 std::vector<sycl::device> devices;
                 for (auto device : sycl::device::get_devices(sycl::info::device_type::gpu)) {
@@ -63,7 +65,7 @@ void integrateStiffness(
                         Scalar>>(std::make_shared<sycl::queue>(device)));
                 } // for device in devices
                 partitions.back() = contiguousCellData.size();
-            } else {
+            } else if (integrandProcessorDeviceName == "host") {
                 partitions.push_back(contiguousCellData.size());
                 if (rThreads.size() == 1) {
                     integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
@@ -76,8 +78,15 @@ void integrateStiffness(
                         Integrand,
                         Scalar>>(rThreads));
                 }
-            }
+            } else CIE_THROW(Exception, std::format(
+                "unsupported device \"{}\" for integration",
+                integrandProcessorDeviceName))
         #else
+            CIE_CHECK(
+                integrandProcessorDeviceName == "host",
+                std::format(
+                    "unsupported device \"{}\" for integration",
+                    integrandProcessorDeviceName))
             partitions.push_back(contiguousCellData.size());
             if (rThreads.size() == 1) {
                 integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<

@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_STL_EXTENSION_RUNTIME_CONST_HPP
-#define CIE_UTILS_STL_EXTENSION_RUNTIME_CONST_HPP
+#pragma once
 
 
 namespace cie::utils {
@@ -55,5 +54,3 @@ private:
 } // namespace cie::utils
 
 #include "packages/stl_extension/impl/RuntimeConst_impl.hpp"
-
-#endif

@@ -25,47 +25,52 @@
 namespace cie::fem {
 
 
-int main(Ref<const utils::ArgParse::Results> rArguments) {
+void readTesselatedDomain(
+    Ref<std::istream> rStream,
+    Ref<std::vector<Scalar>> rOutput,
+    std::span<Scalar,Dimension> bboxBase,
+    std::span<Scalar,Dimension> bboxLengths) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            // Read the provided STL input.
+            cie::io::STLIO::Input<Scalar,Dimension> io(rStream);
+            rOutput.resize(io.triangleCount() * 3 * Dimension);
+            io.execute(rOutput);
+
+            // Extend the bounding box.
+            for (std::size_t iVertex=0ul; iVertex<3*io.triangleCount(); ++iVertex) {
+                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
+                    bboxBase[iDimension] = std::min<Scalar>(
+                        bboxBase[iDimension],
+                        rOutput[iVertex * Dimension + iDimension]);
+                    bboxLengths[iDimension] = std::max<Scalar>(
+                        bboxLengths[iDimension],
+                        rOutput[iVertex * Dimension + iDimension]);
+                }
+            }
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+int main(Ref<const cie::io::JSONObject> rConfiguration) {
     Mesh mesh;
     mp::ThreadPoolBase threads;
 
-    const std::filesystem::path configPath = rArguments.get<std::filesystem::path>("config-path");
-    cie::io::JSONObject configuration;
-
-    // Read the provided configuration file.
-    CIE_BEGIN_EXCEPTION_TRACING
-        std::cout << "Read input configuration from " << configPath << ".\n";
-        std::ifstream configFile(configPath);
-        configuration = cie::io::JSONObject(configFile);
-    CIE_END_EXCEPTION_TRACING
-
-    // Validate the provided configuration and apply defaults to it.
-    CIE_BEGIN_EXCEPTION_TRACING
-        cie::io::JSONSchema configSchema;
-        makeSchema(configSchema);
-        configSchema.validateAndFillDefaults(configuration);
-        std::cout << "Applied configuration:\n";
-        configuration.prettyPrint(std::cout);
-        std::cout << "\n";
-        return 0;
-    CIE_END_EXCEPTION_TRACING
-
     // Read the dirichlet input and set mesh boundaries.
-    const auto tesselatedBoundary = makeBoundary(rArguments);
-    std::array<Scalar,2> meshBase {
+    const auto tesselatedBoundary = makeBoundary(rConfiguration["dirichlet-1d"]);
+    std::array<Scalar,2> bboxBase {
             std::numeric_limits<Scalar>::max(),
             std::numeric_limits<Scalar>::max()},
-        meshLengths{
+        bboxLengths{
             std::numeric_limits<Scalar>::lowest(),
             std::numeric_limits<Scalar>::lowest()};
     for (const auto& rSegment : tesselatedBoundary) {
         for (unsigned iDimension=0u; iDimension<2; ++iDimension) {
             for (unsigned iPoint=0u; iPoint<2; ++iPoint) {
-                meshBase[iDimension] = std::min<Scalar>(
-                    meshBase[iDimension],
+                bboxBase[iDimension] = std::min<Scalar>(
+                    bboxBase[iDimension],
                     rSegment[iDimension + iPoint * 2]);
-                meshLengths[iDimension] = std::max<Scalar>(
-                    meshLengths[iDimension],
+                bboxLengths[iDimension] = std::max<Scalar>(
+                    bboxLengths[iDimension],
                     rSegment[iDimension + iPoint * 2]);
             }
         }
@@ -78,53 +83,51 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     >> domainTriangles;
     std::vector<std::pair<MeshData::DomainData,Scalar>> domainMap;
     domainMap.emplace_back(
-        0,
-        rArguments.get<double>("default-domain-scale"));
-    {
-        for ([[maybe_unused]] const auto& [_, rDomainFileName] : rArguments["domain-file-path"]) {
-            std::cout << "reading " << rDomainFileName << std::endl;
-            domainTriangles.push_back({
-                static_cast<MeshData::DomainData>(domainTriangles.size() + 1),
-                {}});
-            const std::filesystem::path domainFilePath(rDomainFileName);
-            std::ifstream domainFile(domainFilePath, std::ios::binary);
-            cie::io::STLIO::Input<Scalar,Dimension> io(domainFile);
-            domainTriangles.back().second.resize(io.triangleCount() * 3 * Dimension);
-            io.execute(domainTriangles.back().second);
+        domainMap.size(),
+        0);
 
-            for (std::size_t iVertex=0ul; iVertex<3*io.triangleCount(); ++iVertex) {
-                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
-                    meshBase[iDimension] = std::min<Scalar>(
-                        meshBase[iDimension],
-                        domainTriangles.back().second[iVertex * Dimension + iDimension]);
-                    meshLengths[iDimension] = std::max<Scalar>(
-                        meshLengths[iDimension],
-                        domainTriangles.back().second[iVertex * Dimension + iDimension]);
-                }
-            }
+    for (const auto& domainConfiguration : rConfiguration["domains"]) {
+        const std::string domainType = domainConfiguration["type"].as<std::string>();
+        const MeshData::DomainData domainID = domainMap.size();
 
-            domainMap.emplace_back(domainTriangles.back().first, 1);
+        // Current settings define the default (fictitious) domain.
+        if (domainType == "default") {
+            domainMap[0].second = domainConfiguration["scale"].as<double>();
         }
-    }
 
-    // Extend the mesh domain.
-    meshLengths.front() = (1.0 + 2e-2) * (meshLengths.front() - meshBase.front());
-    meshLengths.back()  = (1.0 + 2e-2) * (meshLengths.back() - meshBase.back());
-    meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (meshLengths.front());
-    meshBase.back() -= 1e-2 / (1.0 + 2e-2) * (meshLengths.back());
-    std::cout << std::format(
-        "mesh covers\n\tx in [{}, {}]\n\ty in [{}, {}]\n",
-        meshBase.front(), meshBase.front() + meshLengths.front(),
-        meshBase.back(), meshBase.back() + meshLengths.back());
+        // Current settings define a triangulated domain.
+        else if (domainType == "tesselated") {
+            const std::filesystem::path domainFilePath = domainConfiguration["file-path"].as<std::string>();
+            auto logBlock = cie::utils::LoggerSingleton::get().newBlock(std::format(
+                "reading {}",
+                domainFilePath.string()));
+            domainTriangles.push_back({
+                domainID,
+                {}});
+            std::ifstream stlFile(
+                domainFilePath,
+                std::ios::binary);
+            readTesselatedDomain(
+                stlFile,
+                domainTriangles.back().second,
+                bboxBase,
+                bboxLengths);
+            domainMap.emplace_back(
+                domainID,
+                domainConfiguration["scale"].as<double>());
+        } else CIE_THROW(Exception, std::format(
+            "unsupported domain type: '{}'",
+            domainType))
+    }
 
     // Fill the mesh with cells and boundaries.
     generateMesh(
         mesh,
-        meshBase,
-        meshLengths,
+        bboxBase,
+        bboxLengths,
         std::move(domainTriangles),
         domainMap,
-        rArguments);
+        rConfiguration["discretization"]);
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("write graphml");
@@ -163,7 +166,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
     // point membership tests. Running on accelerator devices also requires
     // - the cell data to be available in a contiguous array
     // - the cell data to be self contained (no pointers and heap storage)
-    auto bvh = makeBoundingVolumeHierarchy(contiguousCellData, meshBase, meshLengths);
+    auto bvh = makeBoundingVolumeHierarchy(contiguousCellData, bboxBase, bboxLengths);
     const auto bvhView = bvh.makeView();
 
     // Create empty CSR matrix
@@ -193,7 +196,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         contiguousCellData,
         assembler,
         lhs,
-        rArguments,
+        rConfiguration["discretization"]["integration"],
         threads);
 
     const auto boundarySegments = imposeBoundaryConditions(
@@ -204,7 +207,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
         contiguousCellData,
         lhs,
         rhs,
-        rArguments);
+        rConfiguration["dirichlet-1d"]);
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());
@@ -217,14 +220,14 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             rhs,
             assembler,
             threads,
-            rArguments);
+            rConfiguration["linear-system"]);
     } // solve
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("postprocess");
         postprocess(
-            meshBase,
-            meshLengths,
+            bboxBase,
+            bboxLengths,
             lhs,
             solution,
             rhs,
@@ -232,7 +235,7 @@ int main(Ref<const utils::ArgParse::Results> rArguments) {
             contiguousCellData,
             bvh,
             assembler,
-            rArguments,
+            rConfiguration["discretization"]["postprocessing"],
             threads);
     }
 
@@ -246,100 +249,7 @@ int main(int argc, const char** argv) {
     const auto logBlock = cie::utils::LoggerSingleton::get().newBlock("main");
     cie::utils::ArgParse parser("2D Poisson Example");
     parser
-        .addKeyword(
-            {"--config-path", "-c"},
-            cie::utils::ArgParse::DefaultValue {"config.json"})
-        .addKeyword(
-            {"--boundary-file-path"},
-            cie::utils::ArgParse::DefaultValue {"dirichlet.csv"},
-            "Path to the boundary definition file.")
-        .addKeyword(
-            {"--domain-file-path"},
-            cie::utils::ArgParse::DefaultValue {"domain.stl"},
-            cie::utils::ArgParse::ArgumentCount::NonZero,
-            "Paths to STL files defining the domain(s).")
-        .addKeyword(
-            {"-r", "--resolution"},
-            cie::utils::ArgParse::DefaultValue {"31"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Resolution (number of nodes per direction.)")
-        .addKeyword(
-            {"--basis"},
-            cie::utils::ArgParse::DefaultValue {"legendre"},
-            [] (cie::utils::ArgParse::ValueView argument) {
-                std::string arg;
-                std::copy(argument.begin(), argument.end(), std::back_inserter(arg));
-                return arg == "legendre" || arg == "lagrange";
-            },
-            "Type of basis polynomials to use (lagrange or integrated legendre)")
-        .addKeyword(
-            {"--min-boundary-tree-depth"},
-            cie::utils::ArgParse::DefaultValue {"0"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Minimum number of splits before considering boundary segments for integration.")
-        .addKeyword(
-            {"--max-boundary-tree-depth"},
-            cie::utils::ArgParse::DefaultValue {"6"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Maximum number of segment splits on the boundary.")
-        .addKeyword(
-            {"--min-boundary-segment-norm"},
-            cie::utils::ArgParse::DefaultValue {"1e-12"},
-            cie::utils::ArgParse::validatorFactory<double>(),
-            "Minimum size of a boundary segment to integrate.")
-        .addKeyword(
-            {"--solver"},
-            cie::utils::ArgParse::DefaultValue {"cg-eigen"},
-            [] (const cie::utils::ArgParse::ValueView& rValue) -> bool {
-                const std::string value(rValue.begin(), rValue.end());
-                const std::vector<std::string> choices {
-                    "cg",
-                    "cg-sycl",
-                    "cg-eigen",
-                    "multigrid",
-                    "multigrid-sycl",
-                    "jacobi",
-                    "llt-eigen"};
-                return std::any_of(
-                    choices.begin(),
-                    choices.end(),
-                    [&value] (cie::Ref<const std::string> rChoice) {return value == rChoice;});
-            },
-            "Linear solver.")
-        .addKeyword(
-            {"--reordering"},
-            cie::utils::ArgParse::DefaultValue {"none"},
-            [] (const cie::utils::ArgParse::ValueView& rValue) -> bool {
-                const std::string value(rValue.begin(), rValue.end());
-                return value == "none" || value == "cuthill-mckee" || value == "reverse-cuthill-mckee";
-            },
-            "LHS matrix reordering strategy.")
-        .addKeyword(
-            {"--scatter-resolution"},
-            cie::utils::ArgParse::DefaultValue {"100"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Number of sample points per direction for scatter post-processing.")
-        .addKeyword(
-            {"--penalty-factor"},
-            cie::utils::ArgParse::DefaultValue {"1e6"},
-            cie::utils::ArgParse::validatorFactory<double>(),
-            "Penalty value for the weak imposition of Dirichlet boundary conditions.")
-        .addKeyword(
-            {"--default-domain-scale"},
-            cie::utils::ArgParse::DefaultValue {std::format("{:.6E}", std::numeric_limits<cie::fem::Scalar>::epsilon())},
-            cie::utils::ArgParse::validatorFactory<double>(),
-            "Material property scale of the default domain.")
-        .addKeyword(
-            {"--integrand-batch-size"},
-            cie::utils::ArgParse::DefaultValue {"0x8000"},
-            cie::utils::ArgParse::validatorFactory<std::size_t>(),
-            "Number of quadrature points to evaluate at once.")
-        .addFlag(
-            {"--sycl"},
-            "Use the GPU for integration and postprocessing.")
-        .addFlag(
-            {"--write-linear-system"},
-            "Write the linear system in matrix market format.")
+        .addPositional("config-path")
         .addFlag(
             {"-h", "--help"},
             "Print this help and exit.")
@@ -358,8 +268,37 @@ int main(int argc, const char** argv) {
         return 0;
     }
 
+    const std::filesystem::path configPath = arguments.get<std::filesystem::path>("config-path");
+    cie::io::JSONObject configuration;
+
+    // Read the provided configuration file.
+    CIE_BEGIN_EXCEPTION_TRACING
+        std::cout << "Read input configuration from " << configPath << ".\n";
+        std::ifstream configFile(configPath);
+        configuration = cie::io::JSONObject(configFile);
+    CIE_END_EXCEPTION_TRACING
+
+    // Validate the provided configuration and apply defaults to it.
+    CIE_BEGIN_EXCEPTION_TRACING
+        cie::io::JSONSchema configSchema;
+        cie::fem::makeSchema(configSchema);
+        configSchema.validateAndFillDefaults(configuration);
+    CIE_END_EXCEPTION_TRACING
+
+    // Write the augmented configuration.
+    CIE_BEGIN_EXCEPTION_TRACING
+        const std::filesystem::path appliedConfigPath =
+            configPath.parent_path() / std::format(
+                "{}_applied{}",
+                std::filesystem::path::string_type(configPath.stem()),
+                std::filesystem::path::string_type(configPath.extension()));
+        std::cout << "Write applied configuration to " << appliedConfigPath << ".\n";
+        std::ofstream appliedConfigFile(appliedConfigPath);
+        configuration.prettyPrint(appliedConfigFile);
+    CIE_END_EXCEPTION_TRACING
+
     try {
-        return cie::fem::main(arguments);
+        return cie::fem::main(configuration);
     } catch (cie::Exception& rException) {
         std::cerr << rException.what() << std::endl;
         return 1;

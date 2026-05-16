@@ -2,31 +2,25 @@
     "$id" : "/cie/fem/integration",
     "type" : "object",
     "description" : "Settings related to performing numerical quadrature.",
-    "properties" : {
-        "order" : {
-            "type" : "integer",
-            "minimum" : 1,
-            "default" : 1,
-            "description" : "Integration order in each direction."
-        },
-        "batch-size" : {
-            "type" : "number",
-            "minimum" : 1,
-            "default" : 1e4,
-            "description" : "Number of quadrature points at which to evaluate the integrand at once."
-        },
-        "device" : {
-            "type" : "string",
-            "enum" : ["host", "sycl"],
-            "default" : "host",
-            "description" : "Device to evaluate integrands on."
+    "allOf" : [
+        {"$ref" : "/cie/fem/integrand-processor"},
+        {
+            "oneOf" : [
+                {"$ref" : "/cie/fem/gauss-legendre-quadrature"},
+                {"$ref" : "/cie/fem/kd-tree-quadrature"}
+            ]
         }
-    },
+    ],
     "default" : {
-        "order" : 3,
+        "type" : "kd-tree-quadrature",
+        "template" : {
+            "type" : "gauss-legendre-quadrature",
+            "order" : 3
+        },
+        "min-tree-depth" : 0,
+        "max-tree-depth" : 6,
+        "min-domain-norm" : 1e-6,
         "batch-size" : 1e4,
         "device" : "host"
-    },
-    "required" : [],
-    "additionalProperties" : false
+    }
 }

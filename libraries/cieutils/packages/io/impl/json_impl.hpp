@@ -42,12 +42,9 @@ JSONObject& JSONObject::set( const ValueType& r_value )
 
 
 template <concepts::io::SupportedType ValueType>
-ValueType JSONObject::as() const
-{
+ValueType JSONObject::as() const {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return JSONObject::SetGet<ValueType>::as( *this );
-
+        return JSONObject::SetGet<ValueType>::as(*this);
     CIE_END_EXCEPTION_TRACING
 }
 

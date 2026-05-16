@@ -6,7 +6,7 @@
 #include "embeddedPoisson2D/BoundaryData.hpp"
 
 // --- Utility Includes ---
-#include "packages/commandline/inc/ArgParse.hpp"
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
@@ -23,20 +23,18 @@ using Mesh = Graph<CellData,BoundaryData,MeshData>;
 /// @brief Generate cells and boundaries for the example problem.
 /// @details Mesh:
 ///          @code
-///            [u(0,1)=2]                                     [u(1,1)=3]
-///                     +---------+                 +---------+
-///                     | (m-1)n+1|                 |    mn   |
-///                     +---------+                 +---------+
-///                       .
-///                       .
-///                       .
-///                     +---------+
-///                     |   n+1   |
-///                     +---------+
-///                     +---------+---------+       +---------+
-///                     |    1    |    2    |  ...  |    n    |
-///                     +---------+---------+       +---------+
-///            [u(0,0)=0]                                     [u(1,0)=1]
+///             +---------+                 +---------+
+///             | (m-1)n+1|                 |    mn   |
+///             +---------+                 +---------+
+///               .
+///               .
+///               .
+///             +---------+
+///             |   n+1   |
+///             +---------+
+///             +---------+---------+       +---------+
+///             |    1    |    2    |  ...  |    n    |
+///             +---------+---------+       +---------+
 ///          @endcode
 void generateMesh(
     Ref<Mesh> rMesh,
@@ -47,7 +45,7 @@ void generateMesh(
         std::vector<Scalar>>>
     > rDomainTriangles,
     std::span<const std::pair<MeshData::DomainData,Scalar>> domainMap,
-    Ref<const utils::ArgParse::Results> rArguments);
+    Ref<const cie::io::JSONObject> rConfiguration);
 
 
 } // namespace cie::fem

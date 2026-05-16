@@ -1,0 +1,74 @@
+{
+    "dirichlet-1d": {
+        "file-path": "dirichlet.csv",
+        "integration": {
+            "batch-size": 10000.0,
+            "device": "host",
+            "max-tree-depth": 6,
+            "min-domain-norm": 1e-06,
+            "min-tree-depth": 0,
+            "template": {
+                "order": 3,
+                "type": "gauss-legendre-quadrature"
+            },
+            "type": "kd-tree-quadrature"
+        },
+        "penalty-factor": 1000000.0,
+        "postprocessing": {
+            "replace-nans": null,
+            "resolution": 100.0
+        }
+    },
+    "discretization": {
+        "functional": {
+            "order": 5,
+            "type": "legendre"
+        },
+        "geometric": {
+            "resolution": 10,
+            "type": "uniform-cartesian-grid"
+        },
+        "integration": {
+            "batch-size": 10000.0,
+            "device": "host",
+            "max-tree-depth": 6,
+            "min-domain-norm": 1e-06,
+            "min-tree-depth": 0,
+            "template": {
+                "order": 3,
+                "type": "gauss-legendre-quadrature"
+            },
+            "type": "kd-tree-quadrature"
+        },
+        "postprocessing": {
+            "replace-nans": null,
+            "resolution": 100.0
+        }
+    },
+    "domains": [
+        {
+            "scale": 1e-06,
+            "type": "default"
+        },
+        {
+            "file-path": "domain.stl",
+            "scale": 1,
+            "type": "tesselated"
+        }
+    ],
+    "linear-system": {
+        "reordering": null,
+        "solver": {
+            "absolute-residual": 0,
+            "max-iterations": 1000.0,
+            "preconditioner": {
+                "type": "inverse-diagonal-operator"
+            },
+            "relative-residual": 1e-06,
+            "type": "cg"
+        },
+        "write-lhs": null,
+        "write-rhs": null,
+        "write-solution": null
+    }
+}

@@ -58,7 +58,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/build/bin/embeddedPoisson2D",
             "externalConsole": false,
-            "args" : ["--config-path", "/home/mate/git/cie/executables/fem_examples/src/embeddedPoisson2D/config.json"],
+            "args" : ["/home/mate/git/cie/executables/fem_examples/src/embeddedPoisson2D/config.json"],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],

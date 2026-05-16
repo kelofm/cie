@@ -12,6 +12,11 @@
     "dirichlet-1d" : {
         "file-path" : "dirichlet.csv"
     },
-    "discretization" : {},
+    "discretization" : {
+        "functional" : {
+            "type" : "legendre",
+            "order" : 5
+        }
+    },
     "linear-system" : {}
 }

@@ -26,10 +26,11 @@ void postprocess(
     std::span<const CellData> contiguousCellData,
     Ref<const BVH> rBVH,
     Ref<const Assembler> rAssembler,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads) {
         CIE_BEGIN_EXCEPTION_TRACING
-            const unsigned postprocessResolution = rArguments.get<std::size_t>("scatter-resolution");
+            //const unsigned postprocessResolution = rArguments.get<std::size_t>("scatter-resolution");
+            const unsigned postprocessResolution = rConfiguration["resolution"].as<std::size_t>();
 
             std::vector<Scalar> residual(rhs.begin(), rhs.end());
             {
