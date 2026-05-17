@@ -1,0 +1,14 @@
+{
+    "$id" : "/cie/fem/geometric-discretization",
+    "description" : "Settings related to mesh geometry.",
+    "type" : "object",
+    "anyOf" : [
+        {"$ref" : "/cie/fem/uniform-cartesian-grid"},
+        {"$ref" : "/cie/fem/cartesian-grid-2d"}
+    ],
+    "default" : {
+        "type" : "uniform-cartesian-grid",
+        "resolution" : 10
+    },
+    "required" : ["type"]
+}

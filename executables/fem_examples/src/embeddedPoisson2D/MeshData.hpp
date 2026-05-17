@@ -23,7 +23,8 @@ public:
     MeshData(
         RightRef<Ansatz> rAnsatzSpace,
         RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> domainTriangles,
-        std::span<const std::pair<DomainData,Scalar>> domainMap);
+        std::span<const std::pair<DomainData,Scalar>> domainMap,
+        std::array<unsigned,2> treeDepthRange);
 
     KDTreeQuadraturePointFactory<
         Dimension,
@@ -59,6 +60,8 @@ private:
         DomainData,
         Scalar>
     > _domainMap;
+
+    std::array<unsigned,2> _treeDepthRange;
 }; // class MeshData
 
 

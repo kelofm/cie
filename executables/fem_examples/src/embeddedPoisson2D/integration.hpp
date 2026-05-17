@@ -15,7 +15,7 @@ void integrateStiffness(
     std::span<const CellData> contiguousCellData,
     Ref<const Assembler> rAssembler,
     linalg::CSRView<Scalar,int> lhs,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads);
 
 

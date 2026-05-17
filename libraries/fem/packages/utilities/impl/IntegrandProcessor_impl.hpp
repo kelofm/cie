@@ -582,14 +582,14 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         // Perform integration on the device.
         CIE_BEGIN_EXCEPTION_TRACING
-        const std::size_t workItemCount = rQuadraturePoints.size();
-        const std::size_t itemsPerWorkGroup = std::min<std::size_t>(
-            workItemCount,
+        const std::size_t pointCount = rQuadraturePoints.size();
+        const std::size_t pointsPerGroup = std::min<std::size_t>(
+            pointCount,
             rQueue.get_device().get_info<sycl::info::device::max_work_group_size>());
-        const std::size_t workGroupCount = workItemCount / itemsPerWorkGroup + bool(workItemCount % itemsPerWorkGroup);
+        const std::size_t groupCount = (pointCount + pointsPerGroup - 1) / pointsPerGroup;
         const auto range = sycl::nd_range<1>(
-            itemsPerWorkGroup * workGroupCount,
-            itemsPerWorkGroup);
+            pointsPerGroup * groupCount,
+            pointsPerGroup);
 
         rQueue.wait_and_throw();
         rQueue.submit([&] (sycl::handler& rHandler) {

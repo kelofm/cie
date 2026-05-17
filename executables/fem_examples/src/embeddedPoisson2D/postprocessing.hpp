@@ -7,7 +7,7 @@
 #include "embeddedPoisson2D/constraints.hpp"
 
 // --- Utility Includes ---
-#include "packages/commandline/inc/ArgParse.hpp"
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
@@ -23,7 +23,7 @@ void postprocess(
     std::span<const CellData> contiguousCellData,
     Ref<const BVH> rBVH,
     Ref<const Assembler> rAssembler,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads);
 
 

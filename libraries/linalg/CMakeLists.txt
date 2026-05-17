@@ -96,7 +96,10 @@ set(CPACK_SOURCE_IGNORE_FILES
     /.git
     /build
     *.gitignore)
-include(CPack)
+
+if (NOT DEFINED CPack_CMake_INCLUDED)
+    include(CPack)
+endif()
 
 # Generate CMake config
 include(CMakePackageConfigHelpers)
@@ -137,3 +140,8 @@ export(TARGETS ${PROJECT_NAME}
        NAMESPACE cie::
        FILE ${PROJECT_NAME}Targets.cmake)
 export(PACKAGE ${PROJECT_NAME})
+
+# Install data
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/share/cie")

@@ -20,11 +20,13 @@ MeshData::MeshData()
 MeshData::MeshData(
     RightRef<Ansatz> rAnsatzSpace,
     RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> domainTriangles,
-    std::span<const std::pair<DomainData,Scalar>> domainMap)
+    std::span<const std::pair<DomainData,Scalar>> domainMap,
+    std::array<unsigned,2> treeDepthRange)
         :   MeshBase<Ansatz>(std::span<const Ansatz>(&rAnsatzSpace, 1)),
             _quadraturePointSet(),
             _domainTriangles(std::move(domainTriangles)),
-            _domainMap(domainMap.begin(), domainMap.end()) {
+            _domainMap(domainMap.begin(), domainMap.end()),
+            _treeDepthRange(treeDepthRange) {
                 // Cache quadrature points.
                 // Generate 1D quadrature points.
                 DynamicArray<QuadraturePoint<1,Scalar,Scalar>> basePoints;
@@ -85,7 +87,7 @@ KDTreeQuadraturePointFactory<
             std::span<const QuadraturePoint<Dimension,Scalar,Scalar>>(
                 _quadraturePointSet.data(),
                 _quadraturePointSet.size()),
-        {0ul, 6ul}
+        _treeDepthRange
     );
 }
 

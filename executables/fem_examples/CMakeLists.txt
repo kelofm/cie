@@ -91,7 +91,10 @@ foreach(directory ${directories})
         /.git
         /build
         *.gitignore)
-    include(CPack)
+
+    if (NOT DEFINED CPack_CMake_INCLUDED)
+        include(CPack)
+    endif()
 endforeach()
 
 # Generate CMake config

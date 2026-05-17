@@ -1,0 +1,12 @@
+{
+    "$id" : "/cie/linalg/inverse-diagonal-operator",
+    "description" : "Settings for an inverse diagonal operator.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "inverse-diagonal-operator"
+        }
+    },
+    "required" : ["type"],
+    "additionalProperties" : false
+}

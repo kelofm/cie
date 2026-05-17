@@ -1,0 +1,44 @@
+{
+    "$id" : "/cie/fem/pmg-sycl",
+    "description" : "Settings for a polynomial-multigrid linear solver.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/iterative-solver"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "pmg-sycl"
+                },
+                "smoother" : {
+                    "type" : "object",
+                    "description" : "Operator to use for smoothing on all but the coarsest grid.",
+                    "oneOf" : [
+                        {"$ref" : "/cie/linalg/jacobi-sycl"},
+                        {"$ref" : "/cie/linalg/inverse-diagonal-operator-sycl"},
+                        {"$ref" : "/cie/linalg/cg-sycl"}
+                    ],
+                    "default" : {
+                        "type" : "jacobi",
+                        "iterations" : 3,
+                        "relaxation" : 6.666e-1
+                    }
+                },
+                "solver" : {
+                    "type" : "object",
+                    "description" : "Operator to use to solve systems on the coarsest grid.",
+                    "oneOf" : [
+                        {"$ref" : "/cie/linalg/jacobi-sycl"},
+                        {"$ref" : "/cie/linalg/inverse-diagonal-operator-sycl"},
+                        {"$ref" : "/cie/linalg/cg-sycl"}
+                    ],
+                    "default" : {
+                        "type" : "cg",
+                        "max-iterations" : 1e2,
+                        "relative-residual" : 1e-1
+                    }
+                }
+            }
+        }
+    ],
+    "required" : ["type", "smoother", "solver"]
+}
