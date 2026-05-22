@@ -34,8 +34,4 @@ using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
 
 
-constexpr unsigned integrationOrder = polynomialOrder + 1;
-constexpr unsigned boundaryIntegrationOrder = Dimension * integrationOrder;
-
-
 } // namespace cie::fem

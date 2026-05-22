@@ -40,51 +40,6 @@ void VTKHDF::Output::operator()(
 }
 
 
-template <class TValue, fem::DiscretizationLike TMesh>
-requires std::is_same_v<typename TMesh::Vertex::Data::Value,TValue>
-void VTKHDF::Output::writeFieldVariables(
-    std::string_view groupName,
-    Ref<const TMesh> rMesh,
-    Ref<const fem::Assembler> rAssembler,
-    std::vector<std::pair<
-        std::string,
-        std::span<const TValue>>
-    > fieldVariables) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            this->writeFieldVariablesImpl<TMesh,typename TMesh::Vertex::Data,TValue>(
-                groupName,
-                rMesh,
-                {},
-                rAssembler,
-                fieldVariables);
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
-requires (
-    std::is_same_v<typename TMesh::Vertex::Data,TCell>
-    && std::is_same_v<typename TCell::Value,TValue>)
-void VTKHDF::Output::writeFieldVariables(
-    std::string_view groupName,
-    Ref<const TMesh> rMesh,
-    std::span<const TCell> cells,
-    Ref<const fem::Assembler> rAssembler,
-    std::vector<std::pair<
-        std::string,
-        std::span<const TValue>>
-    > fieldVariables) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            this->writeFieldVariablesImpl<TMesh,TCell,TValue>(
-                groupName,
-                rMesh,
-                cells,
-                rAssembler,
-                fieldVariables);
-        CIE_END_EXCEPTION_TRACING
-}
-
-
 template <class TValue>
 void VTKHDF::Output::writeFieldVariables(
     std::string_view groupName,
@@ -354,11 +309,12 @@ void VTKHDF::Output::writeMesh(
 }
 
 
-template <class TMesh, class TCell, class TValue>
-void VTKHDF::Output::writeFieldVariablesImpl(
+template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
+requires std::is_same_v<typename TCell::Value,TValue>
+void VTKHDF::Output::writeFieldVariables(
     std::string_view groupName,
     Ref<const TMesh> rMesh,
-    std::optional<std::span<const TCell>> maybeCells,
+    std::span<const TCell> cells,
     Ref<const fem::Assembler> rAssembler,
     std::vector<std::pair<
         std::string,
@@ -447,22 +403,11 @@ void VTKHDF::Output::writeFieldVariablesImpl(
             }; // kernel
 
             // Run the kernel on the cells.
-            if (maybeCells.has_value()) {
-                std::span<const TCell> cells = maybeCells.value();
-                mp::ThreadPoolBase threads;
-                mp::ParallelFor<>(threads).firstPrivate(std::vector<TValue>(), std::vector<TValue>()).execute(
-                    cells.size(),
-                    [cells, &kernel] (std::size_t iCell, Ref<std::vector<TValue>> rAnsatzBuffer, Ref<std::vector<TValue>> rExpressionBuffer) {
-                        kernel(iCell, cells[iCell], rAnsatzBuffer, rExpressionBuffer);
-                    });
-            } else {
-                std::size_t iCell = 0ul;
-                std::vector<TValue> ansatzBuffer, expressionBuffer;
-                for (Ref<const typename TMesh::Vertex> rCell : rMesh.vertices()) {
-                    kernel(iCell, rCell.data(), ansatzBuffer, expressionBuffer);
-                    ++iCell;
-                } // for rCell in rMesh.vertices()
-            }
+            mp::ThreadPoolBase threads;
+            mp::ParallelFor<>(threads).firstPrivate(std::vector<TValue>(), std::vector<TValue>()).execute(
+                cells.size(),
+                [cells, &kernel] (std::size_t iCell, Ref<std::vector<TValue>> rAnsatzBuffer, Ref<std::vector<TValue>> rExpressionBuffer) {
+                    kernel(iCell, cells[iCell], rAnsatzBuffer, rExpressionBuffer);});
 
             // Write fields to the HDF5 file as PointData.
             for (std::size_t iField=0ul; iField<fieldVariables.size(); ++iField) {

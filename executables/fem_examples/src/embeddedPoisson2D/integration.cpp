@@ -21,7 +21,7 @@ namespace cie::fem {
 
 void integrateStiffness(
     Ref<const Mesh> rMesh,
-    std::span<const CellData> contiguousCellData,
+    std::span<const Cell> cells,
     Ref<const Assembler> rAssembler,
     linalg::CSRView<Scalar,int> lhs,
     Ref<const cie::io::JSONObject> rConfiguration,
@@ -57,16 +57,16 @@ void integrateStiffness(
                 } // for device
                 for (auto device : devices) {
                     partitions.push_back(std::min(
-                        partitions.back() + contiguousCellData.size() / devices.size(),
-                        contiguousCellData.size()));
+                        partitions.back() + cells.size() / devices.size(),
+                        cells.size()));
                     integrandProcessors.emplace_back(std::make_unique<SYCLIntegrandProcessor<
                         Dimension,
                         Integrand,
                         Scalar>>(std::make_shared<sycl::queue>(device)));
                 } // for device in devices
-                partitions.back() = contiguousCellData.size();
+                partitions.back() = cells.size();
             } else if (integrandProcessorDeviceName == "host") {
-                partitions.push_back(contiguousCellData.size());
+                partitions.push_back(cells.size());
                 if (rThreads.size() == 1) {
                     integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                             Dimension,
@@ -87,7 +87,7 @@ void integrateStiffness(
                 std::format(
                     "unsupported device \"{}\" for integration",
                     integrandProcessorDeviceName))
-            partitions.push_back(contiguousCellData.size());
+            partitions.push_back(cells.size());
             if (rThreads.size() == 1) {
                 integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                         Dimension,
@@ -104,10 +104,10 @@ void integrateStiffness(
         CIE_END_EXCEPTION_TRACING
 
         CIE_BEGIN_EXCEPTION_TRACING
-        const auto quadratureRuleFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
+        const auto quadratureRuleFactory = [&rMesh] (Ref<const Cell> rCell) {
             return rMesh.data().makeQuadratureRule(rCell);};
 
-        const auto integrandFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
+        const auto integrandFactory = [&rMesh] (Ref<const Cell> rCell) {
             CIE_CHECK(rMesh.data().domainMap().size() == 2, "")
             std::span<const std::pair<MeshData::DomainData,Scalar>,2> domainData(
                 rMesh.data().domainMap().data(),
@@ -142,8 +142,8 @@ void integrateStiffness(
             for (std::size_t iPartition=0ul; iPartition<integrandProcessors.size(); ++iPartition) {
                 jobs.emplace_back([&, iPartition] () {
                     integrandProcessors[iPartition]->process(
-                        contiguousCellData.begin() + partitions[iPartition],
-                        contiguousCellData.begin() + partitions[iPartition + 1],
+                        cells.begin() + partitions[iPartition],
+                        cells.begin() + partitions[iPartition + 1],
                         quadratureRuleFactory,
                         integrandFactory,
                         integralSink,

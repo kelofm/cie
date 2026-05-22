@@ -51,21 +51,8 @@ struct VTKHDF {
             std::span<const TValue> coordinates,
             std::size_t gridSize = 0ul);
 
-        template <class TValue, fem::DiscretizationLike TMesh>
-        requires std::is_same_v<typename TMesh::Vertex::Data::Value,TValue>
-        void writeFieldVariables(
-            std::string_view groupName,
-            Ref<const TMesh> rMesh,
-            Ref<const fem::Assembler> rAssembler,
-            std::vector<std::pair<
-                std::string,
-                std::span<const TValue>>
-            > fieldVariables);
-
         template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
-        requires (
-            std::is_same_v<typename TMesh::Vertex::Data,TCell>
-            && std::is_same_v<typename TCell::Value,TValue>)
+        requires std::is_same_v<typename TCell::Value,TValue>
         void writeFieldVariables(
             std::string_view groupName,
             Ref<const TMesh> rMesh,
@@ -102,17 +89,6 @@ struct VTKHDF {
             std::optional<std::reference_wrapper<const TMesh>> rMaybeMesh,
             std::optional<std::span<const TCell>> maybeCells,
             std::string_view groupName);
-
-        template <class TMesh, class TCell, class TValue>
-        void writeFieldVariablesImpl(
-            std::string_view groupName,
-            Ref<const TMesh> rMesh,
-            std::optional<std::span<const TCell>> maybeCells,
-            Ref<const fem::Assembler> rAssembler,
-            std::vector<std::pair<
-                std::string,
-                std::span<const TValue>>
-            > fieldVariables);
 
         void makeGroup(Ref<const Prefix> rPrefix);
 

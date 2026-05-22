@@ -31,6 +31,14 @@ void readTesselatedDomain(
     std::span<Scalar,Dimension> bboxBase,
     std::span<Scalar,Dimension> bboxLengths) {
         CIE_BEGIN_EXCEPTION_TRACING
+            std::array<Scalar,Dimension> bboxEnd;
+            std::transform(
+                bboxBase.begin(),
+                bboxBase.end(),
+                bboxLengths.begin(),
+                bboxEnd.begin(),
+                std::plus<Scalar>());
+
             // Read the provided STL input.
             cie::io::STLIO::Input<Scalar,Dimension> io(rStream);
             rOutput.resize(io.triangleCount() * 3 * Dimension);
@@ -42,11 +50,19 @@ void readTesselatedDomain(
                     bboxBase[iDimension] = std::min<Scalar>(
                         bboxBase[iDimension],
                         rOutput[iVertex * Dimension + iDimension]);
-                    bboxLengths[iDimension] = std::max<Scalar>(
-                        bboxLengths[iDimension],
+                    bboxEnd[iDimension] = std::max<Scalar>(
+                        bboxEnd[iDimension],
                         rOutput[iVertex * Dimension + iDimension]);
                 }
             }
+
+            // Set the bounding box.
+            std::transform(
+                bboxEnd.begin(),
+                bboxEnd.end(),
+                bboxBase.begin(),
+                bboxLengths.begin(),
+                std::minus<Scalar>());
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -129,11 +145,6 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
         domainMap,
         rConfiguration["discretization"]);
 
-    {
-        auto logBlock = utils::LoggerSingleton::get().newBlock("write graphml");
-        io::GraphML::GraphML::Output("poisson2D.graphml")(mesh);
-    }
-
     // Find ansatz functions that coincide on opposite boundaries.
     // In adjacent cells, these ansatz functions will have to map
     // to the same DoF in the assembled system.
@@ -149,24 +160,29 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
 
     {
         auto logBlock = utils::LoggerSingleton::get().newBlock("parse mesh topology");
-        assembler.addGraph(
+        assembler.addGraph<Cell>(
             mesh,
+            [&mesh] (VertexID id) -> Ref<const Cell> {
+                const auto& rCells = mesh.data().cells();
+                return *std::lower_bound(
+                    rCells.begin(),
+                    rCells.end(),
+                    id,
+                    [] (Ref<const Cell> rCell, VertexID id) {
+                        return rCell.id() < id;});
+            },
             ansatzMap,
             mesh.data().ansatz(0ul).size());
     } // parse mesh topology
-
-    DynamicArray<CellData> contiguousCellData;
-    contiguousCellData.reserve(mesh.vertices().size());
-    std::ranges::transform(
-        mesh.vertices(),
-        std::back_inserter(contiguousCellData),
-        [](Ref<const Mesh::Vertex> rCell){return rCell.data();});
 
     // Construct a bounding volume hierarchy over the cells to accelerate
     // point membership tests. Running on accelerator devices also requires
     // - the cell data to be available in a contiguous array
     // - the cell data to be self contained (no pointers and heap storage)
-    auto bvh = makeBoundingVolumeHierarchy(contiguousCellData, bboxBase, bboxLengths);
+    auto bvh = makeBoundingVolumeHierarchy(
+        mesh.data().cells(),
+        bboxBase,
+        bboxLengths);
     const auto bvhView = bvh.makeView();
 
     // Create empty CSR matrix
@@ -193,7 +209,7 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
     // Compute element contributions and assemble them into the matrix
     integrateStiffness(
         mesh,
-        contiguousCellData,
+        mesh.data().cells(),
         assembler,
         lhs,
         rConfiguration["discretization"]["integration"],
@@ -204,7 +220,7 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
         tesselatedBoundary,
         assembler,
         bvhView,
-        contiguousCellData,
+        mesh.data().cells(),
         lhs,
         rhs,
         rConfiguration["dirichlet-1d"]);
@@ -232,7 +248,6 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
             solution,
             rhs,
             mesh,
-            contiguousCellData,
             bvh,
             assembler,
             rConfiguration["discretization"]["postprocessing"],

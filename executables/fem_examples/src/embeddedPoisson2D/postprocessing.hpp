@@ -20,7 +20,6 @@ void postprocess(
     std::span<const Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Mesh> rMesh,
-    std::span<const CellData> contiguousCellData,
     Ref<const BVH> rBVH,
     Ref<const Assembler> rAssembler,
     Ref<const cie::io::JSONObject> rConfiguration,

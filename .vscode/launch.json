@@ -41,18 +41,6 @@
             "cwd" : "${workspaceRoot}"
         },
         {
-            "name": "poisson2D",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceRoot}/build/bin/poisson2D",
-            "externalConsole": false,
-            "args" : ["-r", "501", "--solver", "cg-sycl"],
-            "environment" : [
-                {"name" : "OMP_NUM_THREADS", "value" : "1"}
-            ],
-            "cwd" : "${workspaceRoot}"
-        },
-        {
             "name": "embeddedPoisson2D",
             "type": "cppdbg",
             "request": "launch",

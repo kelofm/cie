@@ -9,6 +9,9 @@
 #include "packages/numeric/inc/KDTreeQuadraturePointFactory.hpp"
 #include "packages/io/inc/GraphML.hpp"
 
+// --- Utility Includes ---
+#include "packages/io/inc/json.hpp"
+
 
 namespace cie::fem {
 
@@ -24,13 +27,14 @@ public:
         RightRef<Ansatz> rAnsatzSpace,
         RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> domainTriangles,
         std::span<const std::pair<DomainData,Scalar>> domainMap,
-        std::array<unsigned,2> treeDepthRange);
+        Ref<const cie::io::JSONObject> rConfiguration);
 
     KDTreeQuadraturePointFactory<
         Dimension,
         Scalar,
-        CellData,
-        Scalar> makeQuadratureRule(Ref<const CellData> rCell) const;
+        Cell,
+        Scalar
+    > makeQuadratureRule(Ref<const Cell> rCell) const;
 
     void subdomain(
         std::span<const Scalar> points,
@@ -40,6 +44,16 @@ public:
         DomainData,
         Scalar>
     > domainMap() const noexcept;
+
+    void setCells(RightRef<std::vector<Cell>> rCells) noexcept;
+
+    [[nodiscard]] constexpr std::span<const Cell> cells() const noexcept {
+        return _cells;
+    }
+
+    [[nodiscard]] constexpr std::span<Cell> cells() noexcept {
+        return _cells;
+    }
 
 private:
     friend struct io::GraphML::Serializer<MeshData>;
@@ -61,46 +75,10 @@ private:
         Scalar>
     > _domainMap;
 
+    std::vector<Cell> _cells;
+
     std::array<unsigned,2> _treeDepthRange;
 }; // class MeshData
-
-
-/// @brief Serializer for @ref MeshData in @p GraphML format.
-template <>
-struct io::GraphML::Serializer<MeshData> {
-    void header(Ref<io::GraphML::XMLElement> rElement) const;
-
-    void operator()(
-        [[maybe_unused]] Ref<io::GraphML::XMLElement> rElement,
-        [[maybe_unused]] Ref<const MeshData> rInstance) const {}
-}; // struct GraphML::Serializer<MeshData>
-
-
-/// @brief Deserializer for @ref MeshData in @p GraphML format.
-template <>
-struct io::GraphML::Deserializer<MeshData>
-    : public io::GraphML::DeserializerBase<MeshData> {
-    using io::GraphML::DeserializerBase<MeshData>::DeserializerBase;
-
-    /// @brief This function is called when an element opening tag is parsed in the XML document.
-    static void onElementBegin(
-        Ptr<void> pThis,
-        std::string_view elementName,
-        std::span<io::GraphML::AttributePair>);
-
-    /// @brief This function is called when text block is parsed in the XML document.
-    static void onText(
-        Ptr<void>,
-        std::string_view);
-
-    /// @brief This function is called when an element closing tag is parsed in the XML document.
-    static void onElementEnd(
-        Ptr<void> pThis,
-        std::string_view elementName);
-
-private:
-    DynamicArray<Ansatz> _buffer;
-}; // struct GraphML::Deserializer<MeshData>
 
 
 } // namespace cie::fem

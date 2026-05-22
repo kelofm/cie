@@ -23,7 +23,6 @@ void postprocess(
     std::span<const Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Mesh> rMesh,
-    std::span<const CellData> contiguousCellData,
     Ref<const BVH> rBVH,
     Ref<const Assembler> rAssembler,
     Ref<const cie::io::JSONObject> rConfiguration,
@@ -56,13 +55,14 @@ void postprocess(
                 // Write the mesh.
                 io(
                     "mesh",
-                    rMesh);
+                    rMesh.data().cells());
 
                 // Write solution, load and residual.
                 {
                     io.writeFieldVariables<Scalar>(
                         "mesh",
                         rMesh,
+                        rMesh.data().cells(),
                         rAssembler,
                         {
                             {"state", solution},
@@ -74,17 +74,17 @@ void postprocess(
                 // Write cell and DoF IDs.
                 {
                     std::vector<std::size_t> cellIDs, dofIDs;
-                    cellIDs.reserve(contiguousCellData.size());
-                    dofIDs.reserve(contiguousCellData.size() * rMesh.data().ansatz(0).size());
+                    cellIDs.reserve(rMesh.data().cells().size());
+                    dofIDs.reserve(rMesh.data().cells().size() * rMesh.data().ansatz(0).size());
 
-                    for (Ref<const CellData> rCell : contiguousCellData) {
+                    for (Ref<const Cell> rCell : rMesh.data().cells()) {
                         cellIDs.push_back(rCell.id());
                         const auto& rDoFIDs = rAssembler[rCell.id()];
                         std::copy(
                             rDoFIDs.begin(),
                             rDoFIDs.end(),
                             std::back_inserter(dofIDs));
-                    } // for rCell in contiguousCellData
+                    } // for rCell in rMesh.data().cells()
 
                     io.writeCellVariables<std::size_t>(
                         "mesh",
@@ -132,22 +132,22 @@ void postprocess(
                                 // Find which cell the point lies in.
                                 const auto iMaybeCellData = rBVH.makeView().find(
                                     Kernel<Dimension,Scalar>::decay(physicalCoordinates),
-                                    std::span<const CellData>(contiguousCellData));
+                                    std::span<const Cell>(rMesh.data().cells()));
 
-                                if (iMaybeCellData != contiguousCellData.size()) {
-                                    Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
-                                    cellIDs[iSample] = rCellData.id();
+                                if (iMaybeCellData != rMesh.data().cells().size()) {
+                                    Ref<const Cell> rCell = rMesh.data().cells()[iMaybeCellData];
+                                    cellIDs[iSample] = rCell.id();
 
                                     // Compute sample point in the cell's parametric space.
                                     StaticArray<ParametricCoordinate<Scalar>,Dimension> parametricCoordinates;
-                                    rBuffer.resize(rCellData.makeSpatialTransform().bufferSize());
-                                    rCellData.transform(
+                                    rBuffer.resize(rCell.makeSpatialTransform().bufferSize());
+                                    rCell.transform(
                                         physicalCoordinates,
                                         Kernel<Dimension,Scalar>::view(parametricCoordinates),
                                         rBuffer);
 
                                     // Evaluate the cell's ansatz functions at the parametric sample point.
-                                    Ref<const Ansatz> rAnsatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
+                                    Ref<const Ansatz> rAnsatzSpace = rMesh.data().ansatz(rCell.ansatzID());
                                     rResults.resize(rAnsatzSpace.size());
                                     rBuffer.resize(rAnsatzSpace.bufferSize());
                                     rAnsatzSpace.evaluate(
@@ -156,7 +156,7 @@ void postprocess(
                                         rBuffer);
 
                                     // Find the entries of the cell's DoFs in the global state vector.
-                                    const auto& rGlobalIndices = rAssembler[rCellData.id()];
+                                    const auto& rGlobalIndices = rAssembler[rCell.id()];
 
                                     const std::size_t iSampleBegin = iSample * polynomialOrder;
                                     for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {

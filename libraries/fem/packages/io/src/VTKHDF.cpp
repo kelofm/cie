@@ -448,13 +448,6 @@ void VTKHDF::Output::writePointCloud(
 
                 auto itTopology = topology.begin();
                 do {
-                    // Compute the cell index.
-                    std::size_t iCell = 0ul;
-                    for (auto it=state.rbegin(); it!=state.rend(); ++it) {
-                        iCell *= gridSize - 1;
-                        iCell += *it;
-                    }
-
                     // Define its topology.
                     if constexpr (D == 1) {
                         *itTopology++ = state[0]    ;

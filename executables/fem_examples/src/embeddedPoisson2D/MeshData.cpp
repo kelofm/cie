@@ -2,10 +2,8 @@
 #include "embeddedPoisson2D/MeshData.hpp"
 
 // --- FEM Includes ---
-#include "packages/io/inc/GraphML_specializations.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/QuadraturePointFactory.hpp"
-#include <limits>
 
 
 namespace cie::fem {
@@ -19,20 +17,25 @@ MeshData::MeshData()
 
 MeshData::MeshData(
     RightRef<Ansatz> rAnsatzSpace,
-    RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> domainTriangles,
+    RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> rDomainTriangles,
     std::span<const std::pair<DomainData,Scalar>> domainMap,
-    std::array<unsigned,2> treeDepthRange)
+    Ref<const cie::io::JSONObject> rConfiguration)
         :   MeshBase<Ansatz>(std::span<const Ansatz>(&rAnsatzSpace, 1)),
             _quadraturePointSet(),
-            _domainTriangles(std::move(domainTriangles)),
+            _domainTriangles(std::move(rDomainTriangles)),
             _domainMap(domainMap.begin(), domainMap.end()),
-            _treeDepthRange(treeDepthRange) {
+            _cells(),
+            _treeDepthRange() {
                 // Cache quadrature points.
                 // Generate 1D quadrature points.
                 DynamicArray<QuadraturePoint<1,Scalar,Scalar>> basePoints;
                 OuterProductQuadraturePointFactory<Dimension,Scalar,Scalar> generator;
 
                 CIE_BEGIN_EXCEPTION_TRACING
+                    const std::size_t integrationOrder = rConfiguration["integration"]["template"]["order"].as<std::size_t>();
+                    _treeDepthRange.front() = rConfiguration["integration"]["min-tree-depth"].as<std::size_t>();
+                    _treeDepthRange.back() = rConfiguration["integration"]["max-tree-depth"].as<std::size_t>();
+
                     GaussLegendreQuadrature<Scalar> quadrature(integrationOrder);
                     basePoints.reserve(quadrature.numberOfNodes());
                     for (std::size_t iNode=0ul; iNode<quadrature.numberOfNodes(); ++iNode) {
@@ -74,13 +77,13 @@ MeshData::MeshData(
 KDTreeQuadraturePointFactory<
     Dimension,
     Scalar,
-    CellData,
+    Cell,
     Scalar
-> MeshData::makeQuadratureRule(Ref<const CellData> rCell) const {
+> MeshData::makeQuadratureRule(Ref<const Cell> rCell) const {
     return KDTreeQuadraturePointFactory<
         Dimension,
         Scalar,
-        CellData,
+        Cell,
         Scalar>(
             *this,
             rCell,
@@ -194,72 +197,8 @@ std::span<const std::pair<
 }
 
 
-void io::GraphML::Serializer<MeshData>::header(Ref<io::GraphML::XMLElement> rElement) const {
-    // Add default value to the header.
-    io::GraphML::XMLElement defaultElement = rElement.addChild("default");
-    MeshData instance;
-    this->operator()(defaultElement, instance);
-
-    // Add description to the header.
-    io::GraphML::XMLElement descriptionElement = rElement.addChild("desc");
-    std::stringstream description;
-    description << "Data structure shared by all cells and boundaries of the mesh. "
-                << "In this case, this means the ansatz spaces of the cells as "
-                << "well as their derivatives. Each cell stores an index referring "
-                << "to their own ansatz spaces.",
-    descriptionElement.setValue(description.view());
-}
-
-
-void io::GraphML::Deserializer<MeshData>::onElementBegin(
-    Ptr<void> pThis,
-    std::string_view elementName,
-    std::span<io::GraphML::AttributePair>) {
-        // TODO
-        (void)(pThis);
-        CIE_THROW(NotImplementedException, elementName)
-//        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-//
-//        // Defer parsing to the array of ansatz spaces.
-//        using SubDeserializer = io::GraphML::Deserializer<DynamicArray<Ansatz>>;
-//        rThis.sax().push({
-//            SubDeserializer::make(rThis._buffer, rThis.sax(), elementName),
-//            SubDeserializer::onElementBegin,
-//            SubDeserializer::onText,
-//            SubDeserializer::onElementEnd
-//        });
-}
-
-
-void io::GraphML::Deserializer<MeshData>::onText(
-    Ptr<void>,
-    std::string_view) {
-        // No text data is expected for this class.
-        CIE_THROW(Exception, "Unexpected text block while parsing mesh data.")
-}
-
-
-void io::GraphML::Deserializer<MeshData>::onElementEnd(
-    Ptr<void> pThis,
-    std::string_view elementName) {
-        // TODO
-        (void)(pThis);
-        CIE_THROW(NotImplementedException, elementName)
-//        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-//
-//        // Move the parsed ansatz spaces from the buffer to the mesh data instance.
-//        rThis.instance()._ansatzSpaces = std::move(rThis._buffer);
-//
-//        // Build derivatives from the parsed ansatz spaces.
-//        std::transform(rThis.instance()._ansatzSpaces.begin(),
-//                       rThis.instance()._ansatzSpaces.end(),
-//                       std::back_inserter(rThis.instance()._ansatzDerivatives),
-//                       [] (Ref<const Ansatz> rAnsatz) -> AnsatzDerivative {
-//                            return rAnsatz.makeDerivative();
-//                       });
-//
-//        // The parser's job is done => destroy it.
-//        rThis.template release<Deserializer>(&rThis, elementName);
+void MeshData::setCells(RightRef<std::vector<Cell>> rCells) noexcept {
+    _cells = std::move(rCells);
 }
 
 

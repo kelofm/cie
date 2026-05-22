@@ -20,22 +20,6 @@ namespace cie::fem {
 using Mesh = Graph<CellData,BoundaryData,MeshData>;
 
 
-/// @brief Generate cells and boundaries for the example problem.
-/// @details Mesh:
-///          @code
-///             +---------+                 +---------+
-///             | (m-1)n+1|                 |    mn   |
-///             +---------+                 +---------+
-///               .
-///               .
-///               .
-///             +---------+
-///             |   n+1   |
-///             +---------+
-///             +---------+---------+       +---------+
-///             |    1    |    2    |  ...  |    n    |
-///             +---------+---------+       +---------+
-///          @endcode
 void generateMesh(
     Ref<Mesh> rMesh,
     std::span<const Scalar,2> meshBase,

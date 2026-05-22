@@ -1,8 +1,8 @@
 // --- Internal Includes ---
+#include "embeddedPoisson2D/definitions.hpp"
 #include "embeddedPoisson2D/mesh.hpp"
 
 // --- FEM Includes ---
-#include "definitions.hpp"
 #include "packages/maths/inc/LegendrePolynomial.hpp"
 #include "packages/maths/inc/LagrangePolynomial.hpp"
 
@@ -87,108 +87,110 @@ void generateMesh(
             meshBase.front(), meshBase.front() + meshLengths.front(),
             meshBase.back(), meshBase.back() + meshLengths.back());
 
-        {
-            // Define an ansatz space and its derivatives.
-            // In this example, every cell will use the same ansatz space.
-            Ansatz ansatzSpace;
+        // Define an ansatz space and its derivatives.
+        // In this example, every cell will use the same ansatz space.
+        Ansatz ansatzSpace;
 
-            std::array<Basis,polynomialOrder+1> basisFunctions;
-            std::array<Basis::Derivative,polynomialOrder+1> basisDerivatives;
+        std::array<Basis,polynomialOrder+1> basisFunctions;
+        std::array<Basis::Derivative,polynomialOrder+1> basisDerivatives;
+
+        {
+            auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");
+
+            enum class BasisType {
+                IntegratedLegendre,
+                Lagrange};
+            BasisType basisType = BasisType::IntegratedLegendre;
+
+            CIE_CHECK(
+                rConfiguration["functional"]["order"].as<std::size_t>() == polynomialOrder,
+                std::format(
+                    "requesting a basis with a polynomial order of {}, but it is statically set to {}",
+                    rConfiguration["functional"]["order"].as<std::size_t>(),
+                    polynomialOrder))
 
             {
-                auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");
-
-                enum class BasisType {
-                    IntegratedLegendre,
-                    Lagrange};
-                BasisType basisType = BasisType::IntegratedLegendre;
-
-                CIE_CHECK(
-                    rConfiguration["functional"]["order"].as<std::size_t>() == polynomialOrder,
-                    std::format(
-                        "requesting a basis with a polynomial order of {}, but it is statically set to {}",
-                        rConfiguration["functional"]["order"].as<std::size_t>(),
-                        polynomialOrder))
-
-                {
-                    const std::string basisName = rConfiguration["functional"]["type"].as<std::string>();
-                    if (basisName == "legendre") basisType = BasisType::IntegratedLegendre;
-                    else if (basisName == "lagrange") basisType = BasisType::Lagrange;
-                    else CIE_THROW(Exception, "unhandled basis type '" << basisName << "'")
-                }
-
-                // Construct basis functions.
-                for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
-                    // Generate a 1D polynomial serving as one of the basis functions.
-                    std::array<Scalar,Basis::coefficientCount> polynomialCoefficients;
-
-                    if (basisType == BasisType::IntegratedLegendre) {
-                        maths::IntegratedLegendrePolynomial<Scalar> basis(iBasis);
-                        CIE_CHECK(
-                        basis.coefficients().size() <= polynomialCoefficients.size(),
-                            "basis function " << iBasis << " is expected to have at most "
-                            << polynomialCoefficients.size() << " coefficients, but has "
-                            << basis.coefficients().size())
-                        std::copy_n(
-                            basis.coefficients().data(),
-                            basis.coefficients().size(),
-                            polynomialCoefficients.data());
-                        std::fill_n(
-                            polynomialCoefficients.data() + basis.coefficients().size(),
-                            basis.coefficients().size() < polynomialCoefficients.size()
-                                ? polynomialCoefficients.size() - basis.coefficients().size()
-                                : 0u,
-                            0.0);
-                    } else if (basisType == BasisType::Lagrange) {
-                        std::array<Scalar,polynomialOrder + 1> nodes;
-                        const Scalar nodeAngle = std::numbers::pi / polynomialOrder;
-                        for (std::size_t iNode=0ul; iNode<nodes.size(); ++iNode) nodes[iNode] = std::cos(iNode * nodeAngle);
-                        maths::LagrangePolynomial<Scalar> basis(
-                            nodes,
-                            iBasis);
-                        CIE_CHECK(
-                            basis.coefficients().size() <= polynomialCoefficients.size(),
-                            "basis function " << iBasis << " is expected to have at most "
-                            << polynomialCoefficients.size() << " coefficients, but has "
-                            << basis.coefficients().size())
-                        std::copy_n(
-                            basis.coefficients().data(),
-                            basis.coefficients().size(),
-                            polynomialCoefficients.data());
-                        std::fill_n(
-                            polynomialCoefficients.data() + basis.coefficients().size(),
-                            basis.coefficients().size() < polynomialCoefficients.size()
-                                ? polynomialCoefficients.size() - basis.coefficients().size()
-                                : 0u,
-                            0.0);
-                    }
-
-                    std::cout << "basis " << iBasis << " [";
-                    for (auto c : polynomialCoefficients) std::cout << c << ",";
-                    std::cout << "],\n";
-                    basisFunctions[iBasis] = Basis(polynomialCoefficients);
-                } // for iBasis in range(polynomialOrder + 1)
-
-                // Construct the derivatives of all basis functions.
-                for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
-                    Ref<Basis> rBasis = basisFunctions[iBasis];
-                    basisDerivatives[iBasis] = rBasis.makeDerivative();
-                } // for iBasis in range(polynomialOrder + 1)
-
-                ansatzSpace = Ansatz(basisFunctions);
+                const std::string basisName = rConfiguration["functional"]["type"].as<std::string>();
+                if (basisName == "legendre") basisType = BasisType::IntegratedLegendre;
+                else if (basisName == "lagrange") basisType = BasisType::Lagrange;
+                else CIE_THROW(Exception, "unhandled basis type '" << basisName << "'")
             }
 
-            rMesh.data() = MeshData(
-                std::move(ansatzSpace),
-                std::move(rDomainTriangles),
-                domainMap,
-                {
-                    static_cast<unsigned>(rConfiguration["integration"]["min-tree-depth"].as<std::size_t>()),
-                    static_cast<unsigned>(rConfiguration["integration"]["max-tree-depth"].as<std::size_t>())
-                });
+            // Construct basis functions.
+            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+                // Generate a 1D polynomial serving as one of the basis functions.
+                std::array<Scalar,Basis::coefficientCount> polynomialCoefficients;
+
+                if (basisType == BasisType::IntegratedLegendre) {
+                    maths::IntegratedLegendrePolynomial<Scalar> basis(iBasis);
+                    CIE_CHECK(
+                    basis.coefficients().size() <= polynomialCoefficients.size(),
+                        "basis function " << iBasis << " is expected to have at most "
+                        << polynomialCoefficients.size() << " coefficients, but has "
+                        << basis.coefficients().size())
+                    std::copy_n(
+                        basis.coefficients().data(),
+                        basis.coefficients().size(),
+                        polynomialCoefficients.data());
+                    std::fill_n(
+                        polynomialCoefficients.data() + basis.coefficients().size(),
+                        basis.coefficients().size() < polynomialCoefficients.size()
+                            ? polynomialCoefficients.size() - basis.coefficients().size()
+                            : 0u,
+                        0.0);
+                } else if (basisType == BasisType::Lagrange) {
+                    std::array<Scalar,polynomialOrder + 1> nodes;
+                    const Scalar nodeAngle = std::numbers::pi / polynomialOrder;
+                    for (std::size_t iNode=0ul; iNode<nodes.size(); ++iNode) nodes[iNode] = std::cos(iNode * nodeAngle);
+                    maths::LagrangePolynomial<Scalar> basis(
+                        nodes,
+                        iBasis);
+                    CIE_CHECK(
+                        basis.coefficients().size() <= polynomialCoefficients.size(),
+                        "basis function " << iBasis << " is expected to have at most "
+                        << polynomialCoefficients.size() << " coefficients, but has "
+                        << basis.coefficients().size())
+                    std::copy_n(
+                        basis.coefficients().data(),
+                        basis.coefficients().size(),
+                        polynomialCoefficients.data());
+                    std::fill_n(
+                        polynomialCoefficients.data() + basis.coefficients().size(),
+                        basis.coefficients().size() < polynomialCoefficients.size()
+                            ? polynomialCoefficients.size() - basis.coefficients().size()
+                            : 0u,
+                        0.0);
+                }
+
+                std::cout << "basis " << iBasis << " [";
+                for (auto c : polynomialCoefficients) std::cout << c << ",";
+                std::cout << "],\n";
+                basisFunctions[iBasis] = Basis(polynomialCoefficients);
+            } // for iBasis in range(polynomialOrder + 1)
+
+            // Construct the derivatives of all basis functions.
+            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+                Ref<Basis> rBasis = basisFunctions[iBasis];
+                basisDerivatives[iBasis] = rBasis.makeDerivative();
+            } // for iBasis in range(polynomialOrder + 1)
+
+            ansatzSpace = Ansatz(basisFunctions);
         }
 
+        rMesh.data() = MeshData(
+            std::move(ansatzSpace),
+            std::move(rDomainTriangles),
+            domainMap,
+            rConfiguration);
+
         // Insert cells into the adjacency graph
+        std::vector<Cell> cells;
+        cells.reserve(std::accumulate(
+            meshResolution.begin(),
+            meshResolution.end(),
+            1ul,
+            std::multiplies<std::size_t>()));
+
         const std::array<Scalar,2> edgeLengths {
             meshLengths.front() / (meshResolution[0] - 1),
             meshLengths.back()  / (meshResolution[1] - 1)};
@@ -259,16 +261,15 @@ void generateMesh(
 
                 // Insert the cell into the adjacency graph (mesh) as a vertex
                 const std::size_t iCell = iCellRow * (meshResolution[0] - 1u) + iCellColumn;
-                Mesh::Vertex::Data data (
-                    VertexID(iCell), // <= todo: remove duplicate id
+                rMesh.insert(Mesh::Vertex(
+                    VertexID(iCell),
+                    {} /*edges of the adjacency graph are added automatically during edge insertion*/));
+                cells.emplace_back(
+                    VertexID(iCell),
                     0ul,
                     1.0,
                     axes,
                     std::move(transform));
-                rMesh.insert(Mesh::Vertex(
-                    VertexID(iCell),
-                    {}, ///< edges of the adjacency graph are added automatically during edge insertion
-                    std::move(data)));
 
                 // Insert the current cell's connections to other cells already in the mesh.
                 // The rule here is that cells with lower manhattan distance from the origin
@@ -302,6 +303,7 @@ void generateMesh(
             } // for iCellColumn in range(nodesPerDirection -1)
         } // for iCellRow in range(nodesPerDirection - 1)
 
+        rMesh.data().setCells(std::move(cells));
         std::cout << "generated " << rMesh.vertices().size() << " cells\n";
 }
 

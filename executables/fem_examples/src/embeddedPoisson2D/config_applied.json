@@ -13,7 +13,7 @@
             },
             "type": "kd-tree-quadrature"
         },
-        "penalty-factor": 1000000.0,
+        "penalty-factor": 100000000.0,
         "postprocessing": {
             "replace-nans": null,
             "resolution": 100.0
@@ -60,11 +60,9 @@
         "reordering": null,
         "solver": {
             "absolute-residual": 0,
-            "max-iterations": 1000.0,
-            "preconditioner": {
-                "type": "inverse-diagonal-operator"
-            },
-            "relative-residual": 1e-06,
+            "max-iterations": 1,
+            "preconditioner": null,
+            "relative-residual": 0,
             "type": "cg"
         },
         "write-lhs": null,
