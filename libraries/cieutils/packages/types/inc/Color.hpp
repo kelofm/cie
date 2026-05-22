@@ -128,9 +128,11 @@ public:
 
     static const RGBAColor TUMGreen;
 
+    static const RGBAColor TUMLightGray;
+
     static const RGBAColor TUMGray;
 
-    static const RGBAColor TUMLightGray;
+    static const RGBAColor TUMDarkGray;
 
     /* --- System Palette --- */
 

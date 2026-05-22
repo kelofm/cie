@@ -53,14 +53,14 @@ void postprocess(
                 cie::io::VTKHDF::Output io;
 
                 // Write the mesh.
-                io(
-                    "mesh",
+                io.writeCells(
+                    "cells",
                     rMesh.data().cells());
 
                 // Write solution, load and residual.
                 {
                     io.writeFieldVariables<Scalar>(
-                        "mesh",
+                        "cells",
                         rMesh,
                         rMesh.data().cells(),
                         rAssembler,
@@ -87,7 +87,7 @@ void postprocess(
                     } // for rCell in rMesh.data().cells()
 
                     io.writeCellVariables<std::size_t>(
-                        "mesh",
+                        "cells",
                         {
                             {"id", {1}, cellIDs},
                             {"dofs", {rMesh.data().ansatz(0).size()}, dofIDs}

@@ -45,6 +45,7 @@ void readTesselatedDomain(
             io.execute(rOutput);
 
             // Extend the bounding box.
+            std::cout << std::endl;
             for (std::size_t iVertex=0ul; iVertex<3*io.triangleCount(); ++iVertex) {
                 for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
                     bboxBase[iDimension] = std::min<Scalar>(
@@ -79,17 +80,27 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
         bboxLengths{
             std::numeric_limits<Scalar>::lowest(),
             std::numeric_limits<Scalar>::lowest()};
-    for (const auto& rSegment : tesselatedBoundary) {
-        for (unsigned iDimension=0u; iDimension<2; ++iDimension) {
+
+    {
+        std::array<Scalar,2> bboxEnd = bboxLengths;
+        for (const auto& rSegment : tesselatedBoundary) {
             for (unsigned iPoint=0u; iPoint<2; ++iPoint) {
-                bboxBase[iDimension] = std::min<Scalar>(
-                    bboxBase[iDimension],
-                    rSegment[iDimension + iPoint * 2]);
-                bboxLengths[iDimension] = std::max<Scalar>(
-                    bboxLengths[iDimension],
-                    rSegment[iDimension + iPoint * 2]);
-            }
-        }
+                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
+                    bboxBase[iDimension] = std::min<Scalar>(
+                        bboxBase[iDimension],
+                        rSegment[iDimension + iPoint * 2]);
+                    bboxEnd[iDimension] = std::max<Scalar>(
+                        bboxEnd[iDimension],
+                        rSegment[iDimension + iPoint * 2]);
+                } // for iDimension
+            } // for iPoint
+        } // for rSegment
+        std::transform(
+            bboxEnd.begin(),
+            bboxEnd.end(),
+            bboxBase.begin(),
+            bboxLengths.begin(),
+            std::minus<Scalar>());
     }
 
     // Read domain input and extend mesh boundaries if necessary.

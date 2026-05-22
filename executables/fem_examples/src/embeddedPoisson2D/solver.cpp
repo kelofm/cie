@@ -32,7 +32,8 @@ namespace cie::fem {
 void solveEigenCG(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
-    std::span<const Scalar> rhs) {
+    std::span<const Scalar> rhs,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
             lhs.rowCount(),
@@ -48,21 +49,23 @@ void solveEigenCG(
             Eigen::Lower | Eigen::Upper,
             Eigen::DiagonalPreconditioner<Scalar>
         > solver;
-        solver.setMaxIterations(int(5e3));
-        solver.setTolerance(1e-6);
+        solver.setMaxIterations(rConfiguration["max-iterations"].as<std::size_t>());
+        solver.setTolerance(rConfiguration["relative-residual"].as<double>());
 
         solver.compute(lhsAdaptor);
         solutionAdaptor = solver.solve(rhsAdaptor);
 
-        std::cout << solver.iterations() << " iterations "
-                  << solver.error()      << " residual\n";
+        if (2 <= rConfiguration["verbosity"].as<int>())
+            std::cout << solver.iterations() << " iterations "
+                    << solver.error()      << " residual\n";
 } // solveEigenCG
 
 
 void solveEigenLLT(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
-    std::span<const Scalar> rhs) {
+    std::span<const Scalar> rhs,
+    Ref<const cie::io::JSONObject>) {
         using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
         Eigen::Map<EigenSparseMatrix> lhsAdaptor(
             lhs.rowCount(),
@@ -83,7 +86,8 @@ void solveCG(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
-    Ref<mp::ThreadPoolBase> rThreads) {
+    Ref<mp::ThreadPoolBase> rThreads,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         using LinalgSpace = linalg::DefaultSpace<Scalar>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
         auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
@@ -91,20 +95,16 @@ void solveCG(
         pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
             linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
         linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = static_cast<std::size_t>(5e3),
-            .absoluteResidual = 1e-6,
-            .relativeResidual = 1e-6};
+            .iterationCount = rConfiguration["max-iterations"].as<std::size_t>(),
+            .absoluteResidual = rConfiguration["absolute-residual"].as<double>(),
+            .relativeResidual = rConfiguration["relative-residual"].as<double>()};
         linalg::ConjugateGradients<LinalgSpace> solver(
             pLinearOperator,
             pSpace,
             pPreconditioner,
             settings,
-            3);
+            rConfiguration["verbosity"].as<int>());
         solver.product(0, rhs, 1, solution);
-        const auto stats = solver.getStats().value();
-        std::cout
-            << stats.iterationCount << " iterations "
-            << stats.relativeResidual << " residual\n";
 }
 
 
@@ -113,7 +113,8 @@ void solveMultigrid(
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Assembler> rAssembler,
-    Ref<mp::ThreadPoolBase> rThreads) {
+    Ref<mp::ThreadPoolBase> rThreads,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         using LinalgSpace = linalg::DefaultSpace<Scalar>;
         using Operator = linalg::LinearOperator<LinalgSpace>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
@@ -154,9 +155,9 @@ void solveMultigrid(
                 threshold,
                 rThreads);
             linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-                .iterationCount = static_cast<std::size_t>(5e3),
-                .absoluteResidual = 0,
-                .relativeResidual = 5e-1};
+                .iterationCount = rConfiguration["solver"]["max-iterations"].as<std::size_t>(),
+                .absoluteResidual = rConfiguration["solver"]["absolute-residual"].as<double>(),
+                .relativeResidual = rConfiguration["solver"]["relative-residual"].as<double>()};
             auto pOperator = std::make_shared<linalg::ConjugateGradients<LinalgSpace>>(
                 pGridLhs,
                 pSpace,
@@ -192,8 +193,8 @@ void solveMultigrid(
                 pSpace->size(solution),
                 pGridLhs,
                 pInverseDiagonal,
-                /*iterations=*/6,
-                /*relaxation=*/2.0 / 3.0);
+                rConfiguration["smoother"]["iterations"].as<std::size_t>(),
+                rConfiguration["smoother"]["relaxation"].as<double>());
             auto pOperator = std::make_shared<linalg::NestedProductOperator<LinalgSpace>>(
                 pSpace,
                 pSmoother,
@@ -209,25 +210,36 @@ void solveMultigrid(
         auto gridResidual = pSpace->makeVector(pSpace->size(rhs));
         auto solutionUpdate = pSpace->makeVector(pSpace->size(solution));
 
-        while (1e-6 * initialResidualNorm < residualNorm) {
-            for (auto itGrid=grids.rbegin(); itGrid!=grids.rend(); ++itGrid) {
-                itGrid->pRestriction->product(0, residual, 1, gridResidual);
-                pSpace->fill(solutionUpdate, 0);
-                itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
-                pSpace->add(solution, solutionUpdate, 1);
-                itGrid->pLhs->product(1, solutionUpdate, -1, residual);
-            } // for itOperator
+        const Scalar targetAbsoluteResidualNorm = rConfiguration["absolute-residual"].as<double>();
+        const Scalar targetRelativeResidualNorm = rConfiguration["relative-residual"].as<double>();
+        const std::size_t maxIterations = rConfiguration["max-iterations"].as<std::size_t>();
 
-            for (auto itGrid=grids.begin()+1; itGrid!=grids.end(); ++itGrid) {
-                itGrid->pRestriction->product(0, residual, 1, gridResidual);
-                pSpace->fill(solutionUpdate, 0);
-                itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
-                pSpace->add(solution, solutionUpdate, 1);
-                itGrid->pLhs->product(1, solutionUpdate, -1, residual);
-            } // for itOperator
+        for (
+            std::size_t iIteration = 0ul;
+            iIteration<maxIterations
+                && targetAbsoluteResidualNorm <= residualNorm
+                && targetRelativeResidualNorm <= (residualNorm / initialResidualNorm);
+            ++iIteration) {
+                for (auto itGrid=grids.rbegin(); itGrid!=grids.rend(); ++itGrid) {
+                    itGrid->pRestriction->product(0, residual, 1, gridResidual);
+                    pSpace->fill(solutionUpdate, 0);
+                    itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
+                    pSpace->add(solution, solutionUpdate, 1);
+                    itGrid->pLhs->product(1, solutionUpdate, -1, residual);
+                } // for itOperator
 
-            residualNorm = std::sqrt(pSpace->innerProduct(residual, residual));
-            std::cout << std::format("abs {:>10.4E} rel {:>10.4E}\n", residualNorm, residualNorm / initialResidualNorm);
+                for (auto itGrid=grids.begin()+1; itGrid!=grids.end(); ++itGrid) {
+                    itGrid->pRestriction->product(0, residual, 1, gridResidual);
+                    pSpace->fill(solutionUpdate, 0);
+                    itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
+                    pSpace->add(solution, solutionUpdate, 1);
+                    itGrid->pLhs->product(1, solutionUpdate, -1, residual);
+                } // for itOperator
+
+                residualNorm = std::sqrt(pSpace->innerProduct(residual, residual));
+
+                if (2 <= rConfiguration["verbosity"].as<int>())
+                    std::cout << std::format("abs {:>10.4E} rel {:>10.4E}\n", residualNorm, residualNorm / initialResidualNorm);
         } // while not converged
 }
 
@@ -238,7 +250,8 @@ void solveMultigrid(
 void solveSYCLCG(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
-    std::span<const Scalar> rhs) {
+    std::span<const Scalar> rhs,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         using LinalgSpace = linalg::SYCLSpace<Scalar>;
         auto pSpace = std::make_shared<LinalgSpace>(std::make_shared<sycl::queue>(sycl::default_selector_v));
         auto pIndexSpace = std::make_shared<linalg::SYCLSpace<int>>(pSpace->getQueue());
@@ -270,15 +283,15 @@ void solveSYCLCG(
         auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
             linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
         linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = static_cast<std::size_t>(5e3),
-            .absoluteResidual = 1e-6,
-            .relativeResidual = 1e-6};
+            .iterationCount = rConfiguration["max-iterations"].as<std::size_t>(),
+            .absoluteResidual = rConfiguration["absolute-residual"].as<double>(),
+            .relativeResidual = rConfiguration["relative-residual"].as<double>()};
         linalg::ConjugateGradients<LinalgSpace> solver(
             pLinearOperator,
             pSpace,
             pPreconditioner,
             settings,
-            3);
+            rConfiguration["verbosity"].as<int>());
 
         // Solve the system.
         solver.product(0, deviceRHS, 1, deviceSolution);
@@ -292,7 +305,8 @@ void solveSYCLMultigrid(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
-    Ref<const Assembler> rAssembler) {
+    Ref<const Assembler> rAssembler,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         using LinalgSpace = linalg::SYCLSpace<Scalar>;
         using Operator = linalg::LinearOperator<LinalgSpace>;
 
@@ -361,15 +375,15 @@ void solveSYCLMultigrid(
                 pSpace,
                 pMaskSpace);
             linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-                .iterationCount = static_cast<std::size_t>(5e3),
-                .absoluteResidual = 0,
-                .relativeResidual = 5e-1};
+                .iterationCount = rConfiguration["solver"]["max-iterations"].as<std::size_t>(),
+                .absoluteResidual = rConfiguration["solver"]["absolute-residual"].as<double>(),
+                .relativeResidual = rConfiguration["solver"]["relative-residual"].as<double>()};
             auto pOperator = std::make_shared<linalg::ConjugateGradients<LinalgSpace>>(
                 pGridLhs,
                 pSpace,
                 pInverseDiagonal,
                 settings,
-                /*verbosity=*/1);
+                rConfiguration["solver"]["verbosity"].as<int>());
             auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
                 pSpace,
                 pMaskSpace,
@@ -400,8 +414,8 @@ void solveSYCLMultigrid(
                 pSpace->size(deviceSolution),
                 pGridLhs,
                 pInverseDiagonal,
-                /*iterations=*/6,
-                /*relaxation=*/2.0 / 3.0);
+                rConfiguration["smoother"]["iterations"].as<std::size_t>(),
+                rConfiguration["smoother"]["relaxation"].as<double>());
             auto pOperator = std::make_shared<linalg::NestedProductOperator<LinalgSpace>>(
                 pSpace,
                 pSmoother,
@@ -417,26 +431,37 @@ void solveSYCLMultigrid(
         auto gridResidual = pSpace->makeVector(rhs.size());
         auto solutionUpdate = pSpace->makeVector(solution.size());
 
-        while (1e-6 * initialResidualNorm < residualNorm) {
-            for (auto itGrid=grids.rbegin(); itGrid!=grids.rend(); ++itGrid) {
-                itGrid->pRestriction->product(0, deviceResidual, 1, gridResidual);
-                pSpace->fill(solutionUpdate, 0);
-                itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
-                pSpace->add(deviceSolution, solutionUpdate, 1);
-                itGrid->pLhs->product(1, solutionUpdate, -1, deviceResidual);
-            } // for itOperator
+        const Scalar targetAbsoluteResidualNorm = rConfiguration["absolute-residual"].as<double>();
+        const Scalar targetRelativeResidualNorm = rConfiguration["relative-residual"].as<double>();
+        const std::size_t maxIterations = rConfiguration["max-iterations"].as<std::size_t>();
 
-            for (auto itGrid=grids.begin()+1; itGrid!=grids.end(); ++itGrid) {
-                itGrid->pRestriction->product(0, deviceResidual, 1, gridResidual);
-                pSpace->fill(solutionUpdate, 0);
-                itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
-                pSpace->add(deviceSolution, solutionUpdate, 1);
-                itGrid->pLhs->product(1, solutionUpdate, -1, deviceResidual);
-            } // for itOperator
+        for (
+            std::size_t iIteration = 0ul;
+            iIteration<maxIterations
+                && targetAbsoluteResidualNorm <= residualNorm
+                && targetRelativeResidualNorm <= (residualNorm / initialResidualNorm);
+            ++iIteration) {
+                for (auto itGrid=grids.rbegin(); itGrid!=grids.rend(); ++itGrid) {
+                    itGrid->pRestriction->product(0, deviceResidual, 1, gridResidual);
+                    pSpace->fill(solutionUpdate, 0);
+                    itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
+                    pSpace->add(deviceSolution, solutionUpdate, 1);
+                    itGrid->pLhs->product(1, solutionUpdate, -1, deviceResidual);
+                } // for itOperator
 
-            residualNorm = std::sqrt(pSpace->innerProduct(deviceResidual, deviceResidual));
-            pSpace->assign(solution, deviceSolution);
-            std::cout << std::format("abs {:>10.4E} rel {:>10.4E}\n", residualNorm, residualNorm / initialResidualNorm);
+                for (auto itGrid=grids.begin()+1; itGrid!=grids.end(); ++itGrid) {
+                    itGrid->pRestriction->product(0, deviceResidual, 1, gridResidual);
+                    pSpace->fill(solutionUpdate, 0);
+                    itGrid->pOperator->product(0, gridResidual, 1, solutionUpdate);
+                    pSpace->add(deviceSolution, solutionUpdate, 1);
+                    itGrid->pLhs->product(1, solutionUpdate, -1, deviceResidual);
+                } // for itOperator
+
+                residualNorm = std::sqrt(pSpace->innerProduct(deviceResidual, deviceResidual));
+                pSpace->assign(solution, deviceSolution);
+
+                if (3 <= rConfiguration["verbosity"].as<int>())
+                    std::cout << std::format("abs {:>10.4E} rel {:>10.4E}\n", residualNorm, residualNorm / initialResidualNorm);
         } // while not converged
 }
 
@@ -448,7 +473,8 @@ void solveJacobi(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<const Scalar> rhs,
-    Ref<mp::ThreadPoolBase> rThreads) {
+    Ref<mp::ThreadPoolBase> rThreads,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         using LinalgSpace = linalg::DefaultSpace<Scalar>;
         auto pSpace = std::make_shared<LinalgSpace>(rThreads);
         auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
@@ -462,8 +488,8 @@ void solveJacobi(
             pSpace->size(solution),
             pLinearOperator,
             pInverseDiagonal,
-            /*iterations=*/iterations,
-            /*relaxation=*/2.0 / 3.0);
+            rConfiguration["iterations"].as<std::size_t>(),
+            rConfiguration["relaxation"].as<double>());
         pSmoother->product(0, rhs, 1, solution);
 
         // Compute residual.
@@ -473,9 +499,10 @@ void solveJacobi(
         const auto residualNorm = pSpace->innerProduct(residual, residual);
         const auto initialResidualNorm = pSpace->innerProduct(rhs, rhs);
 
-        std::cout << std::format(
-            "{} iterations {:.4E} residual\n",
-            iterations, residualNorm / initialResidualNorm);
+        if (2 <= rConfiguration["verbosity"].as<int>())
+            std::cout << std::format(
+                "{} iterations {:.4E} residual\n",
+                iterations, residualNorm / initialResidualNorm);
 }
 
 
@@ -543,23 +570,23 @@ void solve(
         const auto solverConfiguration = rConfiguration["solver"];
         const std::string solver = solverConfiguration["type"].as<std::string>();
         if (solver == "cg") {
-            solveCG(lhs, solution, rhs, rThreads);
+            solveCG(lhs, solution, rhs, rThreads, solverConfiguration);
 
         #ifdef CIE_ENABLE_SYCL
         } else if (solver == "cg-sycl") {
-            solveSYCLCG(lhs, solution, rhs);
+            solveSYCLCG(lhs, solution, rhs, solverConfiguration);
         } else if (solver == "multigrid-sycl") {
-            solveSYCLMultigrid(lhs, solution, rhs, rAssembler);
+            solveSYCLMultigrid(lhs, solution, rhs, rAssembler, solverConfiguration);
         #endif
 
         } else if (solver == "multigrid") {
-            solveMultigrid(lhs, solution, rhs, rAssembler, rThreads);
+            solveMultigrid(lhs, solution, rhs, rAssembler, rThreads, solverConfiguration);
         } else if (solver == "jacobi") {
-            solveJacobi(lhs, solution, rhs, rThreads);
+            solveJacobi(lhs, solution, rhs, rThreads, solverConfiguration);
         } else if (solver == "cg-eigen") {
-            solveEigenCG(lhs, solution, rhs);
+            solveEigenCG(lhs, solution, rhs, solverConfiguration);
         } else if (solver == "llt-eigen") {
-            solveEigenLLT(lhs, solution, rhs);
+            solveEigenLLT(lhs, solution, rhs, solverConfiguration);
         } else CIE_THROW(Exception, std::format("unknown solver \"{}\"", solver))
 
         if (!rConfiguration["write-solution"].is<std::nullptr_t>()) {

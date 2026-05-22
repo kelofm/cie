@@ -8,7 +8,6 @@
 
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
-#include "packages/logging/inc/LogBlock.hpp"
 #include "packages/io/inc/json.hpp"
 
 
@@ -27,10 +26,16 @@ void parseGeometricDiscretization(
 
             // The configuration defines a uniform cartesian grid.
             if (discretizationType == "uniform-cartesian-grid") {
-                meshLengths.front() = (1.0 + 2e-2) * (bboxLengths.front() - bboxBase.front());
-                meshLengths.back()  = (1.0 + 2e-2) * (bboxLengths.back() - bboxBase.back());
-                meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.front());
-                meshBase.back() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.back());
+                const Scalar meshLength = *std::max_element(bboxLengths.begin(), bboxLengths.end());
+                std::fill(
+                    meshLengths.begin(),
+                    meshLengths.end(),
+                    meshLength);
+                std::copy(
+                    bboxBase.begin(),
+                    bboxBase.end(),
+                    meshBase.begin());
+
                 meshResolution.front() = rConfiguration["resolution"].as<std::size_t>();
                 meshResolution.back() = rConfiguration["resolution"].as<std::size_t>();
             } // if discretizationType == "uniform-cartesian-grid"
@@ -40,18 +45,23 @@ void parseGeometricDiscretization(
             else if (discretizationType == "cartesian-grid-2d") {
                 const auto rangeConfiguration = rConfiguration["range"];
                 if (rangeConfiguration.is<std::nullptr_t>()) {
-                    meshLengths.front() = (1.0 + 2e-2) * (bboxLengths.front() - bboxBase.front());
-                    meshLengths.back()  = (1.0 + 2e-2) * (bboxLengths.back() - bboxBase.back());
-                    meshBase.front() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.front());
-                    meshBase.back() -= 1e-2 / (1.0 + 2e-2) * (bboxLengths.back());
+                    std::copy(
+                        bboxLengths.begin(),
+                        bboxLengths.end(),
+                        meshLengths.begin());
+                    std::copy(
+                        bboxBase.begin(),
+                        bboxBase.end(),
+                        meshBase.begin());
                 } /*adaptive range*/ else {
-                    meshBase[0] = rangeConfiguration[0][0].as<double>();
-                    meshBase[1] = rangeConfiguration[1][0].as<double>();
-                    meshLengths[0] = rangeConfiguration[0][1].as<double>() - meshBase[0];
-                    meshLengths[1] = rangeConfiguration[1][1].as<double>() - meshBase[1];
+                    for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension) {
+                        meshBase[iDimension] = rangeConfiguration[0][iDimension].as<double>();
+                        meshLengths[iDimension] = rangeConfiguration[1][iDimension].as<double>() - meshBase[iDimension];
+                    }
                 }
-                meshResolution.front() = rConfiguration["resolution"][0].as<std::size_t>();
-                meshResolution.back() = rConfiguration["resolution"][1].as<std::size_t>();
+
+                for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension)
+                    meshResolution[iDimension] = rConfiguration["resolution"][iDimension].as<std::size_t>();
             } // if discretizationType == "cartesian-grid-2d"
 
             else CIE_THROW(Exception, std::format(
@@ -191,35 +201,39 @@ void generateMesh(
             1ul,
             std::multiplies<std::size_t>()));
 
-        const std::array<Scalar,2> edgeLengths {
-            meshLengths.front() / (meshResolution[0] - 1),
-            meshLengths.back()  / (meshResolution[1] - 1)};
         Size iBoundary = 0ul;
+        std::array<Scalar,Dimension> edgeLengths;
+        std::transform(
+            meshLengths.begin(),
+            meshLengths.end(),
+            meshResolution.begin(),
+            edgeLengths.begin(),
+            std::divides<Scalar>());
 
-        for (Size iCellRow : std::ranges::views::iota(0ul, meshResolution[0] - 1)) {
-            for (Size iCellColumn : std::ranges::views::iota(0ul, meshResolution[1] - 1)) {
+        for (Size iCellRow : std::ranges::views::iota(0ul, meshResolution[1])) {
+            for (Size iCellColumn : std::ranges::views::iota(0ul, meshResolution[0])) {
                 StaticArray<StaticArray<Scalar,Dimension>,2> transformed;
                 OrientedAxes<Dimension> axes;
 
                 // Define the cell's orientation in topological and physical space.
-                if (iCellRow % 2) {
+                if (iCellColumn % 2) {
                     axes[0] = "-x";
-                    transformed[0][0] = meshBase[0] + (iCellRow + 1.0) * edgeLengths[0];
-                    transformed[1][0] = meshBase[0] + iCellRow * edgeLengths[0];
+                    transformed[0][0] = meshBase[0] + (iCellColumn + 1.0) * edgeLengths[0];
+                    transformed[1][0] = meshBase[0] + iCellColumn * edgeLengths[0];
                 } else {
                     axes[0] = "+x";
-                    transformed[0][0] = meshBase[0] + iCellRow * edgeLengths[0];
-                    transformed[1][0] = meshBase[0] + (iCellRow + 1.0) * edgeLengths[0];
+                    transformed[0][0] = meshBase[0] + iCellColumn * edgeLengths[0];
+                    transformed[1][0] = meshBase[0] + (iCellColumn + 1.0) * edgeLengths[0];
                 }
 
-                if (iCellColumn % 2) {
+                if (iCellRow % 2) {
                     axes[1] = "-y";
-                    transformed[0][1] = meshBase[1] + (iCellColumn + 1.0) * edgeLengths[1];
-                    transformed[1][1] = meshBase[1] + iCellColumn * edgeLengths[1];
+                    transformed[0][1] = meshBase[1] + (iCellRow + 1.0) * edgeLengths[1];
+                    transformed[1][1] = meshBase[1] + iCellRow * edgeLengths[1];
                 } else {
                     axes[1] = "+y";
-                    transformed[0][1] = meshBase[1] + iCellColumn * edgeLengths[1];
-                    transformed[1][1] = meshBase[1] + (iCellColumn + 1.0) * edgeLengths[1];
+                    transformed[0][1] = meshBase[1] + iCellRow * edgeLengths[1];
+                    transformed[1][1] = meshBase[1] + (iCellRow + 1.0) * edgeLengths[1];
                 }
 
                 SpatialTransform transform(transformed.begin(), transformed.end());
@@ -258,9 +272,10 @@ void generateMesh(
                 }
 
                 if (isInDefaultDomain) continue;
+                //(void)isInDefaultDomain;
 
                 // Insert the cell into the adjacency graph (mesh) as a vertex
-                const std::size_t iCell = iCellRow * (meshResolution[0] - 1u) + iCellColumn;
+                const std::size_t iCell = iCellRow * meshResolution[0] + iCellColumn;
                 rMesh.insert(Mesh::Vertex(
                     VertexID(iCell),
                     {} /*edges of the adjacency graph are added automatically during edge insertion*/));
@@ -275,11 +290,11 @@ void generateMesh(
                 // The rule here is that cells with lower manhattan distance from the origin
                 // are sources, while those with a higher norm are targets.
                 if (iCellRow) {
-                    const std::size_t iSourceCell = iCell - (meshResolution[0] - 1);
+                    const std::size_t iSourceCell = iCell - meshResolution[0];
                     const std::size_t iTargetCell = iCell;
 
                     if (rMesh.findVertex(iSourceCell).has_value()) {
-                        BoundaryID sharedBoundary = iCellRow % 2 ? BoundaryID("+x") : BoundaryID("-x");
+                        BoundaryID sharedBoundary = iCellRow % 2 ? BoundaryID("+y") : BoundaryID("-y");
                         rMesh.insert(Mesh::Edge(
                             EdgeID(iBoundary++),
                             {iSourceCell, iTargetCell},
@@ -292,7 +307,7 @@ void generateMesh(
                     const std::size_t iTargetCell = iCell;
 
                     if (rMesh.findVertex(iSourceCell).has_value()) {
-                        BoundaryID sharedBoundary = iCellColumn % 2 ? BoundaryID("+y") : BoundaryID("-y");
+                        BoundaryID sharedBoundary = iCellColumn % 2 ? BoundaryID("+x") : BoundaryID("-x");
                         rMesh.insert(Mesh::Edge(
                             EdgeID(iBoundary++),
                             {iSourceCell, iTargetCell},

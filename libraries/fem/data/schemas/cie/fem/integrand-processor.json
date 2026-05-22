@@ -12,6 +12,13 @@
             "enum" : ["host", "sycl"],
             "default" : "host",
             "description" : "Device to evaluate integrands on."
+        },
+        "verbosity" : {
+            "type" : "integer",
+            "minimum" : 0,
+            "maximum" : 4,
+            "default" : 1,
+            "description" : "Level of logging during iterations (0 - none, 1 - warnings, 2 - summaries, 3 - iteration summaries, 4 - debug)."
         }
     },
     "required" : []

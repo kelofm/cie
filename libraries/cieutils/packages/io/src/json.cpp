@@ -1185,7 +1185,9 @@ bool recursiveFill(
                 || rConstraintName == "$id"
                 || rConstraintName == "$schema"
                 || rConstraintName == "additionalProperties"
-                || rConstraintName == "required") {
+                || rConstraintName == "required"
+                || rConstraintName == "maxItems"
+                || rConstraintName == "minItems") {
                     // Not an actual constraint. Do nothing.
             } else if (rConstraintName == "type") {
                 // Not a constraint default assignment has anything to do with.

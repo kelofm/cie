@@ -33,7 +33,7 @@ void integrateStiffness(
         using EmbeddedIntegrand = ScaledMultiMaterialIntegrand<IntegrandBase,Scalar,2>;
         using Integrand = TransformedIntegrand<
             EmbeddedIntegrand,
-            SpatialTransform::Inverse::Derivative>;
+            SpatialTransform::Derivative>;
         static_assert(maths::StaticExpression<Integrand>);
 
         std::vector<std::unique_ptr<IntegrandProcessor<
@@ -118,7 +118,7 @@ void integrateStiffness(
                         rCell.diffusivity(),
                         Ansatz::Derivative(rMesh.data().ansatzDerivative(rCell.ansatzID()))),
                     domainData),
-                rCell.makeJacobianInverse());};
+                rCell.makeJacobian());};
 
         const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
             mp::ParallelFor<std::size_t>(rThreads).execute(
@@ -134,7 +134,7 @@ void integrateStiffness(
 
         IntegrandProcessor<Dimension,Integrand,Scalar>::Properties executionProperties {
             .integrandBatchSize = quadratureBatchSize,
-            .verbosity = 3};
+            .verbosity = rConfiguration["verbosity"].as<int>()};
 
         {
             std::vector<std::thread> jobs;

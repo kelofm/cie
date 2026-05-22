@@ -11,7 +11,6 @@
 #include <filesystem> // std::filesystem::path
 #include <memory> // std::unique_ptr
 #include <string_view> // std::string_view
-#include <optional> // std::optional
 #include <vector> // std::vector
 
 
@@ -35,15 +34,9 @@ struct VTKHDF {
 
         /// @brief Write a mesh of cells to an unstructured grid.
         template <fem::CellLike TCell>
-        void operator()(
+        void writeCells(
             std::string_view groupName,
             std::span<const TCell> cells);
-
-        /// @brief Write a mesh of cells to an unstructured grid.
-        template <fem::DiscretizationLike TMesh>
-        void operator()(
-            std::string_view groupName,
-            Ref<const TMesh> rMesh);
 
         template <class TValue, unsigned Dimension>
         void writePointCloud(
@@ -83,12 +76,6 @@ struct VTKHDF {
 
     protected:
         using Prefix = std::filesystem::path;
-
-        template <class TMesh, class TCell>
-        void writeMesh(
-            std::optional<std::reference_wrapper<const TMesh>> rMaybeMesh,
-            std::optional<std::span<const TCell>> maybeCells,
-            std::string_view groupName);
 
         void makeGroup(Ref<const Prefix> rPrefix);
 

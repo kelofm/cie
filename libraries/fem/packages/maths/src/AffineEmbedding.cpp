@@ -60,8 +60,7 @@ AffineEmbeddingInverse<TValue,2u,1u>::makeDerivative() const
 template <concepts::Numeric TValue>
 AffineEmbeddingInverseDerivative<TValue,2u,1u>::AffineEmbeddingInverseDerivative(RightRef<typename AffineTransform<TValue,ParametricDimension>::Inverse::Derivative> rTransformDerivative) noexcept
     : _transformDerivative(std::move(rTransformDerivative))
-{
-}
+{}
 
 
 CIE_FEM_INSTANTIATE_MIXED_TEMPLATE(AffineEmbedding,1u,2u);
