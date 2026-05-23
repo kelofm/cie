@@ -11,12 +11,13 @@ namespace cie::fem {
 
 
 template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand()
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand() noexcept
     : _penalty(0),
       _dirichletFunctor(),
       _ansatzSpace(),
       _embedding(),
-      _cellInverseTransform()
+      _cellInverseTransform(),
+      _cellJacobian()
 {}
 
 
@@ -26,12 +27,14 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
     const Value penalty,
     Ref<const TAnsatz> rAnsatzSpace,
     Ref<const TEmbedding> rBoundaryTransform,
-    Ref<const CellInverseTransform> rCellInverseTransform)
+    Ref<const CellInverseTransform> rCellInverseTransform,
+    Ref<const CellJacobian> rCellJacobian)
         : _penalty(penalty),
           _dirichletFunctor(rDirichletFunctor),
           _ansatzSpace(rAnsatzSpace),
           _embedding(rBoundaryTransform),
-          _cellInverseTransform(rCellInverseTransform)
+          _cellInverseTransform(rCellInverseTransform),
+          _cellJacobian(rCellJacobian)
 {}
 
 
@@ -61,6 +64,12 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
                 dirichletBuffer(pDirichletBufferBegin, stateVariableCount),
                 nestedBuffer(pNestedBufferBegin, buffer.data() + buffer.size());
 
+        // Compute the cell's jacobian's determinant at the given input.
+        const Value jacobian = std::abs(_cellJacobian.evaluateDeterminant(
+            in,
+            {}));
+        const Value scaledPenalty = jacobian * _penalty;
+
         // Compute LHS contribution.
         _embedding.evaluate(in, boundaryTransformedBuffer, nestedBuffer);
         _cellInverseTransform.evaluate(boundaryTransformedBuffer, cellTransformedBuffer, nestedBuffer);
@@ -69,7 +78,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
         EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
         EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
 
-        lhsAdaptor.noalias() = ansatzAdaptor * _penalty * ansatzAdaptor.transpose();
+        lhsAdaptor.noalias() = ansatzAdaptor * scaledPenalty * ansatzAdaptor.transpose();
 
         // Compute the prescribed state at the given input.
         _dirichletFunctor.evaluate(in, dirichletBuffer, nestedBuffer);
@@ -81,8 +90,8 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
                 ansatzBuffer.begin(),
                 ansatzBuffer.end(),
                 out.begin() + ansatzCount * ansatzCount + iStateComponent * ansatzCount,
-                [this, dirichlet] (const Value ansatz) -> Value {
-                    return dirichlet * ansatz * _penalty;
+                [scaledPenalty, dirichlet] (const Value ansatz) -> Value {
+                    return dirichlet * ansatz * scaledPenalty;
                 });
         }
 }

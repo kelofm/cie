@@ -43,21 +43,16 @@ public:
 
     using CellInverseTransform = typename TCell::SpatialTransform::Inverse;
 
+    using CellJacobian = typename TCell::SpatialTransform::Derivative;
+
     static inline constexpr bool isStatic = (
            maths::StaticExpression<TDirichlet>
-        || maths::StaticExpression<TAnsatzSpace>
-        || maths::StaticExpression<TEmbedding>
-        || maths::StaticExpression<CellInverseTransform>);
+        && maths::StaticExpression<TAnsatzSpace>
+        && maths::StaticExpression<TEmbedding>
+        && maths::StaticExpression<CellInverseTransform>);
 
 public:
-    DirichletPenaltyIntegrand();
-
-    DirichletPenaltyIntegrand(
-        Ref<const TDirichlet> rDirichletFunctor,
-        const Value penalty,
-        Ref<const TAnsatzSpace> rAnsatzSpace,
-        Ref<const TEmbedding> rSpatialTransform,
-        Ref<const CellInverseTransform> rCellInverseTransform);
+    DirichletPenaltyIntegrand() noexcept;
 
     DirichletPenaltyIntegrand(
         Ref<const TDirichlet> rDirichletFunctor,
@@ -65,7 +60,7 @@ public:
         Ref<const TAnsatzSpace> rAnsatzSpace,
         Ref<const TEmbedding> rSpatialTransform,
         Ref<const CellInverseTransform> rCellInverseTransform,
-        std::span<Value> buffer);
+        Ref<const CellJacobian> rCellJacobian);
 
     void evaluate(
         ConstSpan in,
@@ -86,6 +81,8 @@ private:
     TEmbedding _embedding;
 
     CellInverseTransform _cellInverseTransform;
+
+    CellJacobian _cellJacobian;
 }; // class DirichletPenaltyIntegrand
 
 
@@ -106,7 +103,8 @@ makeDirichletPenaltyIntegrand(
             penalty,
             rAnsatzSpace,
             rSpatialTransform,
-            rCell.makeInverseSpatialTransform());
+            rCell.makeInverseSpatialTransform(),
+            rCell.makeJacobian());
 }
 
 
