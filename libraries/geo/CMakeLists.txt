@@ -44,7 +44,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         -Wextra
         -Werror
         -Wno-dangling-reference
-        -Wno-maybe-uninitialized)
+        -Wno-maybe-uninitialized
+        -Wno-array-bounds)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options(
         -Wall
