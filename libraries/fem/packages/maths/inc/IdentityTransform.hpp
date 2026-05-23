@@ -31,9 +31,9 @@ public:
     using Inverse = IdentityTransform;
 
 public:
-    IdentityTransform() noexcept = default;
+    constexpr IdentityTransform() noexcept = default;
 
-    void evaluate(ConstSpan in, Span out, BufferSpan) const noexcept
+    constexpr void evaluate(ConstSpan in, Span out, BufferSpan) const noexcept
     {std::copy(in.begin(), in.end(), out.begin());}
 
     static constexpr unsigned size() noexcept
@@ -48,7 +48,7 @@ public:
     constexpr Derivative makeDerivative() const noexcept
     {return *this;}
 
-    constexpr TValue evaluateDeterminant([[maybe_unused]] ConstSpan in, BufferSpan) const noexcept
+    constexpr TValue evaluateDeterminant(ConstSpan, BufferSpan) const noexcept
     {return static_cast<TValue>(1);}
 }; // class IdentityTransform
 

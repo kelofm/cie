@@ -4,6 +4,7 @@
 // --- FEM Includes ---
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
+#include "packages/maths/inc/IdentityTransform.hpp"
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 
 
@@ -17,6 +18,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
 
     using Basis = maths::Polynomial<Scalar>;
     using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
+    using Transform = maths::IdentityTransform<Scalar,Dimension>;
 
     // Define a bilinear ansatz space.
     const auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
@@ -29,7 +31,11 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
 
     // Construct the integrand without a buffer.
     constexpr Scalar modulus = 10.0;
-    LinearIsotropicStiffnessIntegrand<Ansatz::Derivative> integrand(modulus, *pAnsatzDerivatives);
+    LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,Transform> integrand(
+        modulus,
+        *pAnsatzDerivatives,
+        Transform().makeDerivative(),
+        Transform().makeInverse().makeDerivative());
     CIE_TEST_REQUIRE(integrand.size() == 16);
 
     // Set buffer.

@@ -7,7 +7,7 @@
 namespace cie::fem {
 
 
-template <maths::Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives, maths::SpatialTransform TTransform>
 class LinearIsotropicStiffnessIntegrand
     : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value> {
 public:
@@ -21,16 +21,24 @@ public:
 
     using typename maths::ExpressionTraits<Value>::BufferSpan;
 
+    using Jacobian = typename TTransform::Derivative;
+
+    using JacobianInverse = typename TTransform::Inverse::Derivative;
+
 public:
     LinearIsotropicStiffnessIntegrand();
 
     LinearIsotropicStiffnessIntegrand(
         const Value modulus,
-        RightRef<TAnsatzDerivatives> rAnsatzDerivatives) noexcept;
+        RightRef<TAnsatzDerivatives> rAnsatzDerivatives,
+        RightRef<Jacobian> rJacobian,
+        RightRef<JacobianInverse> rJacobianInverse) noexcept;
 
     LinearIsotropicStiffnessIntegrand(
         const Value modulus,
-        Ref<const TAnsatzDerivatives> rAnsatzDerivatives);
+        Ref<const TAnsatzDerivatives> rAnsatzDerivatives,
+        Ref<const Jacobian> rJacobian,
+        Ref<const JacobianInverse> rJacobianInverse);
 
     void evaluate(
         ConstSpan in,
@@ -53,6 +61,10 @@ private:
     Value _modulus;
 
     TAnsatzDerivatives _ansatzDerivatives;
+
+    Jacobian _jacobian;
+
+    JacobianInverse _jacobianInverse;
 }; // class LinearIsotropicStiffnessIntegrand
 
 

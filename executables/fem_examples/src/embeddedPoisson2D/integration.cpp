@@ -4,7 +4,6 @@
 // --- FEM Includes ---
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 #include "packages/integrands/inc/ScaledMultiMaterialIntegrand.hpp"
-#include "packages/integrands/inc/TransformedIntegrand.hpp"
 #include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- Utility Includes ---
@@ -29,11 +28,8 @@ void integrateStiffness(
         auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
         const std::size_t quadratureBatchSize = rConfiguration["batch-size"].as<std::size_t>();
 
-        using IntegrandBase = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>;
-        using EmbeddedIntegrand = ScaledMultiMaterialIntegrand<IntegrandBase,Scalar,2>;
-        using Integrand = TransformedIntegrand<
-            EmbeddedIntegrand,
-            SpatialTransform::Derivative>;
+        using IntegrandBase = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,SpatialTransform>;
+        using Integrand = ScaledMultiMaterialIntegrand<IntegrandBase,Scalar,2>;
         static_assert(maths::StaticExpression<Integrand>);
 
         std::vector<std::unique_ptr<IntegrandProcessor<
@@ -107,18 +103,18 @@ void integrateStiffness(
         const auto quadratureRuleFactory = [&rMesh] (Ref<const Cell> rCell) {
             return rMesh.data().makeQuadratureRule(rCell);};
 
-        const auto integrandFactory = [&rMesh] (Ref<const Cell> rCell) {
+        const auto integrandFactory = [&rMesh] (Ref<const Cell> rCell) -> Integrand {
             CIE_CHECK(rMesh.data().domainMap().size() == 2, "")
             std::span<const std::pair<MeshData::DomainData,Scalar>,2> domainData(
                 rMesh.data().domainMap().data(),
                 2);
             return Integrand(
-                EmbeddedIntegrand(
                     IntegrandBase(
                         rCell.diffusivity(),
-                        Ansatz::Derivative(rMesh.data().ansatzDerivative(rCell.ansatzID()))),
-                    domainData),
-                rCell.makeJacobian());};
+                        rMesh.data().ansatzDerivative(rCell.ansatzID()),
+                        rCell.makeJacobian(),
+                        rCell.makeJacobianInverse()),
+                    domainData);};
 
         const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
             mp::ParallelFor<std::size_t>(rThreads).execute(
