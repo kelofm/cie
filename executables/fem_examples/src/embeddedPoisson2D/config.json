@@ -11,7 +11,7 @@
     ],
     "dirichlet-1d" : {
         "file-path" : "dirichlet.csv",
-        "penalty-factor": 1e4,
+        "penalty-factor": 1e5,
         "integration": {
             "batch-size": 10000,
             "device": "host",
@@ -32,7 +32,8 @@
         },
         "geometric": {
             "type" : "cartesian-grid-2d",
-            "resolution" : [500, 10]
+            "resolution" : [51, 9],
+            "discard-default-cells" : false
         },
         "integration": {
             "batch-size": 10000,
@@ -49,8 +50,9 @@
     },
     "linear-system": {
         "reordering": null,
+        "write-lhs" : null,
         "solver": {
-            "type": "cg-sycl",
+            "type": "cg",
             "max-iterations" : 5e3,
             "absolute-residual" : 1e-9,
             "relative-residual" : 1e-6,

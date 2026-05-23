@@ -22,6 +22,5 @@
         "type" : "uniform-cartesian-grid",
         "resolution" : null
     },
-    "required" : ["type"],
-    "additionalProperties" : false
+    "required" : ["type"]
 }

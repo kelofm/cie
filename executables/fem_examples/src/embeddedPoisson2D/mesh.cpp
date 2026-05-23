@@ -210,6 +210,8 @@ void generateMesh(
             edgeLengths.begin(),
             std::divides<Scalar>());
 
+        const bool discardDefaultCells = rConfiguration["geometric"]["discard-default-cells"].as<bool>();
+
         for (Size iCellRow : std::ranges::views::iota(0ul, meshResolution[1])) {
             for (Size iCellColumn : std::ranges::views::iota(0ul, meshResolution[0])) {
                 StaticArray<StaticArray<Scalar,Dimension>,2> transformed;
@@ -271,7 +273,7 @@ void generateMesh(
                         [] (auto s) -> bool {return s;});
                 }
 
-                if (isInDefaultDomain) continue;
+                if (discardDefaultCells && isInDefaultDomain) continue;
                 //(void)isInDefaultDomain;
 
                 // Insert the cell into the adjacency graph (mesh) as a vertex
