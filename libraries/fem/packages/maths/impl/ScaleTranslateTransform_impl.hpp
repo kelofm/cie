@@ -6,7 +6,6 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
-#include "packages/types/inc/tags.hpp" // tags::Binary
 
 // --- STL Includes ---
 #include <algorithm> // std::copy, std::transform (already included anyway)
