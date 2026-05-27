@@ -4,7 +4,6 @@
 // --- FEM Includes ---
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
-#include "packages/integrands/inc/TransformedIntegrand.hpp"
 #include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- GEO Includes ---
@@ -12,7 +11,6 @@
 
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
-#include "packages/logging/inc/LogBlock.hpp"
 #include "packages/io/inc/json.hpp"
 
 // --- STL Includes ---
@@ -340,14 +338,12 @@ imposeBoundaryConditions(
 
         const Scalar penaltyFactor =rConfiguration["penalty-factor"].as<double>();
         const auto integrandFactory = [&rMesh, penaltyFactor] (Ref<const BoundaryCell> rBoundaryCell) {
-            auto integrand = makeTransformedIntegrand(
-                makeDirichletPenaltyIntegrand(
+            auto integrand = makeDirichletPenaltyIntegrand(
                     DirichletBoundary(rBoundaryCell.state()),
                     penaltyFactor,
                     rMesh.data().ansatz(rBoundaryCell.ansatzID()),
                     rBoundaryCell.makeSpatialTransform(),
-                    rBoundaryCell.getEmbeddingCell()),
-                rBoundaryCell.makeJacobian());
+                    rBoundaryCell.getEmbeddingCell());
             return integrand;
         }; // integrandFactory
 
@@ -372,13 +368,11 @@ imposeBoundaryConditions(
                 } // for iCell in range(cellIDs.size())
         };
 
-        using Integrand = TransformedIntegrand<
-            DirichletPenaltyIntegrand<
+        using Integrand = DirichletPenaltyIntegrand<
                 DirichletBoundary,
                 Ansatz,
                 maths::AffineEmbedding<Scalar,1u,Dimension>,
-                Cell>,
-            maths::AffineEmbedding<Scalar,1u,Dimension>::Derivative>;
+                Cell>;
         const IntegrandProcessor<1,Integrand>::Properties executionProperties{
             .integrandBatchSize = rConfiguration["integration"]["batch-size"].as<std::size_t>(),
             .verbosity = rConfiguration["integration"]["verbosity"].as<int>()};

@@ -1,9 +1,7 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/CellData.hpp"
 #include "embeddedPoisson2D/mesh.hpp"
-#include "embeddedPoisson2D/integration.hpp"
 #include "embeddedPoisson2D/constraints.hpp"
 
 // --- Utility Includes ---
@@ -21,6 +19,7 @@ void postprocess(
     std::span<const Scalar> rhs,
     Ref<const Mesh> rMesh,
     Ref<const BVH> rBVH,
+    std::span<const BoundarySegment> boundarySegments,
     Ref<const Assembler> rAssembler,
     Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads);

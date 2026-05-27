@@ -1,0 +1,30 @@
+{
+    "$id" : "/cie/fem/cell-postprocessing",
+    "type" : "object",
+    "description" : "Settings related to generating output on cells depending on state variables.",
+    "allOf" : [
+        {"$ref" : "/cie/fem/postprocessing"},
+        {
+            "properties" : {
+                "cell-id" : {
+                    "type" : "boolean",
+                    "default" : false,
+                    "description" : "Write cell IDs."
+                },
+                "dof-id" : {
+                    "type" : "boolean",
+                    "default" : false,
+                    "description" : "Write DoF IDs belonging to cells."
+                }
+            }
+        }
+    ],
+    "default" : {
+        "state" : true,
+        "load" : false,
+        "residual" : false,
+        "cell-id" : false,
+        "dof-id" : false,
+        "replace-nans" : null
+    }
+}

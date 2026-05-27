@@ -3,11 +3,22 @@
     "type" : "object",
     "description" : "Settings related to generating output depending on state variables.",
     "properties" : {
-        "resolution" : {
-            "type" : "number",
-            "description" : "Number of sample points to generate per direction.",
-            "minimum" : 2,
-            "default" : 1e2
+        "state" : {
+            "type" : "boolean",
+            "default" : true
+        },
+        "load" : {
+            "type" : "boolean",
+            "default" : false
+        },
+        "residual" : {
+            "type" : "boolean",
+            "default" : false
+        },
+        "write-components" : {
+            "type" : "boolean",
+            "default" : false,
+            "description" : "Write individual contributions from separate levels of ansatz functions."
         },
         "replace-nans" : {
             "type" : ["number", "null"],
@@ -16,8 +27,10 @@
         }
     },
     "default" : {
-        "resolution" : 1e2,
+        "state" : true,
+        "load" : false,
+        "residual" : false,
+        "write-components" : false,
         "replace-nans" : null
-    },
-    "additionalProperties" : false
+    }
 }

@@ -42,7 +42,17 @@ struct VTKHDF {
         void writePointCloud(
             std::string_view groupName,
             std::span<const TValue> coordinates,
-            std::size_t gridSize = 0ul);
+            std::optional<std::array<std::size_t,Dimension>> maybeGridResolution = {});
+
+        template <class TValue, unsigned Dimension>
+        void writeSTL(
+            std::string_view groupName,
+            std::span<const TValue> triangles);
+
+        template <class TValue, unsigned Dimension>
+        void writeSegments(
+            std::string_view groupName,
+            std::span<const TValue> segments);
 
         template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
         requires std::is_same_v<typename TCell::Value,TValue>

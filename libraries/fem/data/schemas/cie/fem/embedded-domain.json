@@ -28,6 +28,9 @@
                     "minimum" : 0,
                     "default" : 1,
                     "description" : "Factor to scale the domain's integrals by."
+                },
+                "postprocessing" : {
+                    "$ref" : "/cie/fem/postprocessing"
                 }
             },
             "required" : ["file-path"],

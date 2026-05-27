@@ -1,4 +1,5 @@
 {
+    "$id" : "/cie/fem/discretization",
     "description" : "Settings related to a cartesian discretization.",
     "type" : "object",
     "properties" : {
@@ -8,7 +9,10 @@
             "$ref" : "/cie/fem/integration"
         },
         "postprocessing" : {
-            "$ref" : "/cie/fem/postprocessing"
+            "allOf" : [
+                {"$ref" : "/cie/fem/cell-postprocessing"},
+                {"$ref" : "/cie/fem/scatter-postprocessing"}
+            ]
         }
     },
     "default" : {

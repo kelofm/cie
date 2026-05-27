@@ -47,6 +47,13 @@ public:
 
     void setCells(RightRef<std::vector<Cell>> rCells) noexcept;
 
+    std::span<const std::pair<
+        DomainData,
+        std::vector<Scalar>>
+    > domainTriangles() const noexcept {
+            return _domainTriangles;
+    }
+
     [[nodiscard]] constexpr std::span<const Cell> cells() const noexcept {
         return _cells;
     }

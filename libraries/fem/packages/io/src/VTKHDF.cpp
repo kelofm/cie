@@ -389,7 +389,7 @@ template <class T, unsigned D>
 void VTKHDF::Output::writePointCloud(
     std::string_view groupName,
     std::span<const T> coordinates,
-    std::size_t gridSize) {
+    std::optional<std::array<std::size_t,D>> maybeGridResolution) {
         CIE_BEGIN_EXCEPTION_TRACING
             const Prefix groupPrefix = Prefix("/VTKHDF") / groupName;
             H5::Group group = _pImpl->makeGroup(groupPrefix);
@@ -407,12 +407,25 @@ void VTKHDF::Output::writePointCloud(
             CIE_END_EXCEPTION_TRACING
 
             const std::size_t pointCount = coordinates.size() / D;
-            const std::size_t cellCount  = 1 < gridSize
-                ? intPow(gridSize - 1, D)
+            const std::size_t cellCount  = maybeGridResolution.has_value()
+                ? std::accumulate(
+                    maybeGridResolution->begin(),
+                    maybeGridResolution->end(),
+                    1ul,
+                    [] (std::size_t left, std::size_t right) {return left * (right - 1);})
                 : 0ul;
             const std::size_t pointsPerCell = cellCount
                 ? intPow(2, D)
                 : 1ul;
+
+            CIE_CHECK(
+                !cellCount
+                || pointCount == std::accumulate(
+                    maybeGridResolution.value().begin(),
+                    maybeGridResolution.value().end(),
+                    1ul,
+                    std::multiplies<std::size_t>()),
+                "")
 
             if (cellCount) {
                 this->writeDataset<std::size_t,1>(
@@ -442,6 +455,13 @@ void VTKHDF::Output::writePointCloud(
                 {&pointCount, 1});
 
             if (cellCount) {
+                std::array<std::size_t,D> cellResolution;
+                std::transform(
+                    maybeGridResolution.value().begin(),
+                    maybeGridResolution.value().end(),
+                    cellResolution.begin(),
+                    [] (std::size_t in) {return in - 1;});
+
                 std::vector<int> topology(cellCount * pointsPerCell);
                 std::array<std::size_t,D> state;
                 std::fill(state.begin(), state.end(), 0ul);
@@ -453,21 +473,21 @@ void VTKHDF::Output::writePointCloud(
                         *itTopology++ = state[0]    ;
                         *itTopology++ = state[0] + 1;
                     } else if constexpr (D == 2) {
-                        *itTopology++ = (state[0]    ) + gridSize * (state[1]    );
-                        *itTopology++ = (state[0] + 1) + gridSize * (state[1]    );
-                        *itTopology++ = (state[0] + 1) + gridSize * (state[1] + 1);
-                        *itTopology++ = (state[0]    ) + gridSize * (state[1] + 1);
+                        *itTopology++ = (state[0]    ) + cellResolution[0] * (state[1]    );
+                        *itTopology++ = (state[0] + 1) + cellResolution[0] * (state[1]    );
+                        *itTopology++ = (state[0] + 1) + cellResolution[0] * (state[1] + 1);
+                        *itTopology++ = (state[0]    ) + cellResolution[0] * (state[1] + 1);
                     } else if constexpr (D == 3) {
-                        *itTopology++ = (state[0]    ) + gridSize * ((state[1]    ) + gridSize * (state[2]    ));
-                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1]    ) + gridSize * (state[2]    ));
-                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1] + 1) + gridSize * (state[2]    ));
-                        *itTopology++ = (state[0]    ) + gridSize * ((state[1] + 1) + gridSize * (state[2]    ));
-                        *itTopology++ = (state[0]    ) + gridSize * ((state[1]    ) + gridSize * (state[2] + 1));
-                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1]    ) + gridSize * (state[2] + 1));
-                        *itTopology++ = (state[0] + 1) + gridSize * ((state[1] + 1) + gridSize * (state[2] + 1));
-                        *itTopology++ = (state[0]    ) + gridSize * ((state[1] + 1) + gridSize * (state[2] + 1));
+                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2]    ));
+                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2]    ));
+                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2]    ));
+                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2]    ));
+                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2] + 1));
+                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2] + 1));
+                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2] + 1));
+                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2] + 1));
                     } else static_assert(D == 1, "unsupported dimension");
-                } while (maths::OuterProduct<D>::next(gridSize - 1, state.data()));
+                } while (maths::OuterProduct<D>::next(cellResolution.data(), state.data()));
 
                 this->writeDataset<int,1>(
                     groupPrefix / "Connectivity",
@@ -515,7 +535,6 @@ void VTKHDF::Output::writePointCloud(
                     {types.size()},
                     types);
             } // if cellCount else
-
 
             CIE_BEGIN_EXCEPTION_TRACING
                 const std::array<hsize_t,2> shape {pointCount, 3};
@@ -577,19 +596,435 @@ void VTKHDF::Output::writePointCloud(
 }
 
 
-#define CIE_INSTANTIATE_VTKHDF(T)                       \
-    template void VTKHDF::Output::writeAttribute<T>(    \
-        Ref<const Prefix>,                              \
-        Ref<const std::string>,                         \
-        std::span<const T>);                            \
-    template void VTKHDF::Output::writeDataset<T,1>(    \
-        Ref<const Prefix>,                              \
-        std::array<const std::size_t,1>,                \
-        std::span<const T>);                            \
-    template void VTKHDF::Output::writeDataset<T,2>(    \
-        Ref<const Prefix>,                              \
-        std::array<const std::size_t,2>,                \
-        std::span<const T>);
+template <class TValue>
+void VTKHDF::Output::writeFieldVariables(
+    std::string_view groupName,
+    Ref<const std::vector<std::tuple<
+        std::string,
+        std::vector<std::size_t>,
+        std::span<const TValue>
+    >>> fieldVariables) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName / "PointData";
+            this->makeGroup(groupPrefix);
+            for (const auto& [rName, rShape, rValues] : fieldVariables) {
+                switch (rShape.size()) {
+                    case 0:
+                        this->writeDataset<TValue,1>(
+                            groupPrefix / rName,
+                            {rValues.size()},
+                            rValues);
+                        break;
+                    case 1:
+                        this->writeDataset<TValue,2>(
+                            groupPrefix / rName,
+                            {rValues.size() / rShape.front(), rShape.front()},
+                            rValues);
+                        break;
+                    default: CIE_THROW(Exception, "unhandled field variable array rank " << rShape.size())
+                }
+            } // for rName, rShape, rValues in fieldVariables
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TValue>
+void VTKHDF::Output::writeCellVariables(
+    std::string_view groupName,
+    std::vector<std::tuple<
+        std::string,
+        std::vector<std::size_t>,
+        std::span<const TValue>
+    >> cellVariables) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName / "CellData";
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->makeGroup(groupPrefix);
+            CIE_END_EXCEPTION_TRACING
+
+            for (const auto& [rName, rShape, rValues] : cellVariables) {
+                const std::size_t componentCount = std::accumulate(
+                    rShape.begin(),
+                    rShape.end(),
+                    1ul,
+                    std::multiplies<std::size_t>());
+                const std::size_t cellCount = rValues.size() / componentCount;
+                CIE_CHECK(
+                    cellCount * componentCount == rValues.size(),
+                    std::format(
+                        "expecting cell array \"{}\" to be of size {}, but has {} components",
+                        rName, cellCount * componentCount, rValues.size()))
+
+                switch (rShape.size()) {
+                    case 0:
+                        this->writeDataset<TValue,1>(
+                            groupPrefix / rName,
+                            {cellCount},
+                            rValues);
+                        break;
+                    case 1:
+                        this->writeDataset<TValue,2>(
+                            groupPrefix / rName,
+                            {cellCount, componentCount},
+                            rValues);
+                        break;
+                    default: CIE_THROW(Exception, "unexpected cell variable array rank " << rShape.size())
+                }; // switch rShape.size()
+            } // for rName, rShape, rValues in cellVariables
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TValue, unsigned Dimension>
+void VTKHDF::Output::writeSTL(
+    std::string_view groupName,
+    std::span<const TValue> triangles) {
+        CIE_CHECK(
+            triangles.size() % (3 * Dimension) == 0,
+            std::format(
+                "expecting STL data to consist of triangles defined by 3 corners, each with {} components, but got an array of size {}",
+                Dimension,
+                triangles.size()))
+
+        CIE_BEGIN_EXCEPTION_TRACING
+            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName;
+            H5::Group group = _pImpl->makeGroup(groupPrefix);
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                _pImpl->writeAttribute(
+                    group,
+                    "Type",
+                    "UnstructuredGrid");
+                const std::array<int,2> version {2, 4};
+                _pImpl->writeAttribute<H5::Group,int>(
+                    group,
+                    "Version",
+                    version);
+            CIE_END_EXCEPTION_TRACING
+
+            const std::size_t pointCount    = triangles.size() / Dimension;
+            const std::size_t cellCount     = pointCount / 3;
+            const std::size_t pointsPerCell = 3;
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->writeDataset<std::size_t,1>(
+                        groupPrefix / "NumberOfCells",
+                        {1},
+                        {&cellCount, 1});
+
+                const std::size_t topologySize = cellCount * pointsPerCell;
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfConnectivityIds",
+                    {1},
+                    {&topologySize, 1});
+
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfPoints",
+                    {1},
+                    {&pointCount, 1});
+            CIE_END_EXCEPTION_TRACING
+
+            if (cellCount) {
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<int> topology(cellCount * pointsPerCell);
+                    std::iota(
+                        topology.begin(),
+                        topology.end(),
+                        static_cast<int>(0));
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Connectivity",
+                        {topology.size()},
+                        topology);
+                CIE_END_EXCEPTION_TRACING
+
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<int> offsets(cellCount + 1);
+                    for (std::size_t iCell=0ul; iCell<cellCount + 1; ++iCell) offsets[iCell] = iCell * pointsPerCell;
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Offsets",
+                        {offsets.size()},
+                        offsets);
+                CIE_END_EXCEPTION_TRACING
+
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<std::uint8_t> types(pointCount);
+                    const std::uint8_t topologyType = 5; // <== triangle
+                    std::fill(types.begin(), types.end(), topologyType);
+                    this->writeDataset<std::uint8_t,1>(
+                        groupPrefix / "Types",
+                        {types.size()},
+                        types);
+                CIE_END_EXCEPTION_TRACING
+            } /*if cellCount*/ else {
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<int> connectivity(pointCount);
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Connectivity",
+                        {connectivity.size()},
+                        connectivity);
+
+                    connectivity.push_back(pointCount);
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Offsets",
+                        {connectivity.size()},
+                        connectivity);
+
+                    std::vector<std::uint8_t> types(pointCount);
+                    std::fill(types.begin(), types.end(), static_cast<std::uint8_t>(1));
+                    this->writeDataset<std::uint8_t,1>(
+                        groupPrefix / "Types",
+                        {types.size()},
+                        types);
+                CIE_END_EXCEPTION_TRACING
+            } // if cellCount else
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                const std::array<hsize_t,2> shape {pointCount, 3};
+                const char* pName = "Points";
+                auto valueType = _pImpl->getH5Type<TValue>();
+                H5::DataSpace dataSpace(shape.size(), shape.data());
+
+                H5::DSetCreatPropList properties;
+                properties.setChunk(shape.size(), shape.data());
+
+                H5::DataSet dataset = group.createDataSet(
+                    pName,
+                    valueType,
+                    dataSpace,
+                    properties);
+
+                if (!triangles.empty()) {
+                    std::vector<TValue> column(pointCount);
+                    const std::size_t componentCount = Dimension;
+
+                    for (hsize_t d=0ul; d<3; ++d) {
+                        std::array<hsize_t,2>
+                            offset {0, d},
+                            count {pointCount, 1};
+                        dataSpace.selectHyperslab(
+                            H5S_SELECT_SET,
+                            count.data(),
+                            offset.data());
+                        std::array<hsize_t,2> memorySpaceShape {pointCount, 1};
+                        H5::DataSpace memorySpace(memorySpaceShape.size(), memorySpaceShape.data());
+
+                        if (d < Dimension) {
+                            for (std::size_t iPoint=0ul; iPoint<pointCount; ++iPoint)
+                                column[iPoint] = triangles[componentCount * iPoint + d];
+                        } else {
+                            std::fill(
+                                column.begin(),
+                                column.end(),
+                                static_cast<TValue>(0));
+                        }
+
+                        dataset.write(
+                            column.data(),
+                            valueType,
+                            memorySpace,
+                            dataSpace);
+                    }
+                }
+            CIE_END_EXCEPTION_TRACING
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->makeGroup(Prefix("/VTKHDF") / "Assembly" / groupName);
+                this->link(
+                    Prefix("/VTKHDF") / "Assembly" / groupName / groupName,
+                    groupPrefix);
+            CIE_END_EXCEPTION_TRACING
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TValue, unsigned Dimension>
+void VTKHDF::Output::writeSegments(
+    std::string_view groupName,
+    std::span<const TValue> segments) {
+        CIE_CHECK(
+            segments.size() % (2 * Dimension) == 0,
+            std::format(
+                "expecting line segment data to consist of pairs of points, each with {} components, but got an array of size {}",
+                Dimension,
+                segments.size()))
+
+        CIE_BEGIN_EXCEPTION_TRACING
+            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName;
+            H5::Group group = _pImpl->makeGroup(groupPrefix);
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                _pImpl->writeAttribute(
+                    group,
+                    "Type",
+                    "UnstructuredGrid");
+                const std::array<int,2> version {2, 4};
+                _pImpl->writeAttribute<H5::Group,int>(
+                    group,
+                    "Version",
+                    version);
+            CIE_END_EXCEPTION_TRACING
+
+            const std::size_t pointCount    = segments.size() / Dimension;
+            const std::size_t cellCount     = pointCount / 2;
+            const std::size_t pointsPerCell = 2;
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->writeDataset<std::size_t,1>(
+                        groupPrefix / "NumberOfCells",
+                        {1},
+                        {&cellCount, 1});
+
+                const std::size_t topologySize = cellCount * pointsPerCell;
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfConnectivityIds",
+                    {1},
+                    {&topologySize, 1});
+
+                this->writeDataset<std::size_t,1>(
+                    groupPrefix / "NumberOfPoints",
+                    {1},
+                    {&pointCount, 1});
+            CIE_END_EXCEPTION_TRACING
+
+            if (cellCount) {
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<int> topology(cellCount * pointsPerCell);
+                    std::iota(
+                        topology.begin(),
+                        topology.end(),
+                        static_cast<int>(0));
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Connectivity",
+                        {topology.size()},
+                        topology);
+                CIE_END_EXCEPTION_TRACING
+
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<int> offsets(cellCount + 1);
+                    for (std::size_t iCell=0ul; iCell<cellCount + 1; ++iCell) offsets[iCell] = iCell * pointsPerCell;
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Offsets",
+                        {offsets.size()},
+                        offsets);
+                CIE_END_EXCEPTION_TRACING
+
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<std::uint8_t> types(pointCount);
+                    const std::uint8_t topologyType = 4; // <== VTK_LINE
+                    std::fill(types.begin(), types.end(), topologyType);
+                    this->writeDataset<std::uint8_t,1>(
+                        groupPrefix / "Types",
+                        {types.size()},
+                        types);
+                CIE_END_EXCEPTION_TRACING
+            } /*if cellCount*/ else {
+                CIE_BEGIN_EXCEPTION_TRACING
+                    std::vector<int> connectivity(pointCount);
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Connectivity",
+                        {connectivity.size()},
+                        connectivity);
+
+                    connectivity.push_back(pointCount);
+                    this->writeDataset<int,1>(
+                        groupPrefix / "Offsets",
+                        {connectivity.size()},
+                        connectivity);
+
+                    std::vector<std::uint8_t> types(pointCount);
+                    std::fill(types.begin(), types.end(), static_cast<std::uint8_t>(1));
+                    this->writeDataset<std::uint8_t,1>(
+                        groupPrefix / "Types",
+                        {types.size()},
+                        types);
+                CIE_END_EXCEPTION_TRACING
+            } // if cellCount else
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                const std::array<hsize_t,2> shape {pointCount, 3};
+                const char* pName = "Points";
+                auto valueType = _pImpl->getH5Type<TValue>();
+                H5::DataSpace dataSpace(shape.size(), shape.data());
+
+                H5::DSetCreatPropList properties;
+                properties.setChunk(shape.size(), shape.data());
+
+                H5::DataSet dataset = group.createDataSet(
+                    pName,
+                    valueType,
+                    dataSpace,
+                    properties);
+
+                if (!segments.empty()) {
+                    std::vector<TValue> column(pointCount);
+                    const std::size_t componentCount = Dimension;
+
+                    for (hsize_t d=0ul; d<3; ++d) {
+                        std::array<hsize_t,2>
+                            offset {0, d},
+                            count {pointCount, 1};
+                        dataSpace.selectHyperslab(
+                            H5S_SELECT_SET,
+                            count.data(),
+                            offset.data());
+                        std::array<hsize_t,2> memorySpaceShape {pointCount, 1};
+                        H5::DataSpace memorySpace(memorySpaceShape.size(), memorySpaceShape.data());
+
+                        if (d < Dimension) {
+                            for (std::size_t iPoint=0ul; iPoint<pointCount; ++iPoint)
+                                column[iPoint] = segments[componentCount * iPoint + d];
+                        } else {
+                            std::fill(
+                                column.begin(),
+                                column.end(),
+                                static_cast<TValue>(0));
+                        }
+
+                        dataset.write(
+                            column.data(),
+                            valueType,
+                            memorySpace,
+                            dataSpace);
+                    }
+                }
+            CIE_END_EXCEPTION_TRACING
+
+            CIE_BEGIN_EXCEPTION_TRACING
+                this->makeGroup(Prefix("/VTKHDF") / "Assembly" / groupName);
+                this->link(
+                    Prefix("/VTKHDF") / "Assembly" / groupName / groupName,
+                    groupPrefix);
+            CIE_END_EXCEPTION_TRACING
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+#define CIE_INSTANTIATE_VTKHDF(T)                           \
+    template void VTKHDF::Output::writeAttribute<T>(        \
+        Ref<const Prefix>,                                  \
+        Ref<const std::string>,                             \
+        std::span<const T>);                                \
+    template void VTKHDF::Output::writeDataset<T,1>(        \
+        Ref<const Prefix>,                                  \
+        std::array<const std::size_t,1>,                    \
+        std::span<const T>);                                \
+    template void VTKHDF::Output::writeDataset<T,2>(        \
+        Ref<const Prefix>,                                  \
+        std::array<const std::size_t,2>,                    \
+        std::span<const T>);                                \
+    template void VTKHDF::Output::writeFieldVariables<T>(   \
+        std::string_view,                                   \
+        Ref<const std::vector<std::tuple<                   \
+            std::string,                                    \
+            std::vector<std::size_t>,                       \
+            std::span<const T>>>>);                         \
+    template void VTKHDF::Output::writeCellVariables<T>(    \
+        std::string_view,                                   \
+        std::vector<std::tuple<                             \
+            std::string,                                    \
+            std::vector<std::size_t>,                       \
+            std::span<const T>>>);
+
 
 
 CIE_INSTANTIATE_VTKHDF(int)
@@ -605,7 +1040,13 @@ CIE_INSTANTIATE_VTKHDF(double)
     template void VTKHDF::Output::writePointCloud<T,D>( \
         std::string_view,                               \
         std::span<const T>,                             \
-        std::size_t);
+        std::optional<std::array<std::size_t,D>>);      \
+    template void VTKHDF::Output::writeSTL<T,D>(        \
+        std::string_view,                               \
+        std::span<const T>);                            \
+    template void VTKHDF::Output::writeSegments<T,D>(   \
+        std::string_view,                               \
+        std::span<const T>);
 
 CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 1)
 CIE_INSTANTIATE_VTKHDF_POINT_CLOUD(float, 2)

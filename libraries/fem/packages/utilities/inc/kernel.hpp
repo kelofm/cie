@@ -89,7 +89,7 @@ struct Kernel {
     static constexpr std::span<const Value,SpanSize> decay(const std::span<const ParametricCoordinate<Value>,SpanSize>& rSpan) noexcept {
         return std::span<const Value,SpanSize>(
             reinterpret_cast<const Value*>(rSpan.data()),
-            SpanSize);
+            rSpan.size());
     }
 
     /// @brief Strip local system type information from a view over coordinates.
@@ -98,7 +98,7 @@ struct Kernel {
     static constexpr std::span<Value,SpanSize> decay(const std::span<ParametricCoordinate<Value>,SpanSize>& rSpan) noexcept {
         return std::span<Value,SpanSize>(
             reinterpret_cast<Value*>(rSpan.data()),
-            SpanSize);
+            rSpan.size());
     }
 
     /// @brief Strip global system type information from a view over coordinates.
@@ -107,7 +107,7 @@ struct Kernel {
     static constexpr std::span<const Value,SpanSize> decay(const std::span<const PhysicalCoordinate<Value>,SpanSize>& rSpan) noexcept {
         return std::span<const Value,SpanSize>(
             reinterpret_cast<const Value*>(rSpan.data()),
-            SpanSize);
+            rSpan.size());
     }
 
     /// @brief Strip global system type information from a view over coordinates.
@@ -116,7 +116,7 @@ struct Kernel {
     static constexpr std::span<Value,SpanSize> decay(const std::span<PhysicalCoordinate<Value>,SpanSize>& rSpan) noexcept {
         return std::span<Value,SpanSize>(
             reinterpret_cast<Value*>(rSpan.data()),
-            SpanSize);
+            rSpan.size());
     }
 
     template <class T, std::size_t SpanSize>
@@ -124,7 +124,7 @@ struct Kernel {
     static constexpr std::span<const T,SpanSize> cast(const std::span<const Value,SpanSize>& rSpan) noexcept {
         return std::span<const T,SpanSize>(
             reinterpret_cast<const T*>(rSpan.data()),
-            SpanSize);
+            rSpan.size());
     }
 
     template <class T, std::size_t SpanSize>
@@ -132,7 +132,7 @@ struct Kernel {
     static constexpr std::span<T,SpanSize> cast(const std::span<Value,SpanSize>& rSpan) noexcept {
         return std::span<T,SpanSize>(
             reinterpret_cast<T*>(rSpan.data()),
-            SpanSize);
+            rSpan.size());
     }
 
     template <class TIn, std::size_t ArraySize>
@@ -212,6 +212,46 @@ struct Kernel {
     template <class TOut, class TIn, std::size_t ArraySize>
     requires ct::Match<TIn,TOut>::template All<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>
     static constexpr std::span<TOut,ArraySize> castView(std::array<TIn,ArraySize>& rArray) noexcept {
+        return Kernel::cast<TOut>(Kernel::view(rArray));
+    }
+
+    template <class TIn>
+    requires (ct::Match<TIn>::template Any<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>)
+    static constexpr std::span<const TIn> view(const std::vector<TIn>& rArray) noexcept {
+        return std::span<const TIn>(
+            reinterpret_cast<const TIn*>(rArray.data()),
+            rArray.size());
+    }
+
+    template <class TIn>
+    requires ct::Match<TIn>::template Any<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>
+    static constexpr std::span<TIn> view(std::vector<TIn>& rArray) noexcept {
+        return std::span<TIn>(
+            reinterpret_cast<TIn*>(rArray.data()),
+            rArray.size());
+    }
+
+    template <class TIn>
+    requires ct::Match<TIn>::template Any<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>
+    static constexpr std::span<const Value> decayView(const std::vector<TIn>& rArray) noexcept {
+        return Kernel::decay(Kernel::view(rArray));
+    }
+
+    template <class TIn>
+    requires ct::Match<TIn>::template Any<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>
+    static constexpr std::span<Value> decayView(std::vector<TIn>& rArray) noexcept {
+        return Kernel::decay(Kernel::view(rArray));
+    }
+
+    template <class TOut, class TIn>
+    requires ct::Match<TIn,TOut>::template All<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>
+    static constexpr std::span<const TOut> castView(const std::vector<TIn>& rArray) noexcept {
+        return Kernel::cast<TOut>(Kernel::view(rArray));
+    }
+
+    template <class TOut, class TIn>
+    requires ct::Match<TIn,TOut>::template All<Value,ParametricCoordinate<Value>,PhysicalCoordinate<Value>>
+    static constexpr std::span<TOut> castView(std::vector<TIn>& rArray) noexcept {
         return Kernel::cast<TOut>(Kernel::view(rArray));
     }
 }; // class Kernel

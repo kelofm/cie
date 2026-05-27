@@ -260,8 +260,9 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
             rhs,
             mesh,
             bvh,
+            boundarySegments,
             assembler,
-            rConfiguration["discretization"]["postprocessing"],
+            rConfiguration,
             threads);
     }
 

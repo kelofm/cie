@@ -1075,7 +1075,9 @@ bool recursiveFillConstraint(
                     if (rProperty.is_structured()) {
                         modified |= recursiveFill(*it, rProperty, rLoader, rCache);
                     }
-                } // json contains property
+                } /*json contains property*/ else {
+                    modified |= recursiveFill(*it, rJSON[it.key()], rLoader, rCache);
+                }
             } // for it
         } /*TConstraint == JSONSchemaConstraint::Property*/ else if constexpr (TConstraint == JSONSchemaConstraint::AnyOf) {
             // Loop over all subschemas, find out which ones apply to the
@@ -1187,7 +1189,9 @@ bool recursiveFill(
                 || rConstraintName == "additionalProperties"
                 || rConstraintName == "required"
                 || rConstraintName == "maxItems"
-                || rConstraintName == "minItems") {
+                || rConstraintName == "minItems"
+                || rConstraintName == "minimum"
+                || rConstraintName == "maximum") {
                     // Not an actual constraint. Do nothing.
             } else if (rConstraintName == "type") {
                 // Not a constraint default assignment has anything to do with.

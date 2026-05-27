@@ -1,0 +1,37 @@
+{
+    "$id" : "/cie/fem/scatter-postprocessing",
+    "type" : "object",
+    "description" : "Settings related to generating output on cells depending on state variables.",
+    "allOf" : [
+        {"$ref" : "/cie/fem/postprocessing"},
+        {
+            "properties" : {
+                "resolution" : {
+                    "oneOf" : [
+                        {
+                            "type" : "array",
+                            "items" : {
+                                "type" : "number",
+                                "minimum" : 1
+                            }
+                        },
+                        {
+                            "type" : "number",
+                            "minimum" : 1
+                        }
+                    ],
+                    "default" : 1e2
+                }
+            }
+        }
+    ],
+    "default" : {
+        "resolution" : 1e2,
+        "state" : true,
+        "load" : false,
+        "residual" : false,
+        "cell-id" : false,
+        "dof-id" : false,
+        "replace-nans" : null
+    }
+}

@@ -1,16 +1,14 @@
 #pragma once
 
 // --- FEM Includes ---
-#include "packages/maths/inc/AnsatzSpace.hpp"
-#include "packages/maths/inc/Polynomial.hpp"
-#include "packages/numeric/inc/CellBase.hpp"
 #include "packages/numeric/inc/MeshBase.hpp"
+#include "packages/graph/inc/Assembler.hpp"
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
 
 // --- Utility Includes ---
-#include "packages/concurrency/inc/ThreadPoolBase.hpp"
+//#include "packages/concurrency/inc/ThreadPoolBase.hpp"
 
 // --- STL Includes ---
 #include <span>
@@ -36,7 +34,7 @@ public:
 
     void interpolate(
         Ref<const TAnsatz> rAnsatzSpace,
-        std::span<const Value,ParametricDimension> parametricPoint,
+        std::span<const ParametricCoordinate<Value>,ParametricDimension> parametricPoint,
         std::span<const Value> fieldValues,
         std::uint8_t fieldComponentCount,
         std::span<const std::size_t> dofIndices,
@@ -46,15 +44,17 @@ public:
         std::span<Value> ansatzBuffer,
         std::span<Value> out) noexcept;
 
-    template <CellLike TCell, DiscretizationLike TMesh>
+    template <DiscretizationLike TMesh>
     void interpolate(
-        std::span<const Value> parametricPoints,
-        std::span<const TCell> cells,
+        std::span<const PhysicalCoordinate<Value>> physicalPoints,
         Ref<const TMesh> rMesh,
+        Ref<const Assembler> rAssembler,
         Ref<const geo::FlatAABBoxTree<Value,PhysicalDimension>> rBVH,
-        std::span<const Value> fieldValues,
+        std::span<const std::span<const Value>> fieldValues,
         std::uint8_t fieldComponentCount,
-        std::span<Value> out);
+        std::span<const std::uint8_t> dofOrders,
+        std::span<const std::uint8_t> outputOrders,
+        std::span<const std::span<Value>> out);
 
 private:
     Value _nanReplacement;
@@ -62,3 +62,5 @@ private:
 
 
 } // namespace cie::fem
+
+#include "packages/postprocessing/impl/AnsatzSpacePostprocessor_impl.hpp"

@@ -33,7 +33,8 @@
             "minItems" : 2,
             "maxItems" : 2,
             "items" : {
-                "type" : "number"
+                "type" : "number",
+                "minimum" : 1
             },
             "default" : [1, 1]
         }
