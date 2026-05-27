@@ -1,8 +1,8 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/mesh.hpp"
-#include "embeddedPoisson2D/constraints.hpp"
+#include "poisson2D/mesh.hpp"
+#include "poisson2D/constraints.hpp"
 
 // --- Utility Includes ---
 #include "packages/io/inc/json.hpp"

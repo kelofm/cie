@@ -41,12 +41,12 @@
             "cwd" : "${workspaceRoot}"
         },
         {
-            "name": "embeddedPoisson2D",
+            "name": "poisson2D",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/build/bin/embeddedPoisson2D",
+            "program": "${workspaceRoot}/build/bin/poisson2D",
             "externalConsole": false,
-            "args" : ["/home/mate/git/cie/executables/fem_examples/src/embeddedPoisson2D/config.json"],
+            "args" : ["/home/mate/git/cie/executables/fem_examples/src/poisson2D/config.json"],
             "environment" : [
                 {"name" : "OMP_NUM_THREADS", "value" : "1"}
             ],

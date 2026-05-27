@@ -1,6 +1,6 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/definitions.hpp"
-#include "embeddedPoisson2D/mesh.hpp"
+#include "poisson2D/definitions.hpp"
+#include "poisson2D/mesh.hpp"
 
 // --- FEM Includes ---
 #include "packages/maths/inc/LegendrePolynomial.hpp"

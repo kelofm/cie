@@ -1,8 +1,8 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/definitions.hpp"
-#include "embeddedPoisson2D/CellData.hpp"
+#include "poisson2D/definitions.hpp"
+#include "poisson2D/CellData.hpp"
 
 // --- FEM Includes ---
 #include "packages/numeric/inc/MeshBase.hpp"

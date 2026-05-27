@@ -1,7 +1,7 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/definitions.hpp"
+#include "poisson2D/definitions.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/GraphTraits.hpp"

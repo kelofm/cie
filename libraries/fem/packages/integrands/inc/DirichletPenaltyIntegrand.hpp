@@ -19,16 +19,26 @@ namespace cie::fem{
 ///          @f[
 ///              p N_i \left( \xi \right) u_d \left( x(\xi) \right)
 ///          @f]
+///          if @p Symmetric is true, otherwise
+///          @f[
+///              p N_i \left( \xi \right)
+///          @f]
+///          and
+///          @f[
+///              p N_i \left( \xi \right) u_d \left( x(\xi) \right)
+///          @f]
 ///          where
 ///          - @f$ p @f$ is the penalty factor,
 ///          - @f$ u_d @f$ is the desired state at global position @f$ x @f$,
 ///          - @f$ N_i @f$ is the ansatz function related to degree of freedom @f$ i @f$,
 ///          - @f$ \xi @f$ is the local coordinate within the cell to evaluate at,
 ///          - @f$ x @f$ is the global coordinate within the cell to evaluate at.
-template <maths::Expression TDirichlet,
-          maths::Expression TAnsatzSpace,
-          maths::Expression TEmbedding,
-          CellLike TCell>
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatzSpace,
+    maths::Expression TEmbedding,
+    CellLike TCell,
+    bool Symmetric = true>
 class DirichletPenaltyIntegrand : public maths::ExpressionTraits<typename TAnsatzSpace::Value> {
 public:
     static constexpr unsigned Dimension = TAnsatzSpace::Dimension;

@@ -1,5 +1,5 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/postprocessing.hpp"
+#include "poisson2D/postprocessing.hpp"
 
 // --- FEM Includes ---
 #include "packages/io/inc/VTKHDF.hpp"

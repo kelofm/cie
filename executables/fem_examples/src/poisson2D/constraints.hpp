@@ -1,8 +1,8 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/mesh.hpp"
-#include "embeddedPoisson2D/integration.hpp"
+#include "poisson2D/mesh.hpp"
+#include "poisson2D/integration.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"
@@ -94,14 +94,17 @@ using BoundarySegment = StaticArray<Scalar,2*Dimension+2>;
 
 
 [[nodiscard]] DynamicArray<BoundarySegment>
-imposeBoundaryConditions(
+integrateBoundaryConstraints(
     Ref<Mesh> rMesh,
     std::span<const BoundarySegment> tesselatedBoundary,
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
     std::span<const Cell> cells,
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> rhs,
+    linalg::CSRView<const Scalar,const int> lhs,
+    Ref<DynamicArray<int>> rConstraintRowExtents,
+    Ref<DynamicArray<int>> rConstraintColumnIndices,
+    Ref<DynamicArray<Scalar>> rConstraintEntries,
+    Ref<DynamicArray<Scalar>> rConstraintRHS,
     Ref<const cie::io::JSONObject> rConfiguration);
 
 

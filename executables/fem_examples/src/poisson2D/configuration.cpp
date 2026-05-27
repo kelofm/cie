@@ -1,6 +1,6 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/configuration.hpp"
-#include "embeddedPoisson2D/definitions.hpp"
+#include "poisson2D/configuration.hpp"
+#include "poisson2D/definitions.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"

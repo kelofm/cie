@@ -1,13 +1,13 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/definitions.hpp"
-#include "embeddedPoisson2D/configuration.hpp"
-#include "embeddedPoisson2D/MeshData.hpp"
-#include "embeddedPoisson2D/CellData.hpp"
-#include "embeddedPoisson2D/mesh.hpp"
-#include "embeddedPoisson2D/integration.hpp"
-#include "embeddedPoisson2D/constraints.hpp"
-#include "embeddedPoisson2D/solver.hpp"
-#include "embeddedPoisson2D/postprocessing.hpp"
+#include "poisson2D/definitions.hpp"
+#include "poisson2D/configuration.hpp"
+#include "poisson2D/MeshData.hpp"
+#include "poisson2D/CellData.hpp"
+#include "poisson2D/mesh.hpp"
+#include "poisson2D/integration.hpp"
+#include "poisson2D/constraints.hpp"
+#include "poisson2D/solver.hpp"
+#include "poisson2D/postprocessing.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"
@@ -208,6 +208,7 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
             rowExtents,
             columnIndices,
             entries,
+            {},
             threads);
     }
     DynamicArray<Scalar> rhs(rowCount, 0.0);
@@ -226,15 +227,28 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
         rConfiguration["discretization"]["integration"],
         threads);
 
-    const auto boundarySegments = imposeBoundaryConditions(
+    // Constraints.
+    DynamicArray<int> constraintRowExtents, constraintColumnIndices;
+    DynamicArray<Scalar> constraintEntries, constraintRHS;
+
+    const auto boundarySegments = integrateBoundaryConstraints(
         mesh,
         tesselatedBoundary,
         assembler,
         bvhView,
         mesh.data().cells(),
         lhs,
-        rhs,
+        constraintRowExtents,
+        constraintColumnIndices,
+        constraintEntries,
+        constraintRHS,
         rConfiguration["dirichlet-1d"]);
+
+    linalg::CSRView<Scalar,int> constraintLHS(
+        columnCount,
+        constraintRowExtents,
+        constraintColumnIndices,
+        constraintEntries);
 
     // Solve the linear system.
     DynamicArray<Scalar> solution(rhs.size());

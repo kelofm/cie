@@ -1,5 +1,5 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/constraints.hpp"
+#include "poisson2D/constraints.hpp"
 
 // --- FEM Includes ---
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
@@ -311,14 +311,17 @@ BoundaryMesh generateBoundaryMesh(
 
 
 DynamicArray<BoundarySegment>
-imposeBoundaryConditions(
+integrateBoundaryConstraints(
     Ref<Mesh> rMesh,
     std::span<const BoundarySegment> tesselatedBoundary,
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
     std::span<const Cell> cells,
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> rhs,
+    linalg::CSRView<const Scalar,const int> lhs,
+    Ref<DynamicArray<int>> rConstraintRowExtents,
+    Ref<DynamicArray<int>> rConstraintColumnIndices,
+    Ref<DynamicArray<Scalar>> rConstraintEntries,
+    Ref<DynamicArray<Scalar>> rConstraintRHS,
     Ref<const cie::io::JSONObject> rConfiguration) {
         DynamicArray<BoundarySegment> boundarySegments;
 
@@ -333,6 +336,53 @@ imposeBoundaryConditions(
             rConfiguration,
             boundarySegments);
 
+        // Construct a new linear system containing only
+        // contributions from constraints.
+        std::vector<VertexID> constrainedCellIDs;
+        {
+            tsl::robin_set<VertexID> constrainedCellIDSet;
+            for (Ref<const BoundaryCell> rBoundaryCell : boundaryMesh.data().cells())
+                constrainedCellIDSet.insert(rBoundaryCell.getEmbeddingCell().id());
+            constrainedCellIDs.insert(
+                constrainedCellIDs.end(),
+                constrainedCellIDSet.begin(),
+                constrainedCellIDSet.end());
+        }
+
+        int rowCount, columnCount;
+        rAssembler.makeCSRMatrix(
+            rowCount,
+            columnCount,
+            rConstraintRowExtents,
+            rConstraintColumnIndices,
+            rConstraintEntries,
+            constrainedCellIDs);
+
+        // Extend the constraint system to match the unconstrained system's size.
+        rConstraintRowExtents.resize(lhs.rowCount() + 1);
+        std::fill(
+            rConstraintRowExtents.begin() + rowCount,
+            rConstraintRowExtents.end(),
+            rConstraintRowExtents[rowCount]);
+        rowCount = lhs.rowCount();
+        columnCount = lhs.columnCount();
+
+        linalg::CSRView<Scalar,int> constraintLHS(
+            columnCount,
+            rConstraintRowExtents,
+            rConstraintColumnIndices,
+            rConstraintEntries);
+        rConstraintRHS.resize(rowCount);
+        std::fill(
+            constraintLHS.entries().begin(),
+            constraintLHS.entries().end(),
+            Scalar(0));
+        std::fill(
+            rConstraintRHS.begin(),
+            rConstraintRHS.end(),
+            Scalar(0));
+
+        // Define callbacks for the integrand processor.
         const auto quadratureRuleFactory = [&boundaryMesh] (Ref<const BoundaryCell>) {
             return boundaryMesh.data().makeQuadratureRule();};
 
@@ -347,7 +397,7 @@ imposeBoundaryConditions(
             return integrand;
         }; // integrandFactory
 
-        const auto integralSink = [&lhs, &rhs, &rAssembler, &boundaryMesh] (
+        const auto integralSink = [&constraintLHS, &rConstraintRHS, &rAssembler, &boundaryMesh] (
             std::span<const VertexID> cellIDs,
             std::span<const Scalar> results) {
                 constexpr std::size_t lhsEntryCount = intPow(Ansatz::size(), Dimension);
@@ -358,15 +408,15 @@ imposeBoundaryConditions(
                     rAssembler.addContribution<tags::SMP,int>(
                         std::span<const Scalar>(pResultsBegin, lhsEntryCount),
                         embeddingCellID,
-                        lhs.rowExtents(),
-                        lhs.columnIndices(),
-                        lhs.entries());
+                        constraintLHS.rowExtents(),
+                        constraintLHS.columnIndices(),
+                        constraintLHS.entries());
                     rAssembler.addContribution<tags::SMP>(
                         std::span<const Scalar>(pResultsBegin + lhsEntryCount, rhsEntryCount),
                         embeddingCellID,
-                        std::span<Scalar>(rhs));
+                        std::span<Scalar>(rConstraintRHS));
                 } // for iCell in range(cellIDs.size())
-        };
+        }; // integralSink
 
         using Integrand = DirichletPenaltyIntegrand<
                 DirichletBoundary,

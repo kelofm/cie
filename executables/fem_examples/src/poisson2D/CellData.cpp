@@ -1,5 +1,5 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/CellData.hpp"
+#include "poisson2D/CellData.hpp"
 
 // --- Utility Includes ---
 #include "packages/maths/inc/Comparison.hpp"

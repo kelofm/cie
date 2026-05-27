@@ -81,6 +81,7 @@ public:
         Ref<DynamicArray<TIndex>> rRowExtents,
         Ref<DynamicArray<TIndex>> rColumnIndices,
         Ref<DynamicArray<TValue>> rNonzeros,
+        std::optional<std::span<const VertexID>> maybeCellIDs = {},
         OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
 
     template <

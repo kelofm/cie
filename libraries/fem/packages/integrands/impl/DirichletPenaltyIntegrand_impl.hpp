@@ -10,8 +10,13 @@
 namespace cie::fem {
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand() noexcept
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell,
+    bool Symmetric>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::DirichletPenaltyIntegrand() noexcept
     : _penalty(0),
       _dirichletFunctor(),
       _ansatzSpace(),
@@ -21,8 +26,13 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
 {}
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand(
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell,
+    bool Symmetric>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::DirichletPenaltyIntegrand(
     Ref<const TDirichlet> rDirichletFunctor,
     const Value penalty,
     Ref<const TAnsatz> rAnsatzSpace,
@@ -38,8 +48,13 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
 {}
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
-void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell,
+    bool Symmetric>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const {
@@ -58,11 +73,12 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
         Ptr<Value> pDirichletBufferBegin = pCellParametricBufferBegin + TCell::ParametricDimension;
         Ptr<Value> pNestedBufferBegin = pDirichletBufferBegin + stateVariableCount;
 
-        const Span ansatzBuffer(pAnsatzBufferBegin, ansatzCount),
-                boundaryTransformedBuffer(pEmbeddingBufferBegin, TCell::PhysicalDimension),
-                cellTransformedBuffer(pCellParametricBufferBegin, TCell::ParametricDimension),
-                dirichletBuffer(pDirichletBufferBegin, stateVariableCount),
-                nestedBuffer(pNestedBufferBegin, buffer.data() + buffer.size());
+        const Span
+            ansatzBuffer(pAnsatzBufferBegin, ansatzCount),
+            boundaryTransformedBuffer(pEmbeddingBufferBegin, TCell::PhysicalDimension),
+            cellTransformedBuffer(pCellParametricBufferBegin, TCell::ParametricDimension),
+            dirichletBuffer(pDirichletBufferBegin, stateVariableCount),
+            nestedBuffer(pNestedBufferBegin, buffer.data() + buffer.size());
 
         // Compute the cell's jacobian's determinant at the given input.
         const Value jacobian = std::abs(_cellJacobian.evaluateDeterminant(
@@ -74,11 +90,17 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
         _embedding.evaluate(in, boundaryTransformedBuffer, nestedBuffer);
         _cellInverseTransform.evaluate(boundaryTransformedBuffer, cellTransformedBuffer, nestedBuffer);
 
-        _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer, nestedBuffer);
-        EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
-        EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
-
-        lhsAdaptor.noalias() = ansatzAdaptor * scaledPenalty * ansatzAdaptor.transpose();
+        if constexpr (Symmetric) {
+            _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer, nestedBuffer);
+            EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
+            EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
+            lhsAdaptor.noalias() = ansatzAdaptor * scaledPenalty * ansatzAdaptor.transpose();
+        } /*Symmetric*/ else {
+            _ansatzSpace.evaluate(
+                cellTransformedBuffer,
+                {out.data(), ansatzCount},
+                nestedBuffer);
+        }
 
         // Compute the prescribed state at the given input.
         _dirichletFunctor.evaluate(in, dirichletBuffer, nestedBuffer);
@@ -86,19 +108,27 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
         // Compute RHS contribution.
         for (unsigned iStateComponent=0u; iStateComponent<dirichletBuffer.size(); ++iStateComponent) {
             const Value dirichlet = dirichletBuffer[iStateComponent];
+            const std::size_t rhsOffset = Symmetric
+                ? ansatzCount * ansatzCount
+                : ansatzCount;
             std::transform(
                 ansatzBuffer.begin(),
                 ansatzBuffer.end(),
-                out.begin() + ansatzCount * ansatzCount + iStateComponent * ansatzCount,
+                out.begin() + rhsOffset + iStateComponent * ansatzCount,
                 [scaledPenalty, dirichlet] (const Value ansatz) -> Value {
                     return dirichlet * ansatz * scaledPenalty;
                 });
-        }
+        } // for iStateComponent
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() const {
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell,
+    bool Symmetric>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::size() const {
     const auto ansatzCount = _ansatzSpace.size();
     return
           ansatzCount * ansatzCount     // <= LHS contribution
@@ -106,8 +136,13 @@ unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() 
 }
 
 
-template <maths::Expression TDirichlet, maths::Expression TAnsatz, maths::Expression TEmbedding, CellLike TCell>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::bufferSize() const noexcept {
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell,
+    bool Symmetric>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::bufferSize() const noexcept {
     const std::array<unsigned,4> nestedBufferRequirements {
         _dirichletFunctor.bufferSize(),
         _ansatzSpace.bufferSize(),

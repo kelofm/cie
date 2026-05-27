@@ -1,9 +1,9 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/MeshData.hpp"
-#include "embeddedPoisson2D/CellData.hpp"
-#include "embeddedPoisson2D/BoundaryData.hpp"
+#include "poisson2D/MeshData.hpp"
+#include "poisson2D/CellData.hpp"
+#include "poisson2D/BoundaryData.hpp"
 
 // --- Utility Includes ---
 #include "packages/io/inc/json.hpp"

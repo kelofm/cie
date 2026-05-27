@@ -4,7 +4,7 @@
 #include "Eigen/src/SparseCholesky/SimplicialCholesky.h"
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/solver.hpp"
+#include "poisson2D/solver.hpp"
 
 // --- Linalg Includes ---
 #include "packages/utilities/inc/reorder.hpp"

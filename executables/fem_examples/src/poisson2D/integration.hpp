@@ -1,7 +1,7 @@
 #pragma once
 
 // --- Internal Includes ---
-#include "embeddedPoisson2D/mesh.hpp"
+#include "poisson2D/mesh.hpp"
 
 // --- FEM Includes ---
 #include "packages/graph/inc/Assembler.hpp"

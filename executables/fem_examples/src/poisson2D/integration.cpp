@@ -1,5 +1,5 @@
 // --- Internal Includes ---
-#include "embeddedPoisson2D/integration.hpp"
+#include "poisson2D/integration.hpp"
 
 // --- FEM Includes ---
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
