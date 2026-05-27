@@ -473,19 +473,19 @@ void VTKHDF::Output::writePointCloud(
                         *itTopology++ = state[0]    ;
                         *itTopology++ = state[0] + 1;
                     } else if constexpr (D == 2) {
-                        *itTopology++ = (state[0]    ) + cellResolution[0] * (state[1]    );
-                        *itTopology++ = (state[0] + 1) + cellResolution[0] * (state[1]    );
-                        *itTopology++ = (state[0] + 1) + cellResolution[0] * (state[1] + 1);
-                        *itTopology++ = (state[0]    ) + cellResolution[0] * (state[1] + 1);
+                        *itTopology++ = (state[0]    ) + (cellResolution[0] + 1) * (state[1]    );
+                        *itTopology++ = (state[0] + 1) + (cellResolution[0] + 1) * (state[1]    );
+                        *itTopology++ = (state[0] + 1) + (cellResolution[0] + 1) * (state[1] + 1);
+                        *itTopology++ = (state[0]    ) + (cellResolution[0] + 1) * (state[1] + 1);
                     } else if constexpr (D == 3) {
-                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2]    ));
-                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2]    ));
-                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2]    ));
-                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2]    ));
-                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2] + 1));
-                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1]    ) + cellResolution[0] * (state[2] + 1));
-                        *itTopology++ = (state[0] + 1) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2] + 1));
-                        *itTopology++ = (state[0]    ) + cellResolution[1] * ((state[1] + 1) + cellResolution[0] * (state[2] + 1));
+                        *itTopology++ = (state[0]    ) + (cellResolution[1] + 1) * ((state[1]    ) + (cellResolution[0] + 1) * (state[2]    ));
+                        *itTopology++ = (state[0] + 1) + (cellResolution[1] + 1) * ((state[1]    ) + (cellResolution[0] + 1) * (state[2]    ));
+                        *itTopology++ = (state[0] + 1) + (cellResolution[1] + 1) * ((state[1] + 1) + (cellResolution[0] + 1) * (state[2]    ));
+                        *itTopology++ = (state[0]    ) + (cellResolution[1] + 1) * ((state[1] + 1) + (cellResolution[0] + 1) * (state[2]    ));
+                        *itTopology++ = (state[0]    ) + (cellResolution[1] + 1) * ((state[1]    ) + (cellResolution[0] + 1) * (state[2] + 1));
+                        *itTopology++ = (state[0] + 1) + (cellResolution[1] + 1) * ((state[1]    ) + (cellResolution[0] + 1) * (state[2] + 1));
+                        *itTopology++ = (state[0] + 1) + (cellResolution[1] + 1) * ((state[1] + 1) + (cellResolution[0] + 1) * (state[2] + 1));
+                        *itTopology++ = (state[0]    ) + (cellResolution[1] + 1) * ((state[1] + 1) + (cellResolution[0] + 1) * (state[2] + 1));
                     } else static_assert(D == 1, "unsupported dimension");
                 } while (maths::OuterProduct<D>::next(cellResolution.data(), state.data()));
 

@@ -186,7 +186,18 @@ void AnsatzSpacePostprocessor<TA,PhysicalDimension>::interpolate(
                                     inRange.end(),
                                     outRange.begin());
                             } // for iFieldComponent in fieldComponentCount
-                        } // if iMaybeCell != rCells.size()
+                        } // for iField in out.size()
+                    } /*if iMaybeCell != rCells.size()*/ else {
+                        for (std::size_t iField=0ul; iField<out.size(); ++iField)
+                            for (std::size_t iFieldComponent=0ul; iFieldComponent<fieldComponentCount; ++iFieldComponent) {
+                                std::span<Value> outRange(
+                                    out[iField].data() + iFieldComponent * pointCount * outputOrders.size() + iPoint * outputOrders.size(),
+                                    outputOrders.size());
+                                std::fill(
+                                    outRange.begin(),
+                                    outRange.end(),
+                                    _nanReplacement);
+                            } // for iFieldComponent
                     }
             }; // kernel
 

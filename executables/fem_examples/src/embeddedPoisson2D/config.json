@@ -48,13 +48,14 @@
             "type": "kd-tree-quadrature"
         },
         "postprocessing": {
-            "cell-id": false,
-            "dof-id": false,
-            "load": false,
-            "replace-nans": null,
-            "residual": false,
-            "resolution": [1e2, 1e2],
-            "state": true
+            "cell-id": true,
+            "dof-id": true,
+            "load": true,
+            "replace-nans": 0,
+            "residual": true,
+            "resolution": [1e3, 1e3],
+            "state": true,
+            "write-components" : true
         }
     },
     "linear-system": {

@@ -40,7 +40,8 @@ void scatter(
     Ref<const Mesh> rMesh,
     Ref<const BVH> rBVH,
     Ref<const Assembler> rAssembler,
-    bool writeComponents) {
+    bool writeComponents,
+    Scalar nanReplacement) {
         CIE_BEGIN_EXCEPTION_TRACING
             // Select polynomial components to collect.
             std::vector<std::uint8_t> ansatzOrders(intPow(polynomialOrder + 1, Dimension));
@@ -81,7 +82,7 @@ void scatter(
                     requestedOrders.size() * pointCount);
 
             // Perform the interpolation.
-            AnsatzSpacePostprocessor<Ansatz> postprocessor;
+            AnsatzSpacePostprocessor<Ansatz> postprocessor(nanReplacement);
             postprocessor.interpolate(
                 Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(coordinates),
                 rMesh,
@@ -255,7 +256,10 @@ void postprocess(
                         rMesh,
                         rBVH,
                         rAssembler,
-                        domainConfig["postprocessing"]["write-components"].as<bool>());
+                        domainConfig["postprocessing"]["write-components"].as<bool>(),
+                        domainConfig["postprocessing"]["replace-nans"].is<std::nullptr_t>()
+                            ? std::numeric_limits<Scalar>::quiet_NaN()
+                            : domainConfig["postprocessing"]["replace-nans"].as<double>());
                 } // for rDomain, rTriangles in rMesh.data().domainTriangles()
 
                 // Write dirichlet constraints.
@@ -299,7 +303,10 @@ void postprocess(
                         rMesh,
                         rBVH,
                         rAssembler,
-                        constraintConfig["write-components"].as<bool>());
+                        constraintConfig["write-components"].as<bool>(),
+                        constraintConfig["replace-nans"].is<std::nullptr_t>()
+                            ? std::numeric_limits<Scalar>::quiet_NaN()
+                            : constraintConfig["replace-nans"].as<double>());
                 }
 
                 // Pointwise sampling.
@@ -348,12 +355,12 @@ void postprocess(
                         sampleCount,
                         [&](const std::size_t iSample) -> void {
                                 const std::size_t iSampleY = iSample / scatterResolution[0];
-                                const std::size_t iSampleX = (iSample - iSampleY * scatterResolution[0]) % scatterResolution[1];
+                                const std::size_t iSampleX = iSample - iSampleY * scatterResolution[0];
                                 const auto physicalCoordinates = Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(std::span<Scalar,Dimension> {
                                     sampleCoordinates.data() + iSample * Dimension,
                                     Dimension});
-                                physicalCoordinates[0] = meshBase[0] +iSampleX * postprocessDelta[0];
-                                physicalCoordinates[1] = meshBase[1] +iSampleY * postprocessDelta[1];
+                                physicalCoordinates[0] = meshBase[0] + iSampleX * postprocessDelta[0];
+                                physicalCoordinates[1] = meshBase[1] + iSampleY * postprocessDelta[1];
 
                                 // Find which cell the point lies in.
                                 const auto iMaybeCellData = rBVH.makeView().find(
@@ -385,7 +392,10 @@ void postprocess(
                         rMesh,
                         rBVH,
                         rAssembler,
-                        discretizationConfig["write-components"].as<bool>());
+                        discretizationConfig["write-components"].as<bool>(),
+                        discretizationConfig["replace-nans"].is<std::nullptr_t>()
+                            ? std::numeric_limits<Scalar>::quiet_NaN()
+                            : discretizationConfig["replace-nans"].as<double>());
                 }
             }
         CIE_END_EXCEPTION_TRACING
