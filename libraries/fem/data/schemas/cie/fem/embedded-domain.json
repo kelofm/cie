@@ -1,0 +1,41 @@
+{
+    "$id" : "/cie/fem/embedded-domain",
+    "description" : "Settings related to a computational domain.",
+    "type" : "object",
+    "oneOf" : [
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "default"
+                },
+                "scale" : {
+                    "type" : "number",
+                    "minimum" : 0,
+                    "default" : 1e-6,
+                    "description" : "Factor to scale the domain's integrals by."
+                }
+            },
+            "additionalProperties" : false
+        },
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "tesselated"
+                },
+                "file-path" : {"$ref" : "/cie/fem/path"},
+                "scale" : {
+                    "type" : "number",
+                    "minimum" : 0,
+                    "default" : 1,
+                    "description" : "Factor to scale the domain's integrals by."
+                },
+                "postprocessing" : {
+                    "$ref" : "/cie/fem/postprocessing"
+                }
+            },
+            "required" : ["file-path"],
+            "additionalProperties" : false
+        }
+    ],
+    "required" : ["type"]
+}

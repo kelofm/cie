@@ -201,7 +201,7 @@ public:
 
     static constexpr unsigned PhysicalDimension = 1u;
 
-    AffineEmbeddingInverseDerivative() noexcept;
+    AffineEmbeddingInverseDerivative() noexcept = default;
 
     void evaluate(
         ConstSpan in,

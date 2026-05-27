@@ -86,6 +86,29 @@ concept Expression
 }; // concept Expression
 
 
+/// @brief Static interface for @ref Expression "expressions" with static memory requirements.
+/// @details A static expression must know its output size and buffer size at compile time.
+template <class T>
+concept StaticExpression
+= Expression<T> && requires () {
+    {std::remove_cvref_t<T>::size()} -> std::same_as<unsigned>;
+    {std::remove_cvref_t<T>::bufferSize()} -> std::same_as<unsigned>;
+};
+
+
+template <class T>
+struct StaticExpressionSize {
+    static inline constexpr unsigned size = 0u;
+    static inline constexpr unsigned bufferSize = 0u;
+};
+
+
+template <StaticExpression T>
+struct StaticExpressionSize<T> {
+    static inline constexpr unsigned size = T::size();
+    static inline constexpr unsigned bufferSize = T::bufferSize();
+};
+
 
 /// @brief Static interface for the derivatives of spatial transformations between different spaces of identical dimensions.
 /// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression", @p JacobianExpression
@@ -99,7 +122,7 @@ concept Expression
 /// @ingroup fem
 template <class T>
 concept JacobianExpression
-= Expression<T> && requires (const std::remove_cvref_t<T> constInstance) {
+= StaticExpression<T> && requires (const std::remove_cvref_t<T> constInstance) {
     {
         constInstance.evaluateDeterminant(
             typename std::remove_cvref_t<T>::ConstSpan(),
@@ -140,7 +163,7 @@ concept JacobianExpression
 /// @ingroup fem
 template <class T>
 concept SpatialTransform
-=  Expression<T>
+=  StaticExpression<T>
 && concepts::Integer<std::remove_cvref_t<decltype(std::remove_cvref_t<T>::ParametricDimension)>>
 && concepts::Integer<std::remove_cvref_t<decltype(std::remove_cvref_t<T>::PhysicalDimension)>>
 && requires (const std::remove_cvref_t<T> constInstance) {
@@ -153,30 +176,6 @@ concept SpatialTransform
     ///          requirement sadly cannot be encoded recursively in C++.
     {constInstance.makeInverse()} -> Expression;
 }; // concept SpatialTransform
-
-
-/// @brief Static interface for @ref Expression "expressions" with static memory requirements.
-/// @details A static expression must know its output size and buffer size at compile time.
-template <class T>
-concept StaticExpression
-= Expression<T> && requires () {
-    {T::size()} -> std::same_as<unsigned>;
-    {T::bufferSize()} -> std::same_as<unsigned>;
-};
-
-
-template <class T>
-struct StaticExpressionSize {
-    static inline constexpr unsigned size = 0u;
-    static inline constexpr unsigned bufferSize = 0u;
-};
-
-
-template <StaticExpression T>
-struct StaticExpressionSize<T> {
-    static inline constexpr unsigned size = T::size();
-    static inline constexpr unsigned bufferSize = T::bufferSize();
-};
 
 
 /// @brief Trait class exposing type aliases required by @ref Expression.

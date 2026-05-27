@@ -1,0 +1,70 @@
+{
+    "domains" : [
+        {
+            "type" : "default",
+            "scale" : 1e-6
+        },
+        {
+            "type" : "tesselated",
+            "file-path" : "domain.stl"
+        }
+    ],
+    "dirichlet-1d" : {
+        "file-path" : "dirichlet.csv",
+        "penalty-factor": 1e6,
+        "integration": {
+            "batch-size": 10000,
+            "device": "host",
+            "max-tree-depth": 6,
+            "min-domain-norm": 1e-06,
+            "min-tree-depth": 0,
+            "template": {
+                "order": 11,
+                "type": "gauss-legendre-quadrature"
+            },
+            "type": "kd-tree-quadrature"
+        }
+    },
+    "discretization" : {
+        "functional" : {
+            "type" : "legendre",
+            "order" : 5
+        },
+        "geometric": {
+            "type" : "cartesian-grid-2d",
+            "resolution" : [30, 50],
+            "discard-default-cells" : true
+        },
+        "integration": {
+            "batch-size": 10000,
+            "device": "host",
+            "max-tree-depth": 6,
+            "min-domain-norm": 1e-06,
+            "min-tree-depth": 0,
+            "template": {
+                "order": 6,
+                "type": "gauss-legendre-quadrature"
+            },
+            "type": "kd-tree-quadrature"
+        },
+        "postprocessing": {
+            "cell-id": true,
+            "dof-id": true,
+            "load": true,
+            "replace-nans": 0,
+            "residual": true,
+            "resolution": [1e3, 1e3],
+            "state": true,
+            "write-components" : true
+        }
+    },
+    "linear-system": {
+        "solver": {
+            "type": "cg",
+            "max-iterations" : 5e3,
+            "absolute-residual" : 1e-9,
+            "relative-residual" : 1e-6,
+            "verbosity" : 2
+        }
+    }
+}

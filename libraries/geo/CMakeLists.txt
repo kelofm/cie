@@ -44,7 +44,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         -Wextra
         -Werror
         -Wno-dangling-reference
-        -Wno-maybe-uninitialized)
+        -Wno-maybe-uninitialized
+        -Wno-array-bounds)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options(
         -Wall
@@ -137,7 +138,10 @@ set(CPACK_SOURCE_IGNORE_FILES
     /.git
     /build
     *.gitignore)
-include(CPack)
+
+if (NOT DEFINED CPack_CMake_INCLUDED)
+    include(CPack)
+endif()
 
 # Generate CMake config
 include(CMakePackageConfigHelpers)

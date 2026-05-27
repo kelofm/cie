@@ -1,11 +1,14 @@
 // --- Internal Includes ---
 #include "poisson2D/CellData.hpp"
 
+// --- Utility Includes ---
+#include "packages/maths/inc/Comparison.hpp"
+
 
 namespace cie::fem {
 
 
-CellData::CellData(
+Cell::Cell(
     VertexID id,
     AnsatzID ansatzID,
     Scalar diffusivity,
@@ -21,7 +24,7 @@ CellData::CellData(
 {}
 
 
-bool CellData::at(geo::BoxBoundable<Dimension,Scalar>::Point point) const {
+bool Cell::at(geo::BoxBoundable<Dimension,Scalar>::Point point) const {
     const utils::Comparison<Scalar> comparison(1e-8, 1e-10);
     StaticArray<ParametricCoordinate<Scalar>,Dimension> local;
     std::vector<Scalar> buffer(this->makeSpatialTransform().bufferSize());
@@ -41,7 +44,7 @@ bool CellData::at(geo::BoxBoundable<Dimension,Scalar>::Point point) const {
 }
 
 
-void CellData::computeBoundingBoxImpl(Ref<BoundingBox> rBox) noexcept {
+void Cell::computeBoundingBoxImpl(Ref<BoundingBox> rBox) noexcept {
     BoundingBox::Point opposite;
     StaticArray<ParametricCoordinate<Scalar>,Dimension> localCorner;
     StaticArray<PhysicalCoordinate<Scalar>,Dimension> globalCorner;

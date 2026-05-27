@@ -2,6 +2,8 @@
 
 // --- Internal Includes ---
 #include "packages/logging/inc/FileOutputStream.hpp"
+#include "packages/stl_extension/inc/OptionalRef.hpp"
+#include "packages/types/inc/Color.hpp"
 
 // --- STL Includes ---
 #include <fstream>
@@ -57,7 +59,9 @@ public:
 
     Logger& forceFlush(bool use);
 
-    Logger& log(const std::string& message);
+    Logger& log(
+        const std::string& rMessage,
+        OptionalRef<const Color> rMaybeColor = {});
 
     template <class ...Args>
     Logger& logs(Args&&... args);
@@ -78,7 +82,8 @@ public:
     Logger& logElapsed(
         const std::string& message,
         std::size_t timeID,
-        bool reset=true);
+        bool reset = true,
+        OptionalRef<const Color> rMaybeColor = {});
 
     Logger& separate();
 

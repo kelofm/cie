@@ -45,13 +45,27 @@ public:
     explicit Assembler(std::size_t dofBegin) noexcept;
 
     template <
-        class TVertexData,
-        class TEdgeData,
+        CellLike TVertexData,
+        CellBoundaryLike TEdgeData,
         class TGraphData,
         unsigned Dimension>
-    requires (CellLike<TVertexData> && CellBoundaryLike<TEdgeData>)
     void addGraph(
         Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
+        Ref<const AnsatzMap<Dimension>> rAnsatzMap,
+        std::size_t dofsPerCell);
+
+    template <
+        CellLike TCell,
+        unsigned Dimension,
+        GraphLike TGraph,
+        concepts::FunctionWithSignature<
+            Ref<const TCell>,
+            VertexID
+        > TCellGetter>
+    requires CellBoundaryLike<typename TGraph::Edge::Data>
+    void addGraph(
+        Ref<const TGraph> rGraph,
+        TCellGetter&& rCellGetter,
         Ref<const AnsatzMap<Dimension>> rAnsatzMap,
         std::size_t dofsPerCell);
 
@@ -67,6 +81,7 @@ public:
         Ref<DynamicArray<TIndex>> rRowExtents,
         Ref<DynamicArray<TIndex>> rColumnIndices,
         Ref<DynamicArray<TValue>> rNonzeros,
+        std::optional<std::span<const VertexID>> maybeCellIDs = {},
         OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
 
     template <

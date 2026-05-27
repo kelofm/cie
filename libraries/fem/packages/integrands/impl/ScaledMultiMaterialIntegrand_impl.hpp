@@ -36,7 +36,6 @@ void ScaledMultiMaterialIntegrand<TI,MID,MC>::evaluate(
     Span out,
     BufferSpan buffer) const {
         // Assume the material ID is the last entry in the input.
-        assert(in.size() == _integrand.size() + 1);
         Value scale = 0;
         const MID materialID = static_cast<MID>(in.back());
         const auto itMaterialSentinel = std::upper_bound(

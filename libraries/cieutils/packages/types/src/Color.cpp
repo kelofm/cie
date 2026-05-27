@@ -258,7 +258,13 @@ const RGBAColor RGBAColor::TUMOrange(227, 114, 34); // #e07222
 const RGBAColor RGBAColor::TUMGreen(162, 173, 0); // #a1ad00
 
 
-const RGBAColor RGBAColor::TUMLightGray(218, 215, 203);
+const RGBAColor RGBAColor::TUMGray(153, 153, 153); // #999999
+
+
+const RGBAColor RGBAColor::TUMDarkGray(51, 51, 51); // #333333
+
+
+const RGBAColor RGBAColor::TUMLightGray(218, 215, 203); // #dad7cb
 
 
 const RGBAColor RGBAColor::Error(0xd8, 0x0, 0x0c);

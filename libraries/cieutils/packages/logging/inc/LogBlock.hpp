@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_LOGGING_LOG_BLOCK_HPP
-#define CIE_UTILS_LOGGING_LOG_BLOCK_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/logging/inc/Logger.hpp"
@@ -17,30 +16,32 @@ class LogBlock
 {
 public:
     LogBlock() = delete;
+
     LogBlock(
-        const std::string& r_name,
-        Logger& r_logger);
+        const std::string& rName,
+        Logger& rLogger);
+
     ~LogBlock();
 
-    LogBlock& log( const std::string& r_message );
-    LogBlock& warn( const std::string& r_message );
-    LogBlock& error( const std::string& r_message );
+    LogBlock& log(const std::string& rMessage);
 
-    LogBlock& logElapsed(   const std::string& r_message,
-                            bool reset = true );
+    LogBlock& warn(const std::string& rMessage);
+
+    LogBlock& error(const std::string& rMessage);
+
+    LogBlock& logElapsed(
+        const std::string& rMessage,
+        bool reset = true,
+        OptionalRef<const Color> rMaybeColor = {});
 
 protected:
     std::string _name;
     Size        _timerID;
-    Logger&     _r_logger;
+    Logger&     _rLogger;
 };
 
 
-LogBlock& operator<<( LogBlock& r_block, const std::string& r_message );
+LogBlock& operator<<( LogBlock& r_block, const std::string& rMessage );
 
 
 } // namespace cie::utils
-
-#include "packages/logging/impl/LogBlock_impl.hpp"
-
-#endif

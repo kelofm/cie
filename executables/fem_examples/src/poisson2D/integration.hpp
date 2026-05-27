@@ -12,10 +12,10 @@ namespace cie::fem {
 
 void integrateStiffness(
     Ref<const Mesh> rMesh,
-    std::span<const CellData> contiguousCellData,
+    std::span<const Cell> cells,
     Ref<const Assembler> rAssembler,
     linalg::CSRView<Scalar,int> lhs,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads);
 
 

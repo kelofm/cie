@@ -20,6 +20,11 @@ public:
         unsigned numberOfStates,
         Ptr<TValue> itStateBegin);
 
+    template <concepts::Integer TValue>
+    constexpr static bool next(
+        Ptr<const TValue> itStateCountBegin,
+        Ptr<TValue> itStateBegin);
+
     template <std::incrementable TValue>
     static constexpr bool next(
         Ref<const TValue> firstState,

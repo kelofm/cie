@@ -1,0 +1,16 @@
+{
+    "$id" : "/cie/linalg/cg",
+    "description" : "Settings for a conjugate gradient solver.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/cg"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "cg"
+                }
+            }
+        }
+    ],
+    "required" : ["type"]
+}

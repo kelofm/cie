@@ -40,5 +40,6 @@ private:
 
 } // namespace cie::utils
 
+#include "packages/logging/inc/LogBlock.hpp"
 
 #endif

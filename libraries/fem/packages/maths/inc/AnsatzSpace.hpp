@@ -23,6 +23,7 @@ template <class, unsigned, std::size_t>
 class AnsatzSpaceDerivative;
 
 
+/// @ingroup fem
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
 class AnsatzSpaceDerivativeView : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
@@ -89,6 +90,7 @@ private:
 }; // class AnsatzSpaceDerivativeView
 
 
+/// @ingroup fem
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
 class AnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
@@ -190,8 +192,13 @@ private:
 }; // class AnsatzSpaceDerivative
 
 
-/** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
- */
+/// @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
+/// @details Given @f$p+1@f$ univariate scalar functions @f$f_i(x)@f$ and @f$d@f$-dimensional input vector @f$\xi=[\xi_k]@f$,
+///          this class is responsible for computing a @f$d@f$-dimensional tensor @f$\left[a_{ij..k}\right]@f$.
+///          @f[
+///             a_{ij..k} = f_i(\xi_1) f_j (\xi_2) .. f_k(\xi_d) \quad \{i, j, .. k\} \in \{1..p+1\}
+///          @f]
+/// @ingroup fem
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
 class AnsatzSpaceView : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
@@ -250,8 +257,8 @@ private:
 
 
 
-/** @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
- */
+/// @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
+/// @ingroup fem
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
 class AnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
@@ -353,7 +360,7 @@ public:
     requires (hasStaticBasis);
 
 private:
-    friend class AnsatzSpaceDerivative<TScalarExpression,Dim>;
+    friend class AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;
 
     AnsatzSet _set;
 }; // class AnsatzSpace

@@ -23,7 +23,7 @@ public:
     constexpr CSRView() noexcept = default;
 
     constexpr CSRView(
-        std::size_t columnCount,
+        TIndex columnCount,
         std::span<TIndex> rowExtents,
         std::span<TIndex> columnIndices,
         std::span<TValue> entries) noexcept
@@ -33,11 +33,11 @@ public:
           _entries(entries)
     {}
 
-    std::size_t rowCount() const noexcept {
+    TIndex rowCount() const noexcept {
         return _rowExtents.size() - 1;
     }
 
-    constexpr std::size_t columnCount() const noexcept {
+    constexpr TIndex columnCount() const noexcept {
         return _columnCount;
     }
 
@@ -78,7 +78,7 @@ public:
     }
 
 private:
-    std::size_t _columnCount;
+    TIndex _columnCount;
 
     std::span<TIndex> _rowExtents, _columnIndices;
 

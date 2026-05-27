@@ -15,12 +15,40 @@ namespace cie::maths {
 
 template <unsigned Dimension>
 template <concepts::Integer TValue>
-constexpr bool OuterProduct<Dimension>::next(unsigned numberOfStates,
-                                             Ptr<TValue> itStateBegin) {
-    return OuterProduct<Dimension>::next(
-        static_cast<TValue>(0),
-        static_cast<TValue>(numberOfStates - 1u),
-        itStateBegin);
+constexpr bool OuterProduct<Dimension>::next(
+    unsigned numberOfStates,
+    Ptr<TValue> itStateBegin) {
+        if (numberOfStates == 0) return false;
+        return OuterProduct<Dimension>::next(
+            static_cast<TValue>(0),
+            static_cast<TValue>(numberOfStates - 1u),
+            itStateBegin);
+}
+
+
+template <unsigned Dimension>
+template <concepts::Integer TValue>
+constexpr bool OuterProduct<Dimension>::next(
+    Ptr<const TValue> itStateCountBegin,
+    Ptr<TValue> itStateBegin) {
+        Ptr<const TValue> itStateEnd = itStateBegin + Dimension;
+        Ptr<const TValue> itCount=itStateCountBegin;
+
+        for (
+            Ptr<TValue> itState=itStateBegin;
+            itState != itStateEnd;
+            ++itState, ++itCount) {
+                if (!(*itCount)) return false;
+                if ((*itState) < ((*itCount) - 1)) { // <== found a component to increment
+                    ++(*itState);
+                    return true;
+                } else { // overflow: reset every component until the next incrementable is found
+                    *itState = static_cast<TValue>(0);
+                }
+        }
+
+        // Could not find component to increment
+        return false;
 }
 
 

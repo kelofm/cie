@@ -1,0 +1,17 @@
+{
+    "$id" : "/cie/fem/gauss-legendre-quadrature",
+    "description" : "Settings related to gauss-legendre quadrature.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "gauss-legendre-quadrature"
+        },
+        "order" : {
+            "type" : "integer",
+            "minimum" : 1,
+            "default" : 1,
+            "description" : "Integration order in each direction."
+        }
+    },
+    "required" : ["type"]
+}

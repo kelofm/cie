@@ -3,7 +3,7 @@
 
 // --- FEM Includes ---
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
-#include "packages/integrands/inc/TransformedIntegrand.hpp"
+#include "packages/integrands/inc/ScaledMultiMaterialIntegrand.hpp"
 #include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- Utility Includes ---
@@ -20,29 +20,31 @@ namespace cie::fem {
 
 void integrateStiffness(
     Ref<const Mesh> rMesh,
-    std::span<const CellData> contiguousCellData,
+    std::span<const Cell> cells,
     Ref<const Assembler> rAssembler,
     linalg::CSRView<Scalar,int> lhs,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads) {
         auto logBlock = utils::LoggerSingleton::get().newBlock("integrate stiffness matrix");
-        const std::size_t quadratureBatchSize = rArguments.get<std::size_t>("integrand-batch-size");
+        const std::size_t quadratureBatchSize = rConfiguration["batch-size"].as<std::size_t>();
 
-        using Integrand = TransformedIntegrand<
-            LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>,
-            SpatialTransform::Inverse::Derivative>;
+        using IntegrandBase = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,SpatialTransform>;
+        using Integrand = ScaledMultiMaterialIntegrand<IntegrandBase,Scalar,2>;
         static_assert(maths::StaticExpression<Integrand>);
 
         std::vector<std::unique_ptr<IntegrandProcessor<
             Dimension,
-            Integrand
+            Integrand,
+            Scalar
         >>> integrandProcessors;
         std::vector<std::size_t> partitions;
         partitions.push_back(0ul);
 
+        const std::string integrandProcessorDeviceName = rConfiguration["device"].as<std::string>();
+
         CIE_BEGIN_EXCEPTION_TRACING
         #ifdef CIE_ENABLE_SYCL
-            if (rArguments.get<bool>("sycl")) {
+            if (integrandProcessorDeviceName == "sycl") {
                 auto logBlock = utils::LoggerSingleton::get().newBlock("discover SYCL devices");
                 std::vector<sycl::device> devices;
                 for (auto device : sycl::device::get_devices(sycl::info::device_type::gpu)) {
@@ -51,54 +53,70 @@ void integrateStiffness(
                 } // for device
                 for (auto device : devices) {
                     partitions.push_back(std::min(
-                        partitions.back() + contiguousCellData.size() / devices.size(),
-                        contiguousCellData.size()));
+                        partitions.back() + cells.size() / devices.size(),
+                        cells.size()));
                     integrandProcessors.emplace_back(std::make_unique<SYCLIntegrandProcessor<
                         Dimension,
-                        Integrand>>(std::make_shared<sycl::queue>(device)));
+                        Integrand,
+                        Scalar>>(std::make_shared<sycl::queue>(device)));
                 } // for device in devices
-                partitions.back() = contiguousCellData.size();
-            } else {
-                partitions.push_back(contiguousCellData.size());
+                partitions.back() = cells.size();
+            } else if (integrandProcessorDeviceName == "host") {
+                partitions.push_back(cells.size());
                 if (rThreads.size() == 1) {
                     integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                             Dimension,
-                            Integrand>>());
+                            Integrand,
+                            Scalar>>());
                 } else {
                     integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
                         Dimension,
-                        Integrand>>(rThreads));
+                        Integrand,
+                        Scalar>>(rThreads));
                 }
-            }
+            } else CIE_THROW(Exception, std::format(
+                "unsupported device \"{}\" for integration",
+                integrandProcessorDeviceName))
         #else
-            partitions.push_back(contiguousCellData.size());
+            CIE_CHECK(
+                integrandProcessorDeviceName == "host",
+                std::format(
+                    "unsupported device \"{}\" for integration",
+                    integrandProcessorDeviceName))
+            partitions.push_back(cells.size());
             if (rThreads.size() == 1) {
                 integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                         Dimension,
-                        Integrand
+                        Integrand,
+                        Scalar
                     >>());
             } else {
                 integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
                     Dimension,
-                    Integrand>>(rThreads));
+                    Integrand,
+                    Scalar>>(rThreads));
             }
         #endif
         CIE_END_EXCEPTION_TRACING
 
         CIE_BEGIN_EXCEPTION_TRACING
-        const auto quadratureRuleFactory = [&rMesh] (Ref<const Mesh::Vertex::Data>) {
-            return rMesh.data().makeQuadratureRule();};
+        const auto quadratureRuleFactory = [&rMesh] (Ref<const Cell> rCell) {
+            return rMesh.data().makeQuadratureRule(rCell);};
 
-        const auto integrandFactory = [&rMesh] (Ref<const Mesh::Vertex::Data> rCell) {
+        const auto integrandFactory = [&rMesh] (Ref<const Cell> rCell) -> Integrand {
+            CIE_CHECK(rMesh.data().domainMap().size() == 2, "")
+            std::span<const std::pair<MeshData::DomainData,Scalar>,2> domainData(
+                rMesh.data().domainMap().data(),
+                2);
             return Integrand(
-                LinearIsotropicStiffnessIntegrand<Ansatz::Derivative>(
-                    rCell.diffusivity(),
-                    Ansatz::Derivative(rMesh.data().ansatzDerivative(rCell.ansatzID()))),
-                rCell.makeJacobianInverse());};
+                    IntegrandBase(
+                        rCell.diffusivity(),
+                        rMesh.data().ansatzDerivative(rCell.ansatzID()),
+                        rCell.makeJacobian(),
+                        rCell.makeJacobianInverse()),
+                    domainData);};
 
-        std::mutex integralSinkMutex;
-        const auto integralSink = [&lhs, &rAssembler, &rThreads, &integralSinkMutex] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
-            std::scoped_lock<std::mutex> lock(integralSinkMutex);
+        const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
             mp::ParallelFor<std::size_t>(rThreads).execute(
                 cellIDs.size(),
                 [&lhs, &rAssembler, cellIDs, results] (std::size_t iCell) {
@@ -110,10 +128,9 @@ void integrateStiffness(
                         lhs.entries());
                 });};
 
-        IntegrandProcessor<Dimension,Integrand>::Properties executionProperties {
+        IntegrandProcessor<Dimension,Integrand,Scalar>::Properties executionProperties {
             .integrandBatchSize = quadratureBatchSize,
-            .integrandsPerItem = {},
-            .verbosity = 3};
+            .verbosity = rConfiguration["verbosity"].as<int>()};
 
         {
             std::vector<std::thread> jobs;
@@ -121,8 +138,8 @@ void integrateStiffness(
             for (std::size_t iPartition=0ul; iPartition<integrandProcessors.size(); ++iPartition) {
                 jobs.emplace_back([&, iPartition] () {
                     integrandProcessors[iPartition]->process(
-                        contiguousCellData.begin() + partitions[iPartition],
-                        contiguousCellData.begin() + partitions[iPartition + 1],
+                        cells.begin() + partitions[iPartition],
+                        cells.begin() + partitions[iPartition + 1],
                         quadratureRuleFactory,
                         integrandFactory,
                         integralSink,

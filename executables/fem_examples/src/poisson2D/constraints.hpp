@@ -8,60 +8,72 @@
 #include "packages/graph/inc/Assembler.hpp"
 #include "packages/maths/inc/AffineEmbedding.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
+#include "packages/numeric/inc/QuadraturePointFactory.hpp"
 
 // --- GEO Includes ---
 #include "packages/partitioning/inc/AABBoxNode.hpp"
+
+// --- Utility Includes ---
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
 
 
 /// @brief Data structure unique to the triangulated, immersed boundary cells.
-class BoundaryCellData : public CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,Dimension>,void,Dimension> {
+class BoundaryCell : public CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,Dimension>,void,Dimension> {
 public:
     using Base = CellBase<1,Scalar,maths::AffineEmbedding<Scalar,1u,Dimension>,void,Dimension>;
 
     using Base::Base;
 
-    BoundaryCellData(
+    BoundaryCell(
         unsigned id,
         std::size_t ansatzID,
         RightRef<typename Base::SpatialTransform> rEmbedding,
         Ref<const std::array<Scalar,2>> state,
-        Ref<const CellData> rCell) noexcept;
+        Ref<const Cell> rCell) noexcept;
 
-    Ref<const CellData> getEmbeddingCell() const noexcept {
+    [[nodiscard]] Ref<const Cell> getEmbeddingCell() const noexcept {
         return *_pCell;
     }
 
-    constexpr std::span<const Scalar,2> state() const noexcept {
+    [[nodiscard]] constexpr std::span<const Scalar,2> state() const noexcept {
         return std::span<const Scalar,2>(_state.data(), 2);
     }
 
 private:
-    Ptr<const CellData> _pCell;
+    Ptr<const Cell> _pCell;
 
     std::array<Scalar,2> _state;
-}; // class BoundaryCellData
+}; // class BoundaryCell
 
 
 class BoundaryMeshData {
 public:
     BoundaryMeshData() noexcept = default;
 
-    BoundaryMeshData(std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet);
+    BoundaryMeshData(
+        std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet,
+        RightRef<std::vector<BoundaryCell>> rBoundaryCells);
 
-    CachedQuadraturePointFactory<1,Scalar> makeQuadratureRule() const;
+    [[nodiscard]] CachedQuadraturePointFactory<1,Scalar> makeQuadratureRule() const;
+
+    [[nodiscard]] constexpr std::span<const BoundaryCell> cells() const noexcept {
+        return _cells;
+    }
 
 private:
     std::vector<QuadraturePoint<1,Scalar>> _quadraturePointSet;
+
+    std::vector<BoundaryCell> _cells;
 }; // class BoundaryMeshData
 
 
 /// @brief Mesh type of the immersed, triangulated boundary.
 /// @details Cell data consists of
 using BoundaryMesh = Graph<
-    BoundaryCellData,
+    void,
     void,
     BoundaryMeshData>;
 
@@ -69,8 +81,8 @@ using BoundaryMesh = Graph<
 using BVH = geo::FlatAABBoxTree<Scalar,Dimension>;
 
 
-BVH makeBoundingVolumeHierarchy(
-    Ref<Mesh> rMesh,
+[[nodiscard]] BVH makeBoundingVolumeHierarchy(
+    std::span<Cell> cells,
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths);
 
@@ -78,27 +90,22 @@ BVH makeBoundingVolumeHierarchy(
 using BoundarySegment = StaticArray<Scalar,2*Dimension+2>;
 
 
-std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rArguments);
-
-
-BoundaryMesh generateBoundaryMesh(
-    std::span<const BoundarySegment> tesselatedBoundary,
-    BVH::View bvh,
-    std::span<const CellData> contiguousCellData,
-    Ref<const utils::ArgParse::Results> rArguments,
-    Ref<DynamicArray<BoundarySegment>> rBoundarySegments);
+[[nodiscard]] std::vector<BoundarySegment> makeBoundary(Ref<const cie::io::JSONObject> configuration);
 
 
 [[nodiscard]] DynamicArray<BoundarySegment>
-imposeBoundaryConditions(
+integrateBoundaryConstraints(
     Ref<Mesh> rMesh,
     std::span<const BoundarySegment> tesselatedBoundary,
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
-    std::span<const CellData> contiguousCellData,
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> rhs,
-    Ref<const utils::ArgParse::Results> rArguments);
+    std::span<const Cell> cells,
+    linalg::CSRView<const Scalar,const int> lhs,
+    Ref<DynamicArray<int>> rConstraintRowExtents,
+    Ref<DynamicArray<int>> rConstraintColumnIndices,
+    Ref<DynamicArray<Scalar>> rConstraintEntries,
+    Ref<DynamicArray<Scalar>> rConstraintRHS,
+    Ref<const cie::io::JSONObject> rConfiguration);
 
 
 } // namespace cie::fem

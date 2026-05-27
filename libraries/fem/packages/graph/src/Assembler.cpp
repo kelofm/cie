@@ -59,6 +59,7 @@ void Assembler::makeCSRMatrix(
     Ref<DynamicArray<TIndex>> rRowExtents,
     Ref<DynamicArray<TIndex>> rColumnIndices,
     Ref<DynamicArray<TValue>> rNonzeros,
+    std::optional<std::span<const VertexID>> maybeCellIDs,
     OptionalRef<mp::ThreadPoolBase> rThreadPool) const {
         CIE_BEGIN_EXCEPTION_TRACING
 
@@ -116,15 +117,28 @@ void Assembler::makeCSRMatrix(
                 } // for iRow in rIndices
             };
 
-            if (threadCount < 2) {
-                for (const auto& rDofIndices : this->values()) job(rDofIndices);
-            } else {
-                const auto& rDofIndexContainers = this->values();
-                mp::ParallelFor<>(rThreadPool.value()).execute(
-                    rDofIndexContainers.begin(),
-                    rDofIndexContainers.end(),
-                    job);
-            }
+            if (!maybeCellIDs.has_value()) {
+                if (threadCount < 2) {
+                    for (const auto& rDofIndices : this->values()) job(rDofIndices);
+                } else {
+                    const auto& rDofIndexContainers = this->values();
+                    mp::ParallelFor<>(rThreadPool.value()).execute(
+                        rDofIndexContainers.begin(),
+                        rDofIndexContainers.end(),
+                        job);
+                }
+            } /*if !maybeCellIDs.has_value*/ else {
+                const std::span<const VertexID> cellIDs = maybeCellIDs.value();
+                if (threadCount < 2) {
+                    for (VertexID cellID : cellIDs)
+                        job(this->operator[](cellID));
+                } else {
+                    mp::ParallelFor<>(rThreadPool.value()).execute(
+                        cellIDs.begin(),
+                        cellIDs.end(),
+                        [&job, this] (VertexID cellID) {job(this->operator[](cellID));});
+                }
+            } // if maybeCellIDs.has_value
         }
 
         // Make column indices sorted and unique
@@ -182,6 +196,7 @@ void Assembler::makeCSRMatrix(
         Ref<DynamicArray<TIndex>>,                          \
         Ref<DynamicArray<TIndex>>,                          \
         Ref<DynamicArray<TValue>>,                          \
+        std::optional<std::span<const VertexID>>,           \
         OptionalRef<mp::ThreadPoolBase>) const;
 
 CIE_INSTANTIATE_CSR_FACTORY(int, float)

@@ -1,0 +1,20 @@
+{
+    "$id" : "/cie/fem/functional-discretization",
+    "description" : "Settings related to basis functions",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "type" : "string",
+            "enum" : ["lagrange", "legendre"]
+        },
+        "order" : {
+            "type" : "integer",
+            "minimum" : 1
+        }
+    },
+    "default" : {
+        "type" : "legendre",
+        "order" : 1
+    },
+    "additionalProperties" : false
+}

@@ -4,6 +4,7 @@
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
+#include "packages/integrands/inc/AugmentedSpatialTransform.hpp"
 
 // --- Linalg Includes --
 #include "packages/utilities/inc/CSRView.hpp"
@@ -23,7 +24,7 @@ using Scalar = double;
 /// @brief Spatial transform type mapping cells' local space to global space.
 /// @details The flexibility of this transform directly defines what kind
 ///          of geometries the cells can represent in a boundary conforming manner.
-using SpatialTransform = maths::ScaleTranslateTransform<Scalar,Dimension>;
+using SpatialTransform = AugmentedSpatialTransform<maths::ScaleTranslateTransform<Scalar,Dimension>>;
 
 /// @brief Cells' basis functions' type.
 using Basis = maths::Polynomial<Scalar,polynomialOrder>;
@@ -31,10 +32,6 @@ using Basis = maths::Polynomial<Scalar,polynomialOrder>;
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
 using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
-
-
-constexpr unsigned integrationOrder = polynomialOrder + 1;
-constexpr unsigned boundaryIntegrationOrder = Dimension * integrationOrder;
 
 
 } // namespace cie::fem

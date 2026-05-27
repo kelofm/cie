@@ -1,0 +1,24 @@
+{
+    "$id" : "/cie/fem/dirichlet-condition-1d",
+    "description" : "",
+    "type" : "object",
+    "properties" : {
+        "file-path" : {
+            "$ref" : "/cie/fem/path"
+        },
+        "penalty-factor" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 1e6,
+            "description" : "Coefficient to scale constraints by."
+        },
+        "integration" : {
+            "$ref" : "/cie/fem/integration"
+        },
+        "postprocessing" : {
+            "$ref" : "/cie/fem/postprocessing"
+        }
+    },
+    "required" : ["file-path"],
+    "additionalProperties" : false
+}

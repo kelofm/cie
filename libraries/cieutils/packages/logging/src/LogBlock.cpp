@@ -1,37 +1,79 @@
-// --- Internal Includes ---
+// --- Utility Includes ---
 #include "packages/logging/inc/LogBlock.hpp"
+#include "packages/types/inc/Color.hpp"
+
+// --- STL Includes ---
+#include <format>
 
 
 namespace cie::utils {
 
 
-LogBlock::LogBlock( const std::string& r_name,
-                    Logger& r_logger ) :
-    _name( r_name ),
-    _timerID( r_logger.startTimer() ),
-    _r_logger( r_logger )
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    r_logger.separate().log( "> " + _name ).increaseIndent().flush();
-
-    CIE_END_EXCEPTION_TRACING
+LogBlock::LogBlock(
+    const std::string& rName,
+    Logger& rLogger)
+        :   _name(rName),
+            _timerID(rLogger.startTimer()),
+            _rLogger(rLogger) {
+                CIE_BEGIN_EXCEPTION_TRACING
+                    rLogger
+                        .log(std::format("> {}", _name), RGBAColor::TUMGray)
+                        .increaseIndent()
+                        .flush();
+                CIE_END_EXCEPTION_TRACING
 }
 
 
-LogBlock::~LogBlock()
-{
-    _r_logger.decreaseIndent();
-    logElapsed( "< " + _name + " |", false );
-    _r_logger.separate().flush();
+LogBlock::~LogBlock() {
+    _rLogger.decreaseIndent();
+    logElapsed(
+        std::format("< {} |", _name),
+        false,
+        RGBAColor::TUMGray);
+    _rLogger.flush();
 }
 
 
-LogBlock& operator<<( LogBlock& r_block, const std::string& r_message )
+LogBlock& operator<<(
+    LogBlock& rBlock,
+    const std::string& rMessage) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            return rBlock.log(rMessage);
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+LogBlock& LogBlock::log(const std::string& rMessage)
 {
-    CIE_BEGIN_EXCEPTION_TRACING
-    return r_block.log( r_message );
-    CIE_END_EXCEPTION_TRACING
+    _rLogger.log(rMessage);
+    return *this;
+}
+
+
+LogBlock& LogBlock::warn(const std::string& rMessage)
+{
+    _rLogger.warn(rMessage);
+    return *this;
+}
+
+
+LogBlock& LogBlock::error(const std::string& rMessage)
+{
+    _rLogger.error(rMessage);
+    return *this;
+}
+
+
+LogBlock& LogBlock::logElapsed(
+    const std::string& rMessage,
+    bool reset,
+    OptionalRef<const Color> rMaybeColor) {
+        _rLogger.logElapsed(
+            rMessage,
+            _timerID,
+            reset,
+            rMaybeColor);
+        return *this;
 }
 
 
