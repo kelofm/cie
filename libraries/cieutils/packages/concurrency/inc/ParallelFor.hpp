@@ -76,7 +76,7 @@ public:
     template <class TFunction>
     ParallelFor& operator()(
         Ref<const IndexPartitionFactory> rPartitionFactory,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     /** @brief Execute an indexed for loop.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -92,7 +92,7 @@ public:
         TIndex iMin,
         TIndex iSentinel,
         long stepSize,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     /** @brief Execute an indexed for loop beginning from 0.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -104,7 +104,7 @@ public:
     template <class TFunction>
     ParallelFor& operator()(
         TIndex iSentinel,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     /** @brief Execute a range-based for loop over a container.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -116,7 +116,7 @@ public:
     template <concepts::Container TContainer, class TFunction>
     ParallelFor& operator()(
         Ref<TContainer> rContainer,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     /** @brief Execute a range-based for loop over a const container.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -128,7 +128,7 @@ public:
     template <concepts::Container TContainer, class TFunction>
     ParallelFor& operator()(
         Ref<const TContainer> rContainer,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     /** @brief Execute a range-based for loop over a range.
      *  @tparam TFunction Function to execute at each iteration. Must be callable
@@ -142,7 +142,7 @@ public:
     ParallelFor& operator()(
         TIterator itBegin,
         TIterator itEnd,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     template <class ...TArgs>
     ParallelFor& execute(TArgs&& ... rArgs) {
@@ -161,26 +161,26 @@ private:
     template <class TFunction>
     void executeImpl(
         Ref<const IndexPartitionFactory> rIndexPartitionFactory,
-        Ref<const TFunction> rFunction,
+        TFunction&& rFunction,
         bool barrier);
 
     template <concepts::Container TContainer, class TFunction>
     void executeImpl(
         Ref<const IndexPartitionFactory> rIndexPartitionFactory,
         Ref<TContainer> rContainer,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     template <concepts::Container TContainer, class TFunction>
     void executeImpl(
         Ref<const IndexPartitionFactory> rIndexPartitionFactory,
         Ref<const TContainer> rContainer,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
     template <concepts::Iterator TIterator, class TFunction>
     void executeImpl(
         Ref<const IndexPartitionFactory> rIndexPartitionFactory,
         TIterator itBegin,
-        Ref<const TFunction> rFunction);
+        TFunction&& rFunction);
 
 private:
     Pool _pool;

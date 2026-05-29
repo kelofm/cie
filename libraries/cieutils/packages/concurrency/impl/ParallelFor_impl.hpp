@@ -40,7 +40,7 @@ template <class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(
     Ref<const IndexPartitionFactory> rPartitionFactory,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->executeImpl(
                 rPartitionFactory,
@@ -58,7 +58,7 @@ ParallelFor<TIndex,TStorage>::operator()(
     TIndex indexMin,
     TIndex indexSentinel,
     long stepSize,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->executeImpl(
                 DynamicIndexPartitionFactory(
@@ -76,7 +76,7 @@ template <class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(
     TIndex indexSentinel,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->executeImpl(
                 DynamicIndexPartitionFactory(
@@ -94,7 +94,7 @@ template <concepts::Container TContainer, class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(
     Ref<TContainer> rContainer,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->executeImpl(
                 DynamicIndexPartitionFactory(
@@ -112,7 +112,7 @@ template <concepts::Container TContainer, class TFunction>
 ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(
     Ref<const TContainer> rContainer,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->executeImpl(
                 DynamicIndexPartitionFactory(
@@ -131,7 +131,7 @@ ParallelFor<TIndex,TStorage>&
 ParallelFor<TIndex,TStorage>::operator()(
     TIterator itBegin,
     TIterator itEnd,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->executeImpl(
                 DynamicIndexPartitionFactory(
@@ -162,7 +162,7 @@ template <concepts::Integer TIndex, class TStorage>
 template <class TFunction>
 void ParallelFor<TIndex,TStorage>::executeImpl(
     Ref<const IndexPartitionFactory> rIndexPartitionFactory,
-    Ref<const TFunction> rFunction,
+    TFunction&& rFunction,
     bool barrier) {
         CIE_BEGIN_EXCEPTION_TRACING
             const Size partitionCount = rIndexPartitionFactory.size();
@@ -217,7 +217,7 @@ template <concepts::Container TContainer, class TFunction>
 void ParallelFor<TIndex,TStorage>::executeImpl(
     Ref<const IndexPartitionFactory> rIndexPartitionFactory,
     Ref<TContainer> rContainer,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             const auto partitionCount = rIndexPartitionFactory.size();
             if (!partitionCount) return;
@@ -247,7 +247,7 @@ template <concepts::Container TContainer, class TFunction>
 void ParallelFor<TIndex,TStorage>::executeImpl(
     Ref<const IndexPartitionFactory> rIndexPartitionFactory,
     Ref<const TContainer> rContainer,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             const auto partitionCount = rIndexPartitionFactory.size();
             if (!partitionCount) return;
@@ -277,7 +277,7 @@ template <concepts::Iterator TIterator, class TFunction>
 void ParallelFor<TIndex,TStorage>::executeImpl(
     Ref<const IndexPartitionFactory> rIndexPartitionFactory,
     TIterator itBegin,
-    Ref<const TFunction> rFunction) {
+    TFunction&& rFunction) {
         CIE_BEGIN_EXCEPTION_TRACING
             const auto partitionCount = rIndexPartitionFactory.size();
             if (!partitionCount) return;

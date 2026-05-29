@@ -77,7 +77,7 @@ void SYCLMaskedCSROperator<TI,TV,TMI>::product(
                         const std::size_t iSubGroupItem = it.get_local_linear_id();
                         const std::size_t iLane = iSubGroupItem % subGroupSize;
                         const std::size_t iSubGroup = iItem / subGroupSize;
-                        const std::size_t iRow = iSubGroup;
+                        const TI iRow = iSubGroup;
 
                         auto subGroup = it.get_sub_group();
 

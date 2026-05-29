@@ -41,7 +41,7 @@ void SYCLCSRSubsetOperator<TI,TV>::product(
     typename Space::VectorView out) {
         // Sanity checks.
         CIE_CHECK(
-            _lhs.rowCount() == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
+            static_cast<std::size_t>(_lhs.rowCount()) == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
             std::format(
                 "Incompatible matrix-vector product: [{}x{}] * [{}] = [{}]",
                 _lhs.rowCount(), _lhs.columnCount(), in.size(), out.size()))
@@ -63,7 +63,7 @@ void SYCLCSRSubsetOperator<TI,TV>::product(
                         const std::size_t iSubGroupItem = it.get_local_linear_id();
                         const std::size_t iLane = iSubGroupItem % subGroupSize;
                         const std::size_t iSubGroup = iItem / subGroupSize;
-                        const std::size_t iRow = iSubGroup;
+                        const TI iRow  = iSubGroup;
 
                         auto subGroup = it.get_sub_group();
 
