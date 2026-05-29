@@ -7,5 +7,4 @@ info = {
     "version" : str(__cieutils.properties.Version.local),
     "compiler" : f"{__cieutils.properties.getCompiler()} {__cieutils.properties.getCompilerVersion()}",
     "compilerFlags" : __cieutils.properties.getCompileFlags(),
-    "compilePlatform" : __cieutils.properties.getCompilePlatform()
-}
+    "compilePlatform" : __cieutils.properties.getCompilePlatform()}
