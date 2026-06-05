@@ -10,6 +10,9 @@
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/io/inc/json.hpp"
 
+// --- STL Includes ---
+#include <numbers>
+
 
 namespace cie::fem {
 
