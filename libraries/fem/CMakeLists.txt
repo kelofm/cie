@@ -93,6 +93,7 @@ endif()
 # Build python module
 if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
+    #find_package(Python REQUIRED) # <== uncomment when this gets merged: https://github.com/pybind/pybind11/pull/5814
     find_package(pybind11 REQUIRED)
 
     file(GLOB_RECURSE python_module_sources "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
