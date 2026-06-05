@@ -18,6 +18,9 @@ void solve(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<Scalar> rhs,
+    linalg::CSRView<Scalar, int> constraintGradients,
+    std::span<Scalar> constraintGaps,
+    Scalar constraintPenalty,
     Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
     Ref<const cie::io::JSONObject> rConfiguration);

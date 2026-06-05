@@ -229,7 +229,7 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
 
     // Constraints.
     DynamicArray<int> constraintRowExtents, constraintColumnIndices;
-    DynamicArray<Scalar> constraintEntries, constraintRHS;
+    DynamicArray<Scalar> constraintEntries, constraintGaps;
 
     const auto boundarySegments = integrateBoundaryConstraints(
         mesh,
@@ -241,10 +241,11 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
         constraintRowExtents,
         constraintColumnIndices,
         constraintEntries,
-        constraintRHS,
+        constraintGaps,
+        threads,
         rConfiguration["dirichlet-1d"]);
 
-    linalg::CSRView<Scalar,int> constraintLHS(
+    linalg::CSRView<Scalar,int> constraintGradients(
         columnCount,
         constraintRowExtents,
         constraintColumnIndices,
@@ -259,6 +260,9 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
             lhs,
             solution,
             rhs,
+            constraintGradients,
+            constraintGaps,
+            rConfiguration["dirichlet-1d"]["penalty-factor"].as<double>(),
             assembler,
             threads,
             rConfiguration["linear-system"]);

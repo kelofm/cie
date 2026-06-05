@@ -9,6 +9,9 @@
 // --- GEO Includes ---
 #include "packages/trees/inc/ContiguousSpaceTree.hpp"
 
+// --- Linalg Includes ---
+#include "packages/solvers/inc/DefaultSpace.hpp"
+
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/io/inc/json.hpp"
@@ -317,126 +320,159 @@ integrateBoundaryConstraints(
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
     std::span<const Cell> cells,
-    linalg::CSRView<const Scalar,const int> lhs,
+    linalg::CSRView<Scalar,const int> lhs,
     Ref<DynamicArray<int>> rConstraintRowExtents,
     Ref<DynamicArray<int>> rConstraintColumnIndices,
     Ref<DynamicArray<Scalar>> rConstraintEntries,
-    Ref<DynamicArray<Scalar>> rConstraintRHS,
+    Ref<DynamicArray<Scalar>> rConstraintGaps,
+    [[maybe_unused]] Ref<mp::ThreadPoolBase> rThreads,
     Ref<const cie::io::JSONObject> rConfiguration) {
         DynamicArray<BoundarySegment> boundarySegments;
 
-        CIE_BEGIN_EXCEPTION_TRACING
-        auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
-
-        // Load the boundary mesh.
-        const auto boundaryMesh = generateBoundaryMesh(
-            tesselatedBoundary,
-            bvh,
-            cells,
-            rConfiguration,
-            boundarySegments);
-
-        // Construct a new linear system containing only
-        // contributions from constraints.
-        std::vector<VertexID> constrainedCellIDs;
-        {
-            tsl::robin_set<VertexID> constrainedCellIDSet;
-            for (Ref<const BoundaryCell> rBoundaryCell : boundaryMesh.data().cells())
-                constrainedCellIDSet.insert(rBoundaryCell.getEmbeddingCell().id());
-            constrainedCellIDs.insert(
-                constrainedCellIDs.end(),
-                constrainedCellIDSet.begin(),
-                constrainedCellIDSet.end());
-        }
-
-        int rowCount, columnCount;
-        rAssembler.makeCSRMatrix(
-            rowCount,
-            columnCount,
-            rConstraintRowExtents,
-            rConstraintColumnIndices,
-            rConstraintEntries,
-            constrainedCellIDs);
-
-        // Extend the constraint system to match the unconstrained system's size.
-        rConstraintRowExtents.resize(lhs.rowCount() + 1);
-        std::fill(
-            rConstraintRowExtents.begin() + rowCount,
-            rConstraintRowExtents.end(),
-            rConstraintRowExtents[rowCount]);
-        rowCount = lhs.rowCount();
-        columnCount = lhs.columnCount();
-
-        linalg::CSRView<Scalar,int> constraintLHS(
-            columnCount,
-            rConstraintRowExtents,
-            rConstraintColumnIndices,
-            rConstraintEntries);
-        rConstraintRHS.resize(rowCount);
-        std::fill(
-            constraintLHS.entries().begin(),
-            constraintLHS.entries().end(),
-            Scalar(0));
-        std::fill(
-            rConstraintRHS.begin(),
-            rConstraintRHS.end(),
-            Scalar(0));
-
-        // Define callbacks for the integrand processor.
-        const auto quadratureRuleFactory = [&boundaryMesh] (Ref<const BoundaryCell>) {
-            return boundaryMesh.data().makeQuadratureRule();};
-
-        const Scalar penaltyFactor =rConfiguration["penalty-factor"].as<double>();
-        const auto integrandFactory = [&rMesh, penaltyFactor] (Ref<const BoundaryCell> rBoundaryCell) {
-            auto integrand = makeDirichletPenaltyIntegrand(
-                    DirichletBoundary(rBoundaryCell.state()),
-                    penaltyFactor,
-                    rMesh.data().ansatz(rBoundaryCell.ansatzID()),
-                    rBoundaryCell.makeSpatialTransform(),
-                    rBoundaryCell.getEmbeddingCell());
-            return integrand;
-        }; // integrandFactory
-
-        const auto integralSink = [&constraintLHS, &rConstraintRHS, &rAssembler, &boundaryMesh] (
-            std::span<const VertexID> cellIDs,
-            std::span<const Scalar> results) {
-                constexpr std::size_t lhsEntryCount = intPow(Ansatz::size(), Dimension);
-                constexpr std::size_t rhsEntryCount = Ansatz::size();
-                for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
-                    Ptr<const Scalar> pResultsBegin = results.data() + iCell * (lhsEntryCount +rhsEntryCount);
-                    const VertexID embeddingCellID = boundaryMesh.data().cells()[iCell].getEmbeddingCell().id();
-                    rAssembler.addContribution<tags::SMP,int>(
-                        std::span<const Scalar>(pResultsBegin, lhsEntryCount),
-                        embeddingCellID,
-                        constraintLHS.rowExtents(),
-                        constraintLHS.columnIndices(),
-                        constraintLHS.entries());
-                    rAssembler.addContribution<tags::SMP>(
-                        std::span<const Scalar>(pResultsBegin + lhsEntryCount, rhsEntryCount),
-                        embeddingCellID,
-                        std::span<Scalar>(rConstraintRHS));
-                } // for iCell in range(cellIDs.size())
-        }; // integralSink
-
         using Integrand = DirichletPenaltyIntegrand<
-                DirichletBoundary,
-                Ansatz,
-                maths::AffineEmbedding<Scalar,1u,Dimension>,
-                Cell>;
-        const IntegrandProcessor<1,Integrand>::Properties executionProperties{
-            .integrandBatchSize = rConfiguration["integration"]["batch-size"].as<std::size_t>(),
-            .verbosity = rConfiguration["integration"]["verbosity"].as<int>()};
-        auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
-        const auto& rBoundaryCells = boundaryMesh.data().cells();
-        pProcessor->process(
-            rBoundaryCells.begin(),
-            rBoundaryCells.end(),
-            quadratureRuleFactory,
-            integrandFactory,
-            integralSink,
-            executionProperties);
+            DirichletBoundary,
+            Ansatz,
+            maths::AffineEmbedding<Scalar,1u,Dimension>,
+            Cell>;
 
-        return boundarySegments;
+        CIE_BEGIN_EXCEPTION_TRACING
+            auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
+
+            // Load the boundary mesh.
+            const auto boundaryMesh = generateBoundaryMesh(
+                tesselatedBoundary,
+                bvh,
+                cells,
+                rConfiguration,
+                boundarySegments);
+
+            // Construct a new linear system containing only
+            // contributions from constraints.
+            std::vector<VertexID> constrainedCellIDs;
+            {
+                tsl::robin_set<VertexID> constrainedCellIDSet;
+                for (Ref<const BoundaryCell> rBoundaryCell : boundaryMesh.data().cells())
+                    constrainedCellIDSet.insert(rBoundaryCell.getEmbeddingCell().id());
+                constrainedCellIDs.insert(
+                    constrainedCellIDs.end(),
+                    constrainedCellIDSet.begin(),
+                    constrainedCellIDSet.end());
+            }
+
+            int rowCount, columnCount;
+            rAssembler.makeCSRMatrix(
+                rowCount,
+                columnCount,
+                rConstraintRowExtents,
+                rConstraintColumnIndices,
+                rConstraintEntries,
+                constrainedCellIDs);
+
+            // Extend the constraint system to match the unconstrained system's size.
+            rConstraintRowExtents.resize(lhs.rowCount() + 1);
+            std::fill(
+                rConstraintRowExtents.begin() + rowCount,
+                rConstraintRowExtents.end(),
+                rConstraintRowExtents[rowCount]);
+            rowCount = lhs.rowCount();
+            columnCount = lhs.columnCount();
+
+            linalg::CSRView<Scalar,int> constraintGradient(
+                columnCount,
+                rConstraintRowExtents,
+                rConstraintColumnIndices,
+                rConstraintEntries);
+            rConstraintGaps.resize(rowCount);
+            std::fill(
+                constraintGradient.entries().begin(),
+                constraintGradient.entries().end(),
+                Scalar(0));
+            std::fill(
+                rConstraintGaps.begin(),
+                rConstraintGaps.end(),
+                Scalar(0));
+
+            // Define callbacks for the integrand processor.
+            const auto quadratureRuleFactory = [&boundaryMesh] (Ref<const BoundaryCell>) {
+                return boundaryMesh.data().makeQuadratureRule();};
+
+            const auto integrandFactory = [&rMesh] (Ref<const BoundaryCell> rBoundaryCell) -> Integrand {
+                auto integrand = makeDirichletPenaltyIntegrand(
+                        DirichletBoundary(rBoundaryCell.state()),
+                        /*penaltyFactor=*/1,
+                        rMesh.data().ansatz(rBoundaryCell.ansatzID()),
+                        rBoundaryCell.makeSpatialTransform(),
+                        rBoundaryCell.getEmbeddingCell());
+                return integrand;
+            }; // integrandFactory
+
+            const unsigned integrandSize = integrandFactory(boundaryMesh.data().cells().front()).size();
+            const unsigned constraintGradientContributionSize = intPow(Ansatz::size(), 2);
+            const unsigned constraintGapContributionSize = Ansatz::size();
+            const auto integralSink = [&] (
+                std::span<const VertexID> cellIDs,
+                std::span<const Scalar> results) {
+                    for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
+                        // Find the results' offset.
+                        Ptr<const Scalar> pResultsBegin = results.data() + iCell * integrandSize;
+                        const VertexID embeddingCellID = boundaryMesh.data().cells()[iCell].getEmbeddingCell().id();
+
+                        // Separate different integral components.
+                        const std::span<const Scalar> constraintGradientContribution(
+                            pResultsBegin,
+                            constraintGradientContributionSize);
+                        const std::span<const Scalar> constraintGapContribution(
+                            pResultsBegin + constraintGradientContributionSize,
+                            constraintGapContributionSize);
+
+                        // Reduce contributions to the constraint system.
+                        rAssembler.addContribution<tags::SMP,int>(
+                            constraintGradientContribution,
+                            embeddingCellID,
+                            constraintGradient.rowExtents(),
+                            constraintGradient.columnIndices(),
+                            constraintGradient.entries());
+                        rAssembler.addContribution<tags::SMP>(
+                            constraintGapContribution,
+                            embeddingCellID,
+                            std::span<Scalar>(rConstraintGaps));
+                    } // for iCell in range(cellIDs.size())
+            }; // integralSink
+
+            // Perform the integration.
+            const IntegrandProcessor<1,Integrand>::Properties executionProperties{
+                .integrandBatchSize = rConfiguration["integration"]["batch-size"].as<std::size_t>(),
+                .verbosity = rConfiguration["integration"]["verbosity"].as<int>()};
+            auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
+            const auto& rBoundaryCells = boundaryMesh.data().cells();
+            pProcessor->process(
+                rBoundaryCells.begin(),
+                rBoundaryCells.end(),
+                quadratureRuleFactory,
+                integrandFactory,
+                integralSink,
+                executionProperties);
+
+//            // Shrink the constraint system.
+//            {
+//                std::vector<int> swapConstraintRowExtents(1, 0);
+//                swapConstraintRowExtents.reserve(rConstraintColumnIndices.size());
+//                std::vector<Scalar> swapConstraintGaps;
+//                swapConstraintGaps.reserve(rConstraintGaps.size());
+//
+//                for (int iRow=0ul; iRow<lhs.rowCount(); ++iRow) {
+//                    const int rowSize = rConstraintRowExtents[iRow + 1] - rConstraintRowExtents[iRow];
+//                    if (rowSize) [[unlikely]] {
+//                        swapConstraintRowExtents.push_back(rConstraintRowExtents[iRow + 1]);
+//                        swapConstraintGaps.push_back(rConstraintGaps[iRow]);
+//                    }
+//                } // for iRow
+//
+//                rConstraintRowExtents = std::move(swapConstraintRowExtents);
+//                rConstraintGaps = std::move(swapConstraintGaps);
+//            }
+
+            return boundarySegments;
         CIE_END_EXCEPTION_TRACING
 }
 

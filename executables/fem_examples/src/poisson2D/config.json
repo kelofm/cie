@@ -11,7 +11,7 @@
     ],
     "dirichlet-1d" : {
         "file-path" : "dirichlet.csv",
-        "penalty-factor": 1e6,
+        "penalty-factor": 1e4,
         "integration": {
             "batch-size": 10000,
             "device": "host",
@@ -59,10 +59,14 @@
         }
     },
     "linear-system": {
+        "write-lhs" : null,
         "solver": {
-            "type": "cg",
+            "type": "cg-sycl",
+            "preconditioner" : {
+                "type" : "inverse-diagonal-operator"
+            },
             "max-iterations" : 5e3,
-            "absolute-residual" : 1e-9,
+            "absolute-residual" : 1e-6,
             "relative-residual" : 1e-6,
             "verbosity" : 2
         }

@@ -173,16 +173,24 @@ void ConjugateGradients<TS>::product(
                     stats.absoluteResidual = std::sqrt(residualNorm);
                     stats.relativeResidual = stats.absoluteResidual / initialResidualNorm;
 
-                    if (!this->makeIterationReport(
+                    if (comparison.less(stats.absoluteResidual, settings.absoluteResidual) || comparison.less(stats.relativeResidual, settings.relativeResidual)) {
+                        if (!this->makeIterationReport(
                         report,
                         _verbosity,
-                        ConjugateGradients::ReportType::Iteration,
+                        ConjugateGradients::ReportType::Termination,
                         stats,
                         settings).empty())
                             maybeLogBlock.value().log(report);
-
-                    if (comparison.less(stats.absoluteResidual, settings.absoluteResidual) || comparison.less(stats.relativeResidual, settings.relativeResidual))
                         break;
+                    } else {
+                        if (!this->makeIterationReport(
+                            report,
+                            _verbosity,
+                            ConjugateGradients::ReportType::Iteration,
+                            stats,
+                            settings).empty())
+                                maybeLogBlock.value().log(report);
+                    }
                 } // for stats.iterationCount in range(settings.iterationCount)
             CIE_END_EXCEPTION_TRACING
         }

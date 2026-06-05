@@ -87,8 +87,8 @@ public:
     template <
         TagLike TParallel = tags::SMP,
         concepts::Integer TIndex,
-        concepts::Numeric TLocalScalar,
-        concepts::Numeric TGlobalScalar>
+        class TLocalScalar,
+        class TGlobalScalar>
     void addContribution(
         std::span<const TLocalScalar> contribution,
         VertexID cellID,
@@ -98,8 +98,8 @@ public:
 
     template <
         TagLike TParallel = tags::SMP,
-        concepts::Numeric TLocalScalar,
-        concepts::Numeric TGlobalScalar>
+        class TLocalScalar,
+        class TGlobalScalar>
     void addContribution(
         std::span<const TLocalScalar> contribution,
         VertexID cellID,

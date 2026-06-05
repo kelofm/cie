@@ -37,8 +37,7 @@ template <
     maths::Expression TDirichlet,
     maths::Expression TAnsatzSpace,
     maths::Expression TEmbedding,
-    CellLike TCell,
-    bool Symmetric = true>
+    CellLike TCell>
 class DirichletPenaltyIntegrand : public maths::ExpressionTraits<typename TAnsatzSpace::Value> {
 public:
     static constexpr unsigned Dimension = TAnsatzSpace::Dimension;

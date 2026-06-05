@@ -100,11 +100,12 @@ integrateBoundaryConstraints(
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
     std::span<const Cell> cells,
-    linalg::CSRView<const Scalar,const int> lhs,
+    linalg::CSRView<Scalar,const int> lhs,
     Ref<DynamicArray<int>> rConstraintRowExtents,
     Ref<DynamicArray<int>> rConstraintColumnIndices,
     Ref<DynamicArray<Scalar>> rConstraintEntries,
-    Ref<DynamicArray<Scalar>> rConstraintRHS,
+    Ref<DynamicArray<Scalar>> rConstraintGaps,
+    Ref<mp::ThreadPoolBase> rThreads,
     Ref<const cie::io::JSONObject> rConfiguration);
 
 

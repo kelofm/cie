@@ -7,6 +7,7 @@
 #include "poisson2D/solver.hpp"
 
 // --- Linalg Includes ---
+#include "packages/macros/inc/exceptions.hpp"
 #include "packages/utilities/inc/reorder.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/CSROperator.hpp"
@@ -19,6 +20,7 @@
 #include "packages/solvers/inc/SYCLSpace.hpp"
 #include "packages/solvers/inc/SYCLCSROperator.hpp"
 #include "packages/solvers/inc/SYCLMaskedCSROperator.hpp"
+#include "packages/utilities/inc/CSRUtility.hpp"
 
 // --- Utility Includes ---
 #include "packages/io/inc/MatrixMarket.hpp"
@@ -510,90 +512,170 @@ void solve(
     linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<Scalar> rhs,
+    linalg::CSRView<Scalar, int> constraintGradients,
+    std::span<Scalar> constraintGaps,
+    Scalar constraintPenalty,
     Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
     Ref<const cie::io::JSONObject> rConfiguration) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            // Parse and perform reordering if necessary.
+            ReorderingStrategy reorderingStrategy = ReorderingStrategy::None;
+            const auto reorderingConfiguration = rConfiguration["reordering"];
+            if (!reorderingConfiguration.is<std::nullptr_t>()) {
+                const std::string reorderingName = reorderingConfiguration.as<std::string>();
+                if (reorderingName == "cuthill-mckee") reorderingStrategy = ReorderingStrategy::CuthillMcKee;
+                else if (reorderingName == "reverse-cuthill-mckee") reorderingStrategy = ReorderingStrategy::ReverseCuthillMcKee;
+                else if (reorderingName != "none") CIE_THROW(Exception, "unknown reordering strategy: " << reorderingName)
+            }
 
-        ReorderingStrategy reorderingStrategy = ReorderingStrategy::None;
-        const auto reorderingConfiguration = rConfiguration["reordering"];
-        if (!reorderingConfiguration.is<std::nullptr_t>()) {
-            const std::string reorderingName = reorderingConfiguration.as<std::string>();
-            if (reorderingName == "cuthill-mckee") reorderingStrategy = ReorderingStrategy::CuthillMcKee;
-            else if (reorderingName == "reverse-cuthill-mckee") reorderingStrategy = ReorderingStrategy::ReverseCuthillMcKee;
-            else if (reorderingName != "none") CIE_THROW(Exception, "unknown reordering strategy: " << reorderingName)
-        }
+            if (reorderingStrategy != ReorderingStrategy::None) {
+                auto logBlock = utils::LoggerSingleton::get().newBlock("reorder");
+                std::vector<int> reordering(solution.size());
+                makeReordering<int,Scalar>(
+                    reordering,
+                    lhs.rowExtents(),
+                    lhs.columnIndices(),
+                    lhs.entries(),
+                    reorderingStrategy,
+                    rThreads);
 
-        if (reorderingStrategy != ReorderingStrategy::None) {
-            auto logBlock = utils::LoggerSingleton::get().newBlock("reorder");
-            std::vector<int> reordering(solution.size());
-            makeReordering<int,Scalar>(
-                reordering,
-                lhs.rowExtents(),
-                lhs.columnIndices(),
-                lhs.entries(),
-                reorderingStrategy,
-                rThreads);
-            reorder<int,Scalar>(
-                reordering,
-                lhs.rowExtents(),
-                lhs.columnIndices(),
-                lhs.entries(),
-                rThreads);
-            reorder<int,Scalar>(
-                reordering,
-                rhs,
-                rThreads);
-            std::vector<int> buffer(reordering.size());
-            reverseReorder<int>(reordering, buffer, rThreads);
-            rAssembler.reorder<int>(reordering);
-        }
+                // Reorder unconstrained system.
+                reorder<int,Scalar>(
+                    reordering,
+                    lhs.rowExtents(),
+                    lhs.columnIndices(),
+                    lhs.entries(),
+                    rThreads);
+                reorder<int,Scalar>(
+                    reordering,
+                    rhs,
+                    rThreads);
 
-        if (!rConfiguration["write-lhs"].is<std::nullptr_t>()) {
-            std::ofstream file(rConfiguration["write-lhs"].as<std::string>());
-            cie::io::MatrixMarket::Output io(file);
-            io(
-                lhs.rowCount(),
-                lhs.columnCount(),
-                lhs.entries().size(),
-                lhs.rowExtents().data(),
-                lhs.columnIndices().data(),
-                lhs.entries().data());
-        }
+                // Reorder constraints.
+                reorder<int,Scalar>(
+                    reordering,
+                    constraintGradients.rowExtents(),
+                    constraintGradients.columnIndices(),
+                    constraintGradients.entries(),
+                    rThreads);
+                reorder<int,Scalar>(
+                    reordering,
+                    constraintGaps,
+                    rThreads);
 
-        if (!rConfiguration["write-rhs"].is<std::nullptr_t>()) {
-            std::ofstream file("rhs.mm");
-            cie::io::MatrixMarket::Output io(file);
-            io(rhs.data(), rhs.size());
-        }
+                // Reorder the assembler.
+                std::vector<int> buffer(reordering.size());
+                reverseReorder<int>(reordering, buffer, rThreads);
+                rAssembler.reorder<int>(reordering);
+            }
 
-        // @todo Parse solver configuration properly.
-        const auto solverConfiguration = rConfiguration["solver"];
-        const std::string solver = solverConfiguration["type"].as<std::string>();
-        if (solver == "cg") {
-            solveCG(lhs, solution, rhs, rThreads, solverConfiguration);
+            // Preprocess constraints.
+            std::vector<int> constrainedRowExtents, constrainedColumnIndices;
+            std::vector<Scalar> constrainedEntries, constrainedRHS(rhs.begin(), rhs.end());
 
-        #ifdef CIE_ENABLE_SYCL
-        } else if (solver == "cg-sycl") {
-            solveSYCLCG(lhs, solution, rhs, solverConfiguration);
-        } else if (solver == "multigrid-sycl") {
-            solveSYCLMultigrid(lhs, solution, rhs, rAssembler, solverConfiguration);
-        #endif
+            linalg::DefaultSpace<Scalar>(rThreads).add(
+                constrainedRHS,
+                constraintGaps,
+                -constraintPenalty);
 
-        } else if (solver == "multigrid") {
-            solveMultigrid(lhs, solution, rhs, rAssembler, rThreads, solverConfiguration);
-        } else if (solver == "jacobi") {
-            solveJacobi(lhs, solution, rhs, rThreads, solverConfiguration);
-        } else if (solver == "cg-eigen") {
-            solveEigenCG(lhs, solution, rhs, solverConfiguration);
-        } else if (solver == "llt-eigen") {
-            solveEigenLLT(lhs, solution, rhs, solverConfiguration);
-        } else CIE_THROW(Exception, std::format("unknown solver \"{}\"", solver))
+            //linalg::CSRUtility<Scalar,int>(rThreads).symmetricProduct(
+            //    constrainedRowExtents, constrainedColumnIndices, constrainedEntries,
+            //    constraintGradients);
+            constrainedRowExtents.insert(constrainedRowExtents.end(), constraintGradients.rowExtents().begin(), constraintGradients.rowExtents().end());
+            constrainedColumnIndices.insert(constrainedColumnIndices.end(), constraintGradients.columnIndices().begin(), constraintGradients.columnIndices().end());
+            constrainedEntries.insert(constrainedEntries.end(), constraintGradients.entries().begin(), constraintGradients.entries().end());
+            linalg::CSRUtility<Scalar,int>(rThreads).sum(
+                constrainedRowExtents,
+                constrainedColumnIndices,
+                constrainedEntries,
+                lhs,
+                constraintPenalty);
+            linalg::CSRView<Scalar,int> constrainedLHS(
+                constraintGradients.columnCount(),
+                constrainedRowExtents,
+                constrainedColumnIndices,
+                constrainedEntries);
 
-        if (!rConfiguration["write-solution"].is<std::nullptr_t>()) {
-            std::ofstream file("solution.mm");
-            cie::io::MatrixMarket::Output io(file);
-            io(solution.data(), solution.size());
-        }
+            // Output system components if requested.
+            if (!rConfiguration["write-lhs"].is<std::nullptr_t>()) {
+                std::ofstream file(rConfiguration["write-lhs"].as<std::string>());
+                linalg::io::MatrixMarket::Output io(file);
+                io(constrainedLHS);
+            }
+
+            if (!rConfiguration["write-rhs"].is<std::nullptr_t>()) {
+                std::ofstream file(rConfiguration["write-rhs"].as<std::string>());
+                linalg::io::MatrixMarket::Output io(file);
+                io(constrainedRHS);
+            }
+
+            // @todo Parse solver configuration properly.
+            const auto solverConfiguration = rConfiguration["solver"];
+            const std::string solver = solverConfiguration["type"].as<std::string>();
+
+            // Compute initial constraint residuals.
+            linalg::DefaultSpace<Scalar> linalgSpace(rThreads);
+            linalg::CSROperator<int,Scalar,Scalar> constraintGradientOperator(constraintGradients, rThreads);
+            linalg::CSROperator<int,Scalar,Scalar> constrainedLHSOperator(constrainedLHS, rThreads);
+            std::vector<Scalar>
+                constraintResidual(constraintGaps.size(), Scalar(0)),
+                solutionTerm(solution.size(), Scalar(0));
+
+            for (std::size_t iConstraintIteration=0ul; iConstraintIteration<10; ++iConstraintIteration) {
+                // Compute the constraint residual.
+                linalgSpace.assign(constraintResidual, constraintGaps);
+                constraintGradientOperator.product(1, solution, 1, constraintResidual);
+                const Scalar constraintResidualNorm = std::sqrt(linalgSpace.innerProduct(
+                    constraintResidual,
+                    constraintResidual));
+                std::cout << std::format(
+                    "constraint residual at step {}: {:.5E}\n",
+                    iConstraintIteration,
+                    constraintResidualNorm);
+
+                // Apply the lagrange multipliers' update.
+                //constraintGradientOperator.product(
+                //    1, constraintResidual,
+                //    -constraintPenalty, constrainedRHS);
+                linalgSpace.add(
+                    constrainedRHS,
+                    constraintResidual,
+                    -constraintPenalty);
+
+                if (solver == "cg") {
+                    solveCG(constrainedLHS, solutionTerm, constrainedRHS, rThreads, solverConfiguration);
+                } else if (solver == "multigrid") {
+                    solveMultigrid(constrainedLHS, solutionTerm, constrainedRHS, rAssembler, rThreads, solverConfiguration);
+                } else if (solver == "jacobi") {
+                    solveJacobi(constrainedLHS, solutionTerm, constrainedRHS, rThreads, solverConfiguration);
+                } else if (solver == "cg-eigen") {
+                    solveEigenCG(constrainedLHS, solutionTerm, constrainedRHS, solverConfiguration);
+                } else if (solver == "llt-eigen") {
+                    solveEigenLLT(constrainedLHS, solutionTerm, constrainedRHS, solverConfiguration);
+                }
+                #ifdef CIE_ENABLE_SYCL
+                else if (solver == "cg-sycl") {
+                    solveSYCLCG(constrainedLHS, solutionTerm, constrainedRHS, solverConfiguration);
+                } else if (solver == "multigrid-sycl") {
+                    solveSYCLMultigrid(constrainedLHS, solutionTerm, constrainedRHS, rAssembler, solverConfiguration);
+                }
+                #endif
+                else CIE_THROW(Exception, std::format("unknown solver \"{}\"", solver))
+
+                // Apply the solution update.
+                linalgSpace.add(solution, solutionTerm, 1);
+                constrainedLHSOperator.product(
+                    1, solutionTerm,
+                    -1, constrainedRHS);
+            } // for iConstraintIteration
+
+            if (!rConfiguration["write-solution"].is<std::nullptr_t>()) {
+                std::ofstream file(rConfiguration["write-solution"].as<std::string>());
+                linalg::io::MatrixMarket::Output io(file);
+                io(solution.data(), solution.size());
+            }
+        CIE_END_EXCEPTION_TRACING
 }
 
 

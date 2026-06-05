@@ -14,15 +14,14 @@ template <
     maths::Expression TDirichlet,
     maths::Expression TAnsatz,
     maths::Expression TEmbedding,
-    CellLike TCell,
-    bool Symmetric>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::DirichletPenaltyIntegrand() noexcept
-    : _penalty(0),
-      _dirichletFunctor(),
-      _ansatzSpace(),
-      _embedding(),
-      _cellInverseTransform(),
-      _cellJacobian()
+    CellLike TCell>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand() noexcept
+    :   _penalty(0),
+        _dirichletFunctor(),
+        _ansatzSpace(),
+        _embedding(),
+        _cellInverseTransform(),
+        _cellJacobian()
 {}
 
 
@@ -30,21 +29,20 @@ template <
     maths::Expression TDirichlet,
     maths::Expression TAnsatz,
     maths::Expression TEmbedding,
-    CellLike TCell,
-    bool Symmetric>
-DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::DirichletPenaltyIntegrand(
+    CellLike TCell>
+DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand(
     Ref<const TDirichlet> rDirichletFunctor,
     const Value penalty,
     Ref<const TAnsatz> rAnsatzSpace,
     Ref<const TEmbedding> rBoundaryTransform,
     Ref<const CellInverseTransform> rCellInverseTransform,
     Ref<const CellJacobian> rCellJacobian)
-        : _penalty(penalty),
-          _dirichletFunctor(rDirichletFunctor),
-          _ansatzSpace(rAnsatzSpace),
-          _embedding(rBoundaryTransform),
-          _cellInverseTransform(rCellInverseTransform),
-          _cellJacobian(rCellJacobian)
+        :   _penalty(penalty),
+            _dirichletFunctor(rDirichletFunctor),
+            _ansatzSpace(rAnsatzSpace),
+            _embedding(rBoundaryTransform),
+            _cellInverseTransform(rCellInverseTransform),
+            _cellJacobian(rCellJacobian)
 {}
 
 
@@ -52,9 +50,8 @@ template <
     maths::Expression TDirichlet,
     maths::Expression TAnsatz,
     maths::Expression TEmbedding,
-    CellLike TCell,
-    bool Symmetric>
-void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::evaluate(
+    CellLike TCell>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const {
@@ -90,17 +87,10 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::e
         _embedding.evaluate(in, boundaryTransformedBuffer, nestedBuffer);
         _cellInverseTransform.evaluate(boundaryTransformedBuffer, cellTransformedBuffer, nestedBuffer);
 
-        if constexpr (Symmetric) {
-            _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer, nestedBuffer);
-            EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
-            EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
-            lhsAdaptor.noalias() = ansatzAdaptor * scaledPenalty * ansatzAdaptor.transpose();
-        } /*Symmetric*/ else {
-            _ansatzSpace.evaluate(
-                cellTransformedBuffer,
-                {out.data(), ansatzCount},
-                nestedBuffer);
-        }
+        _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer, nestedBuffer);
+        EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
+        EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
+        lhsAdaptor.noalias() = ansatzAdaptor * scaledPenalty * ansatzAdaptor.transpose();
 
         // Compute the prescribed state at the given input.
         _dirichletFunctor.evaluate(in, dirichletBuffer, nestedBuffer);
@@ -108,15 +98,13 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::e
         // Compute RHS contribution.
         for (unsigned iStateComponent=0u; iStateComponent<dirichletBuffer.size(); ++iStateComponent) {
             const Value dirichlet = dirichletBuffer[iStateComponent];
-            const std::size_t rhsOffset = Symmetric
-                ? ansatzCount * ansatzCount
-                : ansatzCount;
+            const std::size_t rhsOffset = ansatzCount * ansatzCount;
             std::transform(
                 ansatzBuffer.begin(),
                 ansatzBuffer.end(),
                 out.begin() + rhsOffset + iStateComponent * ansatzCount,
                 [scaledPenalty, dirichlet] (const Value ansatz) -> Value {
-                    return dirichlet * ansatz * scaledPenalty;
+                    return -dirichlet * ansatz * scaledPenalty;
                 });
         } // for iStateComponent
 }
@@ -126,9 +114,8 @@ template <
     maths::Expression TDirichlet,
     maths::Expression TAnsatz,
     maths::Expression TEmbedding,
-    CellLike TCell,
-    bool Symmetric>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::size() const {
+    CellLike TCell>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() const {
     const auto ansatzCount = _ansatzSpace.size();
     return
           ansatzCount * ansatzCount     // <= LHS contribution
@@ -140,9 +127,8 @@ template <
     maths::Expression TDirichlet,
     maths::Expression TAnsatz,
     maths::Expression TEmbedding,
-    CellLike TCell,
-    bool Symmetric>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell,Symmetric>::bufferSize() const noexcept {
+    CellLike TCell>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::bufferSize() const noexcept {
     const std::array<unsigned,4> nestedBufferRequirements {
         _dirichletFunctor.bufferSize(),
         _ansatzSpace.bufferSize(),

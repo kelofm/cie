@@ -181,7 +181,7 @@ CIE_TEST_CASE("Assembler", "[graph]") {
             columnIndices,
             entries);
         std::ofstream file("assembler_test_2d.mm");
-        cie::io::MatrixMarket::Output output(file);
+        linalg::io::MatrixMarket::Output output(file);
         CIE_TEST_CHECK_NOTHROW(
             output(
                 rowCount,

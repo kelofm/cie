@@ -174,8 +174,8 @@ void Assembler::addGraph(
 template <
     TagLike TParallelism,
     concepts::Integer TIndex,
-    concepts::Numeric TLocalScalar,
-    concepts::Numeric TGlobalScalar>
+    class TLocalScalar,
+    class TGlobalScalar>
 void Assembler::addContribution(
     std::span<const TLocalScalar> contribution,
     VertexID cellID,
@@ -214,8 +214,8 @@ void Assembler::addContribution(
 
 template <
     TagLike TParallelism,
-    concepts::Numeric TLocalScalar,
-    concepts::Numeric TGlobalScalar>
+    class TLocalScalar,
+    class TGlobalScalar>
 void Assembler::addContribution(
     std::span<const TLocalScalar> contribution,
     VertexID cellID,
