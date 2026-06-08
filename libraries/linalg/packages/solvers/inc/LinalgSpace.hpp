@@ -2,6 +2,7 @@
 
 // --- STL Includes ---
 #include <concepts>
+#include <span>
 
 
 namespace cie::linalg {
@@ -20,18 +21,21 @@ concept LinalgSpaceLike
         typename T::VectorView;
         typename T::ConstVectorView;
 
-        {space.view(vector)}                                -> std::same_as<typename T::VectorView>;
-        {space.view(constVector)}                           -> std::same_as<typename T::ConstVectorView>;
-        {space.size(constView)}                             -> std::same_as<std::size_t>;
-        {space.size(view)}                                  -> std::same_as<std::size_t>;
-        {space.makeVector(std::size_t())}                   -> std::same_as<typename T::Vector>;
+        {space.view(vector)}                                        -> std::same_as<typename T::VectorView>;
+        {space.view(constVector)}                                   -> std::same_as<typename T::ConstVectorView>;
+        {space.view(std::span<typename T::Value>())}                -> std::same_as<typename T::VectorView>;
+        {space.view(std::span<const typename T::Value>())}          -> std::same_as<typename T::ConstVectorView>;
+        {space.size(constView)}                                     -> std::same_as<std::size_t>;
+        {space.size(view)}                                          -> std::same_as<std::size_t>;
+        {space.makeVector(std::size_t())}                           -> std::same_as<typename T::Vector>;
 
-        {space.innerProduct(constView,constView)}           -> std::same_as<typename T::Value>;
-        {space.scale(view, constView, typename T::Value())} -> std::same_as<void>;
-        {space.scale(view, typename T::Value())}            -> std::same_as<void>;
-        {space.add(view, constView, typename T::Value())}   -> std::same_as<void>;
-        {space.assign(view, constView)}                     -> std::same_as<void>;
-        {space.fill(view, typename T::Value())}             -> std::same_as<void>;
+        {space.innerProduct(constView,constView)}                   -> std::same_as<typename T::Value>;
+        {space.scale(view, constView, typename T::Value())}         -> std::same_as<void>;
+        {space.scale(view, typename T::Value())}                    -> std::same_as<void>;
+        {space.add(view, constView, typename T::Value())}           -> std::same_as<void>;
+        {space.assign(view, constView)}                             -> std::same_as<void>;
+        {space.assign(view, std::span<const typename T::Value>())}  -> std::same_as<void>;
+        {space.fill(view, typename T::Value())}                     -> std::same_as<void>;
 }; // concept LinalgSpaceLike
 
 

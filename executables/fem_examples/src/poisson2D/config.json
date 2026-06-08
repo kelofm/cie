@@ -61,7 +61,7 @@
     "linear-system": {
         "write-lhs" : null,
         "solver": {
-            "type": "cg-sycl",
+            "type": "cg",
             "preconditioner" : {
                 "type" : "inverse-diagonal-operator"
             },

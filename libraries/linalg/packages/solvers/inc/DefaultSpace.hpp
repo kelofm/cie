@@ -25,11 +25,17 @@ public:
 
     constexpr DefaultSpace() noexcept = default;
 
+    DefaultSpace(OptionalRef<mp::ThreadPoolBase> rMaybeThreads) noexcept;
+
     DefaultSpace(Ref<mp::ThreadPoolBase> rThreads);
 
     [[nodiscard]] static VectorView view(Ref<Vector> rVector) noexcept;
 
     [[nodiscard]] static ConstVectorView view(Ref<const Vector> rVector) noexcept;
+
+    [[nodiscard]] static VectorView view(std::span<Value> span) noexcept;
+
+    [[nodiscard]] static ConstVectorView view(std::span<const Value> span) noexcept;
 
     [[nodiscard]] static std::size_t size(ConstVectorView view) noexcept;
 

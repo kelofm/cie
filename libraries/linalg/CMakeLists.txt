@@ -15,11 +15,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
-find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(OpenMP COMPONENTS CXX REQUIRED)
 if (NOT TARGET cieutils)
     find_package(cieutils CONFIG REQUIRED)
 endif()
+find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(OpenMP COMPONENTS CXX REQUIRED)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_compile_options(
@@ -60,9 +60,13 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
                       cie::cieutils
                       Eigen3::Eigen
                       OpenMP::OpenMP_CXX)
-target_include_directories(${PROJECT_NAME}
-                           PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+    INTERFACE
+        "$<INSTALL_INTERFACE:include/cie>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

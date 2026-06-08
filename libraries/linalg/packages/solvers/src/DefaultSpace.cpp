@@ -14,6 +14,12 @@ namespace cie::linalg {
 
 
 template <class T>
+DefaultSpace<T>::DefaultSpace(OptionalRef<mp::ThreadPoolBase> rMaybeThreads) noexcept
+    : _maybeThreads(rMaybeThreads)
+{}
+
+
+template <class T>
 DefaultSpace<T>::DefaultSpace(Ref<mp::ThreadPoolBase> rThreads)
     : _maybeThreads(rThreads)
 {}
@@ -30,6 +36,20 @@ template <class T>
 typename DefaultSpace<T>::ConstVectorView
 DefaultSpace<T>::view(Ref<const Vector> rVector) noexcept {
     return rVector;
+}
+
+
+template <class T>
+typename DefaultSpace<T>::VectorView
+DefaultSpace<T>::view(std::span<Value> span) noexcept {
+    return VectorView(span);
+}
+
+
+template <class T>
+typename DefaultSpace<T>::ConstVectorView
+DefaultSpace<T>::view(std::span<const Value> span) noexcept {
+    return ConstVectorView(span);
 }
 
 

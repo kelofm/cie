@@ -1,0 +1,35 @@
+{
+    "$id" : "/cie/linalg/cg-eigen",
+    "description" : "Settings for configuring Eigen's implementation of conjugate gradients.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "eigen-cg"
+        },
+        "preconditioner" : {
+            "type" : "string",
+            "enum" : ["identity", "diagonal"]
+        },
+        "max-iterations" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 1e3,
+            "description" : "Maximum number of iterations to perform."
+        },
+        "relative-residual" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 1e-6,
+            "description" : "Stop iterating once the residual's 2-norm divided by the initial residual's 2-norm drops below this value."
+        },
+        "verbosity" : {
+            "type" : "integer",
+            "minimum" : 0,
+            "maximum" : 4,
+            "default" : 1,
+            "description" : "Level of logging during iterations (0 - none, 1 - warnings, 2 - summaries, 3 - iteration summaries, 4 - debug)."
+        }
+    },
+    "required" : ["type"],
+    "additionalProperties" : false
+}

@@ -7,10 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
-set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
-set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
-set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
-set(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS                      OFF CACHE BOOL "Enable macros for checking division by zero errors.")
 set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY              ON CACHE BOOL "build shared libraries instead of static ones")
 set(${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE               ON CACHE BOOL "build python bindings for ${PROJECT_NAME}")
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
@@ -22,19 +18,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
 if (NOT TARGET linalg)
     find_package(linalg CONFIG REQUIRED)
-endif()
-
-# Compile definitions
-if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
-    add_compile_definitions(CIE_ENABLE_PROFILING=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_OUT_OF_RANGE_CHECKS)
-    add_compile_definitions(CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    add_compile_definitions(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -71,10 +54,13 @@ endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC cie::linalg)
-target_include_directories(${PROJECT_NAME}
-                           PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           INTERFACE "$<INSTALL_INTERFACE:include/cie>"
-                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+    INTERFACE
+        "$<INSTALL_INTERFACE:include/cie>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

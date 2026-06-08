@@ -50,12 +50,9 @@ ValueType JSONObject::as() const {
 
 
 template <concepts::io::SupportedType ValueType>
-bool JSONObject::is() const
-{
+bool JSONObject::is() const {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return JSONObject::TypeQuery<ValueType>::is( *this );
-
+        return JSONObject::TypeQuery<ValueType>::is( *this );
     CIE_END_EXCEPTION_TRACING
 }
 

@@ -49,6 +49,8 @@ public:
             Ref<SYCLVector<std::remove_const_t<T>>>
         > rVector) noexcept;
 
+    SYCLView(std::span<T> span) noexcept;
+
     [[nodiscard]] std::size_t size() const noexcept;
 
     [[nodiscard]] Ptr<const T> get() const noexcept;
@@ -59,11 +61,7 @@ public:
     [[nodiscard]] operator SYCLView<const T> () const noexcept;
 
 private:
-    std::conditional_t<
-        std::is_const_v<T>,
-        Ptr<const SYCLVector<std::remove_const_t<T>>>,
-        Ptr<SYCLVector<std::remove_const_t<T>>>
-    > _pVector;
+    std::span<T>> _wrapped;
 }; // class SYCLView
 
 
@@ -86,6 +84,10 @@ public:
     [[nodiscard]] static VectorView view(Ref<Vector> rVector) noexcept;
 
     [[nodiscard]] static ConstVectorView view(Ref<const Vector> rVector) noexcept;
+
+    [[nodiscard]] static VectorView view(std::span<Value> span) noexcept;
+
+    [[nodiscard]] static ConstVectorView view(std::span<const Value> span) noexcept;
 
     [[nodiscard]] static std::size_t size(ConstVectorView view) noexcept;
 
