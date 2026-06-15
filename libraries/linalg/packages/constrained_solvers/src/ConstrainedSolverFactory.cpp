@@ -110,11 +110,6 @@ namespace cie {
 CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::DefaultSpace, float, int)
 CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::DefaultSpace, double, int)
 
-#ifdef CIE_ENABLE_SYCL
-    CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::SYCLSpace, float, int)
-    CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::SYCLSpace, double, int)
-#endif
-
 #undef CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY
 
 

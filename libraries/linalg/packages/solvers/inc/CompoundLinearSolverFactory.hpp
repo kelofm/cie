@@ -8,6 +8,7 @@
 
 // --- STL Includes ---
 #include <tuple>
+#include <variant>
 
 
 namespace cie::linalg {

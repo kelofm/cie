@@ -52,33 +52,33 @@ SYCLView<T>::SYCLView(
 
 
 template <class T>
-SYCLView<T>::SYCLView(std::span<T span)
-    : wrapped(span)
+SYCLView<T>::SYCLView(std::span<T> span) noexcept
+    : _wrapped(span)
 {}
 
 
 template <class T>
 std::size_t SYCLView<T>::size() const noexcept {
-    return _span->size();
+    return _wrapped.size();
 }
 
 
 template <class T>
 Ptr<const T> SYCLView<T>::get() const noexcept {
-    return _span.data();
+    return _wrapped.data();
 }
 
 
 template <class T>
 Ptr<T> SYCLView<T>::get() noexcept
 requires (!std::is_const_v<T>) {
-    return _span.data();
+    return _wrapped.data();
 }
 
 
 template <class T>
 SYCLView<T>::operator SYCLView<const T> () const noexcept {
-    return SYCLView<const T>(_span);
+    return SYCLView<const T>(_wrapped);
 }
 
 

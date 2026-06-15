@@ -237,9 +237,9 @@ void registerJacobi(Ref<LinearSolverFactory<
                 std::shared_ptr<SYCLSpace<I>>,
                 CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<SYCLSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
-                        auto pLHSOperator = std::make_shared<CSROperator<I,T,T>>(
+                        auto pLHSOperator = std::make_shared<SYCLCSROperator<I,T,T>>(
                             lhs,
-                            pScalarSpace->getThreads());
+                            pScalarSpace);
                         auto pDiagonalOperator = std::make_shared<DiagonalOperator<SYCLSpace<T>>>(
                             makeDiagonalOperator<T,I,T>(
                                 lhs,
@@ -264,16 +264,16 @@ void registerCG(Ref<LinearSolverFactory<
         SYCLSpace<I>>
     > rFactory) {
         CIE_BEGIN_EXCEPTION_TRACING
-            cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/cg"})"});
+            cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/cg-sycl"})"});
             const auto factory = [&rFactory] (
                 Ref<const cie::io::JSONObject> rConfiguration,
                 std::shared_ptr<SYCLSpace<T>> pScalarSpace,
                 std::shared_ptr<SYCLSpace<I>> pIndexSpace,
                 CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<SYCLSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
-                        auto pLHSOperator = std::make_shared<CSROperator<I,T,T>>(
+                        auto pLHSOperator = std::make_shared<SYCLCSROperator<I,T,T>>(
                             lhs,
-                            pScalarSpace->getThreads());
+                            pScalarSpace);
                         cie::io::JSONObject preconditionerConfiguration = rConfiguration["preconditioner"];
                         auto pMaybePreconditioner = rFactory.make(
                             preconditionerConfiguration,
@@ -289,7 +289,7 @@ void registerCG(Ref<LinearSolverFactory<
                             pLHSOperator,
                             pScalarSpace,
                             pMaybePreconditioner.value(),
-                            typename ConjugateGradients<SYCLSpace<T>>::Statistics {
+                            typename ConjugateGradients<SYCLSpace<T>>::Status {
                                 .iterationCount = static_cast<std::size_t>(rConfiguration["max-iterations"].as<double>()),
                                 .absoluteResidual = static_cast<T>(rConfiguration["absolute-residual"].as<double>()),
                                 .relativeResidual = static_cast<T>(rConfiguration["relative-residual"].as<double>())},
@@ -317,7 +317,7 @@ void LinearSolverFactory<TSS,TIS>::load() {
         CIE_END_EXCEPTION_TRACING
     }
     #ifdef CIE_ENABLE_SYCL
-    else if (std::is_same_v<TSS,SYCLSpace<typename TSS::Value>> && std::is_same_v<TIS,SYCLSpace<typename TIS::Value>>) {
+    else if constexpr (std::is_same_v<TSS,SYCLSpace<typename TSS::Value>> && std::is_same_v<TIS,SYCLSpace<typename TIS::Value>>) {
         CIE_BEGIN_EXCEPTION_TRACING
             registerInverseDiagonal(*this);
             registerJacobi(*this);
@@ -325,7 +325,7 @@ void LinearSolverFactory<TSS,TIS>::load() {
         CIE_END_EXCEPTION_TRACING
     }
     #endif
-    else static_assert(std::is_same_v<TSS,void>, "unsupported LinalgSpace");
+    else static_assert(std::is_same_v<TSS,void> && std::is_same_v<TIS,void>, "unsupported LinalgSpace");
 }
 
 

@@ -207,7 +207,7 @@ void solveSYCLCG(
         auto pLinearOperator = std::make_shared<linalg::SYCLCSROperator<int,Scalar>>(deviceLHS, pSpace);
         auto pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
             linalg::makeDiagonalOperator<Scalar,int,Scalar>(deviceLHS, pSpace));
-        linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
+        linalg::ConjugateGradients<LinalgSpace>::Status settings {
             .iterationCount = rConfiguration["max-iterations"].as<std::size_t>(),
             .absoluteResidual = rConfiguration["absolute-residual"].as<double>(),
             .relativeResidual = rConfiguration["relative-residual"].as<double>()};
@@ -299,7 +299,7 @@ void solveSYCLMultigrid(
                 threshold,
                 pSpace,
                 pMaskSpace);
-            linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
+            linalg::ConjugateGradients<LinalgSpace>::Status settings {
                 .iterationCount = rConfiguration["solver"]["max-iterations"].as<std::size_t>(),
                 .absoluteResidual = rConfiguration["solver"]["absolute-residual"].as<double>(),
                 .relativeResidual = rConfiguration["solver"]["relative-residual"].as<double>()};

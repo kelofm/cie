@@ -8,6 +8,7 @@
 #include "packages/types/inc/Color.hpp"
 
 // --- STL Includes ---
+#include <format>
 #include <iostream>
 
 

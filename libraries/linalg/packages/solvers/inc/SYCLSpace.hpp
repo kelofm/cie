@@ -61,7 +61,7 @@ public:
     [[nodiscard]] operator SYCLView<const T> () const noexcept;
 
 private:
-    std::span<T>> _wrapped;
+    std::span<T> _wrapped;
 }; // class SYCLView
 
 

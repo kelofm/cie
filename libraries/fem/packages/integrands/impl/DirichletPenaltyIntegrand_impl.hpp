@@ -104,7 +104,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
                 ansatzBuffer.end(),
                 out.begin() + rhsOffset + iStateComponent * ansatzCount,
                 [scaledPenalty, dirichlet] (const Value ansatz) -> Value {
-                    return -dirichlet * ansatz * scaledPenalty;
+                    return dirichlet * ansatz * scaledPenalty;
                 });
         } // for iStateComponent
 }

@@ -8,6 +8,7 @@
 // --- STL Includes ---
 #include <unordered_map>
 #include <ranges>
+#include <format>
 
 
 namespace cie {

@@ -55,9 +55,9 @@
     "linear-system": {
         "write-unconstrained-lhs" : null,
         "solver": {
-            "type" : "penalty",
-            "penalty-factor" : 1e6,
-            "max-iterations" : 1e2,
+            "type" : "augmented-lagrange",
+            "penalty-factor" : 1e8,
+            "max-iterations" : 2e2,
             "absolute-residual" : 1e-6,
             "relative-residual" : 1e-6,
             "linear-solver" : {
