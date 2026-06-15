@@ -335,4 +335,19 @@ concept Unsatisfiable
 
 } // namespace cie::concepts
 
+
+namespace cie {
+
+
+template <class T>
+concept NumericLike = concepts::Numeric<T>;
+
+
+template <class T>
+concept IntegerLike = concepts::Integer<T>;
+
+
+} // namespace cie
+
+
 #endif

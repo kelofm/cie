@@ -10,7 +10,6 @@
 
 // --- STL Includes ---
 #include <memory>
-#include <string_view>
 
 
 namespace cie::linalg {

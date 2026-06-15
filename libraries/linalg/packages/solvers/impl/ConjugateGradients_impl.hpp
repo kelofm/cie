@@ -6,9 +6,7 @@
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
 #include "packages/macros/inc/exceptions.hpp"
-#include "packages/maths/inc/Comparison.hpp"
 #include "packages/logging/inc/LoggerSingleton.hpp"
-#include "packages/logging/inc/LogBlock.hpp"
 
 // --- STL Includes ---
 #include <format>
@@ -27,7 +25,7 @@ requires std::is_default_constructible_v<TS>
         std::make_shared<TS>(),
         nullptr,
         {},
-        0)
+        Verbosity::Warnings)
 {}
 
 
@@ -36,9 +34,9 @@ ConjugateGradients<TS>::ConjugateGradients(
     std::shared_ptr<LinearOperator<TS>> pLhs,
     std::shared_ptr<TS> pSpace,
     std::shared_ptr<LinearOperator<TS>> pPreconditioner,
-    Statistics settings,
-    int verbosity)
-    :   IterativeSolver<TS>(settings),
+    Status configuration,
+    Verbosity verbosity)
+    :   IterativeSolver<TS>(configuration),
         _pLhs(pLhs),
         _pPreconditioner(pPreconditioner),
         _pSpace(pSpace),
@@ -60,21 +58,20 @@ void ConjugateGradients<TS>::product(
                 "incompatible vector sizes {} != {}",
                 _pSpace->size(in), systemSize))
 
-        const Statistics settings = this->getConfiguration();
-        std::string report;
-        Statistics stats {
-            .iterationCount = 0,
-            .absoluteResidual = std::numeric_limits<typename TS::Value>::max(),
-            .relativeResidual = std::numeric_limits<typename TS::Value>::max()};
+        const Status settings = this->configuration();
+        Status status {
+            .iterationCount   = {},
+            .absoluteResidual = {},
+            .relativeResidual = {}};
 
         std::optional<utils::LogBlock> maybeLogBlock;
-        if (2 <= _verbosity)
+        if (Verbosity::Termination <= _verbosity)
             maybeLogBlock.emplace("ConjugateGradients", utils::LoggerSingleton::get());
 
         typename TS::Vector solution = _pSpace->makeVector(systemSize);
         _pSpace->assign(solution, out);
 
-        if (settings.iterationCount) {
+        if (settings.iterationCount.has_value() && settings.iterationCount.value()) {
             CIE_BEGIN_EXCEPTION_TRACING
                 // Define buffers.
                 typename TS::Vector search = _pSpace->makeVector(systemSize);
@@ -87,28 +84,25 @@ void ConjugateGradients<TS>::product(
                 _pSpace->assign(residual, in);
                 _pLhs->product(1, solution, -1, residual);
 
-                utils::Comparison<typename TS::Value> comparison;
-
                 // Early exit if the initial residual satisfies the convergence criterion.
                 typename TS::Value residualNorm = _pSpace->innerProduct(residual, residual);
                 typename TS::Value preconditionedNorm = 0;
                 const typename TS::Value initialResidualNorm = std::sqrt(residualNorm);
 
-                stats.absoluteResidual = initialResidualNorm;
-                stats.relativeResidual = 1;
+                status.absoluteResidual = initialResidualNorm;
+                status.relativeResidual = 1;
 
-                if (comparison.less(stats.absoluteResidual, settings.absoluteResidual) || comparison.less(stats.relativeResidual, settings.relativeResidual)) {
-                    if (!this->makeIterationReport(
-                        report,
-                        _verbosity,
-                        ConjugateGradients::ReportType::Termination,
-                        stats,
-                        settings).empty())
-                            maybeLogBlock.value().log(report);
-
-                    this->report(stats);
-                    return;
-                }
+                this->updateStatus(status);
+                if (this->streamLogger().lessEqual(status.absoluteResidual, settings.absoluteResidual, this->streamLogger().scalarComparison())
+                    || this->streamLogger().lessEqual(status.relativeResidual, settings.relativeResidual, this->streamLogger().scalarComparison())) {
+                        this->streamLogger().report(
+                            StatusReportType::Termination,
+                            _verbosity);
+                        return;
+                } else
+                    this->streamLogger().report(
+                        StatusReportType::Iteration,
+                        _verbosity);
 
                 // Compute the initial search direction.
                 if (_pPreconditioner) {
@@ -131,7 +125,7 @@ void ConjugateGradients<TS>::product(
                             0))
                 }
 
-                for (; stats.iterationCount<settings.iterationCount; ++stats.iterationCount) {
+                for (status.iterationCount=0; status.iterationCount.value()<settings.iterationCount.value(); ++status.iterationCount.value()) {
                     // Compute part of the denominator of the search scale.
                     _pLhs->product(0, search, 1, searchProduct);
 
@@ -146,7 +140,7 @@ void ConjugateGradients<TS>::product(
                             static_cast<TS::Value>(0) < denominator,
                             std::format(
                                 "p^T @ A @ p vanished in iteration {}",
-                                stats.iterationCount))
+                                *status.iterationCount))
                         searchScale /= denominator;
                     }
 
@@ -170,28 +164,23 @@ void ConjugateGradients<TS>::product(
                     _pSpace->add(search, maybePreconditionedResidual ? *maybePreconditionedResidual : residual, 1);
 
                     // Check whether the convergence criterion is satisfied.
-                    stats.absoluteResidual = std::sqrt(residualNorm);
-                    stats.relativeResidual = stats.absoluteResidual / initialResidualNorm;
+                    status.absoluteResidual = std::sqrt(residualNorm);
+                    status.relativeResidual = *status.absoluteResidual / initialResidualNorm;
 
-                    if (comparison.less(stats.absoluteResidual, settings.absoluteResidual) || comparison.less(stats.relativeResidual, settings.relativeResidual)) {
-                        if (!this->makeIterationReport(
-                        report,
-                        _verbosity,
-                        ConjugateGradients::ReportType::Termination,
-                        stats,
-                        settings).empty())
-                            maybeLogBlock.value().log(report);
-                        break;
+                    this->updateStatus(status);
+                    if (this->streamLogger().lessEqual(status.absoluteResidual, settings.absoluteResidual, this->streamLogger().scalarComparison())
+                        || this->streamLogger().lessEqual(status.relativeResidual, settings.relativeResidual, this->streamLogger().scalarComparison())
+                        || status.iterationCount.value() == settings.iterationCount.value() - 1) {
+                            this->streamLogger().report(
+                                StatusReportType::Termination,
+                                _verbosity);
+                            break;
                     } else {
-                        if (!this->makeIterationReport(
-                            report,
-                            _verbosity,
-                            ConjugateGradients::ReportType::Iteration,
-                            stats,
-                            settings).empty())
-                                maybeLogBlock.value().log(report);
+                        this->streamLogger().report(
+                            StatusReportType::Iteration,
+                            _verbosity);
                     }
-                } // for stats.iterationCount in range(settings.iterationCount)
+                } // for status.iterationCount in range(settings.iterationCount)
             CIE_END_EXCEPTION_TRACING
         }
 
@@ -205,7 +194,7 @@ void ConjugateGradients<TS>::product(
             _pSpace->add(out, solution, outScale);
         }
 
-        this->report(stats);
+        this->updateStatus(status);
 }
 
 

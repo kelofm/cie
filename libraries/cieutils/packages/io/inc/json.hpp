@@ -301,6 +301,8 @@ public:
         RightRef<JSONObject> rSchema,
         RightRef<JSONSchemaLoader> rLoader);
 
+    JSONSchema(JSONSchema&&) noexcept;
+
     ~JSONSchema();
 
     JSONSchema& operator=(JSONSchema&& rRHS) noexcept;
@@ -312,6 +314,10 @@ public:
     void validateAndFillDefaults(Ref<JSONObject> rJSON) const;
 
 private:
+    JSONSchema(const JSONSchema&) = delete;
+
+    JSONSchema& operator=(const JSONSchema&) = delete;
+
     struct Impl;
     std::unique_ptr<Impl> _pImpl;
 }; // class JSONSchema

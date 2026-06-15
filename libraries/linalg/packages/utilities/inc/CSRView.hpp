@@ -87,7 +87,7 @@ public:
     }
 
 private:
-    TIndex _columnCount;
+    Index _columnCount;
 
     std::span<TIndex> _rowExtents, _columnIndices;
 

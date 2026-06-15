@@ -10,6 +10,8 @@ namespace cie::linalg {
 template <LinalgSpaceLike TSpace>
 class LinearOperator {
 public:
+    using LinalgSpace = TSpace;
+
     virtual ~LinearOperator() = default;
 
     /// @brief Compute a scaled matrix-vector product and add it to the provided output vector.
@@ -32,6 +34,11 @@ public:
         typename TSpace::Value outScale,
         typename TSpace::VectorView out) = 0;
 }; // class LinearOperator
+
+
+template <class T>
+concept LinearOperatorLike
+= std::derived_from<T,LinearOperator<typename T::LinalgSpace>>;
 
 
 } // namespace cie::linalg

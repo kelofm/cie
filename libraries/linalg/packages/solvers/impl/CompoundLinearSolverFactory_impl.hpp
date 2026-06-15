@@ -29,7 +29,7 @@ template <
     LinalgSpaceLike TSourceIndexSpace,
     LinalgSpaceLike TTargetScalarSpace,
     LinalgSpaceLike TTargetIndexSpace>
-class CastSolver final : public LinearOperator<TSourceScalarSpace> {
+class CastSolver final : public LoggedOperator<TSourceScalarSpace> {
 public:
     CastSolver() noexcept = default;
 
@@ -39,7 +39,7 @@ public:
         std::shared_ptr<TSourceIndexSpace> pSourceIndexSpace,
         std::shared_ptr<TTargetScalarSpace> pTargetScalarSpace,
         std::shared_ptr<TTargetIndexSpace> pTargetIndexSpace,
-        Ref<cie::io::JSONObject> rConfiguration,
+        Ref<const cie::io::JSONObject> rConfiguration,
         Ref<const LinearSolverFactory<TTargetScalarSpace,TTargetIndexSpace>> rFactory)
             :   _pOperator(),
                 _lhsRowExtents(pTargetIndexSpace->makeVector(lhs.rowExtents().size())),
@@ -166,7 +166,7 @@ private:
 
 
 template <class ...TFs>
-CompoundLinearSolverFactory<TFs...>::CompoundLinearSolverFactory(Ref<TFs>... rFactories)
+CompoundLinearSolverFactory<TFs...>::CompoundLinearSolverFactory(Ref<const TFs>... rFactories)
     : _pFactories(&rFactories...)
 {}
 
@@ -174,17 +174,17 @@ CompoundLinearSolverFactory<TFs...>::CompoundLinearSolverFactory(Ref<TFs>... rFa
 namespace detail {
 template <class T, class I, class ...TFs, std::size_t ...Is>
 std::optional<std::variant<
-    std::shared_ptr<typename TFs::Solver>...
+    std::shared_ptr<typename TFs::Value>...
 >> compoundFactoryExpansion(
-    Ref<cie::io::JSONObject> rConfiguration,
-    std::tuple<TFs* ...> pFactories,
+    Ref<const cie::io::JSONObject> rConfiguration,
+    std::tuple<const TFs* ...> pFactories,
     std::tuple<std::shared_ptr<typename TFs::ScalarSpace> ...> pScalarSpaces,
     std::tuple<std::shared_ptr<typename TFs::IndexSpace> ...> pIndexSpaces,
     CSRView<const T, const I> lhs,
     bool allowAmbiguous,
     std::index_sequence<Is...>) {
         std::optional<std::variant<
-            std::shared_ptr<typename TFs::Solver>...
+            std::shared_ptr<typename TFs::Value>...
         >> pMaybeOutput;
         CIE_BEGIN_EXCEPTION_TRACING
             CIE_CHECK(
@@ -245,7 +245,7 @@ std::optional<std::variant<
 template <class ...TFs, std::size_t ...Is>
 void compoundFactoryKeyExpansion(
     Ref<std::vector<std::string>> rOutput,
-    std::tuple<TFs*...> pFactories,
+    std::tuple<const TFs*...> pFactories,
     std::index_sequence<Is...>) {
         const auto visitor = [&rOutput] (const auto* pFactory) {
             const auto& rNames = pFactory->keys();
@@ -262,9 +262,9 @@ template <class ...TFs>
 template <class T, class I>
 requires (ct::Match<T>::template Any<typename TFs::Scalar...> && ct::Match<I>::template Any<typename TFs::Index...>)
 std::optional<std::variant<
-    std::shared_ptr<typename TFs::Solver>...
+    std::shared_ptr<typename TFs::Value>...
 >> CompoundLinearSolverFactory<TFs...>::make(
-    Ref<cie::io::JSONObject> rConfiguration,
+    Ref<const cie::io::JSONObject> rConfiguration,
     std::tuple<std::shared_ptr<typename TFs::ScalarSpace>...> pScalarSpace,
     std::tuple<std::shared_ptr<typename TFs::IndexSpace>...> pIndexSpace,
     CSRView<const T, const I> lhs,

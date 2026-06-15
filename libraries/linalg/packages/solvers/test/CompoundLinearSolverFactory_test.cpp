@@ -32,8 +32,8 @@ CIE_TEST_CASE("CompoundLinearSolverFactory", "[solvers]") {
     const auto pScalarSpace2 = std::make_shared<ScalarSpace2>();
     const auto pIndexSpace2 = std::make_shared<IndexSpace2>();
 
-    Ref<Factory1> rFactory1 = Factory1::Singleton::get();
-    Ref<Factory2> rFactory2 = Factory2::Singleton::get();
+    Ref<const Factory1> rFactory1 = Factory1::Singleton<Factory1>::get();
+    Ref<const Factory2> rFactory2 = Factory2::Singleton<Factory2>::get();
     Factory factory(rFactory1, rFactory2);
 
     const std::vector<Index1> rowExtents {0, 1}, columnIndices {0};

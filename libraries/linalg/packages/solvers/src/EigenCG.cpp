@@ -7,10 +7,12 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"
+#include "packages/logging/inc/LoggerSingleton.hpp"
 
 // --- STL Includes ---
 #include <variant>
 #include <format>
+#include <optional>
 
 
 namespace cie::linalg {
@@ -37,9 +39,7 @@ struct EigenCG<T,I>::Impl {
 
     OptionalRef<mp::ThreadPoolBase> maybeThreads;
 
-    typename EigenCG<T,I>::Statistics settings;
-
-    int verbosity;
+    Verbosity verbosity;
 }; // struct Impl
 
 
@@ -61,8 +61,13 @@ EigenCG<T,I>::EigenCG(
     I maxIterations,
     T relativeResidual,
     std::string_view preconditionerName,
+    Verbosity verbosity,
     OptionalRef<mp::ThreadPoolBase> rMaybeThreads)
-        : _pImpl(new Impl) {
+        :   IterativeSolver<DefaultSpace<T>>(typename EigenCG::Status {
+                .iterationCount = static_cast<std::size_t>(maxIterations),
+                .absoluteResidual = T(-1),
+                .relativeResidual = relativeResidual}),
+            _pImpl(new Impl) {
             typename Impl::EigenAdaptor lhsAdaptor(
                 lhs.rowCount(),
                 lhs.columnCount(),
@@ -102,10 +107,7 @@ EigenCG<T,I>::EigenCG(
 
             _pImpl->buffer.resize(lhs.rowCount(), T(0));
             _pImpl->maybeThreads = rMaybeThreads;
-            _pImpl->settings = typename EigenCG::Statistics {
-                .iterationCount = static_cast<std::size_t>(maxIterations),
-                .absoluteResidual = T(0),
-                .relativeResidual = relativeResidual};
+            _pImpl->verbosity = verbosity;
 }
 
 
@@ -116,12 +118,25 @@ void EigenCG<T,I>::product(
     typename Space::Value outScale,
     typename Space::VectorView out) {
         CIE_BEGIN_EXCEPTION_TRACING
+            std::optional<utils::LogBlock> maybeLogBlock;
+            if (Verbosity::Termination <= _pImpl->verbosity)
+                maybeLogBlock.emplace("EigenCG", utils::LoggerSingleton::get());
+
             using EigenSpan        = Eigen::Map<const Eigen::Matrix<T,Eigen::Dynamic,1>>;
             using EigenMutableSpan = Eigen::Map<Eigen::Matrix<T,Eigen::Dynamic,1>>;
 
             EigenSpan inAdaptor(in.data(), in.size(), 1);
             EigenMutableSpan bufferAdaptor(_pImpl->buffer.data(), _pImpl->buffer.size(), 1);
             EigenMutableSpan outAdaptor(out.data(), out.size(), 1);
+
+            typename EigenCG::Status status {
+                .iterationCount   = {},
+                .absoluteResidual = {},
+                .relativeResidual = 1};
+            this->updateStatus(status);
+            this->streamLogger().report(
+                StatusReportType::Iteration,
+                _pImpl->verbosity);
 
             if (inScale == static_cast<T>(0)) {
                 std::visit(
@@ -141,22 +156,25 @@ void EigenCG<T,I>::product(
                     outScale);
             }
 
-            std::string report;
-            typename EigenCG::Statistics stats;
+            this->updateStatus(status);
+            if (Verbosity::Termination <= _pImpl->verbosity) {
+                this->streamLogger().report(
+                    StatusReportType::Iteration,
+                    _pImpl->verbosity);
+            }
 
             std::visit(
                 [&] (const auto& rSolver) {
-                    stats = typename EigenCG::Statistics {
+                    status = typename EigenCG::Status {
                         .iterationCount   = static_cast<std::size_t>(rSolver.iterations()),
-                        .absoluteResidual = std::numeric_limits<T>::quiet_NaN(),
+                        .absoluteResidual = {},
                         .relativeResidual = rSolver.error()};},
                 _pImpl->solver);
-            this->makeIterationReport(
-                report,
-                _pImpl->verbosity,
-                EigenCG::ReportType::Termination,
-                stats,
-                _pImpl->settings);
+
+            this->updateStatus(status);
+            this->streamLogger().report(
+                StatusReportType::Termination,
+                _pImpl->verbosity);
         CIE_END_EXCEPTION_TRACING
 }
 

@@ -3,62 +3,42 @@
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/SYCLSpace.hpp"
 
-// --- Utility Includes ---
-#include "packages/types/inc/Color.hpp"
-
-// --- STL Includes ---
-#include <format>
-#include <sstream>
-
 
 namespace cie::linalg {
 
 
 template <LinalgSpaceLike TS>
-Ref<std::string> IterativeSolver<TS>::makeIterationReport(
-    Ref<std::string> rOutput,
-    int verbosity,
-    ReportType reportType,
-    Ref<const Statistics> rStatus,
-    Ref<const Statistics> rSettings) const {
-        rOutput.clear();
-        std::stringstream message;
-        const bool converged = rStatus.absoluteResidual < rSettings.absoluteResidual || rStatus.relativeResidual < rSettings.relativeResidual;
-
-        if (2 <= verbosity) {
-            if (rStatus.iterationCount == 0) {
-                message << "+ --------- + ----------------- + ----------------- +\n"
-                        << "| iteration | absolute residual | relative residual |\n"
-                        << "+ --------- + ----------------- + ----------------- +";
-            }
-
-            if (reportType == ReportType::Termination || converged || (3 <= verbosity && reportType == ReportType::Iteration)) {
-                if (rStatus.iterationCount == 0) {
-                    message << "\n";
-                }
-                message << std::format(
-                    "| {}{:>9}{} | {}{:>17.5E}{} | {}{:>17.5E}{} |",
-                    converged ? RGBAColor::TUMGreen.ANSI() : RGBAColor::TUMOrange.ANSI(),
-                    rStatus.iterationCount,
-                    "\033[0m",
-                    rStatus.absoluteResidual < rSettings.absoluteResidual ? RGBAColor::TUMGreen.ANSI() : RGBAColor::TUMOrange.ANSI(),
-                    rStatus.absoluteResidual,
-                    "\033[0m",
-                    rStatus.relativeResidual < rSettings.relativeResidual ? RGBAColor::TUMGreen.ANSI() : RGBAColor::TUMOrange.ANSI(),
-                    rStatus.relativeResidual,
-                    "\033[0m");
-            }
-
-            if (converged)
-                message << "\n+ --------- + ----------------- + ----------------- +";
-        }
-
-        rOutput = message.str();
-        return rOutput;
+IterativeSolver<TS>::IterativeSolver(Ref<const Status> rConfiguration)
+    : LoggedOperator<TS>() {
+        this->configure(rConfiguration);
 }
 
 
-#define CIE_INSTANTIATE_ITERATIVE_SOLVER(T)                         \
+template <LinalgSpaceLike TS>
+typename IterativeSolver<TS>::Status IterativeSolver<TS>::configuration() const {
+    return this->streamLogger().linearSystemConfiguration();
+}
+
+
+template <LinalgSpaceLike TS>
+typename IterativeSolver<TS>::Status IterativeSolver<TS>::status() const {
+    return this->streamLogger().linearSystemStatus();
+}
+
+
+template <LinalgSpaceLike TS>
+void IterativeSolver<TS>::configure(Ref<const Status> rConfiguration) {
+    this->streamLogger().configureLinearSystem(rConfiguration);
+}
+
+
+template <LinalgSpaceLike TS>
+void IterativeSolver<TS>::updateStatus(Ref<const Status> rStatus) {
+    this->streamLogger().submitLinearSystemStatus(rStatus);
+}
+
+
+#define CIE_INSTANTIATE_ITERATIVE_SOLVER(T)         \
     template class IterativeSolver<DefaultSpace<T>>;
 
 

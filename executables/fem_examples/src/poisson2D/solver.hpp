@@ -20,7 +20,6 @@ void solve(
     std::span<Scalar> rhs,
     linalg::CSRView<Scalar, int> constraintGradients,
     std::span<Scalar> constraintGaps,
-    Scalar constraintPenalty,
     Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
     Ref<const cie::io::JSONObject> rConfiguration);

@@ -25,7 +25,7 @@ void makeSchema(Ref<cie::io::JSONSchema> rSchema) {
                 },
                 "dirichlet-1d" : {"$ref" : "/cie/fem/dirichlet-condition-1d"},
                 "discretization" : {"$ref" : "/cie/fem/discretization"},
-                "linear-system" : {"$ref" : "/cie/fem/linear-system"}
+                "linear-system" : {"$ref" : "/cie/fem/constrained-linear-system"}
             },
             "default" : {
                 "dirichlet-1d" : {},

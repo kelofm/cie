@@ -1,0 +1,22 @@
+{
+    "$id" : "/cie/linalg/augmented-lagrange",
+    "description" : "Settings for an iterative augmented Lagrange-multiplier-based constrained linear solver.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/iterative-solver"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "augmented-lagrange"
+                },
+                "penalty-factor" : {
+                    "type" : "number",
+                    "minimum" : 0,
+                    "default" : 1e4
+                },
+                "linear-solver" : {"$ref" : "/cie/linalg/linear-solver"}
+            }
+        }
+    ],
+    "required" : ["type"]
+}

@@ -4,11 +4,12 @@
     "type" : "object",
     "properties" : {
         "type" : {
-            "const" : "eigen-cg"
+            "const" : "cg-eigen"
         },
         "preconditioner" : {
             "type" : "string",
-            "enum" : ["identity", "diagonal"]
+            "enum" : ["identity", "diagonal"],
+            "default" : "diagonal"
         },
         "max-iterations" : {
             "type" : "number",

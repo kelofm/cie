@@ -987,6 +987,9 @@ JSONSchema::JSONSchema(
 }
 
 
+JSONSchema::JSONSchema(JSONSchema&&) noexcept = default;
+
+
 JSONSchema& JSONSchema::operator=(JSONSchema&&) noexcept = default;
 
 

@@ -3,7 +3,7 @@
 #include "Eigen/src/SparseCholesky/SimplicialCholesky.h"
 
 // --- Linalg Includes ---
-#include "packages/solvers/inc/EigenLLT.hpp"
+#include "packages/solvers/inc/EigenLDLT.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"
@@ -16,12 +16,12 @@ namespace cie::linalg {
 
 
 template <class T, class I>
-struct EigenLLT<T,I>::Impl {
+struct EigenLDLT<T,I>::Impl {
     using EigenMatrix = Eigen::SparseMatrix<T,Eigen::RowMajor,I>;
 
     using EigenAdaptor = Eigen::Map<const EigenMatrix>;
 
-    Eigen::SimplicialLLT<EigenMatrix> solver;
+    Eigen::SimplicialLDLT<EigenMatrix> solver;
 
     std::vector<T> buffer;
 
@@ -32,19 +32,19 @@ struct EigenLLT<T,I>::Impl {
 
 
 template <class T, class I>
-EigenLLT<T,I>::EigenLLT(EigenLLT&&) noexcept = default;
+EigenLDLT<T,I>::EigenLDLT(EigenLDLT&&) noexcept = default;
 
 
 template <class T, class I>
-EigenLLT<T,I>& EigenLLT<T,I>::operator=(EigenLLT&&) noexcept = default;
+EigenLDLT<T,I>& EigenLDLT<T,I>::operator=(EigenLDLT&&) noexcept = default;
 
 
 template <class T, class I>
-EigenLLT<T,I>::~EigenLLT() = default;
+EigenLDLT<T,I>::~EigenLDLT() = default;
 
 
 template <class T, class I>
-EigenLLT<T,I>::EigenLLT(
+EigenLDLT<T,I>::EigenLDLT(
     CSRView<const T,const I> lhs,
     OptionalRef<mp::ThreadPoolBase> rMaybeThreads)
         : _pImpl(new Impl) {
@@ -63,13 +63,13 @@ EigenLLT<T,I>::EigenLLT(
             // Check whether the factorization was successful.
             switch (_pImpl->solver.info()) {
                 case Eigen::ComputationInfo::NoConvergence:
-                    CIE_THROW(Exception, "EigenLLT failed to factorize the input matrix")
+                    CIE_THROW(Exception, "EigenLDLT failed to factorize the input matrix")
                     break;
                 case Eigen::ComputationInfo::InvalidInput:
-                    CIE_THROW(Exception, "Invalid input provided to EigenLLT")
+                    CIE_THROW(Exception, "Invalid input provided to EigenLDLT")
                     break;
                 case Eigen::ComputationInfo::NumericalIssue:
-                    CIE_THROW(Exception, "EigenLLT ran into a numerical issue while factorizing the provided matrix")
+                    CIE_THROW(Exception, "EigenLDLT ran into a numerical issue while factorizing the provided matrix")
                 case Eigen::ComputationInfo::Success:
                     break;
             } // switch solver.info
@@ -80,7 +80,7 @@ EigenLLT<T,I>::EigenLLT(
 
 
 template <class T, class I>
-void EigenLLT<T,I>::product(
+void EigenLDLT<T,I>::product(
     typename Space::Value inScale,
     typename Space::ConstVectorView in,
     typename Space::Value outScale,
@@ -108,7 +108,7 @@ void EigenLLT<T,I>::product(
 }
 
 
-#define CIE_INSTANTIATE_EIGEN_LLT(T, I) template class EigenLLT<T,I>;
+#define CIE_INSTANTIATE_EIGEN_LLT(T, I) template class EigenLDLT<T,I>;
 
 CIE_INSTANTIATE_EIGEN_LLT(float, int)
 CIE_INSTANTIATE_EIGEN_LLT(double, int)

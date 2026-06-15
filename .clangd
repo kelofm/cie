@@ -3,3 +3,5 @@ If:
 CompileFlags:
     CompilationDatabase: build
     Add: [-std=c++20, --include-directory=/home/mate/.local/include/AdaptiveCpp]
+Completion:
+  HeaderInsertion: Never

@@ -11,13 +11,10 @@
     ],
     "dirichlet-1d" : {
         "file-path" : "dirichlet.csv",
-        "penalty-factor": 1e4,
+        "penalty-factor": 1,
         "integration": {
-            "batch-size": 10000,
+            "batch-size": 1e4,
             "device": "host",
-            "max-tree-depth": 6,
-            "min-domain-norm": 1e-06,
-            "min-tree-depth": 0,
             "template": {
                 "order": 11,
                 "type": "gauss-legendre-quadrature"
@@ -36,16 +33,13 @@
             "discard-default-cells" : true
         },
         "integration": {
-            "batch-size": 10000,
+            "type": "kd-tree-quadrature",
+            "batch-size": 1e4,
             "device": "host",
-            "max-tree-depth": 6,
-            "min-domain-norm": 1e-06,
-            "min-tree-depth": 0,
             "template": {
                 "order": 6,
                 "type": "gauss-legendre-quadrature"
-            },
-            "type": "kd-tree-quadrature"
+            }
         },
         "postprocessing": {
             "cell-id": true,
@@ -59,16 +53,17 @@
         }
     },
     "linear-system": {
-        "write-lhs" : null,
+        "write-unconstrained-lhs" : null,
         "solver": {
-            "type": "cg",
-            "preconditioner" : {
-                "type" : "inverse-diagonal-operator"
-            },
-            "max-iterations" : 5e3,
+            "type" : "penalty",
+            "penalty-factor" : 1e6,
+            "max-iterations" : 1e2,
             "absolute-residual" : 1e-6,
             "relative-residual" : 1e-6,
-            "verbosity" : 2
+            "linear-solver" : {
+                "type": "ldlt-eigen"
+            },
+            "verbosity" : 3
         }
     }
 }

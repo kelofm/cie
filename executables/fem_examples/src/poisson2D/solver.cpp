@@ -7,7 +7,9 @@
 #include "poisson2D/solver.hpp"
 
 // --- Linalg Includes ---
+#include "packages/constrained_solvers/inc/ConstrainedSolverFactory.hpp"
 #include "packages/macros/inc/exceptions.hpp"
+#include "packages/solvers/inc/CompoundLinearSolverFactory.hpp"
 #include "packages/utilities/inc/reorder.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/CSROperator.hpp"
@@ -29,85 +31,6 @@
 
 
 namespace cie::fem {
-
-
-void solveEigenCG(
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> solution,
-    std::span<const Scalar> rhs,
-    Ref<const cie::io::JSONObject> rConfiguration) {
-        using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
-        Eigen::Map<EigenSparseMatrix> lhsAdaptor(
-            lhs.rowCount(),
-            lhs.columnCount(),
-            lhs.entries().size(),
-            lhs.rowExtents().data(),
-            lhs.columnIndices().data(),
-            lhs.entries().data());
-        Eigen::Map<const Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
-        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
-        Eigen::ConjugateGradient<
-            EigenSparseMatrix,
-            Eigen::Lower | Eigen::Upper,
-            Eigen::DiagonalPreconditioner<Scalar>
-        > solver;
-        solver.setMaxIterations(rConfiguration["max-iterations"].as<std::size_t>());
-        solver.setTolerance(rConfiguration["relative-residual"].as<double>());
-
-        solver.compute(lhsAdaptor);
-        solutionAdaptor = solver.solve(rhsAdaptor);
-
-        if (2 <= rConfiguration["verbosity"].as<int>())
-            std::cout << solver.iterations() << " iterations "
-                    << solver.error()      << " residual\n";
-} // solveEigenCG
-
-
-void solveEigenLLT(
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> solution,
-    std::span<const Scalar> rhs,
-    Ref<const cie::io::JSONObject>) {
-        using EigenSparseMatrix = Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>;
-        Eigen::Map<EigenSparseMatrix> lhsAdaptor(
-            lhs.rowCount(),
-            lhs.columnCount(),
-            lhs.entries().size(),
-            lhs.rowExtents().data(),
-            lhs.columnIndices().data(),
-            lhs.entries().data());
-        Eigen::Map<const Eigen::Matrix<Scalar,Eigen::Dynamic,1>> rhsAdaptor(rhs.data(), rhs.size(), 1);
-        Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(solution.data(), solution.size(), 1);
-        Eigen::SimplicialLLT<EigenSparseMatrix> solver;
-        solver.compute(lhsAdaptor);
-        solutionAdaptor = solver.solve(rhsAdaptor);
-} // solveEigenLLT
-
-
-void solveCG(
-    linalg::CSRView<Scalar,int> lhs,
-    std::span<Scalar> solution,
-    std::span<const Scalar> rhs,
-    Ref<mp::ThreadPoolBase> rThreads,
-    Ref<const cie::io::JSONObject> rConfiguration) {
-        using LinalgSpace = linalg::DefaultSpace<Scalar>;
-        auto pSpace = std::make_shared<LinalgSpace>(rThreads);
-        auto pLinearOperator = std::make_shared<linalg::CSROperator<int,Scalar>>(lhs, rThreads);
-        std::shared_ptr<linalg::LinearOperator<LinalgSpace>> pPreconditioner;
-        pPreconditioner = std::make_shared<linalg::DiagonalOperator<LinalgSpace>>(
-            linalg::makeDiagonalOperator<Scalar,int,Scalar>(lhs, pSpace));
-        linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
-            .iterationCount = rConfiguration["max-iterations"].as<std::size_t>(),
-            .absoluteResidual = rConfiguration["absolute-residual"].as<double>(),
-            .relativeResidual = rConfiguration["relative-residual"].as<double>()};
-        linalg::ConjugateGradients<LinalgSpace> solver(
-            pLinearOperator,
-            pSpace,
-            pPreconditioner,
-            settings,
-            rConfiguration["verbosity"].as<int>());
-        solver.product(0, rhs, 1, solution);
-}
 
 
 void solveMultigrid(
@@ -156,7 +79,7 @@ void solveMultigrid(
                 ansatzMask,
                 threshold,
                 rThreads);
-            linalg::ConjugateGradients<LinalgSpace>::Statistics settings {
+            linalg::ConjugateGradients<LinalgSpace>::Status settings {
                 .iterationCount = rConfiguration["solver"]["max-iterations"].as<std::size_t>(),
                 .absoluteResidual = rConfiguration["solver"]["absolute-residual"].as<double>(),
                 .relativeResidual = rConfiguration["solver"]["relative-residual"].as<double>()};
@@ -165,7 +88,7 @@ void solveMultigrid(
                 pSpace,
                 pInverseDiagonal,
                 settings,
-                /*verbosity=*/1);
+                linalg::Verbosity::Warnings);
             auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
                 pSpace,
                 pMaskSpace,
@@ -293,7 +216,7 @@ void solveSYCLCG(
             pSpace,
             pPreconditioner,
             settings,
-            rConfiguration["verbosity"].as<int>());
+            static_cast<linalg::Verbosity>(rConfiguration["verbosity"].as<int>()));
 
         // Solve the system.
         solver.product(0, deviceRHS, 1, deviceSolution);
@@ -385,7 +308,7 @@ void solveSYCLMultigrid(
                 pSpace,
                 pInverseDiagonal,
                 settings,
-                rConfiguration["solver"]["verbosity"].as<int>());
+                static_cast<linalg::Verbosity>(rConfiguration["solver"]["verbosity"].as<int>()));
             auto pRestriction = std::make_shared<linalg::MaskedIdentityOperator<LinalgSpace,MaskSpace>>(
                 pSpace,
                 pMaskSpace,
@@ -514,7 +437,6 @@ void solve(
     std::span<Scalar> rhs,
     linalg::CSRView<Scalar, int> constraintGradients,
     std::span<Scalar> constraintGaps,
-    Scalar constraintPenalty,
     Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
     Ref<const cie::io::JSONObject> rConfiguration) {
@@ -570,108 +492,54 @@ void solve(
                 rAssembler.reorder<int>(reordering);
             }
 
-            // Preprocess constraints.
-            std::vector<int> constrainedRowExtents, constrainedColumnIndices;
-            std::vector<Scalar> constrainedEntries, constrainedRHS(rhs.begin(), rhs.end());
-
-            linalg::DefaultSpace<Scalar>(rThreads).add(
-                constrainedRHS,
-                constraintGaps,
-                -constraintPenalty);
-
-            //linalg::CSRUtility<Scalar,int>(rThreads).symmetricProduct(
-            //    constrainedRowExtents, constrainedColumnIndices, constrainedEntries,
-            //    constraintGradients);
-            constrainedRowExtents.insert(constrainedRowExtents.end(), constraintGradients.rowExtents().begin(), constraintGradients.rowExtents().end());
-            constrainedColumnIndices.insert(constrainedColumnIndices.end(), constraintGradients.columnIndices().begin(), constraintGradients.columnIndices().end());
-            constrainedEntries.insert(constrainedEntries.end(), constraintGradients.entries().begin(), constraintGradients.entries().end());
-            linalg::CSRUtility<Scalar,int>(rThreads).sum(
-                constrainedRowExtents,
-                constrainedColumnIndices,
-                constrainedEntries,
-                lhs,
-                constraintPenalty);
-            linalg::CSRView<Scalar,int> constrainedLHS(
-                constraintGradients.columnCount(),
-                constrainedRowExtents,
-                constrainedColumnIndices,
-                constrainedEntries);
-
             // Output system components if requested.
-            if (!rConfiguration["write-lhs"].is<std::nullptr_t>()) {
-                std::ofstream file(rConfiguration["write-lhs"].as<std::string>());
+            if (!rConfiguration["write-unconstrained-lhs"].is<std::nullptr_t>()) {
+                std::ofstream file(rConfiguration["write-unconstrained-lhs"].as<std::string>());
                 linalg::io::MatrixMarket::Output io(file);
-                io(constrainedLHS);
+                io(lhs);
             }
 
-            if (!rConfiguration["write-rhs"].is<std::nullptr_t>()) {
-                std::ofstream file(rConfiguration["write-rhs"].as<std::string>());
+            if (!rConfiguration["write-unconstrained-rhs"].is<std::nullptr_t>()) {
+                std::ofstream file(rConfiguration["write-unconstrained-rhs"].as<std::string>());
                 linalg::io::MatrixMarket::Output io(file);
-                io(constrainedRHS);
+                io(rhs);
             }
 
-            // @todo Parse solver configuration properly.
-            const auto solverConfiguration = rConfiguration["solver"];
-            const std::string solver = solverConfiguration["type"].as<std::string>();
+            linalg::LinearSolverFactory<
+                linalg::DefaultSpace<Scalar>,
+                linalg::DefaultSpace<int>> linearSolverFactory;
 
-            // Compute initial constraint residuals.
-            linalg::DefaultSpace<Scalar> linalgSpace(rThreads);
-            linalg::CSROperator<int,Scalar,Scalar> constraintGradientOperator(constraintGradients, rThreads);
-            linalg::CSROperator<int,Scalar,Scalar> constrainedLHSOperator(constrainedLHS, rThreads);
-            std::vector<Scalar>
-                constraintResidual(constraintGaps.size(), Scalar(0)),
-                solutionTerm(solution.size(), Scalar(0));
+            CIE_BEGIN_EXCEPTION_TRACING
+                linearSolverFactory.load();
+            CIE_END_EXCEPTION_TRACING
 
-            for (std::size_t iConstraintIteration=0ul; iConstraintIteration<10; ++iConstraintIteration) {
-                // Compute the constraint residual.
-                linalgSpace.assign(constraintResidual, constraintGaps);
-                constraintGradientOperator.product(1, solution, 1, constraintResidual);
-                const Scalar constraintResidualNorm = std::sqrt(linalgSpace.innerProduct(
-                    constraintResidual,
-                    constraintResidual));
-                std::cout << std::format(
-                    "constraint residual at step {}: {:.5E}\n",
-                    iConstraintIteration,
-                    constraintResidualNorm);
+            linalg::ConstrainedSolverFactory<
+                linalg::DefaultSpace<Scalar>,
+                linalg::DefaultSpace<int>> constrainedSolverFactory;
 
-                // Apply the lagrange multipliers' update.
-                //constraintGradientOperator.product(
-                //    1, constraintResidual,
-                //    -constraintPenalty, constrainedRHS);
-                linalgSpace.add(
-                    constrainedRHS,
-                    constraintResidual,
-                    -constraintPenalty);
+            CIE_BEGIN_EXCEPTION_TRACING
+                constrainedSolverFactory.load();
+            CIE_END_EXCEPTION_TRACING
 
-                if (solver == "cg") {
-                    solveCG(constrainedLHS, solutionTerm, constrainedRHS, rThreads, solverConfiguration);
-                } else if (solver == "multigrid") {
-                    solveMultigrid(constrainedLHS, solutionTerm, constrainedRHS, rAssembler, rThreads, solverConfiguration);
-                } else if (solver == "jacobi") {
-                    solveJacobi(constrainedLHS, solutionTerm, constrainedRHS, rThreads, solverConfiguration);
-                } else if (solver == "cg-eigen") {
-                    solveEigenCG(constrainedLHS, solutionTerm, constrainedRHS, solverConfiguration);
-                } else if (solver == "llt-eigen") {
-                    solveEigenLLT(constrainedLHS, solutionTerm, constrainedRHS, solverConfiguration);
-                }
-                #ifdef CIE_ENABLE_SYCL
-                else if (solver == "cg-sycl") {
-                    solveSYCLCG(constrainedLHS, solutionTerm, constrainedRHS, solverConfiguration);
-                } else if (solver == "multigrid-sycl") {
-                    solveSYCLMultigrid(constrainedLHS, solutionTerm, constrainedRHS, rAssembler, solverConfiguration);
-                }
-                #endif
-                else CIE_THROW(Exception, std::format("unknown solver \"{}\"", solver))
+            CIE_BEGIN_EXCEPTION_TRACING
+                const auto pMaybeConstrainedOperator = constrainedSolverFactory.make(
+                    rConfiguration["solver"],
+                    std::make_shared<linalg::DefaultSpace<Scalar>>(rThreads),
+                    std::make_shared<linalg::DefaultSpace<int>>(rThreads),
+                    constraintGradients,
+                    constraintGaps,
+                    lhs,
+                    linearSolverFactory);
+                CIE_CHECK(
+                    pMaybeConstrainedOperator.has_value(),
+                    std::format(
+                        "\"{}\" does not name a registered constrained linear solver",
+                        rConfiguration["solver"]["type"].as<std::string>()))
+                pMaybeConstrainedOperator.value()->product(0, rhs, 1, solution);
+            CIE_END_EXCEPTION_TRACING
 
-                // Apply the solution update.
-                linalgSpace.add(solution, solutionTerm, 1);
-                constrainedLHSOperator.product(
-                    1, solutionTerm,
-                    -1, constrainedRHS);
-            } // for iConstraintIteration
-
-            if (!rConfiguration["write-solution"].is<std::nullptr_t>()) {
-                std::ofstream file(rConfiguration["write-solution"].as<std::string>());
+            if (!rConfiguration["write-unconstrained-solution"].is<std::nullptr_t>()) {
+                std::ofstream file(rConfiguration["write-unconstrained-solution"].as<std::string>());
                 linalg::io::MatrixMarket::Output io(file);
                 io(solution.data(), solution.size());
             }

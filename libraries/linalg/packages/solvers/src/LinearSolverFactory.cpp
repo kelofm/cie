@@ -8,84 +8,16 @@
 #include "packages/solvers/inc/ConjugateGradients.hpp"
 #include "packages/solvers/inc/EigenCG.hpp"
 #include "packages/solvers/inc/EigenLLT.hpp"
+#include "packages/solvers/inc/EigenLDLT.hpp"
 #include "packages/solvers/inc/SYCLCSROperator.hpp"
 
 // --- Utility Includes ---
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/io/inc/json.hpp"
+#include "packages/registry/impl/FactoryRegistry_impl.hpp"
 
 
 namespace cie::linalg {
-
-
-template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-std::optional<std::shared_ptr<LinearOperator<TSS>>> LinearSolverFactory<TSS,TIS>::make(
-    Ref<cie::io::JSONObject> rConfiguration,
-    std::shared_ptr<ScalarSpace> pScalarSpace,
-    std::shared_ptr<IndexSpace> pIndexSpace,
-    CSRView<const Scalar,const Index> lhs) const {
-        CIE_CHECK(
-            rConfiguration.hasKey("type") && rConfiguration["type"].is<std::string>(),
-            std::format(
-                "expecting linear solver configuration to specify a solver's name as \"type\", but got {}",
-                [&rConfiguration](){std::stringstream m; m<<rConfiguration;return m.str();}()))
-
-        CIE_BEGIN_EXCEPTION_TRACING
-            const std::string& name = rConfiguration["type"].as<std::string>();
-            const auto it = _registry.find(name);
-            if (it == _registry.end()) return {};
-            CIE_BEGIN_EXCEPTION_TRACING
-                cie::io::JSONSchema validator(it->second.schema);
-                validator.validateAndFillDefaults(rConfiguration);
-            CIE_END_EXCEPTION_TRACING
-            CIE_BEGIN_EXCEPTION_TRACING
-                return it->second.factory(
-                    rConfiguration,
-                    pScalarSpace,
-                    pIndexSpace,
-                    lhs);
-            CIE_END_EXCEPTION_TRACING
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-cie::io::JSONObject LinearSolverFactory<TSS,TIS>::makeSchema(Ref<const std::string> rName) const {
-    const auto it = _registry.find(rName);
-    CIE_CHECK(
-        it != _registry.end(),
-        std::format(
-            "\"{}\" does not name a registered linear solver",
-            rName))
-    return it->second.schema;
-}
-
-
-template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-void LinearSolverFactory<TSS,TIS>::insert(
-    Ref<const std::string> rName,
-    Ref<const cie::io::JSONObject> rSchema,
-    Ref<const FactoryFunctor> rFactory) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            const bool emplaced = _registry.emplace(
-                rName,
-                Entry {
-                    .schema = rSchema,
-                    .factory = rFactory}).second;
-            CIE_CHECK(
-                emplaced,
-                std::format(
-                    "attempt to re-register linear solver \"{}\"",
-                    rName))
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-void LinearSolverFactory<TSS,TIS>::erase(Ref<const std::string> rName) {
-    const auto it = _registry.find(rName);
-    if (it != _registry.end()) _registry.erase(it);
-}
 
 
 template <class T, class I>
@@ -96,12 +28,12 @@ void registerInverseDiagonal(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/inverse-diagonal-operator"})"});
             const auto factory = [] (
-                Ref<cie::io::JSONObject>,
+                Ref<const cie::io::JSONObject>,
                 std::shared_ptr<DefaultSpace<T>> pScalarSpace,
                 std::shared_ptr<DefaultSpace<I>>,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<DefaultSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<DefaultSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
-                        return std::make_shared<DiagonalOperator<DefaultSpace<T>>>(
+                        return makeLoggedOperator<DiagonalOperator<DefaultSpace<T>>>(
                             makeDiagonalOperator<T,I,T>(
                                 lhs,
                                 pScalarSpace));
@@ -120,10 +52,10 @@ void registerJacobi(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/jacobi"})"});
             const auto factory = [] (
-                Ref<cie::io::JSONObject> rConfiguration,
+                Ref<const cie::io::JSONObject> rConfiguration,
                 std::shared_ptr<DefaultSpace<T>> pScalarSpace,
                 std::shared_ptr<DefaultSpace<I>>,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<DefaultSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<DefaultSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
                         auto pLHSOperator = std::make_shared<CSROperator<I,T,T>>(
                             lhs,
@@ -132,7 +64,7 @@ void registerJacobi(Ref<LinearSolverFactory<
                             makeDiagonalOperator<T,I,T>(
                                 lhs,
                                 pScalarSpace));
-                        return std::make_shared<JacobiOperator<DefaultSpace<T>>>(
+                        return makeLoggedOperator<JacobiOperator<DefaultSpace<T>>>(
                             pScalarSpace,
                             lhs.rowCount(),
                             pLHSOperator,
@@ -154,15 +86,15 @@ void registerCG(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/cg"})"});
             const auto factory = [&rFactory] (
-                Ref<cie::io::JSONObject> rConfiguration,
+                Ref<const cie::io::JSONObject> rConfiguration,
                 std::shared_ptr<DefaultSpace<T>> pScalarSpace,
                 std::shared_ptr<DefaultSpace<I>> pIndexSpace,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<DefaultSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<DefaultSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
                         auto pLHSOperator = std::make_shared<CSROperator<I,T,T>>(
                             lhs,
                             pScalarSpace->getThreads());
-                        cie::io::JSONObject preconditionerConfiguration = rConfiguration["preconditioner"];
+                        const cie::io::JSONObject preconditionerConfiguration = rConfiguration["preconditioner"];
                         std::optional<std::shared_ptr<LinearOperator<DefaultSpace<T>>>> pMaybePreconditioner;
                         if (!preconditionerConfiguration.is<std::nullptr_t>()) {
                             pMaybePreconditioner = rFactory.make(
@@ -180,11 +112,11 @@ void registerCG(Ref<LinearSolverFactory<
                             pLHSOperator,
                             pScalarSpace,
                             pMaybePreconditioner.has_value() ? pMaybePreconditioner.value() : nullptr,
-                            typename ConjugateGradients<DefaultSpace<T>>::Statistics {
+                            typename ConjugateGradients<DefaultSpace<T>>::Status {
                                 .iterationCount = static_cast<std::size_t>(rConfiguration["max-iterations"].as<double>()),
                                 .absoluteResidual = static_cast<T>(rConfiguration["absolute-residual"].as<double>()),
                                 .relativeResidual = static_cast<T>(rConfiguration["relative-residual"].as<double>())},
-                            rConfiguration["verbosity"].as<int>());
+                            static_cast<Verbosity>(rConfiguration["verbosity"].as<int>()));
                     CIE_END_EXCEPTION_TRACING
                 };
             rFactory.insert("cg", schema, factory);
@@ -200,16 +132,17 @@ void registerEigenCG(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/cg-eigen"})"});
             const auto factory = [] (
-                Ref<cie::io::JSONObject> rConfiguration,
+                Ref<const cie::io::JSONObject> rConfiguration,
                 std::shared_ptr<DefaultSpace<T>> pScalarSpace,
                 std::shared_ptr<DefaultSpace<I>>,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<DefaultSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<DefaultSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
                         return std::make_shared<EigenCG<T,I>>(
                             lhs,
                             static_cast<I>(rConfiguration["max-iterations"].as<double>()),
-                            static_cast<T>(rConfiguration["absolute-residual"].as<double>()),
+                            static_cast<T>(rConfiguration["relative-residual"].as<double>()),
                             rConfiguration["preconditioner"].as<std::string>(),
+                            static_cast<Verbosity>(rConfiguration["verbosity"].as<int>()),
                             pScalarSpace->getThreads());
                     CIE_END_EXCEPTION_TRACING
                 };
@@ -226,17 +159,40 @@ void registerEigenLLT(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/llt-eigen"})"});
             const auto factory = [] (
-                Ref<cie::io::JSONObject>,
+                Ref<const cie::io::JSONObject>,
                 std::shared_ptr<DefaultSpace<T>> pScalarSpace,
                 std::shared_ptr<DefaultSpace<I>>,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<DefaultSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<DefaultSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
-                        return std::make_shared<EigenLLT<T,I>>(
+                        return makeLoggedOperator<EigenLLT<T,I>>(
                             lhs,
                             pScalarSpace->getThreads());
                     CIE_END_EXCEPTION_TRACING
                 };
             rFactory.insert("llt-eigen", schema, factory);
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class T, class I>
+void registerEigenLDLT(Ref<LinearSolverFactory<
+        DefaultSpace<T>,
+        DefaultSpace<I>>
+    > rFactory) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/ldlt-eigen"})"});
+            const auto factory = [] (
+                Ref<const cie::io::JSONObject>,
+                std::shared_ptr<DefaultSpace<T>> pScalarSpace,
+                std::shared_ptr<DefaultSpace<I>>,
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<DefaultSpace<T>>> {
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        return makeLoggedOperator<EigenLDLT<T,I>>(
+                            lhs,
+                            pScalarSpace->getThreads());
+                    CIE_END_EXCEPTION_TRACING
+                };
+            rFactory.insert("ldlt-eigen", schema, factory);
         CIE_END_EXCEPTION_TRACING
 }
 
@@ -252,12 +208,12 @@ void registerInverseDiagonal(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/inverse-diagonal-operator-sycl"})"});
             const auto factory = [] (
-                Ref<cie::io::JSONObject>,
+                Ref<const cie::io::JSONObject>,
                 std::shared_ptr<SYCLSpace<T>> pScalarSpace,
                 std::shared_ptr<SYCLSpace<I>>,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<SYCLSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<SYCLSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
-                        return std::make_shared<DiagonalOperator<SYCLSpace<T>>>(
+                        return makeLoggedOperator<DiagonalOperator<SYCLSpace<T>>>(
                             makeDiagonalOperator<T,I,T>(
                                 lhs,
                                 pScalarSpace));
@@ -276,10 +232,10 @@ void registerJacobi(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/jacobi-sycl"})"});
             const auto factory = [] (
-                Ref<cie::io::JSONObject> rConfiguration,
+                Ref<const cie::io::JSONObject> rConfiguration,
                 std::shared_ptr<SYCLSpace<T>> pScalarSpace,
                 std::shared_ptr<SYCLSpace<I>>,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<SYCLSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<SYCLSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
                         auto pLHSOperator = std::make_shared<CSROperator<I,T,T>>(
                             lhs,
@@ -288,7 +244,7 @@ void registerJacobi(Ref<LinearSolverFactory<
                             makeDiagonalOperator<T,I,T>(
                                 lhs,
                                 pScalarSpace));
-                        return std::make_shared<JacobiOperator<SYCLSpace<T>>>(
+                        return makeLoggedOperator<JacobiOperator<SYCLSpace<T>>>(
                             pScalarSpace,
                             lhs.rowCount(),
                             pLHSOperator,
@@ -310,10 +266,10 @@ void registerCG(Ref<LinearSolverFactory<
         CIE_BEGIN_EXCEPTION_TRACING
             cie::io::JSONObject schema(std::string {R"({"$ref" : "/cie/linalg/cg"})"});
             const auto factory = [&rFactory] (
-                Ref<cie::io::JSONObject> rConfiguration,
+                Ref<const cie::io::JSONObject> rConfiguration,
                 std::shared_ptr<SYCLSpace<T>> pScalarSpace,
                 std::shared_ptr<SYCLSpace<I>> pIndexSpace,
-                CSRView<const T,const I> lhs) -> std::shared_ptr<LinearOperator<SYCLSpace<T>>> {
+                CSRView<const T,const I> lhs) -> std::shared_ptr<LoggedOperator<SYCLSpace<T>>> {
                     CIE_BEGIN_EXCEPTION_TRACING
                         auto pLHSOperator = std::make_shared<CSROperator<I,T,T>>(
                             lhs,
@@ -337,7 +293,7 @@ void registerCG(Ref<LinearSolverFactory<
                                 .iterationCount = static_cast<std::size_t>(rConfiguration["max-iterations"].as<double>()),
                                 .absoluteResidual = static_cast<T>(rConfiguration["absolute-residual"].as<double>()),
                                 .relativeResidual = static_cast<T>(rConfiguration["relative-residual"].as<double>())},
-                            rConfiguration["verbosity"].as<int>());
+                            static_cast<Verbosity>(rConfiguration["verbosity"].as<int>()));
                     CIE_END_EXCEPTION_TRACING
                 };
             rFactory.insert("cg-sycl", schema, factory);
@@ -349,54 +305,54 @@ void registerCG(Ref<LinearSolverFactory<
 
 
 template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-Ref<LinearSolverFactory<TSS,TIS>> LinearSolverFactory<TSS,TIS>::Singleton::get() {
-    if (!_maybeFactory.has_value()) {
-        _maybeFactory.emplace();
-        Ref<LinearSolverFactory<TSS,TIS>> rFactory = _maybeFactory.value();
-
-        if constexpr (std::is_same_v<TSS,DefaultSpace<typename TSS::Value>> && std::is_same_v<TIS,DefaultSpace<typename TIS::Value>>) {
-            CIE_BEGIN_EXCEPTION_TRACING
-                registerInverseDiagonal(rFactory);
-                registerJacobi(rFactory);
-                registerCG(rFactory);
-                registerEigenCG(rFactory);
-                registerEigenLLT(rFactory);
-            CIE_END_EXCEPTION_TRACING
-        }
-        #ifdef CIE_ENABLE_SYCL
-        else if (std::is_same_v<TSS,SYCLSpace<typename TSS::Value>> && std::is_same_v<TIS,SYCLSpace<typename TIS::Value>>) {
-            CIE_BEGIN_EXCEPTION_TRACING
-                registerInverseDiagonal(rFactory);
-                registerJacobi(rFactory);
-                registerCG(rFactory);
-            CIE_END_EXCEPTION_TRACING
-        }
-        #endif
-        else static_assert(std::is_same_v<TSS,void>, "unsupported LinalgSpace");
-    } // if !_maybeFactory.has_value()
-    return _maybeFactory.value();
+void LinearSolverFactory<TSS,TIS>::load() {
+    if constexpr (std::is_same_v<TSS,DefaultSpace<typename TSS::Value>> && std::is_same_v<TIS,DefaultSpace<typename TIS::Value>>) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            registerInverseDiagonal(*this);
+            registerJacobi(*this);
+            registerCG(*this);
+            registerEigenCG(*this);
+            registerEigenLLT(*this);
+            registerEigenLDLT(*this);
+        CIE_END_EXCEPTION_TRACING
+    }
+    #ifdef CIE_ENABLE_SYCL
+    else if (std::is_same_v<TSS,SYCLSpace<typename TSS::Value>> && std::is_same_v<TIS,SYCLSpace<typename TIS::Value>>) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            registerInverseDiagonal(*this);
+            registerJacobi(*this);
+            registerCG(*this);
+        CIE_END_EXCEPTION_TRACING
+    }
+    #endif
+    else static_assert(std::is_same_v<TSS,void>, "unsupported LinalgSpace");
 }
 
 
-template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-void LinearSolverFactory<TSS,TIS>::Singleton::clear() {
-    _maybeFactory.reset();
-}
+} // namespace cie::linalg
 
 
-template <LinalgSpaceLike TSS, LinalgSpaceLike TIS>
-std::optional<LinearSolverFactory<TSS,TIS>> LinearSolverFactory<TSS,TIS>::Singleton::_maybeFactory = {};
+namespace cie {
 
 
-#define CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(TSpace, TValue, TIndex)   \
-    template class LinearSolverFactory<TSpace<TValue>,TSpace<TIndex>>;
+#define CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(TS, T, I)                 \
+    template class FactoryRegistry<                                     \
+        linalg::LoggedOperator<TS<T>>,                                  \
+        std::shared_ptr<TS<T>>,                                         \
+        std::shared_ptr<TS<I>>,                                         \
+        linalg::CSRView<                                                \
+            const T,                                                    \
+            const I>>;                                                  \
+    template class linalg::LinearSolverFactory<TS<T>,TS<I>>;            \
+    template class linalg::LinearSolverFactory<TS<T>,TS<I>>::Singleton< \
+        linalg::LinearSolverFactory<TS<T>,TS<I>>>;
 
-CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(DefaultSpace, float, int)
-CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(DefaultSpace, double, int)
+CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::DefaultSpace, float, int)
+CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::DefaultSpace, double, int)
 
 #ifdef CIE_ENABLE_SYCL
-    CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(SYCLSpace, float, int)
-    CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(SYCLSpace, double, int)
+    CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::SYCLSpace, float, int)
+    CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY(linalg::SYCLSpace, double, int)
 #endif
 
 #undef CIE_INSTANTIATE_LINEAR_SOLVER_FACTORY

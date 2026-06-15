@@ -1,11 +1,17 @@
 {
-    "$id" : "/cie/fem/linear-solver",
+    "$id" : "/cie/linalg/linear-solver",
     "description" : "Settings configuring a linear solver.",
     "type" : ["null", "object"],
     "anyOf" : [
-        {"$ref" : "/cie/linalg/linear-solver"},
-        {"$ref" : "/cie/fem/pmg"},
-        {"$ref" : "/cie/fem/pmg-sycl"}
+        {"$ref" : "/cie/linalg/cg"},
+        {"$ref" : "/cie/linalg/jacobi"},
+
+        {"$ref" : "/cie/linalg/cg-eigen"},
+        {"$ref" : "/cie/linalg/llt-eigen"},
+        {"$ref" : "/cie/linalg/ldlt-eigen"},
+
+        {"$ref" : "/cie/linalg/cg-sycl"},
+        {"$ref" : "/cie/linalg/jacobi-sycl"}
     ],
     "default" : {
         "type" : "cg",

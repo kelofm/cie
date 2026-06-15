@@ -1,61 +1,33 @@
 #pragma once
 
 // --- Linalg Includes ---
-#include "packages/solvers/inc/LinearOperator.hpp"
+#include "packages/solvers/inc/LoggedOperator.hpp"
 #include "packages/solvers/inc/LinalgSpace.hpp"
-
-// --- Utility Includes ---
-#include "packages/types/inc/types.hpp"
-
-// --- STL Includes ---
-#include <optional>
-#include <string>
 
 
 namespace cie::linalg {
 
 
 template <LinalgSpaceLike TSpace>
-class IterativeSolver : public LinearOperator<TSpace> {
+class IterativeSolver : public LoggedOperator<TSpace> {
 public:
-    struct Statistics {
-        std::size_t iterationCount              = 0ul;
-        typename TSpace::Value absoluteResidual = static_cast<typename TSpace::Value>(0);
-        typename TSpace::Value relativeResidual = static_cast<typename TSpace::Value>(0);
-    }; // struct Statistics
+    using StreamLogger = StatusStream<typename TSpace::Value>;
 
-    constexpr IterativeSolver() noexcept = default;
+    using Status = typename StreamLogger::Status;
 
-    IterativeSolver(Statistics settings);
+    IterativeSolver() = default;
 
-    [[nodiscard]] constexpr Statistics getConfiguration() const noexcept;
+    explicit IterativeSolver(Ref<const Status> rConfiguration);
 
-    constexpr void configure(Statistics settings) noexcept;
+    [[nodiscard]] Status configuration() const;
 
-    [[nodiscard]] constexpr std::optional<Statistics> getStats() const noexcept;
+    [[nodiscard]] Status status() const;
+
+    void configure(Ref<const Status> rConfiguration);
 
 protected:
-    enum class ReportType {
-        Termination,
-        Iteration
-    }; // enum class ReportType
-
-    Ref<std::string> makeIterationReport(
-        Ref<std::string> rOutput,
-        int verbosity,
-        ReportType reportType,
-        Ref<const Statistics> rStatus,
-        Ref<const Statistics> rSettings) const;
-
-    constexpr void report(Statistics stats) noexcept;
-
-private:
-    Statistics _settings;
-
-    std::optional<Statistics> _results;
+    void updateStatus(Ref<const Status> rStatus);
 }; // class IterativeSolver
 
 
 } // namespace cie::linalg
-
-#include "packages/solvers/impl/IterativeSolver_impl.hpp"

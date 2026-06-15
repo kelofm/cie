@@ -18,14 +18,14 @@ class CompoundLinearSolverFactory {
 public:
     CompoundLinearSolverFactory() noexcept = default;
 
-    CompoundLinearSolverFactory(Ref<TFactories>... rFactories);
+    CompoundLinearSolverFactory(Ref<const TFactories>... rFactories);
 
     template <class T, class I>
     requires (ct::Match<T>::template Any<typename TFactories::Scalar...> && ct::Match<I>::template Any<typename TFactories::Index...>)
     std::optional<std::variant<
-        std::shared_ptr<typename TFactories::Solver>...
+        std::shared_ptr<typename TFactories::Value>...
     >> make(
-        Ref<cie::io::JSONObject> rConfiguration,
+        Ref<const cie::io::JSONObject> rConfiguration,
         std::tuple<std::shared_ptr<typename TFactories::ScalarSpace>...> pScalarSpace,
         std::tuple<std::shared_ptr<typename TFactories::IndexSpace>...> pIndexSpace,
         CSRView<const T, const I> lhs,
@@ -36,8 +36,15 @@ public:
     std::vector<std::string> keys() const;
 
 private:
-    std::tuple<TFactories*...> _pFactories;
+    std::tuple<const TFactories*...> _pFactories;
 }; // class CompoundLinearSolverFactory
+
+
+template <class ...TFactories>
+CompoundLinearSolverFactory<TFactories...>
+makeCompoundLinearSolverFactory(const TFactories& ... rFactories) {
+    return CompoundLinearSolverFactory<TFactories...>(rFactories...);
+}
 
 
 } // namespace cie::linalg

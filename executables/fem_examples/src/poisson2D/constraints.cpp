@@ -396,10 +396,10 @@ integrateBoundaryConstraints(
             const auto quadratureRuleFactory = [&boundaryMesh] (Ref<const BoundaryCell>) {
                 return boundaryMesh.data().makeQuadratureRule();};
 
-            const auto integrandFactory = [&rMesh] (Ref<const BoundaryCell> rBoundaryCell) -> Integrand {
+            const auto integrandFactory = [&rMesh, &rConfiguration] (Ref<const BoundaryCell> rBoundaryCell) -> Integrand {
                 auto integrand = makeDirichletPenaltyIntegrand(
                         DirichletBoundary(rBoundaryCell.state()),
-                        /*penaltyFactor=*/1,
+                        rConfiguration["penalty-factor"].as<double>(),
                         rMesh.data().ansatz(rBoundaryCell.ansatzID()),
                         rBoundaryCell.makeSpatialTransform(),
                         rBoundaryCell.getEmbeddingCell());

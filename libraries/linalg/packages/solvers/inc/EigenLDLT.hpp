@@ -1,7 +1,7 @@
 #pragma once
 
 // --- Linalg Includes ---
-#include "packages/solvers/inc/IterativeSolver.hpp"
+#include "packages/solvers/inc/LinearOperator.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/utilities/inc/CSRView.hpp"
 
@@ -10,40 +10,31 @@
 
 // --- STL Includes ---
 #include <memory>
-#include <string_view>
 
 
 namespace cie::linalg {
 
 
 template <class TValue, class TIndex>
-class EigenCG : public IterativeSolver<DefaultSpace<TValue>> {
+class EigenLDLT : public LinearOperator<DefaultSpace<TValue>> {
 private:
     using Space = DefaultSpace<TValue>;
 
-    using Base = IterativeSolver<Space>;
-
 public:
-    using typename Base::Status;
+    EigenLDLT();
 
-    EigenCG();
+    EigenLDLT(EigenLDLT&&) noexcept;
 
-    EigenCG(EigenCG&&) noexcept;
+    EigenLDLT(const EigenLDLT&) = delete;
 
-    EigenCG(const EigenCG&) = delete;
+    EigenLDLT& operator=(EigenLDLT&&) noexcept;
 
-    EigenCG& operator=(EigenCG&&) noexcept;
+    EigenLDLT& operator=(const EigenLDLT&) = delete;
 
-    EigenCG& operator=(const EigenCG&) = delete;
+    ~EigenLDLT();
 
-    ~EigenCG();
-
-    EigenCG(
+    EigenLDLT(
         CSRView<const TValue,const TIndex> lhs,
-        TIndex maxIterations,
-        TValue relativeResidual,
-        std::string_view preconditionerName = "diagonal",
-        Verbosity verbosity = Verbosity::Warnings,
         OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
 
     /// @copydoc LinearOperator::product
@@ -56,7 +47,7 @@ public:
 protected:
     struct Impl;
     std::unique_ptr<Impl> _pImpl;
-}; // class EigenCG
+}; // class EigenLDLT
 
 
 } // namespace cie::fem

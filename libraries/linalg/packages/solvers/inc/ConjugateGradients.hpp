@@ -18,7 +18,7 @@ private:
     using Base = IterativeSolver<TSpace>;
 
 public:
-    using typename Base::Statistics;
+    using typename Base::Status;
 
     ConjugateGradients()
     requires std::is_default_constructible_v<TSpace>;
@@ -27,8 +27,8 @@ public:
         std::shared_ptr<LinearOperator<TSpace>> pLhs,
         std::shared_ptr<TSpace> pSpace,
         std::shared_ptr<LinearOperator<TSpace>> pPreconditioner = nullptr,
-        Statistics settings = {},
-        int verbosity = 0);
+        Status configuration = {},
+        Verbosity verbosity = Verbosity::Warnings);
 
     /// @copydoc LinearOperator::product
     void product(
@@ -42,7 +42,7 @@ protected:
 
     std::shared_ptr<TSpace> _pSpace;
 
-    int _verbosity;
+    Verbosity _verbosity;
 }; // class ConjugateGradients
 
 

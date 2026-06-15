@@ -262,7 +262,6 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
             rhs,
             constraintGradients,
             constraintGaps,
-            rConfiguration["dirichlet-1d"]["penalty-factor"].as<double>(),
             assembler,
             threads,
             rConfiguration["linear-system"]);
