@@ -30,7 +30,6 @@ struct PenaltyConstrainedOperator<T,I>::Impl {
 
     std::shared_ptr<LinearOperator<typename Interface::ScalarSpace>> pConstraintGradientOperator;
 
-    std::shared_ptr<LinearOperator<typename Interface::ScalarSpace>> pConstrainedLHSOperator;
 
     T penaltyFactor;
 
@@ -112,7 +111,6 @@ PenaltyConstrainedOperator<T,I>::PenaltyConstrainedOperator(
 
                     // Construct an operator for the constraint gradients.
                     _pImpl->pConstraintGradientOperator = std::make_shared<CSROperator<I,T,T>>(constraintGradients);
-                    _pImpl->pConstrainedLHSOperator = std::make_shared<CSROperator<I,T,T>>(constrainedLHS);
 
                     // Set logger stream.
                     _pImpl->pLogger = std::make_shared<ConstrainedStatusStream<T>>(
@@ -158,11 +156,11 @@ void PenaltyConstrainedOperator<T,I>::product(
             // Compute the initial RHS.
             this->scalarSpace()->assign(
                 constrainedRHS,
-                this->constraintGaps());
-            //this->scalarSpace()->add(
-            //    constrainedRHS,
-            //    this->constraintGaps(),
-            //    -_pImpl->penaltyFactor);
+                in);
+            this->scalarSpace()->add(
+                constrainedRHS,
+                this->constraintGaps(),
+                -_pImpl->penaltyFactor);
 
             // Check for early exit possibilities.
             const typename StatusStream<T>::Status configuration = _pImpl->pLogger->constraintConfiguration();
@@ -187,19 +185,16 @@ void PenaltyConstrainedOperator<T,I>::product(
             }
             CIE_CHECK(initialConstraintResidualNorm, "")
 
+            auto lagrangeMultipliers = this->scalarSpace()->makeVector(this->constraintGaps().size());
+            auto rhsBuffer = this->scalarSpace()->makeVector(this->constraintGaps().size());
+            this->scalarSpace()->fill(lagrangeMultipliers, 0);
+
             // Run the constraint loop.
             for (std::size_t iConstraintIteration=0ul; iConstraintIteration<configuration.iterationCount.value(); ++iConstraintIteration) {
-                // Update the RHS.
-                this->scalarSpace()->add(
-                    constrainedRHS,
-                    constraintResidual,
-                    -_pImpl->penaltyFactor);
-
                 // Solve the current linear system and apply the update.
                 CIE_BEGIN_EXCEPTION_TRACING
                     _pImpl->pLinearOperator->product(0, constrainedRHS, 1, solutionUpdate);
-                    this->scalarSpace()->add(solution, solutionUpdate, outScale);
-                    _pImpl->pConstrainedLHSOperator->product(1, solutionUpdate, -1, constrainedRHS);
+                    this->scalarSpace()->assign(solution, solutionUpdate);
                 CIE_END_EXCEPTION_TRACING
 
                 // Compute the constraint violation.
@@ -210,6 +205,12 @@ void PenaltyConstrainedOperator<T,I>::product(
                 const T constraintResidualNorm = std::sqrt(this->scalarSpace()->innerProduct(
                     constraintResidual,
                     constraintResidual));
+
+                // Update RHS.
+                this->scalarSpace()->add(
+                    constrainedRHS,
+                    constraintResidual,
+                    -_pImpl->penaltyFactor);
 
                 // Check for convergence.
                 status.iterationCount = iConstraintIteration;
