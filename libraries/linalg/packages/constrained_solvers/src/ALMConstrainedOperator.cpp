@@ -30,8 +30,6 @@ struct ALMConstrainedOperator<T,I>::Impl {
 
     std::shared_ptr<LinearOperator<typename Interface::ScalarSpace>> pConstraintGradientOperator;
 
-    std::shared_ptr<LinearOperator<typename Interface::ScalarSpace>> pConstrainedLHSOperator;
-
     T penaltyFactor;
 
     std::shared_ptr<ConstrainedStatusStream<T>> pLogger;
@@ -105,7 +103,6 @@ ALMConstrainedOperator<T,I>::ALMConstrainedOperator(
 
                     // Construct an operator for the constraint gradients.
                     _pImpl->pConstraintGradientOperator = std::make_shared<CSROperator<I,T,T>>(constraintGradients);
-                    _pImpl->pConstrainedLHSOperator = std::make_shared<CSROperator<I,T,T>>(constrainedLHS);
 
                     // Set logger stream.
                     _pImpl->pLogger = std::make_shared<ConstrainedStatusStream<T>>(
@@ -151,7 +148,10 @@ void ALMConstrainedOperator<T,I>::product(
             // Compute the initial RHS.
             this->scalarSpace()->assign(
                 constrainedRHS,
-                this->constraintGaps());
+                in);
+            _pImpl->pConstraintGradientOperator->product(
+                1, this->constraintGaps(),
+                -_pImpl->penaltyFactor, constrainedRHS);
 
             // Check for early exit possibilities.
             const typename StatusStream<T>::Status configuration = _pImpl->pLogger->constraintConfiguration();
@@ -178,16 +178,10 @@ void ALMConstrainedOperator<T,I>::product(
 
             // Run the constraint loop.
             for (std::size_t iConstraintIteration=0ul; iConstraintIteration<configuration.iterationCount.value(); ++iConstraintIteration) {
-                // Update the RHS.
-                _pImpl->pConstraintGradientOperator->product(
-                    1, constraintResidual,
-                    -_pImpl->penaltyFactor, constrainedRHS);
-
                 // Solve the current linear system and apply the update.
                 CIE_BEGIN_EXCEPTION_TRACING
                     _pImpl->pLinearOperator->product(0, constrainedRHS, 1, solutionUpdate);
-                    this->scalarSpace()->add(solution, solutionUpdate, outScale);
-                    _pImpl->pConstrainedLHSOperator->product(1, solutionUpdate, -1, constrainedRHS);
+                    this->scalarSpace()->assign(solution, solutionUpdate);
                 CIE_END_EXCEPTION_TRACING
 
                 // Compute the constraint violation.
@@ -198,6 +192,11 @@ void ALMConstrainedOperator<T,I>::product(
                 const T constraintResidualNorm = std::sqrt(this->scalarSpace()->innerProduct(
                     constraintResidual,
                     constraintResidual));
+
+                // Update lagrange multipliers (implicitly through the RHS).
+                _pImpl->pConstraintGradientOperator->product(
+                    1, constraintResidual,
+                    -_pImpl->penaltyFactor, constrainedRHS);
 
                 // Check for convergence.
                 status.iterationCount = iConstraintIteration;
