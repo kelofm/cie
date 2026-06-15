@@ -29,6 +29,10 @@ public:
 
     [[nodiscard]] Ptr<T> get() noexcept;
 
+    [[nodiscard]] Ptr<const T> data() const noexcept;
+
+    [[nodiscard]] Ptr<T> data() noexcept;
+
 private:
     DeviceMemory<T> _pMemory;
 
@@ -58,7 +62,17 @@ public:
     [[nodiscard]] Ptr<T> get() noexcept
     requires (!std::is_const_v<T>);
 
+    [[nodiscard]] Ptr<const T> data() const noexcept;
+
+    [[nodiscard]] Ptr<T> data() noexcept
+    requires (!std::is_const_v<T>);
+
     [[nodiscard]] operator SYCLView<const T> () const noexcept;
+
+    [[nodiscard]] explicit operator std::span<const T> () const noexcept;
+
+    [[nodiscard]] explicit operator std::span<T> () noexcept
+    requires (!std::is_const_v<T>);
 
 private:
     std::span<T> _wrapped;
@@ -88,6 +102,10 @@ public:
     [[nodiscard]] static VectorView view(std::span<Value> span) noexcept;
 
     [[nodiscard]] static ConstVectorView view(std::span<const Value> span) noexcept;
+
+    [[nodiscard]] Value* data(VectorView view) noexcept;
+
+    [[nodiscard]] const Value* data(ConstVectorView view) const noexcept;
 
     [[nodiscard]] static std::size_t size(ConstVectorView view) noexcept;
 

@@ -2,7 +2,7 @@
     "$id" : "/cie/linalg/linear-solver",
     "description" : "Settings configuring a linear solver.",
     "type" : ["null", "object"],
-    "anyOf" : [
+    "oneOf" : [
         {"$ref" : "/cie/linalg/cg"},
         {"$ref" : "/cie/linalg/jacobi"},
 

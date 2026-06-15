@@ -37,6 +37,10 @@ public:
 
     [[nodiscard]] static ConstVectorView view(std::span<const Value> span) noexcept;
 
+    [[nodiscard]] Value* data(VectorView view) noexcept;
+
+    [[nodiscard]] const Value* data(ConstVectorView view) const noexcept;
+
     [[nodiscard]] static std::size_t size(ConstVectorView view) noexcept;
 
     [[nodiscard]] static Vector makeVector(std::size_t size);

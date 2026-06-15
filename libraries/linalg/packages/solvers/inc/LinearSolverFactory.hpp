@@ -45,4 +45,12 @@ public:
 }; // class LinearSolverFactory
 
 
+template <class TScalarSpace, class TIndexSpace>
+using LinearSolverFactorySingleton = typename LinearSolverFactory<
+    TScalarSpace,
+    TIndexSpace>::template Singleton<LinearSolverFactory<
+        TScalarSpace,
+        TIndexSpace>>;
+
+
 } // namespace cie::linalg

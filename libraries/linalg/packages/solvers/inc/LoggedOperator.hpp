@@ -22,9 +22,9 @@ public:
         : _pLogger(rpLogger)
     {}
 
-    [[nodiscard]] Ref<StatusStream<typename TSpace::Value>> streamLogger() const {
+    [[nodiscard]] std::shared_ptr<StatusStream<typename TSpace::Value>> streamLogger() const {
         CIE_CHECK_POINTER(_pLogger)
-        return *_pLogger;
+        return _pLogger;
     }
 
     virtual void setLogger(Ref<const std::shared_ptr<StatusStream<typename TSpace::Value>>> rpLogger) {

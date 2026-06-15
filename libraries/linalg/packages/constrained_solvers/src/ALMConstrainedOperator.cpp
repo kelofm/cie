@@ -110,9 +110,9 @@ ALMConstrainedOperator<T,I>::ALMConstrainedOperator(
                             .iterationCount = rConfiguration["max-iterations"].as<std::size_t>(),
                             .absoluteResidual = rConfiguration["absolute-residual"].as<double>(),
                             .relativeResidual = rConfiguration["relative-residual"].as<double>()},
-                        _pImpl->pLinearOperator->streamLogger().linearSystemConfiguration(),
-                        _pImpl->pLinearOperator->streamLogger().stream(),
-                        _pImpl->pLinearOperator->streamLogger().scalarComparison());
+                        _pImpl->pLinearOperator->streamLogger()->linearSystemConfiguration(),
+                        _pImpl->pLinearOperator->streamLogger()->stream(),
+                        _pImpl->pLinearOperator->streamLogger()->scalarComparison());
                     this->setLogger(_pImpl->pLogger);
                     _pImpl->pLinearOperator->setLogger(_pImpl->pLogger);
                 CIE_END_EXCEPTION_TRACING

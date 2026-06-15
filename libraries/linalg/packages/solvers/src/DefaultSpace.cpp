@@ -54,6 +54,18 @@ DefaultSpace<T>::view(std::span<const Value> span) noexcept {
 
 
 template <class T>
+typename DefaultSpace<T>::Value* DefaultSpace<T>::data(VectorView view) noexcept {
+    return view.data();
+}
+
+
+template <class T>
+const typename DefaultSpace<T>::Value* DefaultSpace<T>::data(ConstVectorView view) const noexcept {
+    return view.data();
+}
+
+
+template <class T>
 std::size_t
 DefaultSpace<T>::size(ConstVectorView view) noexcept {
     return view.size();

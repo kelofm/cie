@@ -9,7 +9,6 @@
 // --- Linalg Includes ---
 #include "packages/constrained_solvers/inc/ConstrainedSolverFactory.hpp"
 #include "packages/macros/inc/exceptions.hpp"
-#include "packages/solvers/inc/CompoundLinearSolverFactory.hpp"
 #include "packages/utilities/inc/reorder.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
 #include "packages/solvers/inc/CSROperator.hpp"

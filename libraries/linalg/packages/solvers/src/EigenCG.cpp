@@ -134,7 +134,7 @@ void EigenCG<T,I>::product(
                 .absoluteResidual = {},
                 .relativeResidual = 1};
             this->updateStatus(status);
-            this->streamLogger().report(
+            this->streamLogger()->report(
                 StatusReportType::Iteration,
                 _pImpl->verbosity);
 
@@ -158,7 +158,7 @@ void EigenCG<T,I>::product(
 
             this->updateStatus(status);
             if (Verbosity::Termination <= _pImpl->verbosity) {
-                this->streamLogger().report(
+                this->streamLogger()->report(
                     StatusReportType::Iteration,
                     _pImpl->verbosity);
             }
@@ -172,7 +172,7 @@ void EigenCG<T,I>::product(
                 _pImpl->solver);
 
             this->updateStatus(status);
-            this->streamLogger().report(
+            this->streamLogger()->report(
                 StatusReportType::Termination,
                 _pImpl->verbosity);
         CIE_END_EXCEPTION_TRACING

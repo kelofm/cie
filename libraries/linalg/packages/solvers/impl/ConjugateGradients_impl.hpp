@@ -93,14 +93,14 @@ void ConjugateGradients<TS>::product(
                 status.relativeResidual = 1;
 
                 this->updateStatus(status);
-                if (this->streamLogger().lessEqual(status.absoluteResidual, settings.absoluteResidual, this->streamLogger().scalarComparison())
-                    || this->streamLogger().lessEqual(status.relativeResidual, settings.relativeResidual, this->streamLogger().scalarComparison())) {
-                        this->streamLogger().report(
+                if (this->streamLogger()->lessEqual(status.absoluteResidual, settings.absoluteResidual, this->streamLogger()->scalarComparison())
+                    || this->streamLogger()->lessEqual(status.relativeResidual, settings.relativeResidual, this->streamLogger()->scalarComparison())) {
+                        this->streamLogger()->report(
                             StatusReportType::Termination,
                             _verbosity);
                         return;
                 } else
-                    this->streamLogger().report(
+                    this->streamLogger()->report(
                         StatusReportType::Iteration,
                         _verbosity);
 
@@ -168,15 +168,15 @@ void ConjugateGradients<TS>::product(
                     status.relativeResidual = *status.absoluteResidual / initialResidualNorm;
 
                     this->updateStatus(status);
-                    if (this->streamLogger().lessEqual(status.absoluteResidual, settings.absoluteResidual, this->streamLogger().scalarComparison())
-                        || this->streamLogger().lessEqual(status.relativeResidual, settings.relativeResidual, this->streamLogger().scalarComparison())
+                    if (this->streamLogger()->lessEqual(status.absoluteResidual, settings.absoluteResidual, this->streamLogger()->scalarComparison())
+                        || this->streamLogger()->lessEqual(status.relativeResidual, settings.relativeResidual, this->streamLogger()->scalarComparison())
                         || status.iterationCount.value() == settings.iterationCount.value() - 1) {
-                            this->streamLogger().report(
+                            this->streamLogger()->report(
                                 StatusReportType::Termination,
                                 _verbosity);
                             break;
                     } else {
-                        this->streamLogger().report(
+                        this->streamLogger()->report(
                             StatusReportType::Iteration,
                             _verbosity);
                     }

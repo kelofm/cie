@@ -41,6 +41,18 @@ Ptr<T> SYCLVector<T>::get() noexcept {
 
 
 template <class T>
+Ptr<const T> SYCLVector<T>::data() const noexcept {
+    return this->get();
+}
+
+
+template <class T>
+Ptr<T> SYCLVector<T>::data() noexcept {
+    return this->get();
+}
+
+
+template <class T>
 SYCLView<T>::SYCLView(
     std::conditional_t<
         std::is_const_v<T>,
@@ -77,8 +89,34 @@ requires (!std::is_const_v<T>) {
 
 
 template <class T>
+Ptr<const T> SYCLView<T>::data() const noexcept {
+    return this->get();
+}
+
+
+template <class T>
+Ptr<T> SYCLView<T>::data() noexcept
+requires (!std::is_const_v<T>) {
+    return this->get();
+}
+
+
+template <class T>
 SYCLView<T>::operator SYCLView<const T> () const noexcept {
     return SYCLView<const T>(_wrapped);
+}
+
+
+template <class T>
+SYCLView<T>::operator std::span<const T>() const noexcept {
+    return _wrapped;
+}
+
+
+template <class T>
+SYCLView<T>::operator std::span<T>() noexcept
+requires (!std::is_const_v<T>) {
+    return _wrapped;
 }
 
 
@@ -110,6 +148,18 @@ typename SYCLSpace<T>::VectorView SYCLSpace<T>::view(std::span<Value> span) noex
 template <class T>
 typename SYCLSpace<T>::ConstVectorView SYCLSpace<T>::view(std::span<const Value> span) noexcept {
     return ConstVectorView(span);
+}
+
+
+template <class T>
+typename SYCLSpace<T>::Value* SYCLSpace<T>::data(VectorView view) noexcept {
+    return view.data();
+}
+
+
+template <class T>
+const typename SYCLSpace<T>::Value* SYCLSpace<T>::data(ConstVectorView view) const noexcept {
+    return view.data();
 }
 
 

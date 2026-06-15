@@ -16,25 +16,25 @@ IterativeSolver<TS>::IterativeSolver(Ref<const Status> rConfiguration)
 
 template <LinalgSpaceLike TS>
 typename IterativeSolver<TS>::Status IterativeSolver<TS>::configuration() const {
-    return this->streamLogger().linearSystemConfiguration();
+    return this->streamLogger()->linearSystemConfiguration();
 }
 
 
 template <LinalgSpaceLike TS>
 typename IterativeSolver<TS>::Status IterativeSolver<TS>::status() const {
-    return this->streamLogger().linearSystemStatus();
+    return this->streamLogger()->linearSystemStatus();
 }
 
 
 template <LinalgSpaceLike TS>
 void IterativeSolver<TS>::configure(Ref<const Status> rConfiguration) {
-    this->streamLogger().configureLinearSystem(rConfiguration);
+    this->streamLogger()->configureLinearSystem(rConfiguration);
 }
 
 
 template <LinalgSpaceLike TS>
 void IterativeSolver<TS>::updateStatus(Ref<const Status> rStatus) {
-    this->streamLogger().submitLinearSystemStatus(rStatus);
+    this->streamLogger()->submitLinearSystemStatus(rStatus);
 }
 
 
