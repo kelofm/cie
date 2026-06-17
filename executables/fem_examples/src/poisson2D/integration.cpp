@@ -121,7 +121,9 @@ void integrateStiffness(
                 cellIDs.size(),
                 [&lhs, &rAssembler, cellIDs, results] (std::size_t iCell) {
                     rAssembler.addContribution<tags::SMP,int>(
-                        std::span<const Scalar>(results.data() + iCell * Integrand::size(), Integrand::size()),
+                        std::span<const Scalar>(
+                            results.data() + iCell * Integrand::size(),
+                            Integrand::size()),
                         cellIDs[iCell],
                         lhs.rowExtents(),
                         lhs.columnIndices(),
@@ -138,8 +140,9 @@ void integrateStiffness(
             for (std::size_t iPartition=0ul; iPartition<integrandProcessors.size(); ++iPartition) {
                 jobs.emplace_back([&, iPartition] () {
                     integrandProcessors[iPartition]->process(
-                        cells.begin() + partitions[iPartition],
-                        cells.begin() + partitions[iPartition + 1],
+                        std::span<const Cell> (
+                            cells.begin() + partitions[iPartition],
+                            cells.begin() + partitions[iPartition + 1]),
                         quadratureRuleFactory,
                         integrandFactory,
                         integralSink,

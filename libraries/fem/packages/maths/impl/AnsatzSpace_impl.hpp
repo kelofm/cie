@@ -7,6 +7,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
+#include "packages/maths/inc/power.hpp"
 
 // --- STL Includes ---
 #include <algorithm>
@@ -202,8 +203,8 @@ struct AnsatzDerivativeTraits {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivativeView() noexcept
-    : _ansatzSet(static_cast<const TScalarExpression*>(nullptr), SetSize),
-      _derivativeSet(static_cast<const typename TScalarExpression::Derivative*>(nullptr), SetSize)
+    :   _ansatzSet(static_cast<const TScalarExpression*>(nullptr), SetSize),
+        _derivativeSet(static_cast<const typename TScalarExpression::Derivative*>(nullptr), SetSize)
 {}
 
 
@@ -212,8 +213,8 @@ constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceD
     std::span<const TScalarExpression,SetSize> ansatzSet,
     std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet) noexcept
 requires (hasStaticBasis)
-    : _ansatzSet(ansatzSet),
-      _derivativeSet(derivativeSet)
+    :   _ansatzSet(ansatzSet),
+        _derivativeSet(derivativeSet)
 {}
 
 
@@ -222,9 +223,9 @@ AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivativeV
     std::span<const TScalarExpression> ansatzSet,
     std::span<const typename TScalarExpression::Derivative> derivativeSet)
 requires (!hasStaticBasis)
-    : _ansatzSet(ansatzSet),
-      _derivativeSet(derivativeSet) {
-        assert(_derivativeSet.size() == _ansatzSet.size());
+    :   _ansatzSet(ansatzSet),
+        _derivativeSet(derivativeSet) {
+            assert(_derivativeSet.size() == _ansatzSet.size());
 }
 
 

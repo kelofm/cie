@@ -446,8 +446,7 @@ integrateBoundaryConstraints(
             auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
             const auto& rBoundaryCells = boundaryMesh.data().cells();
             pProcessor->process(
-                rBoundaryCells.begin(),
-                rBoundaryCells.end(),
+                std::span<const BoundaryCell>(rBoundaryCells),
                 quadratureRuleFactory,
                 integrandFactory,
                 integralSink,

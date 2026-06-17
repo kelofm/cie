@@ -6,7 +6,6 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
-#include "packages/maths/inc/power.hpp"
 
 // --- STL Includes ---
 #include <array>
