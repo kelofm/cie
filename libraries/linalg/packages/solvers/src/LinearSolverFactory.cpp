@@ -525,12 +525,18 @@ void LinearSolverFactory<TSS,TIS>::load() {
             // Smoothers and preconditioners.
             registerInverseDiagonal(*this);
             registerJacobi(*this);
-            registerDefaultToSYCLCast(*this, "inverse-diagonal-operator-sycl");
-            registerDefaultToSYCLCast(*this, "jacobi-sycl");
+
+            #ifdef CIE_ENABLE_SYCL
+                registerDefaultToSYCLCast(*this, "inverse-diagonal-operator-sycl");
+                registerDefaultToSYCLCast(*this, "jacobi-sycl");
+            #endif
 
             // Iterative solvers.
             registerCG(*this);
-            registerDefaultToSYCLCast(*this, "cg-sycl");
+
+            #ifdef CIE_ENABLE_SYCL
+                registerDefaultToSYCLCast(*this, "cg-sycl");
+            #endif
 
             // Solvers wrapped from Eigen.
             registerEigenCG(*this);
