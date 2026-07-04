@@ -35,7 +35,9 @@ void Quadrature<TValue,Dimension>::evaluate(
         for (const auto& rItem : this->_nodesAndWeights) {
             // Evaluate expression into a buffer
             rExpression.evaluate(
-                {rItem.data(), static_cast<std::size_t>(Dimension)},
+                typename TExpression::ConstSpan (
+                    rItem.data(),
+                    static_cast<std::size_t>(Dimension)),
                 valueBuffer,
                 nestedBuffer);
 

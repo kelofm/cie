@@ -578,6 +578,43 @@ requires (hasStaticBasis) {
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        if constexpr (!hasStaticBasis)
+            cie::io::BinarySerializer::serialize<std::size_t>(
+                rStream,
+                _ansatzSet.size());
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _ansatzSet.data(),
+            _ansatzSet.size());
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<AnsatzSpaceDerivative> rInstance,
+    tags::Binary) {
+        std::size_t setSize = SetSize;
+        if constexpr (!hasStaticBasis) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                setSize);
+            rInstance._ansatzSet.resize(setSize);
+            rInstance._derivativeSet.resize(setSize);
+        }
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._ansatzSet.data(),
+            rInstance._ansatzSet.size());
+        for (std::size_t iBasis=0ul; iBasis<rInstance._ansatzSet.size(); ++iBasis)
+            rInstance._derivativeSet[iBasis] = rInstance._ansatzSet[iBasis].makeDerivative();
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceView<TScalarExpression,Dim,SetSize>::AnsatzSpaceView() noexcept
     : _set(static_cast<const TScalarExpression*>(nullptr), SetSize)
 {}
@@ -881,6 +918,40 @@ constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize>::View
 AnsatzSpace<TScalarExpression,Dim,SetSize>::makeView() const noexcept
 requires (hasStaticBasis) {
     return View(_set);
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+void AnsatzSpace<TScalarExpression,Dim,SetSize>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        if constexpr (!hasStaticBasis)
+            cie::io::BinarySerializer::serialize<std::size_t>(
+                rStream,
+                _set.size());
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _set.data(),
+            _set.size());
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+void AnsatzSpace<TScalarExpression,Dim,SetSize>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<AnsatzSpace> rInstance,
+    tags::Binary) {
+        std::size_t setSize = SetSize;
+        if constexpr (!hasStaticBasis) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                setSize);
+            rInstance._set.resize(setSize);
+        }
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._set.data(),
+            rInstance._set.size());
 }
 
 

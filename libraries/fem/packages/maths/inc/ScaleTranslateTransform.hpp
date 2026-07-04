@@ -7,6 +7,7 @@
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/macros/inc/typedefs.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- STL Includes ---
 #include <ostream> // std::ostream
@@ -69,6 +70,15 @@ public:
     friend Ref<std::ostream> operator<<(
         Ref<std::ostream> rStream,
         Ref<const ScaleTranslateTransformDerivative<TTNumeric,Dim>> rObject);
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ScaleTranslateTransformDerivative> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class ScaleTranslateTransform<TValue,Dimension>;
@@ -143,6 +153,15 @@ public:
     friend Ref<std::ostream> operator<<(
         Ref<std::ostream> rStream,
         Ref<const ScaleTranslateTransform<TTNumeric,Dim>> rObject);
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ScaleTranslateTransform> rInstance,
+        tags::Binary tag = {});
 
 private:
     ScaleTranslateTransform(
@@ -219,6 +238,15 @@ public:
     friend Ref<std::ostream> operator<<(
         Ref<std::ostream> rStream,
         Ref<const TranslateScaleTransform<TTNumeric,Dim>> rObject);
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TranslateScaleTransform> rInstance,
+        tags::Binary tag = {});
 
 private:
     TranslateScaleTransform(

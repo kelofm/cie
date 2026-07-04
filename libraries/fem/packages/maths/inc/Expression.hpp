@@ -7,6 +7,7 @@
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- STL Includes ---
 #include <utility> // declval
@@ -54,7 +55,8 @@ namespace cie::fem::maths {
 /// @ingroup fem
 template <class T>
 concept Expression
-= requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
+= BinarySerializable<std::remove_cvref_t<T>>
+&& requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
     /// @brief Value type to perform numerical operations on (eg: @p double).
     typename std::remove_cvref_t<T>::Value;
 

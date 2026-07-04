@@ -15,6 +15,7 @@
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
 #include "packages/io/inc/json.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <regex>
@@ -83,6 +84,25 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
 
     constexpr unsigned bufferSize() const noexcept {
         return 0u;
+    }
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary) const {
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                _state.data(),
+                _state.size());
+    }
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<DirichletBoundary> rInstance,
+        tags::Binary) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._state.data(),
+                rInstance._state.size());
     }
 
 private:

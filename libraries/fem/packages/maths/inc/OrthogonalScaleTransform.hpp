@@ -3,6 +3,7 @@
 // --- FEM Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/maths/inc/Expression.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/StaticArray.hpp"
@@ -57,6 +58,15 @@ public:
     static constexpr unsigned size() noexcept;
 
     static constexpr unsigned bufferSize() noexcept;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<OrthogonalScaleTransformDerivative> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class OrthogonalScaleTransform<TValue,Dimension>;
@@ -122,6 +132,15 @@ public:
 
     /// @brief Construct the inverse transform.
     Inverse makeInverse() const;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<OrthogonalScaleTransform> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class OrthogonalScaleTransformDerivative<TValue,Dimension>;

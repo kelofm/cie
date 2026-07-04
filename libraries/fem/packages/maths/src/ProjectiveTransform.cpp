@@ -11,6 +11,7 @@
 #include "packages/macros/inc/checks.hpp"
 #include "packages/exceptions/inc/exception.hpp"
 #include "packages/macros/inc/exceptions.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <optional>
@@ -21,35 +22,33 @@ namespace cie::fem::maths {
 
 template <concepts::Numeric TValue, unsigned Dimension>
 ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(std::span<const Point> transformed)
-    : ProjectiveTransform()
-{
-    CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension * Dimension)
+    : ProjectiveTransform() {
+        CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension * Dimension)
 
-    CIE_BEGIN_EXCEPTION_TRACING
+        CIE_BEGIN_EXCEPTION_TRACING
+            // Assemble RHS
+            auto itTransformedBegin = transformed.begin();
+            const auto itTransformedEnd = transformed.end();
+            StaticArray<TValue,Dimension*Dimension*(Dimension+1)> homogeneousPoints;
 
-    // Assemble RHS
-    auto itTransformedBegin = transformed.begin();
-    const auto itTransformedEnd = transformed.end();
-    StaticArray<TValue,Dimension*Dimension*(Dimension+1)> homogeneousPoints;
+            // Copy transformed components to the first {{Dimension}} rows
+            for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+                CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+                const auto iComponentBegin = iPoint * (Dimension + 1);
+                for (Size iComponent=0; iComponent<Dimension; iComponent++) {
+                    // This array will be interpreted as an eigen matrix, which
+                    // stores its data columnwise by default, so the order of the
+                    // components must follow that.
+                    homogeneousPoints[iComponentBegin + iComponent] = itTransformedBegin->at(iComponent);
+                } // for component in point
+                homogeneousPoints[iComponentBegin + Dimension] = 1; // <== last row contains homogeneous components
+            } // for point in transformedPoints
 
-    // Copy transformed components to the first {{Dimension}} rows
-    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
-        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
-        const auto iComponentBegin = iPoint * (Dimension + 1);
-        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
-            // This array will be interpreted as an eigen matrix, which
-            // stores its data columnwise by default, so the order of the
-            // components must follow that.
-            homogeneousPoints[iComponentBegin + iComponent] = itTransformedBegin->at(iComponent);
-        } // for component in point
-        homogeneousPoints[iComponentBegin + Dimension] = 1; // <== last row contains homogeneous components
-    } // for point in transformedPoints
-
-    // Solve for transformation matrix components
-    this->computeTransformationMatrix(homogeneousPoints.data(),
-                                      this->getTransformationMatrix());
-
-    CIE_END_EXCEPTION_TRACING
+            // Solve for transformation matrix components
+            this->computeTransformationMatrix(
+                homogeneousPoints.data(),
+                this->getTransformationMatrix());
+        CIE_END_EXCEPTION_TRACING
 }
 
 
@@ -78,51 +77,46 @@ namespace detail {
 
 
 template <class TValue, unsigned Dimension>
-class ProjectiveCoefficients
-{
+class ProjectiveCoefficients {
 public:
     using Matrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1,Dimension+1>;
 
 public:
     ProjectiveCoefficients()
-        : _matrix()
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
+        : _matrix() {
+            CIE_BEGIN_EXCEPTION_TRACING
+                /// @todo Implement for higher dimensions (currently 2D only).
+                StaticArray<TValue,2> states {-1, 1};
+                auto permutation = utils::makeInternalStateIterator(states, Dimension);
 
-        /// @todo Implement for higher dimensions (currently 2D only).
-        StaticArray<TValue,2> states {-1, 1};
-        auto permutation = utils::makeInternalStateIterator(states, Dimension);
+                for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++, ++permutation) {
+                    for (unsigned iComponent=0; iComponent<Dimension; iComponent++) {
+                        _matrix(iComponent, iPoint) = *(*permutation)[iComponent];
+                    }
+                    _matrix(Dimension, iPoint) = 1;
+                }
 
-        for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++, ++permutation) {
-            for (unsigned iComponent=0; iComponent<Dimension; iComponent++) {
-                _matrix(iComponent, iPoint) = *(*permutation)[iComponent];
-            }
-            _matrix(Dimension, iPoint) = 1;
-        }
+                // Right hand side == [1]^(D+1)
+                Eigen::Matrix<TValue,Dimension+1,1> rhs;
+                for (unsigned iDim=0; iDim<Dimension; ++iDim) {
+                    rhs(iDim, 0) = *(*permutation)[iDim];
+                }
+                rhs(Dimension, 0) = 1;
 
-        // Right hand side == [1]^(D+1)
-        Eigen::Matrix<TValue,Dimension+1,1> rhs;
-        for (unsigned iDim=0; iDim<Dimension; ++iDim) {
-            rhs(iDim, 0) = *(*permutation)[iDim];
-        }
-        rhs(Dimension, 0) = 1;
+                // Solve for column coefficients and scale the columns
+                Eigen::Matrix<TValue,Dimension+1,1> columnCoefficients = _matrix.wrapped().fullPivLu().solve(rhs);
+                for (unsigned iRow=0; iRow<Dimension+1; ++iRow) {
+                    for (unsigned iColumn=0; iColumn<Dimension+1; ++iColumn) {
+                        _matrix(iRow, iColumn) *= columnCoefficients(iColumn, 0);
+                    }
+                }
 
-        // Solve for column coefficients and scale the columns
-        Eigen::Matrix<TValue,Dimension+1,1> columnCoefficients = _matrix.wrapped().fullPivLu().solve(rhs);
-        for (unsigned iRow=0; iRow<Dimension+1; ++iRow) {
-            for (unsigned iColumn=0; iColumn<Dimension+1; ++iColumn) {
-                _matrix(iRow, iColumn) *= columnCoefficients(iColumn, 0);
-            }
-        }
-
-        // Invert the result
-        this->_matrix.wrapped() = this->_matrix.wrapped().inverse().eval();
-
-        CIE_END_EXCEPTION_TRACING
+                // Invert the result
+                this->_matrix.wrapped() = this->_matrix.wrapped().inverse().eval();
+            CIE_END_EXCEPTION_TRACING
     }
 
-    Ref<const Matrix> get() const noexcept
-    {
+    Ref<const Matrix> get() const noexcept {
         return this->_matrix;
     }
 
@@ -132,19 +126,16 @@ private:
 
 
 template <class TValue, unsigned Dimension>
-class ProjectiveCoefficientsSingleton
-{
+class ProjectiveCoefficientsSingleton {
 public:
-    static Ref<const ProjectiveCoefficients<TValue,Dimension>> get() noexcept
-    {
+    static Ref<const ProjectiveCoefficients<TValue,Dimension>> get() noexcept {
         if (!_object.has_value()) {
             _object.emplace();
         }
         return _object.value();
     }
 
-    static void clear() noexcept
-    {
+    static void clear() noexcept {
         _object.reset();
     }
 
@@ -171,39 +162,37 @@ ProjectiveCoefficientsSingleton<TValue,Dimension>::_object;
 //template <class TValue>
 //struct ComputeProjectiveMatrix<TValue,2>
 template <class TValue, unsigned Dimension>
-struct ComputeProjectiveMatrix
-{
-    static void compute(Ptr<TValue> pTransformedBegin,
-                        Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix> rMatrix)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
+struct ComputeProjectiveMatrix {
+    static void compute(
+        Ptr<TValue> pTransformedBegin,
+        Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix> rMatrix) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                //constexpr unsigned Dimension = 2;
+                Eigen::Map<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
+                Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,1>> rhs(pTransformedBegin + (Dimension + 1) * (Dimension + 1));
 
-        //constexpr unsigned Dimension = 2;
-        Eigen::Map<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> homogeneousPoints(pTransformedBegin);
-        Eigen::Map<const Eigen::Matrix<TValue,Dimension+1,1>> rhs(pTransformedBegin + (Dimension + 1) * (Dimension + 1));
+                Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> solver;
+                solver.compute(homogeneousPoints);
 
-        Eigen::FullPivLU<Eigen::Matrix<TValue,Dimension+1,Dimension+1>> solver;
-        solver.compute(homogeneousPoints);
+                if (!solver.isInvertible()) {
+                    CIE_THROW(
+                        Exception,
+                        "Singular input for projective transform.\n"
+                        << "LHS:\n" << homogeneousPoints << "\n"
+                        << "RHS:\n" << rhs)
+                }
 
-        if (!solver.isInvertible()) {
-            CIE_THROW(
-                Exception,
-                "Singular input for projective transform.\n"
-                << "LHS:\n" << homogeneousPoints << "\n"
-                << "RHS:\n" << rhs)
-        }
+                const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = solver.solve(rhs);
 
-        const Eigen::Matrix<TValue,Dimension+1,1> homogeneousSolution = solver.solve(rhs);
+                for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++) {
+                    const TValue scale = homogeneousSolution[iPoint];
+                    for (unsigned iComponent=0; iComponent<Dimension+1; iComponent++) {
+                        homogeneousPoints(iComponent, iPoint) *= scale;
+                    }
+                }
 
-        for (unsigned iPoint=0; iPoint<Dimension+1; iPoint++) {
-            const TValue scale = homogeneousSolution[iPoint];
-            for (unsigned iComponent=0; iComponent<Dimension+1; iComponent++) {
-                homogeneousPoints(iComponent, iPoint) *= scale;
-            }
-        }
-
-        rMatrix.wrapped().noalias() = homogeneousPoints * detail::ProjectiveCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
-        CIE_END_EXCEPTION_TRACING
+                rMatrix.wrapped().noalias() = homogeneousPoints * detail::ProjectiveCoefficientsSingleton<TValue,Dimension>::get().get().wrapped();
+            CIE_END_EXCEPTION_TRACING
     }
 };
 
@@ -227,48 +216,90 @@ ProjectiveTransform<TValue,Dimension>::ProjectiveTransform(RightRef<Transformati
 
 template <concepts::Numeric TValue, unsigned Dimension>
 void
-ProjectiveTransform<TValue,Dimension>::computeTransformationMatrix(Ptr<TValue> pTransformedBegin,
-                                                                   Ref<TransformationMatrix> rMatrix)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-    detail::ComputeProjectiveMatrix<TValue,Dimension>::compute(pTransformedBegin, rMatrix);
-    CIE_END_EXCEPTION_TRACING
+ProjectiveTransform<TValue,Dimension>::computeTransformationMatrix(
+    Ptr<TValue> pTransformedBegin,
+    Ref<TransformationMatrix> rMatrix) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            detail::ComputeProjectiveMatrix<TValue,Dimension>::compute(pTransformedBegin, rMatrix);
+        CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 typename ProjectiveTransform<TValue,Dimension>::Inverse
-ProjectiveTransform<TValue,Dimension>::makeInverse() const
-{
+ProjectiveTransform<TValue,Dimension>::makeInverse() const {
     CIE_BEGIN_EXCEPTION_TRACING
-    return ProjectiveTransform<TValue,Dimension>(
-        typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix(this->getTransformationMatrix().wrapped().inverse())
-    );
+        return ProjectiveTransform<TValue,Dimension>(
+            typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix(this->getTransformationMatrix().wrapped().inverse())
+        );
     CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 typename ProjectiveTransform<TValue,Dimension>::Derivative
-ProjectiveTransform<TValue,Dimension>::makeDerivative() const
-{
+ProjectiveTransform<TValue,Dimension>::makeDerivative() const {
     return ProjectiveTransformDerivative<TValue,Dimension>(*this);
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline Ref<const typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>
-ProjectiveTransform<TValue,Dimension>::getTransformationMatrix() const noexcept
-{
+ProjectiveTransform<TValue,Dimension>::getTransformationMatrix() const noexcept {
     return _transformationMatrix;
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 inline Ref<typename ProjectiveTransform<TValue,Dimension>::TransformationMatrix>
-ProjectiveTransform<TValue,Dimension>::getTransformationMatrix() noexcept
-{
+ProjectiveTransform<TValue,Dimension>::getTransformationMatrix() noexcept {
     return _transformationMatrix;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void ProjectiveTransform<TValue,Dimension>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _transformationMatrix.data(),
+            _transformationMatrix.size());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void ProjectiveTransform<TValue,Dimension>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ProjectiveTransform> rInstance,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transformationMatrix.data(),
+            rInstance._transformationMatrix.size());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void ProjectiveTransformDerivative<TValue,Dimension>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _projectionMatrix.data(),
+            _projectionMatrix.size());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void ProjectiveTransformDerivative<TValue,Dimension>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ProjectiveTransformDerivative> rInstance,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._projectionMatrix.data(),
+            rInstance._projectionMatrix.size());
 }
 
 

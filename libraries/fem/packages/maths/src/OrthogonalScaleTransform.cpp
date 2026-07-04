@@ -44,6 +44,29 @@ TValue OrthogonalScaleTransformDerivative<TValue,Dimension>::evaluateDeterminant
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+void OrthogonalScaleTransformDerivative<TValue,Dimension>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _scales.data(),
+            _scales.size());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void OrthogonalScaleTransformDerivative<TValue,Dimension>::deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<OrthogonalScaleTransformDerivative> rInstance,
+        tags::Binary) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._scales.data(),
+                rInstance._scales.size());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform() noexcept {
     std::fill(
         this->_scales.begin(),
@@ -73,6 +96,29 @@ OrthogonalScaleTransform<TValue,Dimension>::makeInverse() const {
         inverseScales.begin(),
         [](TValue scale) {return 1 / scale;});
     return OrthogonalScaleTransform(&inverseScales, (&inverseScales) + 1);
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void OrthogonalScaleTransform<TValue,Dimension>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _scales.data(),
+            _scales.size());
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void OrthogonalScaleTransform<TValue,Dimension>::deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<OrthogonalScaleTransform> rInstance,
+        tags::Binary) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._scales.data(),
+                rInstance._scales.size());
 }
 
 

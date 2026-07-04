@@ -538,7 +538,6 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         // Query kernel properties.
         // @todo uncomment when AdaptiveCpp implements sycl::get_kernel_bundle
-        std::cout << "SYCL version: " << SYCL_LANGUAGE_VERSION << "\n";
         //const sycl::kernel dummyKernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(rQueue.get_context()).get_kernel<typename Impl::Kernel>();
         //const std::size_t kernelMaxWorkGroupSize = dummyKernel.get_work_group_info<
         //    sycl::info::kernel_work_group::work_group_size>(rQueue.get_device());

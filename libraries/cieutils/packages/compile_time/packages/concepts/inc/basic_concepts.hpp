@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_BASIC_CONCEPTS_HPP
-#define CIE_CIEUTILS_BASIC_CONCEPTS_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
@@ -348,6 +347,3 @@ concept IntegerLike = concepts::Integer<T>;
 
 
 } // namespace cie
-
-
-#endif

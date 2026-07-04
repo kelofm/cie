@@ -4,8 +4,8 @@
 #include "packages/maths/inc/Expression.hpp"
 #include "packages/numeric/inc/CellBase.hpp"
 
-// --- STL Includes ---
-#include <span> // span
+// --- Utility Includes ---
+#include "packages/io/inc/Traits.hpp"
 
 
 namespace cie::fem{
@@ -80,11 +80,16 @@ public:
 
     unsigned bufferSize() const noexcept;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<DirichletPenaltyIntegrand> rInstance,
+        tags::Binary tag = {});
+
 private:
-    Value _penalty;
-
-    TDirichlet _dirichletFunctor;
-
     TAnsatzSpace _ansatzSpace;
 
     TEmbedding _embedding;
@@ -92,6 +97,10 @@ private:
     CellInverseTransform _cellInverseTransform;
 
     CellJacobian _cellJacobian;
+
+    TDirichlet _dirichletFunctor;
+
+    Value _penalty;
 }; // class DirichletPenaltyIntegrand
 
 

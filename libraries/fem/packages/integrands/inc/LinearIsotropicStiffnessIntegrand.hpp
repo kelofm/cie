@@ -57,14 +57,23 @@ public:
     static constexpr unsigned bufferSize() noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
-private:
-    Value _modulus;
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
 
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<LinearIsotropicStiffnessIntegrand> rInstance,
+        tags::Binary tag = {});
+
+private:
     TAnsatzDerivatives _ansatzDerivatives;
 
     Jacobian _jacobian;
 
     JacobianInverse _jacobianInverse;
+
+    Value _modulus;
 }; // class LinearIsotropicStiffnessIntegrand
 
 

@@ -6,6 +6,10 @@
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
+// --- STL Includes ---
+#include <sstream>
+
+
 namespace cie::fem::maths {
 
 
@@ -128,6 +132,21 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
             CIE_TMP_CHECK(other)
         }
 
+        // Check serialization and deserialization.
+        {
+            Ansatz instance(basisFunctions);
+            std::stringstream stream;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::serialize(
+                stream,
+                instance));
+            Ansatz other;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
+                stream,
+                other));
+            CIE_TMP_CHECK(other);
+            CIE_TMP_CHECK(instance);
+        }
+
         #undef CIE_TMP_CHECK
     }
 
@@ -245,6 +264,21 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
             CIE_TMP_CHECK((*pSwap))
             pSwap.reset();
             CIE_TMP_CHECK(other)
+        }
+
+        // Check serialization and deserialization.
+        {
+            Ansatz instance(basisFunctions);
+            std::stringstream stream;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::serialize(
+                stream,
+                instance));
+            Ansatz other;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
+                stream,
+                other));
+            CIE_TMP_CHECK(other);
+            CIE_TMP_CHECK(instance);
         }
 
         #undef CIE_TMP_CHECK
@@ -367,6 +401,23 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
             pSwap.reset();
             CIE_TMP_CHECK(other);
         }
+
+        // Check serialization and deserialization.
+        {
+            Ansatz::Derivative instance(basisFunctions);
+            std::stringstream stream;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::serialize(
+                stream,
+                instance));
+            Ansatz::Derivative other;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
+                stream,
+                other));
+            CIE_TMP_CHECK(other);
+            CIE_TMP_CHECK(instance);
+        }
+
+        #undef CIE_TMP_CHECK
     }
 
     {
@@ -481,6 +532,23 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
             pSwap.reset();
             CIE_TMP_CHECK(other);
         }
+
+        // Check serialization and deserialization.
+        {
+            Ansatz::Derivative instance(basisFunctions);
+            std::stringstream stream;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::serialize(
+                stream,
+                instance));
+            Ansatz::Derivative other;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
+                stream,
+                other));
+            CIE_TMP_CHECK(other);
+            CIE_TMP_CHECK(instance);
+        }
+
+        #undef CIE_TMP_CHECK
     }
 }
 

@@ -3,8 +3,11 @@
 // --- External Includes ---
 #include <Eigen/Dense> // Eigen::Map
 
-// help the language server
+// --- FEM Includes ---
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
+
+// --- Utility Includes ---
+#include "packages/io/inc/Serializer.hpp"
 
 
 namespace cie::fem {
@@ -12,10 +15,10 @@ namespace cie::fem {
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
 LinearIsotropicStiffnessIntegrand<TAD,TT>::LinearIsotropicStiffnessIntegrand()
-    :   _modulus(0),
-        _ansatzDerivatives(),
+    :   _ansatzDerivatives(),
         _jacobian(),
-        _jacobianInverse()
+        _jacobianInverse(),
+        _modulus(0)
 {}
 
 
@@ -25,10 +28,10 @@ LinearIsotropicStiffnessIntegrand<TAD,TT>::LinearIsotropicStiffnessIntegrand(
     RightRef<TAD> rAnsatzDerivatives,
     RightRef<Jacobian> rJacobian,
     RightRef<JacobianInverse> rJacobianInverse) noexcept
-    :   _modulus(modulus),
-        _ansatzDerivatives(std::move(rAnsatzDerivatives)),
+    :   _ansatzDerivatives(std::move(rAnsatzDerivatives)),
         _jacobian(std::move(rJacobian)),
-        _jacobianInverse(std::move(rJacobianInverse))
+        _jacobianInverse(std::move(rJacobianInverse)),
+        _modulus(modulus)
 {}
 
 
@@ -154,6 +157,47 @@ template <maths::Expression TAD, maths::SpatialTransform TT>
 unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize() const noexcept
 requires (!maths::StaticExpression<TAD>) {
     return _ansatzDerivatives.size() + _ansatzDerivatives.bufferSize();
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+void LinearIsotropicStiffnessIntegrand<TAD,TT>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        using BS = cie::io::BinarySerializer;
+        BS::serialize(
+            rStream,
+            _ansatzDerivatives);
+        BS::serialize(
+            rStream,
+            _jacobian);
+        BS::serialize(
+            rStream,
+            _jacobianInverse);
+        BS::serialize(
+            rStream,
+            _modulus);
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+void LinearIsotropicStiffnessIntegrand<TAD,TT>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<LinearIsotropicStiffnessIntegrand> rInstance,
+    tags::Binary) {
+        using BS = cie::io::BinarySerializer;
+        BS::deserialize(
+            rStream,
+            rInstance._ansatzDerivatives);
+        BS::deserialize(
+            rStream,
+            rInstance._jacobian);
+        BS::deserialize(
+            rStream,
+            rInstance._jacobianInverse);
+        BS::deserialize(
+            rStream,
+            rInstance._modulus);
 }
 
 

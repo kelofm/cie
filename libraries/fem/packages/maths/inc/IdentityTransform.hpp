@@ -5,6 +5,7 @@
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <algorithm>
@@ -14,7 +15,9 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-class IdentityTransform : public ExpressionTraits<TValue> {
+class IdentityTransform
+    :   public ExpressionTraits<TValue>,
+        public cie::io::TriviallySerializableBase {
 public:
     static constexpr inline unsigned ParametricDimension = Dimension;
 

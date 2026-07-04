@@ -6,6 +6,7 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <array>
@@ -173,6 +174,15 @@ public:
 
     constexpr std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet() const noexcept
     requires (hasStaticBasis);
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AnsatzSpaceDerivative> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class AnsatzSpace<TScalarExpression,Dim,SetSize>;
@@ -357,6 +367,15 @@ public:
 
     constexpr View makeView() const noexcept
     requires (hasStaticBasis);
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AnsatzSpace> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;

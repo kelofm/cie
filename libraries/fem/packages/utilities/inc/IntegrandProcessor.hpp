@@ -10,6 +10,7 @@
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 #include "packages/concurrency/inc/sycl.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- STL Includes ---
 #include <span>
@@ -75,7 +76,8 @@ template <
     unsigned Dim,
     maths::StaticExpression TIntegrand,
     class TQuadraturePointData = void>
-class ParallelIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
+class ParallelIntegrandProcessor
+    : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
 public:
     ParallelIntegrandProcessor(Ref<mp::ThreadPoolBase> rThreads);
 

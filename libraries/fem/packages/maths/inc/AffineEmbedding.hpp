@@ -89,6 +89,15 @@ public:
 
     Derivative makeDerivative() const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbedding> rInstance,
+        tags::Binary tag = {});
+
 private:
     friend class AffineEmbeddingInverse<TValue,2u,1u>;
 
@@ -129,6 +138,15 @@ public:
     TValue evaluateDeterminant(
         ConstSpan in,
         BufferSpan buffer) const;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingDerivative> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class AffineEmbedding<TValue,ParametricDimension,PhysicalDimension>;
@@ -175,6 +193,15 @@ public:
 
     Derivative makeDerivative() const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingInverse> rInstance,
+        tags::Binary tag = {});
+
 private:
     friend class AffineEmbedding<TValue,1u,2u>;
 
@@ -215,6 +242,15 @@ public:
     TValue evaluateDeterminant(
         ConstSpan in,
         BufferSpan buffer) const;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingInverseDerivative> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class AffineEmbeddingInverse<TValue,ParametricDimension,PhysicalDimension>;

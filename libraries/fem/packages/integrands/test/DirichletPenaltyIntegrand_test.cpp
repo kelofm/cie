@@ -11,7 +11,9 @@
 namespace cie::fem {
 
 
-struct DirichletPenaltyTest : maths::ExpressionTraits<double> {
+struct DirichletPenaltyTest
+    :   maths::ExpressionTraits<double>,
+        cie::io::TriviallySerializableBase {
     using ExpressionTraits<double>::ConstSpan;
     using ExpressionTraits<double>::Span;
     using ExpressionTraits<double>::BufferSpan;

@@ -54,22 +54,23 @@ constexpr bool OuterProduct<Dimension>::next(
 
 template <unsigned Dimension>
 template <std::incrementable TValue>
-constexpr bool OuterProduct<Dimension>::next(Ref<const TValue> firstState,
-                                             Ref<const TValue> lastState,
-                                             Ptr<TValue> itStateBegin) {
-    Ptr<const TValue> itStateEnd = itStateBegin + Dimension;
+constexpr bool OuterProduct<Dimension>::next(
+    Ref<const TValue> firstState,
+    Ref<const TValue> lastState,
+    Ptr<TValue> itStateBegin) {
+        Ptr<const TValue> itStateEnd = itStateBegin + Dimension;
 
-    for (Ptr<TValue> it=itStateBegin; it!=itStateEnd; ++it) {
-        if (*it != lastState) { // <== found a component to increment
-            ++(*it);
-            return true;
-        } else { // overflow: reset every component until the next incrementable is found
-            *it = firstState;
+        for (Ptr<TValue> it=itStateBegin; it!=itStateEnd; ++it) {
+            if (*it != lastState) { // <== found a component to increment
+                ++(*it);
+                return true;
+            } else { // overflow: reset every component until the next incrementable is found
+                *it = firstState;
+            }
         }
-    }
 
-    // Could not find component to increment
-    return false;
+        // Could not find component to increment
+        return false;
 }
 
 

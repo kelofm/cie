@@ -47,6 +47,15 @@ public:
     static constexpr unsigned bufferSize() noexcept
     requires maths::StaticExpression<TIntegrand>;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ScaledMultiMaterialIntegrand> rInstance,
+        tags::Binary tag = {});
+
 private:
     TIntegrand _integrand;
 

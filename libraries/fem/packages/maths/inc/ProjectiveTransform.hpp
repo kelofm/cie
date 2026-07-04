@@ -2,7 +2,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
@@ -70,6 +70,15 @@ public:
     TValue evaluateDeterminant(
         ConstSpan in,
         BufferSpan buffer) const;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ProjectiveTransformDerivative> rInstance,
+        tags::Binary tag = {});
 
 private:
     friend class ProjectiveTransform<TValue,Dimension>;
@@ -157,6 +166,15 @@ public:
 
     /// @brief Get the matrix representation of the transformation.
     Ref<const TransformationMatrix> getTransformationMatrix() const noexcept;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ProjectiveTransform> rInstance,
+        tags::Binary tag = {});
 
 private:
     /// @brief Construct from a precomputed transformation matrix.

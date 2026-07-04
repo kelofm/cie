@@ -3,6 +3,9 @@
 // --- FEM Includes ---
 #include "packages/integrands/inc/ScaledMultiMaterialIntegrand.hpp"
 
+// --- Utility Includes ---
+#include "packages/io/inc/Serializer.hpp"
+
 // --- STL Includes ---
 #include <algorithm>
 #include <cassert>
@@ -84,6 +87,37 @@ template <maths::Expression TI, class MID, int MC>
 constexpr unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::bufferSize() noexcept
 requires maths::StaticExpression<TI> {
     return TI::bufferSize();
+}
+
+
+template <maths::Expression TI, class MID, int MC>
+void ScaledMultiMaterialIntegrand<TI,MID,MC>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        using BS = cie::io::BinarySerializer;
+        BS::serialize(
+            rStream,
+            _integrand);
+        BS::serialize(
+            rStream,
+            _materialMap.data(),
+            _materialMap.size());
+}
+
+
+template <maths::Expression TI, class MID, int MC>
+void ScaledMultiMaterialIntegrand<TI,MID,MC>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ScaledMultiMaterialIntegrand> rInstance,
+    tags::Binary) {
+        using BS = cie::io::BinarySerializer;
+        BS::deserialize(
+            rStream,
+            rInstance._integrand);
+        BS::deserialize(
+            rStream,
+            rInstance._materialMap.data(),
+            rInstance._materialMap.size());
 }
 
 

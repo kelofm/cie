@@ -3,8 +3,11 @@
 // --- External Includes ---
 #include <Eigen/Dense> // Eigen::Map
 
-// help the language server
+// --- FEM Includes ---
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
+
+// --- Utility Includes ---
+#include "packages/io/inc/Serializer.hpp"
 
 
 namespace cie::fem {
@@ -16,12 +19,12 @@ template <
     maths::Expression TEmbedding,
     CellLike TCell>
 DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand() noexcept
-    :   _penalty(0),
-        _dirichletFunctor(),
-        _ansatzSpace(),
+    :   _ansatzSpace(),
         _embedding(),
         _cellInverseTransform(),
-        _cellJacobian()
+        _cellJacobian(),
+        _dirichletFunctor(),
+        _penalty(0)
 {}
 
 
@@ -37,12 +40,12 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
     Ref<const TEmbedding> rBoundaryTransform,
     Ref<const CellInverseTransform> rCellInverseTransform,
     Ref<const CellJacobian> rCellJacobian)
-        :   _penalty(penalty),
-            _dirichletFunctor(rDirichletFunctor),
-            _ansatzSpace(rAnsatzSpace),
+        :   _ansatzSpace(rAnsatzSpace),
             _embedding(rBoundaryTransform),
             _cellInverseTransform(rCellInverseTransform),
-            _cellJacobian(rCellJacobian)
+            _cellJacobian(rCellJacobian),
+            _dirichletFunctor(rDirichletFunctor),
+            _penalty(penalty)
 {}
 
 
@@ -142,6 +145,67 @@ unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::bufferS
          + TCell::ParametricDimension
          + _dirichletFunctor.size()
          + nestedBufferSize;
+}
+
+
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        using BS = cie::io::BinarySerializer;
+        BS::serialize(
+            rStream,
+            _ansatzSpace);
+        BS::serialize(
+            rStream,
+            _embedding);
+        BS::serialize(
+            rStream,
+            _cellInverseTransform);
+        BS::serialize(
+            rStream,
+            _cellJacobian);
+        BS::serialize(
+            rStream,
+            _dirichletFunctor);
+        BS::serialize(
+            rStream,
+            _penalty);
+}
+
+
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<DirichletPenaltyIntegrand> rInstance,
+    tags::Binary) {
+        using BS = cie::io::BinarySerializer;
+        BS::deserialize(
+            rStream,
+            rInstance._ansatzSpace);
+        BS::deserialize(
+            rStream,
+            rInstance._embedding);
+        BS::deserialize(
+            rStream,
+            rInstance._cellInverseTransform);
+        BS::deserialize(
+            rStream,
+            rInstance._cellJacobian);
+        BS::deserialize(
+            rStream,
+            rInstance._dirichletFunctor);
+        BS::deserialize(
+            rStream,
+            rInstance._penalty);
 }
 
 

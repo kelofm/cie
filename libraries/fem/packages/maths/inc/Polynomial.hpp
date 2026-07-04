@@ -7,6 +7,7 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STD Includes ---
 #include <span>
@@ -208,6 +209,15 @@ public:
     requires (hasStaticCoefficients);
 
     constexpr View makeView() const noexcept;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<Polynomial> rInstance,
+        tags::Binary tag = {});
 
 private:
     template <concepts::Numeric T, int O>

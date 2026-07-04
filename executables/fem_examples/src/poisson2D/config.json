@@ -29,13 +29,13 @@
         },
         "geometric": {
             "type" : "cartesian-grid-2d",
-            "resolution" : [5e2, 5e2],
+            "resolution" : [5e1, 3e1],
             "discard-default-cells" : true
         },
         "integration": {
             "type": "kd-tree-quadrature",
             "batch-size": 1e6,
-            "device": "sycl",
+            "device": "host",
             "verbosity" : 3,
             "template": {
                 "order": 6,
@@ -62,10 +62,13 @@
             "absolute-residual" : 1e-6,
             "relative-residual" : 1e-6,
             "linear-solver" : {
-                "type": "cg-sycl",
+                "type": "cg",
                 "max-iterations" : 5e3,
-                "absolute-residual" : 1e-6,
-                "relative-residual" : 1e-6
+                "absolute-residual" : 1e-1,
+                "relative-residual" : 1e-6,
+                "preconditioner" : {
+                    "type" : "inverse-diagonal-operator"
+                }
             },
             "verbosity" : 3
         }

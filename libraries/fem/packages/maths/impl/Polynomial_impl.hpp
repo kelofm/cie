@@ -302,6 +302,41 @@ Polynomial<TValue,PolynomialOrder>::makeView() const noexcept {
 }
 
 
+template <concepts::Numeric T, int P>
+void Polynomial<T,P>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        if constexpr (!hasStaticCoefficients)
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                static_cast<std::size_t>(_coefficients.size()));
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _coefficients.data(),
+            _coefficients.size());
+}
+
+
+template <concepts::Numeric T, int P>
+void Polynomial<T,P>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<Polynomial> rInstance,
+    tags::Binary) {
+        std::size_t coefficientCount = static_cast<std::size_t>(P);
+        if constexpr (!hasStaticCoefficients) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                coefficientCount);
+            rInstance._coefficients.resize(coefficientCount);
+        }
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._coefficients.data(),
+            rInstance._coefficients.size());
+
+}
+
+
 } // namespace cie::fem::maths
 
 
