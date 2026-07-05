@@ -16,10 +16,6 @@
 namespace cie::fem::maths {
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-class Polynomial;
-
-
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
 template <concepts::Numeric TValue, int PolynomialOrder = -1>
@@ -87,9 +83,8 @@ public:
     requires (hasStaticCoefficients);
 
 private:
-    friend class Polynomial<TValue,PolynomialOrder>;
-
-    friend class Polynomial<TValue,PolynomialOrder+1>;
+    template <concepts::Numeric T, int P, class TA>
+    friend class Polynomial;
 
     std::conditional_t<
         hasStaticCoefficients,
@@ -101,7 +96,7 @@ private:
 
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
-template <concepts::Numeric TValue, int PolynomialOrder = -1>
+template <concepts::Numeric TValue, int PolynomialOrder = -1, class TAllocator = std::allocator<TValue>>
 class Polynomial : public ExpressionTraits<TValue> {
 public:
     using View = PolynomialView<TValue,PolynomialOrder>;
@@ -124,7 +119,7 @@ public:
     using Coefficients = std::conditional_t<
         hasStaticCoefficients,
         std::array<TValue,coefficientCount>,
-        DynamicArray<TValue>>;
+        std::vector<TValue,TAllocator>>;
 
 public:
     /// @brief Uninitialized by default.
@@ -220,7 +215,7 @@ public:
         tags::Binary tag = {});
 
 private:
-    template <concepts::Numeric T, int O>
+    template <concepts::Numeric T, int O, class TA>
     friend class Polynomial;
 
     Coefficients _coefficients;
@@ -237,38 +232,42 @@ template <class TValue, int PolynomialOrder>
 struct GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>> {
     void header(Ref<XMLElement> rElement);
 
-    void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::PolynomialView<TValue,PolynomialOrder>> rInstance);
+    void operator()(
+        Ref<XMLElement> rElement,
+        Ref<const maths::PolynomialView<TValue,PolynomialOrder>> rInstance);
 }; // struct GraphML::Serializer<PolynomialView>
 
 
-template <class TValue, int PolynomialOrder>
-struct GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>> {
+template <class TValue, int PolynomialOrder, class TAllocator>
+struct GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder,TAllocator>> {
     void header(Ref<XMLElement> rElement);
 
-    void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::Polynomial<TValue,PolynomialOrder>> rInstance);
+    void operator()(
+        Ref<XMLElement> rElement,
+        Ref<const maths::Polynomial<TValue,PolynomialOrder,TAllocator>> rInstance);
 }; // struct GraphML::Serializer<Polynomial>
 
 
-template <class TValue, int PolynomialOrder>
-struct GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>
-    : public GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>
-{
-    using GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>::DeserializerBase;
+template <class TValue, int PolynomialOrder, class TAllocator>
+struct GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder,TAllocator>>
+    : public GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder,TAllocator>> {
+        using GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder,TAllocator>>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view elementName,
-                               std::span<GraphML::AttributePair> attributes);
+        static void onElementBegin(
+            Ptr<void> pThis,
+            std::string_view elementName,
+            std::span<GraphML::AttributePair> attributes);
 
-    static void onText(Ptr<void> pThis,
-                       std::string_view data);
+        static void onText(
+            Ptr<void> pThis,
+            std::string_view data);
 
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName);
+        static void onElementEnd(
+            Ptr<void> pThis,
+            std::string_view elementName);
 
-private:
-    typename maths::Polynomial<TValue,PolynomialOrder>::Coefficients _coefficients;
+    private:
+        typename maths::Polynomial<TValue,PolynomialOrder,TAllocator>::Coefficients _coefficients;
 }; // struct GraphML::Deserializer<Polynomial>
 
 

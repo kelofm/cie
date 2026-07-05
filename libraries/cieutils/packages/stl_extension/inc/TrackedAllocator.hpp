@@ -1,9 +1,10 @@
 #pragma once
 
 // --- STL Includes ---
-#include <memory>
 #include <mutex>
 #include <atomic>
+#include <algorithm>
+#include <cstddef>
 
 
 namespace cie {

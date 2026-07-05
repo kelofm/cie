@@ -11,29 +11,29 @@
 namespace cie::fem::maths {
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr PolynomialView<TValue,PolynomialOrder>::PolynomialView() noexcept
-    : _coefficients(static_cast<const TValue*>(nullptr), coefficientCount)
+template <concepts::Numeric T, int P>
+constexpr PolynomialView<T,P>::PolynomialView() noexcept
+    : _coefficients(static_cast<const T*>(nullptr), coefficientCount)
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-PolynomialView<TValue,PolynomialOrder>::PolynomialView(ConstSpan coefficients) noexcept
+template <concepts::Numeric T, int P>
+PolynomialView<T,P>::PolynomialView(ConstSpan coefficients) noexcept
 requires (!hasStaticCoefficients)
     : _coefficients(coefficients)
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr PolynomialView<TValue,PolynomialOrder>::PolynomialView(std::span<const TValue,coefficientCount> coefficients) noexcept
+template <concepts::Numeric T, int P>
+constexpr PolynomialView<T,P>::PolynomialView(std::span<const T,coefficientCount> coefficients) noexcept
 requires (hasStaticCoefficients)
     : _coefficients(coefficients)
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-typename PolynomialView<TValue,PolynomialOrder>::Derivative
-PolynomialView<TValue,PolynomialOrder>::makeDerivative(Span buffer) const
+template <concepts::Numeric T, int P>
+typename PolynomialView<T,P>::Derivative
+PolynomialView<T,P>::makeDerivative(Span buffer) const
 requires (!hasStaticCoefficients) {
     if (!_coefficients.empty() && buffer.size() != (_coefficients.empty() ? 0ul : _coefficients.size() - 1)) {
         CIE_THROW(OutOfRangeException,
@@ -48,7 +48,7 @@ requires (!hasStaticCoefficients) {
         buffer.front() = _coefficients[1];
         if (2 < coefficientCount) {
             const auto itCoefficientEnd = _coefficients.end();
-            TValue power = static_cast<TValue>(2);
+            T power = static_cast<T>(2);
             auto itBuffer = buffer.begin() + 1;
             for (auto itCoefficient=_coefficients.begin()+2; itCoefficient!=itCoefficientEnd; ++itCoefficient, ++power, ++itBuffer)
                 *itBuffer = power * (*itCoefficient);
@@ -59,16 +59,16 @@ requires (!hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr typename PolynomialView<TValue,PolynomialOrder>::Derivative
-PolynomialView<TValue,PolynomialOrder>::makeDerivative(std::span<TValue,Derivative::coefficientCount> buffer) const noexcept
+template <concepts::Numeric T, int P>
+constexpr typename PolynomialView<T,P>::Derivative
+PolynomialView<T,P>::makeDerivative(std::span<T,Derivative::coefficientCount> buffer) const noexcept
 requires (hasStaticCoefficients) {
     if constexpr (1 < coefficientCount) {
         // Push first coefficient (no multiplication required)
         buffer.front() = _coefficients[1];
         if constexpr (2 < coefficientCount) {
             const auto itCoefficientEnd = _coefficients.end();
-            TValue power = static_cast<TValue>(2);
+            T power = static_cast<T>(2);
             auto itBuffer = buffer.begin() + 1;
             for (auto itCoefficient=_coefficients.begin()+2; itCoefficient!=itCoefficientEnd; ++itCoefficient, ++power, ++itBuffer)
                 *itBuffer = power * (*itCoefficient);
@@ -79,8 +79,8 @@ requires (hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-void PolynomialView<TValue,PolynomialOrder>::evaluate(
+template <concepts::Numeric T, int P>
+void PolynomialView<T,P>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan) const
@@ -91,8 +91,8 @@ requires (!hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr void PolynomialView<TValue,PolynomialOrder>::evaluate(
+template <concepts::Numeric T, int P>
+constexpr void PolynomialView<T,P>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan) const
@@ -103,83 +103,83 @@ requires (hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr unsigned PolynomialView<TValue,PolynomialOrder>::size() noexcept {
+template <concepts::Numeric T, int P>
+constexpr unsigned PolynomialView<T,P>::size() noexcept {
     return 1u;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr unsigned PolynomialView<TValue,PolynomialOrder>::bufferSize() noexcept {
+template <concepts::Numeric T, int P>
+constexpr unsigned PolynomialView<T,P>::bufferSize() noexcept {
     return 0u;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-typename PolynomialView<TValue,PolynomialOrder>::ConstSpan
-PolynomialView<TValue,PolynomialOrder>::coefficients() const noexcept
+template <concepts::Numeric T, int P>
+typename PolynomialView<T,P>::ConstSpan
+PolynomialView<T,P>::coefficients() const noexcept
 requires (!hasStaticCoefficients) {
     return _coefficients;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr std::span<const TValue,PolynomialView<TValue,PolynomialOrder>::coefficientCount>
-PolynomialView<TValue,PolynomialOrder>::coefficients() const noexcept
+template <concepts::Numeric T, int P>
+constexpr std::span<const T,PolynomialView<T,P>::coefficientCount>
+PolynomialView<T,P>::coefficients() const noexcept
 requires (hasStaticCoefficients) {
     return _coefficients;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
     : _coefficients(std::move(rCoefficients))
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(Polynomial&& rRight) noexcept
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(Polynomial&& rRight) noexcept
     : _coefficients(std::move(rRight._coefficients))
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-Polynomial<TValue,PolynomialOrder>::Polynomial(Polynomial&& rRight)
+template <concepts::Numeric T, int P, class TA>
+Polynomial<T,P,TA>::Polynomial(Polynomial&& rRight)
 requires (!hasStaticCoefficients)
     : _coefficients(std::move(rRight._coefficients))
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(Polynomial&& rRight)
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(Polynomial&& rRight)
 requires (hasStaticCoefficients)
     : _coefficients(rRight._coefficients)
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-Polynomial<TValue,PolynomialOrder>::Polynomial(const Polynomial& rRight)
+template <concepts::Numeric T, int P, class TA>
+Polynomial<T,P,TA>::Polynomial(const Polynomial& rRight)
 requires (!hasStaticCoefficients)
     : _coefficients(rRight._coefficients)
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(const Polynomial& rRight)
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(const Polynomial& rRight)
 requires (hasStaticCoefficients)
     : _coefficients(rRight._coefficients)
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-Polynomial<TValue,PolynomialOrder>::Polynomial(ConstSpan coefficients)
+template <concepts::Numeric T, int P, class TA>
+Polynomial<T,P,TA>::Polynomial(ConstSpan coefficients)
 requires (!hasStaticCoefficients)
     : _coefficients(coefficients.begin(), coefficients.end())
 {}
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>::Polynomial(std::span<const TValue,coefficientCount> coefficients)
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(std::span<const T,coefficientCount> coefficients)
 requires (hasStaticCoefficients)
     : _coefficients() {
         std::copy_n(
@@ -189,42 +189,42 @@ requires (hasStaticCoefficients)
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-Polynomial<TValue,PolynomialOrder>&
-Polynomial<TValue,PolynomialOrder>::operator=(Polynomial&& rRight) noexcept
+template <concepts::Numeric T, int P, class TA>
+Polynomial<T,P,TA>&
+Polynomial<T,P,TA>::operator=(Polynomial&& rRight) noexcept
 requires (!hasStaticCoefficients) {
     _coefficients = std::move(rRight._coefficients);
     return *this;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>&
-Polynomial<TValue,PolynomialOrder>::operator=(Polynomial&& rRight) noexcept
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>&
+Polynomial<T,P,TA>::operator=(Polynomial&& rRight) noexcept
 requires (hasStaticCoefficients) {
     _coefficients = rRight._coefficients;
     return *this;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-Polynomial<TValue,PolynomialOrder>& Polynomial<TValue,PolynomialOrder>::operator=(const Polynomial& rRight)
+template <concepts::Numeric T, int P, class TA>
+Polynomial<T,P,TA>& Polynomial<T,P,TA>::operator=(const Polynomial& rRight)
 requires (!hasStaticCoefficients) {
     _coefficients = rRight._coefficients;
     return *this;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr Polynomial<TValue,PolynomialOrder>& Polynomial<TValue,PolynomialOrder>::operator=(const Polynomial& rRight) noexcept
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>& Polynomial<T,P,TA>::operator=(const Polynomial& rRight) noexcept
 requires (hasStaticCoefficients) {
     _coefficients = rRight._coefficients;
     return *this;
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-void Polynomial<TValue,PolynomialOrder>::evaluate(
+template <concepts::Numeric T, int P, class TA>
+void Polynomial<T,P,TA>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const
@@ -233,8 +233,8 @@ requires (!hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr void Polynomial<TValue,PolynomialOrder>::evaluate(
+template <concepts::Numeric T, int P, class TA>
+constexpr void Polynomial<T,P,TA>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const noexcept
@@ -243,21 +243,21 @@ requires (hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr unsigned Polynomial<TValue,PolynomialOrder>::size() noexcept {
+template <concepts::Numeric T, int P, class TA>
+constexpr unsigned Polynomial<T,P,TA>::size() noexcept {
     return View::size();
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr unsigned Polynomial<TValue,PolynomialOrder>::bufferSize() noexcept {
+template <concepts::Numeric T, int P, class TA>
+constexpr unsigned Polynomial<T,P,TA>::bufferSize() noexcept {
     return View::bufferSize();
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-typename Polynomial<TValue,PolynomialOrder>::Derivative
-Polynomial<TValue,PolynomialOrder>::makeDerivative() const
+template <concepts::Numeric T, int P, class TA>
+typename Polynomial<T,P,TA>::Derivative
+Polynomial<T,P,TA>::makeDerivative() const
 requires (!hasStaticCoefficients) {
     Polynomial derivative;
     derivative._coefficients.resize(_coefficients.empty() ? 0 : _coefficients.size() - 1);
@@ -266,9 +266,9 @@ requires (!hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr typename Polynomial<TValue,PolynomialOrder>::Derivative
-Polynomial<TValue,PolynomialOrder>::makeDerivative() const noexcept
+template <concepts::Numeric T, int P, class TA>
+constexpr typename Polynomial<T,P,TA>::Derivative
+Polynomial<T,P,TA>::makeDerivative() const noexcept
 requires (hasStaticCoefficients) {
     Derivative derivative;
     this->makeView().makeDerivative(derivative._coefficients);
@@ -276,34 +276,34 @@ requires (hasStaticCoefficients) {
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-std::span<const TValue> Polynomial<TValue,PolynomialOrder>::coefficients() const noexcept
+template <concepts::Numeric T, int P, class TA>
+std::span<const T> Polynomial<T,P,TA>::coefficients() const noexcept
 requires (!hasStaticCoefficients) {
     return {_coefficients.data(), _coefficients.size()};
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
+template <concepts::Numeric T, int P, class TA>
 constexpr std::span<
-    const TValue,
-    Polynomial<TValue,PolynomialOrder>::coefficientCount
-> Polynomial<TValue,PolynomialOrder>::coefficients() const noexcept
+    const T,
+    Polynomial<T,P,TA>::coefficientCount
+> Polynomial<T,P,TA>::coefficients() const noexcept
 requires (hasStaticCoefficients) {
-    return std::span<const TValue,coefficientCount>(
+    return std::span<const T,coefficientCount>(
         _coefficients.data(),
         _coefficients.size());
 }
 
 
-template <concepts::Numeric TValue, int PolynomialOrder>
-constexpr typename Polynomial<TValue,PolynomialOrder>::View
-Polynomial<TValue,PolynomialOrder>::makeView() const noexcept {
+template <concepts::Numeric T, int P, class TA>
+constexpr typename Polynomial<T,P,TA>::View
+Polynomial<T,P,TA>::makeView() const noexcept {
     return View(_coefficients);
 }
 
 
-template <concepts::Numeric T, int P>
-void Polynomial<T,P>::serialize(
+template <concepts::Numeric T, int P, class TA>
+void Polynomial<T,P,TA>::serialize(
     Ref<cie::io::Traits::SerializerStream> rStream,
     tags::Binary) const {
         if constexpr (!hasStaticCoefficients)
@@ -317,8 +317,8 @@ void Polynomial<T,P>::serialize(
 }
 
 
-template <concepts::Numeric T, int P>
-void Polynomial<T,P>::deserialize(
+template <concepts::Numeric T, int P, class TA>
+void Polynomial<T,P,TA>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<Polynomial> rInstance,
     tags::Binary) {
@@ -333,7 +333,6 @@ void Polynomial<T,P>::deserialize(
             rStream,
             rInstance._coefficients.data(),
             rInstance._coefficients.size());
-
 }
 
 
@@ -343,86 +342,86 @@ void Polynomial<T,P>::deserialize(
 namespace cie::fem::io {
 
 
-template <class TValue, int PolynomialOrder>
-void GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>>::header(Ref<GraphML::XMLElement> rElement) {
+template <class T, int P>
+void GraphML::Serializer<maths::PolynomialView<T,P>>::header(Ref<GraphML::XMLElement> rElement) {
     CIE_BEGIN_EXCEPTION_TRACING
-    GraphML::XMLElement defaultData = rElement.addChild("default");
-    defaultData.addAttribute("type", "polynomial");
+        GraphML::XMLElement defaultData = rElement.addChild("default");
+        defaultData.addAttribute("type", "polynomial");
     CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TValue, int PolynomialOrder>
-void GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>>::operator()(Ref<GraphML::XMLElement> rElement,
-                                                                                    Ref<const maths::PolynomialView<TValue,PolynomialOrder>> rInstance) {
+template <class T, int P>
+void GraphML::Serializer<maths::PolynomialView<T,P>>::operator()(
+    Ref<GraphML::XMLElement> rElement,
+    Ref<const maths::PolynomialView<T,P>> rInstance) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            using SubSerializer = GraphML::Serializer<std::span<const T>>;
+            SubSerializer subSerializer;
+            GraphML::XMLElement child = rElement.addChild("polynomial");
+            subSerializer(child, rInstance.coefficients());
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class T, int P, class TA>
+void GraphML::Serializer<maths::Polynomial<T,P,TA>>::header(Ref<GraphML::XMLElement> rElement) {
     CIE_BEGIN_EXCEPTION_TRACING
-    using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
-    SubSerializer subSerializer;
-    GraphML::XMLElement child = rElement.addChild("polynomial");
-    subSerializer(child, rInstance.coefficients());
+        GraphML::XMLElement defaultData = rElement.addChild("default");
+        defaultData.addAttribute("type", "polynomial");
     CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TValue, int PolynomialOrder>
-void GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>>::header(Ref<GraphML::XMLElement> rElement) {
-    CIE_BEGIN_EXCEPTION_TRACING
-    GraphML::XMLElement defaultData = rElement.addChild("default");
-    defaultData.addAttribute("type", "polynomial");
-    CIE_END_EXCEPTION_TRACING
+template <class T, int P, class TA>
+void GraphML::Serializer<maths::Polynomial<T,P,TA>>::operator()(
+    Ref<GraphML::XMLElement> rElement,
+    Ref<const maths::Polynomial<T,P,TA>> rInstance) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            using SubSerializer = GraphML::Serializer<std::span<const T>>;
+            SubSerializer subSerializer;
+            GraphML::XMLElement child = rElement.addChild("polynomial");
+            subSerializer(child, rInstance.coefficients());
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TValue, int PolynomialOrder>
-void GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>>::operator()(Ref<GraphML::XMLElement> rElement,
-                                                                                Ref<const maths::Polynomial<TValue,PolynomialOrder>> rInstance) {
-    CIE_BEGIN_EXCEPTION_TRACING
-    using SubSerializer = GraphML::Serializer<std::span<const TValue>>;
-    SubSerializer subSerializer;
-    GraphML::XMLElement child = rElement.addChild("polynomial");
-    subSerializer(child, rInstance.coefficients());
-    CIE_END_EXCEPTION_TRACING
+template <class T, int P, class TA>
+void GraphML::Deserializer<maths::Polynomial<T,P,TA>>::onElementBegin(
+    Ptr<void> pThis,
+    std::string_view elementName,
+    [[maybe_unused]] std::span<GraphML::AttributePair> attributes) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+            using SubDeserializer = GraphML::Deserializer<typename maths::Polynomial<T,P,TA>::Coefficients>;
+            Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(rThis._coefficients, rThis.sax(), elementName);
+            rThis.sax().push({
+                pSubDeserializer,
+                SubDeserializer::onElementBegin,
+                SubDeserializer::onText,
+                SubDeserializer::onElementEnd});
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TValue, int PolynomialOrder>
-void GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>::onElementBegin(Ptr<void> pThis,
-                                                                                      std::string_view elementName,
-                                                                                      [[maybe_unused]] std::span<GraphML::AttributePair> attributes) {
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-    using SubDeserializer = GraphML::Deserializer<typename maths::Polynomial<TValue,PolynomialOrder>::Coefficients>;
-    Ptr<SubDeserializer> pSubDeserializer = SubDeserializer::make(rThis._coefficients, rThis.sax(), elementName);
-    rThis.sax().push({
-        pSubDeserializer,
-        SubDeserializer::onElementBegin,
-        SubDeserializer::onText,
-        SubDeserializer::onElementEnd
-    });
-
-    //SubDeserializer::onElementBegin(pSubDeserializer, elementName, attributes);
-
-    CIE_END_EXCEPTION_TRACING
+template <class T, int P, class TA>
+void GraphML::Deserializer<maths::Polynomial<T,P,TA>>::onText(
+    Ptr<void>,
+    std::string_view elementName) {
+        CIE_THROW(
+            Exception,
+            "Unexpected text block while parsing a polynomial from <" << elementName << ">."
+        )
 }
 
 
-template <class TValue, int PolynomialOrder>
-void GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>::onText(Ptr<void>,
-                                                                              std::string_view elementName) {
-    CIE_THROW(
-        Exception,
-        "Unexpected text block while parsing a polynomial from <" << elementName << ">."
-    )
-}
-
-
-template <class TValue, int PolynomialOrder>
-void GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>::onElementEnd(Ptr<void> pThis,
-                                                                                    std::string_view elementName) {
-    Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-    rThis.instance() = maths::Polynomial<TValue,PolynomialOrder>(std::move(rThis._coefficients));
-    rThis.template release<Deserializer>(&rThis, elementName);
+template <class T, int P, class TA>
+void GraphML::Deserializer<maths::Polynomial<T,P,TA>>::onElementEnd(
+    Ptr<void> pThis,
+    std::string_view elementName) {
+        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+        rThis.instance() = maths::Polynomial<T,P,TA>(std::move(rThis._coefficients));
+        rThis.template release<Deserializer>(&rThis, elementName);
 }
 
 
