@@ -6,6 +6,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <algorithm> // std::copy, std::transform (already included anyway)
@@ -189,6 +190,61 @@ constexpr unsigned TranslateScaleTransform<TValue,Dimension>::size() noexcept {
 template <concepts::Numeric TValue, unsigned Dimension>
 constexpr unsigned TranslateScaleTransform<TValue,Dimension>::bufferSize() noexcept {
     return 0u;
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TAllocator>
+void ScaleTranslateTransformDerivative<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ScaleTranslateTransformDerivative> rInstance,
+    Ref<const TAllocator> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TAllocator>
+void ScaleTranslateTransform<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ScaleTranslateTransform> rInstance,
+    Ref<const TAllocator> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._offset.data(),
+            rInstance._offset.size(),
+            rAllocator);
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TAllocator>
+void TranslateScaleTransform<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TranslateScaleTransform> rInstance,
+    Ref<const TAllocator> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._offset.data(),
+            rInstance._offset.size(),
+            rAllocator);
 }
 
 

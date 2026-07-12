@@ -25,6 +25,11 @@ public:
 
     using JacobianInverse = typename TTransform::Inverse::Derivative;
 
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = LinearIsotropicStiffnessIntegrand<
+        typename TAnsatzDerivatives::template Rebind<TOtherAllocator,TOther>,
+        typename TTransform::template Rebind<TOtherAllocator,TOther>>;
+
 public:
     LinearIsotropicStiffnessIntegrand();
 
@@ -61,9 +66,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<LinearIsotropicStiffnessIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:

@@ -52,6 +52,9 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
+    template <template <class ...> class, class>
+    using Rebind = ProjectiveTransformDerivative;
+
     /// @brief Identity by default.
     ProjectiveTransformDerivative() noexcept;
 
@@ -75,9 +78,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<ProjectiveTransformDerivative> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:
@@ -126,6 +131,9 @@ public:
 
     using Point = typename Kernel<Dimension,TValue>::Point;
 
+    template <template <class ...> class, class>
+    using Rebind = ProjectiveTransform;
+
     /// @brief Identity transform by default
     ProjectiveTransform() noexcept;
 
@@ -171,9 +179,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<ProjectiveTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:

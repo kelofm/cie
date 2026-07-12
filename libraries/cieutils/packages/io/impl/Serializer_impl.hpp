@@ -2,6 +2,7 @@
 
 // --- Utility Includes ---
 #include "packages/io/inc/Serializer.hpp"
+#include "packages/macros/inc/checks.hpp"
 
 
 namespace cie::io {
@@ -57,30 +58,42 @@ void Serializer<TTag>::serialize(
 
 
 template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
-template <Deserializable T>
-void Serializer<TTag>::deserialize(Ref<DeserializerStream> rStream, Ref<T> rOutput) {
-    #ifndef NDEBUG
-        CIE_CHECK(!rStream.fail(), "Stream in invalid state before trivial deserialization")
-    #endif
-    Serializer::deserializeImpl(rStream, rOutput);
-    #ifndef NDEBUG
-        CIE_CHECK(!rStream.fail(), "Stream in invalid state after trivial deserialization")
-    #endif
+template <class T, class TAllocator>
+requires Deserializable<T,TAllocator>
+void Serializer<TTag>::deserialize(
+    Ref<DeserializerStream> rStream,
+    Ref<T> rOutput,
+    Ref<TAllocator> rAllocator) {
+        #ifndef NDEBUG
+            CIE_CHECK(!rStream.fail(), "Stream in invalid state before trivial deserialization")
+        #endif
+        Serializer::deserializeImpl(
+            rStream,
+            rOutput,
+            rAllocator);
+        #ifndef NDEBUG
+            CIE_CHECK(!rStream.fail(), "Stream in invalid state after trivial deserialization")
+        #endif
 }
 
 
 template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
-template <Deserializable<TTag> T>
+template <class T, class TAllocator>
+requires Deserializable<T,TAllocator,TTag>
 void Serializer<TTag>::deserialize(
     Ref<DeserializerStream> rStream,
     Ptr<T> begin,
-    Size numberOfItems) {
+    Size numberOfItems,
+    Ref<TAllocator> rAllocator) {
         #ifndef NDEBUG
             CIE_CHECK(!rStream.fail(), "Stream in invalid state before array deserialization")
         #endif
         const Ptr<const T> end = begin + numberOfItems;
         for (; begin<end; ++begin)
-            Serializer::deserializeImpl(rStream, *begin);
+            Serializer::deserializeImpl(
+                rStream,
+                *begin,
+                rAllocator);
         #ifndef NDEBUG
             CIE_CHECK(!rStream.fail(), "Stream in invalid state after array deserialization")
         #endif
@@ -102,13 +115,21 @@ void Serializer<TTag>::serializeImpl(Ref<SerializerStream> rStream, Ref<const T>
 
 
 template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
-template <Deserializable T>
-void Serializer<TTag>::deserializeImpl(Ref<DeserializerStream> rStream, Ref<T> rOutput) {
+template <class T, class TAllocator>
+requires Deserializable<T,TAllocator>
+void Serializer<TTag>::deserializeImpl(
+    Ref<DeserializerStream> rStream,
+    Ref<T> rOutput,
+    Ref<TAllocator> rAllocator) {
     if constexpr (TriviallyDeserializable<T>) {
         rStream.read(reinterpret_cast<char*>(std::addressof(rOutput)), sizeof(T));
-    } else if constexpr (NonTriviallyDeserializable<T>) {
-        T::deserialize(rStream, rOutput, TTag());
-    }
+    } else if constexpr (NonTriviallyDeserializable<T,TAllocator>) {
+        T::deserialize(
+            rStream,
+            rOutput,
+            rAllocator,
+            TTag());
+    } else static_assert(TriviallyDeserializable<T>, "this type does not support deserialization with the provided allocator");
 }
 
 

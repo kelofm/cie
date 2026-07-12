@@ -39,6 +39,9 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
+    template <template <class ...> class, class>
+    using Rebind = OrthogonalScaleTransformDerivative;
+
 public:
     /// @brief Identity by default.
     OrthogonalScaleTransformDerivative() noexcept;
@@ -63,9 +66,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<OrthogonalScaleTransformDerivative> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:
@@ -102,6 +107,9 @@ public:
 
     using Inverse = OrthogonalScaleTransform;
 
+    template <template <class ...> class, class>
+    using Rebind = OrthogonalScaleTransform;
+
 public:
     /// @brief Identity transform by default.
     OrthogonalScaleTransform() noexcept;
@@ -137,9 +145,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<OrthogonalScaleTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:

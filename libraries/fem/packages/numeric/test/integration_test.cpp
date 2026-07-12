@@ -33,6 +33,9 @@ bool testDomain(std::span<const double> in) {
 struct IntegrationTestIntegrand
     :   public maths::ExpressionTraits<double>,
         public cie::io::TriviallySerializableBase {
+    template <template <class ...> class, class>
+    using Rebind = IntegrationTestIntegrand;
+
     IntegrationTestIntegrand() {}
 
     IntegrationTestIntegrand(Ref<const maths::ScaleTranslateTransform<double,2>> rTransform)
@@ -74,13 +77,16 @@ struct IntegrationTestIntegrand
                 _transform);
     }
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<IntegrationTestIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary) {
             cie::io::BinarySerializer::deserialize(
                 rStream,
-                rInstance._transform);
+                rInstance._transform,
+                rAllocator);
     }
 
     maths::ScaleTranslateTransform<double,2> _transform;

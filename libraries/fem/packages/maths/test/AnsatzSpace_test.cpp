@@ -16,6 +16,8 @@ namespace cie::fem::maths {
 CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
     CIE_TEST_CASE_INIT( "AnsatzSpace" )
 
+    std::allocator<double> allocator;
+
     {
         CIE_TEST_CASE_INIT("dynamic")
         using Point = Kernel<2,double>::Point;
@@ -142,7 +144,8 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
             Ansatz other;
             CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
                 stream,
-                other));
+                other,
+                allocator));
             CIE_TMP_CHECK(other);
             CIE_TMP_CHECK(instance);
         }
@@ -276,7 +279,8 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
             Ansatz other;
             CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
                 stream,
-                other));
+                other,
+                allocator));
             CIE_TMP_CHECK(other);
             CIE_TMP_CHECK(instance);
         }
@@ -288,6 +292,8 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
 
 CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
     CIE_TEST_CASE_INIT( "AnsatzSpaceDerivative" )
+
+    std::allocator<double> allocator;
 
     {
         CIE_TEST_CASE_INIT("dynamic")
@@ -412,7 +418,8 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
             Ansatz::Derivative other;
             CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
                 stream,
-                other));
+                other,
+                allocator));
             CIE_TMP_CHECK(other);
             CIE_TMP_CHECK(instance);
         }
@@ -543,7 +550,8 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
             Ansatz::Derivative other;
             CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
                 stream,
-                other));
+                other,
+                allocator));
             CIE_TMP_CHECK(other);
             CIE_TMP_CHECK(instance);
         }

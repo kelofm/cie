@@ -15,17 +15,18 @@
 namespace cie::fem::maths {
 
 
-template <class, unsigned, std::size_t>
+template <class, unsigned, std::size_t, class>
 class AnsatzSpace;
 
 
-template <class, unsigned, std::size_t>
+template <class, unsigned, std::size_t, class>
 class AnsatzSpaceDerivative;
 
 
 /// @ingroup fem
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
-class AnsatzSpaceDerivativeView : public ExpressionTraits<typename TScalarExpression::Value> {
+class AnsatzSpaceDerivativeView
+    : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
     constexpr static inline bool hasStaticBasis = (SetSize != 0ul) && StaticExpression<TScalarExpression> && StaticExpression<typename TScalarExpression::Derivative>;
 
@@ -38,6 +39,9 @@ public:
     using typename ExpressionTraits<Value>::Span;
 
     using typename ExpressionTraits<Value>::BufferSpan;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AnsatzSpaceDerivativeView;
 
 public:
     constexpr AnsatzSpaceDerivativeView() noexcept;
@@ -74,7 +78,8 @@ public:
     constexpr std::span<const typename TScalarExpression::Derivative> derivativeSet() const noexcept;
 
 private:
-    friend class AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;
+    template <class, unsigned, std::size_t, class>
+    friend class AnsatzSpaceDerivative;
 
     std::conditional_t<
         hasStaticBasis,
@@ -91,10 +96,21 @@ private:
 
 
 /// @ingroup fem
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
+template <
+    class TScalarExpression,
+    unsigned Dim,
+    std::size_t SetSize = 0ul,
+    class TAllocator = std::allocator<TScalarExpression>>
 class AnsatzSpaceDerivative : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
     using View = AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AnsatzSpaceDerivative<
+        TScalarExpression,
+        Dim,
+        SetSize,
+        TOtherAllocator<TScalarExpression>>;
 
     static inline constexpr bool hasStaticBasis = View::hasStaticBasis;
 
@@ -108,12 +124,20 @@ public:
 
     using typename ExpressionTraits<Value>::BufferSpan;
 
-    constexpr AnsatzSpaceDerivative() noexcept = default;
+    constexpr AnsatzSpaceDerivative(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires hasStaticBasis;
 
-    AnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet)
+    AnsatzSpaceDerivative(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
     requires (!hasStaticBasis);
 
-    constexpr AnsatzSpaceDerivative(std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
+    AnsatzSpaceDerivative(
+        std::span<const TScalarExpression> ansatzSet,
+        Ref<const TAllocator> rAllocator = TAllocator())
+    requires (!hasStaticBasis);
+
+    constexpr AnsatzSpaceDerivative(
+        std::span<const TScalarExpression,SetSize> ansatzSet,
+        Ref<const TAllocator> rAllocator = TAllocator()) noexcept
     requires (hasStaticBasis);
 
     AnsatzSpaceDerivative(AnsatzSpaceDerivative&&) noexcept
@@ -182,15 +206,17 @@ public:
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AnsatzSpaceDerivative> rInstance,
+        TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
 
 private:
-    friend class AnsatzSpace<TScalarExpression,Dim,SetSize>;
+    template <class,unsigned,std::size_t,class>
+    friend class AnsatzSpace;
 
     std::conditional_t<
         hasStaticBasis,
         std::array<TScalarExpression,SetSize>,
-        DynamicArray<TScalarExpression>
+        DynamicArray<TScalarExpression,TAllocator>
     > _ansatzSet;
 
     std::conditional_t<
@@ -224,6 +250,12 @@ public:
     using typename Base::ConstSpan;
 
     using typename Base::BufferSpan;
+
+    template <template <class ...> class, class>
+    using Rebind = AnsatzSpaceView<
+        TScalarExpression,
+        Dim,
+        SetSize>;
 
     constexpr AnsatzSpaceView() noexcept;
 
@@ -268,7 +300,11 @@ private:
 
 /// @brief A set of multidimensional functions constructed from the cartesian product of a set of scalar basis functions.
 /// @ingroup fem
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize = 0ul>
+template <
+    class TScalarExpression,
+    unsigned Dim,
+    std::size_t SetSize = 0ul,
+    class TAllocator = std::allocator<TScalarExpression>>
 class AnsatzSpace : public ExpressionTraits<typename TScalarExpression::Value> {
 public:
     using Base = ExpressionTraits<typename TScalarExpression::Value>;
@@ -290,12 +326,23 @@ public:
     using AnsatzSet = std::conditional_t<
         hasStaticBasis,
         std::array<TScalarExpression,SetSize>,
-        DynamicArray<TScalarExpression>>;
+        DynamicArray<TScalarExpression,TAllocator>>;
 
-    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;
+    using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AnsatzSpace<
+        TScalarExpression,
+        Dim,
+        SetSize,
+        TOtherAllocator<TScalarExpression>>;
 
 public:
-    constexpr AnsatzSpace() noexcept;
+    constexpr AnsatzSpace(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires hasStaticBasis;
+
+    AnsatzSpace(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires (!hasStaticBasis);
 
     AnsatzSpace(AnsatzSet&& rSet)
     requires (!hasStaticBasis);
@@ -375,6 +422,7 @@ public:
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AnsatzSpace> rInstance,
+        TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
 
 private:
@@ -395,22 +443,22 @@ private:
 namespace cie::fem::io {
 
 
-template <class TScalarExpression, unsigned Dimension, std::size_t SetSize>
-struct io::GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>> {
-    using Value = maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>;
+template <class TScalarExpression, unsigned Dimension, std::size_t SetSize, class TAllocator>
+struct io::GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize,TAllocator>> {
+    using Value = maths::AnsatzSpace<TScalarExpression,Dimension,SetSize,TAllocator>;
 
     void header(Ref<XMLElement> rElement);
 
     void operator()(
         Ref<XMLElement> rElement,
-        Ref<const maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>> rInstance);
+        Ref<const maths::AnsatzSpace<TScalarExpression,Dimension,SetSize,TAllocator>> rInstance);
 }; // struct GraphML::Serializer<AnsatzSpace>
 
 
-template <class TScalarExpression, unsigned Dimension, std::size_t SetSize>
-struct io::GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>>
-    : public io::GraphML::DeserializerBase<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>> {
-    using Value = maths::AnsatzSpace<TScalarExpression,Dimension,SetSize>;
+template <class TScalarExpression, unsigned Dimension, std::size_t SetSize, class TAllocator>
+struct io::GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize,TAllocator>>
+    : public io::GraphML::DeserializerBase<maths::AnsatzSpace<TScalarExpression,Dimension,SetSize,TAllocator>> {
+    using Value = maths::AnsatzSpace<TScalarExpression,Dimension,SetSize,TAllocator>;
 
     using io::GraphML::DeserializerBase<Value>::DeserializerBase;
 

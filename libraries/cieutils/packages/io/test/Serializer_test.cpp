@@ -64,11 +64,21 @@ struct SerializableTestObject : NonSerializableTestObject {
     static void deserialize(
         Ref<Traits::DeserializerStream> rStream,
         Ref<NonSerializableTestObject> rOutput,
+        std::allocator<std::byte> allocator,
         tags::Binary = tags::Binary()) {
             Serializer<tags::Binary> serializer;
-            serializer.deserialize(rStream, rOutput._bool);
-            serializer.deserialize(rStream, rOutput._int);
-            serializer.deserialize(rStream, rOutput._double);
+            serializer.deserialize(
+                rStream,
+                rOutput._bool,
+                allocator);
+            serializer.deserialize(
+                rStream,
+                rOutput._int,
+                allocator);
+            serializer.deserialize(
+                rStream,
+                rOutput._double,
+                allocator);
     }
 };
 
@@ -77,8 +87,13 @@ template <class T>
 void serializeDeserialize(Ref<const T> rInput, Ref<std::stringstream> rStream) {
     CIE_TEST_REQUIRE_NOTHROW(Serializer<tags::Binary>::serialize(rStream, rInput));
 
+    std::allocator<int> allocator;
+
     T deserialized;
-    Serializer<tags::Binary>::deserialize<T>(rStream, deserialized);
+    Serializer<tags::Binary>::deserialize<T>(
+        rStream,
+        deserialized,
+        allocator);
     CIE_TEST_CHECK(deserialized == rInput);
 }
 
@@ -99,6 +114,7 @@ CIE_TEST_CASE("Serializer", "[io]")
     #define CIE_TEST_SERIALIZER_FOR_TYPE(TYPE)                  \
         {                                                       \
             CIE_TEST_CASE_INIT(#TYPE)                           \
+            std::allocator<char> allocator;                     \
             TYPE VALUE;                                         \
             for (int i=-128; i<127; ++i)                        \
             {                                                   \
@@ -116,9 +132,12 @@ CIE_TEST_CASE("Serializer", "[io]")
             for (int i=0; i<64; ++i)                            \
                 BUFFER[i] = i + 128;                            \
                                                                 \
-            serializer.deserialize(STREAM,BUFFER,64);           \
-            for (int i=0; i<64; ++i)                            \
-            {                                                   \
+            serializer.deserialize(                             \
+                STREAM,                                         \
+                BUFFER,                                         \
+                64,                                             \
+                allocator);                                     \
+            for (int i=0; i<64; ++i) {                          \
                 TYPE REFERENCE_VALUE;                           \
                 REFERENCE_VALUE = i;                            \
                 CIE_TEST_CHECK(BUFFER[i] == REFERENCE_VALUE);   \

@@ -95,35 +95,53 @@ concept TriviallyDeserializable
 
 
 /// @ingroup cieutils
-template <class T>
+template <class T, class TAllocator>
 concept BinaryDeserializable
 = TriviallyDeserializable<T>
-|| requires (Ref<T> rInstance, Ref<io::Traits::DeserializerStream> rStream) {
-    {T::deserialize(rStream, rInstance, tags::Binary())};
+|| requires (
+    Ref<io::Traits::DeserializerStream> rStream,
+    Ref<T> rInstance,
+    Ref<TAllocator> rAllocator) {
+        {
+            T::deserialize(
+                rStream,
+                rInstance,
+                rAllocator,
+                tags::Binary())
+        };
 };
 
 
 /// @ingroup cieutils
-template <class T>
+template <class T, class TAllocator>
 concept TextDeserializable
 = TriviallyDeserializable<T>
-|| requires (Ref<T> rInstance, Ref<io::Traits::DeserializerStream> rStream) {
-    {T::deserialize(rStream, rInstance, tags::Text())};
+|| requires (
+    Ref<io::Traits::DeserializerStream> rStream,
+    Ref<T> rInstance,
+    Ref<TAllocator> rAllocator) {
+        {
+            T::deserialize(
+                rStream,
+                rInstance,
+                rAllocator,
+                tags::Text())
+        };
 };
 
 
 /// @ingroup cieutils
-template <class T, class TTag = tags::Null>
+template <class T, class TAllocator, class TTag = tags::Null>
 concept Deserializable
-  = (std::is_same_v<TTag,tags::Null> && (BinaryDeserializable<T> || TextDeserializable<T>))
-    || (std::is_same_v<TTag,tags::Binary> && BinaryDeserializable<T>)
-    || (std::is_same_v<TTag,tags::Text> && TextDeserializable<T>);
+  = (std::is_same_v<TTag,tags::Null> && (BinaryDeserializable<T,TAllocator> || TextDeserializable<T,TAllocator>))
+    || (std::is_same_v<TTag,tags::Binary> && BinaryDeserializable<T,TAllocator>)
+    || (std::is_same_v<TTag,tags::Text> && TextDeserializable<T,TAllocator>);
 
 
 /// @ingroup cieutils
-template <class T>
+template <class T, class TAllocator>
 concept NonTriviallyDeserializable
-= !TriviallyDeserializable<T> && Deserializable<T>;
+= !TriviallyDeserializable<T> && Deserializable<T,TAllocator>;
 
 
 } // namespace cie

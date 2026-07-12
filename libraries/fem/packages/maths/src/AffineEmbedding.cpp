@@ -5,9 +5,6 @@
 #include "packages/maths/inc/AffineEmbedding.hpp"
 #include "packages/utilities/inc/template_macros.hpp"
 
-// --- STL Includes ---
-#include <numeric> // std::inner_product
-
 
 namespace cie::fem::maths {
 
@@ -68,13 +65,16 @@ void AffineEmbedding<T,1u,2u>::serialize(
 
 
 template <concepts::Numeric T>
+template <class TA>
 void AffineEmbedding<T,1u,2u>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<AffineEmbedding> rInstance,
+    TA allocator,
     tags::Binary) {
         cie::io::BinarySerializer::deserialize(
             rStream,
-            rInstance._transform);
+            rInstance._transform,
+            allocator);
 }
 
 
@@ -89,13 +89,16 @@ void AffineEmbeddingDerivative<T,1u,2u>::serialize(
 
 
 template <concepts::Numeric T>
+    template <class TA>
 void AffineEmbeddingDerivative<T,1u,2u>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<AffineEmbeddingDerivative> rInstance,
+    TA allocator,
     tags::Binary) {
         cie::io::BinarySerializer::deserialize(
             rStream,
-            rInstance._transformDerivative);
+            rInstance._transformDerivative,
+            allocator);
 }
 
 
@@ -110,13 +113,16 @@ void AffineEmbeddingInverse<T,2u,1u>::serialize(
 
 
 template <concepts::Numeric T>
+template <class TA>
 void AffineEmbeddingInverse<T,2u,1u>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<AffineEmbeddingInverse> rInstance,
+    TA allocator,
     tags::Binary) {
         cie::io::BinarySerializer::deserialize(
             rStream,
-            rInstance._transform);
+            rInstance._transform,
+            allocator);
 }
 
 
@@ -131,13 +137,16 @@ void AffineEmbeddingInverseDerivative<T,2u,1u>::serialize(
 
 
 template <concepts::Numeric T>
+template <class TA>
 void AffineEmbeddingInverseDerivative<T,2u,1u>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<AffineEmbeddingInverseDerivative> rInstance,
+    TA allocator,
     tags::Binary) {
         cie::io::BinarySerializer::deserialize(
             rStream,
-            rInstance._transformDerivative);
+            rInstance._transformDerivative,
+        allocator);
 }
 
 

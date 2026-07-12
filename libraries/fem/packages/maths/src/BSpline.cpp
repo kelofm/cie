@@ -12,12 +12,20 @@
 namespace cie::fem::maths {
 
 
-template <class T, unsigned P, unsigned D>
-BSpline<T,P,D>::BSpline(
+template <class T, unsigned P, unsigned D, class TA>
+BSpline<T,P,D,TA>::BSpline(Ref<const TA> rAllocator) noexcept
+    :   _data(rAllocator),
+        _controlPointCount()
+{}
+
+
+template <class T, unsigned P, unsigned D, class TA>
+BSpline<T,P,D,TA>::BSpline(
     std::span<const std::span<const T>,PhysicalDimension> controlPointCoordinates,
-    std::span<const T> knots)
+    std::span<const T> knots,
+    Ref<const TA> rAllocator)
 requires (ParametricDimension == 1u)
-    : BSpline() {
+    : BSpline(rAllocator) {
         CIE_BEGIN_EXCEPTION_TRACING
             this->_controlPointCount.front() = controlPointCoordinates.front().size();
             _data.resize(this->controlPointCount(0u) * PhysicalDimension + knots.size());
@@ -52,8 +60,8 @@ requires (ParametricDimension == 1u)
 }
 
 
-template <class T, unsigned P, unsigned D>
-void BSpline<T,P,D>::evaluate(
+template <class T, unsigned P, unsigned D, class TA>
+void BSpline<T,P,D,TA>::evaluate(
     ConstSpan in,
     Span out,
     [[maybe_unused]] BufferSpan buffer) const {
@@ -79,8 +87,17 @@ void BSpline<T,P,D>::evaluate(
 }
 
 
-template class BSpline<float, 1u, 2u>;
-template class BSpline<double, 1u, 2u>;
+template class BSpline<
+    float,
+    1u,
+    2u,
+    std::allocator<float>>;
+
+template class BSpline<
+    double,
+    1u,
+    2u,
+    std::allocator<double>>;
 
 
 } // namespace cie::fem::maths

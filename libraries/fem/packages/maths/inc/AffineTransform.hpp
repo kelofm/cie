@@ -40,6 +40,9 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineTransformDerivative;
+
 public:
     /// @brief Identity by default.
     AffineTransformDerivative() noexcept;
@@ -65,9 +68,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AffineTransformDerivative> rInstance,
+        TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
 
 private:
@@ -109,6 +114,9 @@ public:
     using Inverse = AffineTransform;
 
     using Point = typename Kernel<Dimension,TValue>::Point;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineTransform;
 
 public:
     /// @brief Identity transform by default
@@ -163,9 +171,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AffineTransform> rInstance,
+        TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
 
 private:

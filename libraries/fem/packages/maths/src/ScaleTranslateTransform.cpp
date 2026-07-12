@@ -2,9 +2,6 @@
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 #include "packages/utilities/inc/template_macros.hpp"
 
-// --- Utility Includes ---
-#include "packages/io/inc/Serializer.hpp"
-
 // --- STL Includes ---
 #include <algorithm>
 
@@ -104,18 +101,6 @@ void ScaleTranslateTransformDerivative<T,D>::serialize(
 
 
 template <concepts::Numeric T, unsigned D>
-void ScaleTranslateTransformDerivative<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
-    Ref<ScaleTranslateTransformDerivative> rInstance,
-    tags::Binary) {
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._scales.data(),
-            rInstance._scales.size());
-}
-
-
-template <concepts::Numeric T, unsigned D>
 void ScaleTranslateTransform<T,D>::serialize(
     Ref<cie::io::Traits::SerializerStream> rStream,
     tags::Binary) const {
@@ -131,22 +116,6 @@ void ScaleTranslateTransform<T,D>::serialize(
 
 
 template <concepts::Numeric T, unsigned D>
-void ScaleTranslateTransform<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
-    Ref<ScaleTranslateTransform> rInstance,
-    tags::Binary) {
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._scales.data(),
-            rInstance._scales.size());
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._offset.data(),
-            rInstance._offset.size());
-}
-
-
-template <concepts::Numeric T, unsigned D>
 void TranslateScaleTransform<T,D>::serialize(
     Ref<cie::io::Traits::SerializerStream> rStream,
     tags::Binary) const {
@@ -158,22 +127,6 @@ void TranslateScaleTransform<T,D>::serialize(
             rStream,
             _offset.data(),
             _offset.size());
-}
-
-
-template <concepts::Numeric T, unsigned D>
-void TranslateScaleTransform<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
-    Ref<TranslateScaleTransform> rInstance,
-    tags::Binary) {
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._scales.data(),
-            rInstance._scales.size());
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._offset.data(),
-            rInstance._offset.size());
 }
 
 

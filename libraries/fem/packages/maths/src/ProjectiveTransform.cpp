@@ -11,7 +11,6 @@
 #include "packages/macros/inc/checks.hpp"
 #include "packages/exceptions/inc/exception.hpp"
 #include "packages/macros/inc/exceptions.hpp"
-#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <optional>
@@ -269,18 +268,6 @@ void ProjectiveTransform<TValue,Dimension>::serialize(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void ProjectiveTransform<TValue,Dimension>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
-    Ref<ProjectiveTransform> rInstance,
-    tags::Binary) {
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._transformationMatrix.data(),
-            rInstance._transformationMatrix.size());
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
 void ProjectiveTransformDerivative<TValue,Dimension>::serialize(
     Ref<cie::io::Traits::SerializerStream> rStream,
     tags::Binary) const {
@@ -288,18 +275,6 @@ void ProjectiveTransformDerivative<TValue,Dimension>::serialize(
             rStream,
             _projectionMatrix.data(),
             _projectionMatrix.size());
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
-void ProjectiveTransformDerivative<TValue,Dimension>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
-    Ref<ProjectiveTransformDerivative> rInstance,
-    tags::Binary) {
-        cie::io::BinarySerializer::deserialize(
-            rStream,
-            rInstance._projectionMatrix.data(),
-            rInstance._projectionMatrix.size());
 }
 
 

@@ -181,23 +181,29 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::serialize(
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
+template <class TAllocator>
 void LinearIsotropicStiffnessIntegrand<TAD,TT>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<LinearIsotropicStiffnessIntegrand> rInstance,
+    Ref<const TAllocator> rAllocator,
     tags::Binary) {
         using BS = cie::io::BinarySerializer;
         BS::deserialize(
             rStream,
-            rInstance._ansatzDerivatives);
+            rInstance._ansatzDerivatives,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._jacobian);
+            rInstance._jacobian,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._jacobianInverse);
+            rInstance._jacobianInverse,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._modulus);
+            rInstance._modulus,
+            rAllocator);
 }
 
 

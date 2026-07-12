@@ -17,6 +17,9 @@ public:
 
     using typename T::BufferSpan;
 
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = typename T::template Rebind<TOtherAllocator,TOther>;
+
     using T::T;
 
     void evaluate(

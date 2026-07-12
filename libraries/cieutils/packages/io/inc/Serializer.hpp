@@ -5,7 +5,6 @@
 #include "packages/io/inc/Traits.hpp"
 #include "packages/types/inc/tags.hpp"
 #include "packages/types/inc/types.hpp"
-#include "packages/macros/inc/checks.hpp"
 
 
 namespace cie::io {
@@ -21,10 +20,14 @@ public:
 
 public:
     template <TriviallySerializable T>
-    static void serialize(Ref<SerializerStream> rStream, T instance);
+    static void serialize(
+        Ref<SerializerStream> rStream,
+        T instance);
 
     template <NonTriviallySerializable T>
-    static void serialize(Ref<SerializerStream> rStream, Ref<const T> rInstance);
+    static void serialize(
+        Ref<SerializerStream> rStream,
+        Ref<const T> rInstance);
 
     template <class T>
     requires Serializable<T,TTag>
@@ -33,16 +36,20 @@ public:
         Ptr<const T> begin,
         Size numberOfItems);
 
-    template <Deserializable T>
+    template <class T, class TAllocator>
+    requires Deserializable<T,TAllocator>
     static void deserialize(
         Ref<DeserializerStream> rStream,
-        Ref<T> rOutput);
+        Ref<T> rOutput,
+        Ref<TAllocator> rAllocator);
 
-    template <Deserializable<TTag> T>
+    template <class T, class TAllocator>
+    requires Deserializable<T,TAllocator,TTag>
     static void deserialize(
         Ref<DeserializerStream> rStream,
         Ptr<T> begin,
-        Size numberOfItems);
+        Size numberOfItems,
+        Ref<TAllocator> rAllocator);
 
 private:
     template <TriviallySerializable T>
@@ -55,10 +62,12 @@ private:
         Ref<SerializerStream> rStream,
         Ref<const T> rInstance);
 
-    template <Deserializable T>
+    template <class T, class TAllocator>
+    requires Deserializable<T,TAllocator>
     static void deserializeImpl(
         Ref<DeserializerStream> rStream,
-        Ref<T> rOutput);
+        Ref<T> rOutput,
+        Ref<TAllocator> rAllocator);
 }; // class Serializer
 
 

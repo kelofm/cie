@@ -18,6 +18,9 @@ struct DirichletPenaltyTest
     using ExpressionTraits<double>::Span;
     using ExpressionTraits<double>::BufferSpan;
 
+    template <template <class ...> class, class>
+    using Rebind = DirichletPenaltyTest;
+
     void evaluate(ConstSpan in, Span out, BufferSpan buffer) const {
         CIE_TEST_CHECK(in.size() == 2);
         CIE_TEST_CHECK(out.size() == this->size());

@@ -172,14 +172,21 @@ requires (hasStaticCoefficients)
 
 
 template <concepts::Numeric T, int P, class TA>
-Polynomial<T,P,TA>::Polynomial(ConstSpan coefficients)
+Polynomial<T,P,TA>::Polynomial(
+    ConstSpan coefficients,
+    Ref<const TA> rAllocator)
 requires (!hasStaticCoefficients)
-    : _coefficients(coefficients.begin(), coefficients.end())
+    :   _coefficients(
+            coefficients.begin(),
+            coefficients.end(),
+            rAllocator)
 {}
 
 
 template <concepts::Numeric T, int P, class TA>
-constexpr Polynomial<T,P,TA>::Polynomial(std::span<const T,coefficientCount> coefficients)
+constexpr Polynomial<T,P,TA>::Polynomial(
+    std::span<const T,coefficientCount> coefficients,
+    Ref<const TA>)
 requires (hasStaticCoefficients)
     : _coefficients() {
         std::copy_n(
@@ -321,18 +328,21 @@ template <concepts::Numeric T, int P, class TA>
 void Polynomial<T,P,TA>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<Polynomial> rInstance,
+    TA allocator,
     tags::Binary) {
         std::size_t coefficientCount = static_cast<std::size_t>(P);
         if constexpr (!hasStaticCoefficients) {
             cie::io::BinarySerializer::deserialize(
                 rStream,
-                coefficientCount);
+                coefficientCount,
+                allocator);
             rInstance._coefficients.resize(coefficientCount);
         }
         cie::io::BinarySerializer::deserialize(
             rStream,
             rInstance._coefficients.data(),
-            rInstance._coefficients.size());
+            rInstance._coefficients.size(),
+            allocator);
 }
 
 

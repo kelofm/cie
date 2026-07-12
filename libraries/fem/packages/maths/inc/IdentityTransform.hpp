@@ -5,7 +5,7 @@
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
-#include "packages/io/inc/Serializer.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- STL Includes ---
 #include <algorithm>
@@ -33,6 +33,9 @@ public:
 
     using Inverse = IdentityTransform;
 
+    template <template <class ...> class, class>
+    using Rebind = IdentityTransform;
+
 public:
     constexpr IdentityTransform() noexcept = default;
 
@@ -53,6 +56,19 @@ public:
 
     constexpr TValue evaluateDeterminant(ConstSpan, BufferSpan) const noexcept
     {return static_cast<TValue>(1);}
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream>,
+        tags::Binary = {}) const
+    {}
+
+    template <class TAllocator>
+    void deserialize(
+        Ref<cie::io::Traits::DeserializerStream>,
+        Ref<IdentityTransform>,
+        Ref<const TAllocator>,
+        tags::Binary = {})
+    {}
 }; // class IdentityTransform
 
 

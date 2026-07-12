@@ -60,6 +60,13 @@ public:
         && maths::StaticExpression<TEmbedding>
         && maths::StaticExpression<CellInverseTransform>);
 
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = DirichletPenaltyIntegrand<
+        typename TDirichlet::template Rebind<TOtherAllocator,TOther>,
+        typename TAnsatzSpace::template Rebind<TOtherAllocator,TOther>,
+        typename TEmbedding::template Rebind<TOtherAllocator,TOther>,
+        TCell>;
+
 public:
     DirichletPenaltyIntegrand() noexcept;
 
@@ -84,9 +91,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<DirichletPenaltyIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:

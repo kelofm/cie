@@ -46,6 +46,9 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
+    template <template <class ...> class, class>
+    using Rebind = ScaleTranslateTransformDerivative;
+
 public:
     /// @brief Identity by default.
     ScaleTranslateTransformDerivative() noexcept;
@@ -75,9 +78,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<ScaleTranslateTransformDerivative> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:
@@ -117,6 +122,9 @@ public:
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     using Inverse = TranslateScaleTransform<TValue,Dimension>;
+
+    template <template <class ...> class, class>
+    using Rebind = ScaleTranslateTransform;
 
 public:
     /// @brief Identity transform by default.
@@ -158,9 +166,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<ScaleTranslateTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:
@@ -203,6 +213,9 @@ public:
 
     using Inverse = ScaleTranslateTransform<TValue,Dimension>;
 
+    template <template <class ...> class, class>
+    using Rebind = TranslateScaleTransform;
+
 public:
     /// @brief Identity transform by default.
     TranslateScaleTransform() noexcept;
@@ -243,9 +256,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<TranslateScaleTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
 private:

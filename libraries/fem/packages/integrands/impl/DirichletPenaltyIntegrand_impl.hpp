@@ -183,29 +183,37 @@ template <
     maths::Expression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
+template <class TAllocator>
 void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::deserialize(
     Ref<cie::io::Traits::DeserializerStream> rStream,
     Ref<DirichletPenaltyIntegrand> rInstance,
+    Ref<const TAllocator> rAllocator,
     tags::Binary) {
         using BS = cie::io::BinarySerializer;
         BS::deserialize(
             rStream,
-            rInstance._ansatzSpace);
+            rInstance._ansatzSpace,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._embedding);
+            rInstance._embedding,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._cellInverseTransform);
+            rInstance._cellInverseTransform,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._cellJacobian);
+            rInstance._cellJacobian,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._dirichletFunctor);
+            rInstance._dirichletFunctor,
+            rAllocator);
         BS::deserialize(
             rStream,
-            rInstance._penalty);
+            rInstance._penalty,
+            rAllocator);
 }
 
 

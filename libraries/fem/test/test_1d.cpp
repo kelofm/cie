@@ -52,6 +52,9 @@ struct BoundaryData {
 
 class Test1DIntegrand : public maths::ExpressionTraits<Scalar> {
 public:
+    template <template <class ...> class, class>
+    using Rebind = Test1DIntegrand;
+
     Test1DIntegrand() noexcept = default;
 
     Test1DIntegrand(
@@ -131,19 +134,24 @@ public:
                 _coefficient);
     }
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<Test1DIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary) {
             cie::io::BinarySerializer::deserialize(
                 rStream,
-                rInstance._ansatzDerivative);
+                rInstance._ansatzDerivative,
+                rAllocator);
             cie::io::BinarySerializer::deserialize(
                 rStream,
-                rInstance._transform);
+                rInstance._transform,
+                rAllocator);
             cie::io::BinarySerializer::deserialize(
                 rStream,
-                rInstance._coefficient);
+                rInstance._coefficient,
+                rAllocator);
     }
 
 private:

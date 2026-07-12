@@ -80,9 +80,11 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
                 stream,
                 transform));
             Transform other;
+            std::allocator<std::byte> allocator;
             CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::deserialize(
                 stream,
-                other));
+                other,
+                allocator));
             for (Size i_point=0; i_point<locals.size(); ++i_point) {
                 Point point;
                 CIE_TEST_CHECK_NOTHROW(other.evaluate(locals[i_point], point, buffer));
@@ -185,9 +187,11 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
                 stream,
                 transform));
             Transform other;
+            std::allocator<std::byte> allocator;
             CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::deserialize(
                 stream,
-                other));
+                other,
+                allocator));
             for (Size i_point=0; i_point<locals.size(); ++i_point) {
                 Point point;
                 CIE_TEST_CHECK_NOTHROW(other.evaluate(locals[i_point], point, buffer));

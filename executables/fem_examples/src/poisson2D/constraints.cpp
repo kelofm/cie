@@ -61,6 +61,9 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     using maths::ExpressionTraits<Scalar>::ConstSpan;
     using maths::ExpressionTraits<Scalar>::BufferSpan;
 
+    template <template <class ...> class, class>
+    using Rebind = DirichletBoundary;
+
     constexpr DirichletBoundary() noexcept = default;
 
     constexpr DirichletBoundary(Ref<const std::span<const Scalar,2>> rState) noexcept
@@ -95,14 +98,17 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
                 _state.size());
     }
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<DirichletBoundary> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary) {
             cie::io::BinarySerializer::deserialize(
                 rStream,
                 rInstance._state.data(),
-                rInstance._state.size());
+                rInstance._state.size(),
+                rAllocator);
     }
 
 private:

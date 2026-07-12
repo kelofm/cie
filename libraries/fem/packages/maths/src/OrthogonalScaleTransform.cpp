@@ -55,18 +55,6 @@ void OrthogonalScaleTransformDerivative<TValue,Dimension>::serialize(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void OrthogonalScaleTransformDerivative<TValue,Dimension>::deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
-        Ref<OrthogonalScaleTransformDerivative> rInstance,
-        tags::Binary) {
-            cie::io::BinarySerializer::deserialize(
-                rStream,
-                rInstance._scales.data(),
-                rInstance._scales.size());
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
 OrthogonalScaleTransform<TValue,Dimension>::OrthogonalScaleTransform() noexcept {
     std::fill(
         this->_scales.begin(),
@@ -107,18 +95,6 @@ void OrthogonalScaleTransform<TValue,Dimension>::serialize(
             rStream,
             _scales.data(),
             _scales.size());
-}
-
-
-template <concepts::Numeric TValue, unsigned Dimension>
-void OrthogonalScaleTransform<TValue,Dimension>::deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
-        Ref<OrthogonalScaleTransform> rInstance,
-        tags::Binary) {
-            cie::io::BinarySerializer::deserialize(
-                rStream,
-                rInstance._scales.data(),
-                rInstance._scales.size());
 }
 
 

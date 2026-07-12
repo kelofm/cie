@@ -24,6 +24,12 @@ public:
 
     using typename maths::ExpressionTraits<Value>::BufferSpan;
 
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = ScaledMultiMaterialIntegrand<
+        typename TIntegrand::template Rebind<TOtherAllocator,TOther>,
+        TMaterialID,
+        MaterialCount>;
+
     ScaledMultiMaterialIntegrand() noexcept = default;
 
     ScaledMultiMaterialIntegrand(

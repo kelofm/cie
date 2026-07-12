@@ -86,9 +86,11 @@ namespace cie::fem::maths {
                 stream,                                                                                                     \
                 transform));                                                                                                \
             Transform other;                                                                                                \
+            std::allocator<std::byte> allocator;                                                                            \
             CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::deserialize(                                                \
                 stream,                                                                                                     \
-                other));                                                                                                    \
+                other,                                                                                                      \
+                allocator));                                                                                                \
             buffer.resize(other.bufferSize());                                                                              \
             for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
                 Point point;                                                                                                \

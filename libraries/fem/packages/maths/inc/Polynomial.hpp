@@ -11,6 +11,8 @@
 
 // --- STD Includes ---
 #include <span>
+#include <memory>
+#include <vector>
 
 
 namespace cie::fem::maths {
@@ -26,6 +28,9 @@ private:
     constexpr static inline bool hasStaticCoefficients = (0<= Order);
 
 public:
+    template <template <class ...> class TAllocator, class T>
+    using Rebind = PolynomialView;
+
     constexpr static inline unsigned coefficientCount = hasStaticCoefficients
         ? static_cast<unsigned>(PolynomialOrder) + 1u
         : 0u;
@@ -96,9 +101,18 @@ private:
 
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
-template <concepts::Numeric TValue, int PolynomialOrder = -1, class TAllocator = std::allocator<TValue>>
+template <
+    concepts::Numeric TValue,
+    int PolynomialOrder = -1,
+    class TAllocator = std::allocator<TValue>>
 class Polynomial : public ExpressionTraits<TValue> {
 public:
+    template <template <class ...> class TOtherAllocator, class T>
+    using Rebind = Polynomial<
+        TValue,
+        PolynomialOrder,
+        TOtherAllocator<TValue>>;
+
     using View = PolynomialView<TValue,PolynomialOrder>;
 
     static inline constexpr bool hasStaticCoefficients = View::hasStaticCoefficients;
@@ -113,8 +127,8 @@ public:
 
     using Derivative = std::conditional_t<
         hasStaticCoefficients,
-        Polynomial<TValue,std::max(0,PolynomialOrder-1)>,
-        Polynomial<TValue,-1>>;
+        Polynomial<TValue,std::max(0,PolynomialOrder-1),TAllocator>,
+        Polynomial<TValue,-1,TAllocator>>;
 
     using Coefficients = std::conditional_t<
         hasStaticCoefficients,
@@ -147,13 +161,17 @@ public:
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    Polynomial(ConstSpan coefficients)
+    Polynomial(
+        ConstSpan coefficients,
+        Ref<const TAllocator> rAllocator = TAllocator())
     requires (!hasStaticCoefficients);
 
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    constexpr Polynomial(std::span<const TValue,coefficientCount> coefficients)
+    constexpr Polynomial(
+        std::span<const TValue,coefficientCount> coefficients,
+        Ref<const TAllocator> rAllocator = TAllocator())
     requires (hasStaticCoefficients);
 
     Polynomial& operator=(Polynomial&&) noexcept
@@ -212,6 +230,7 @@ public:
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<Polynomial> rInstance,
+        TAllocator allocator,
         tags::Binary tag = {});
 
 private:

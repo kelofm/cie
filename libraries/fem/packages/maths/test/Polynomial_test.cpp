@@ -11,8 +11,7 @@
 namespace cie::fem::maths {
 
 
-CIE_TEST_CASE("Polynomial", "[maths]")
-{
+CIE_TEST_CASE("Polynomial", "[maths]") {
     CIE_TEST_CASE_INIT("Polynomial")
 
     {
@@ -92,9 +91,11 @@ CIE_TEST_CASE("Polynomial", "[maths]")
                     stream,
                     instance));
                 Polynomial<double> other;
+                std::allocator<std::byte> allocator;
                 CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
                     stream,
-                    other));
+                    other,
+                    allocator));
                 CIE_TMP_CHECK(other);
                 CIE_TMP_CHECK(instance);
             }
@@ -228,9 +229,11 @@ CIE_TEST_CASE("Polynomial", "[maths]")
                     stream,
                     instance));
                 Polynomial<double> other;
+                std::allocator<std::byte> allocator;
                 CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
                     stream,
-                    other));
+                    other,
+                    allocator));
                 CIE_TMP_CHECK(other);
                 CIE_TMP_CHECK(instance);
             }

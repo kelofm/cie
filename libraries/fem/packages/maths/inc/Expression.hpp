@@ -55,8 +55,7 @@ namespace cie::fem::maths {
 /// @ingroup fem
 template <class T>
 concept Expression
-= BinarySerializable<std::remove_cvref_t<T>>
-&& requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
+= requires (std::remove_cvref_t<T> instance, const std::remove_cvref_t<T> constInstance) {
     /// @brief Value type to perform numerical operations on (eg: @p double).
     typename std::remove_cvref_t<T>::Value;
 
@@ -68,6 +67,9 @@ concept Expression
 
     /// @brief Span over a contiguous array of immutable value types used as buffer for internal calculations.
     typename std::remove_cvref_t<T>::BufferSpan;
+
+    /// @brief An instantiation of the template with another allocator type.
+    typename std::remove_cvref_t<T>::template Rebind<std::allocator,std::byte>;
 
     /// @brief Require a size function indicating the number of scalar components returned by @p evaluate.
     {constInstance.size()} -> concepts::UnsignedInteger;

@@ -41,10 +41,14 @@ template <concepts::Numeric TValue,
 class AffineEmbeddingInverseDerivative {};
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbedding<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbedding)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbedding;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -93,9 +97,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AffineEmbedding> rInstance,
+        TAllocator allocator,
         tags::Binary tag = {});
 
 private:
@@ -107,10 +113,14 @@ private:
 }; // class AffineEmbedding
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbeddingDerivative<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingDerivative)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbeddingDerivative;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -143,9 +153,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AffineEmbeddingDerivative> rInstance,
+        TAllocator allocator,
         tags::Binary tag = {});
 
 private:
@@ -157,10 +169,14 @@ private:
 }; // class AffineEmbeddingDerivative
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbeddingInverse<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverse)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbeddingInverse;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -197,9 +213,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AffineEmbeddingInverse> rInstance,
+        TAllocator allocator,
         tags::Binary tag = {});
 
 private:
@@ -211,10 +229,14 @@ private:
 }; // class AffineEmbeddingInverse
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbeddingInverseDerivative<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverseDerivative)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbeddingInverseDerivative;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -247,9 +269,11 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
         Ref<AffineEmbeddingInverseDerivative> rInstance,
+        TAllocator allocator,
         tags::Binary tag = {});
 
 private:
