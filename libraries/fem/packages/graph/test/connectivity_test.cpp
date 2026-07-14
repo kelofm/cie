@@ -17,7 +17,7 @@ CIE_TEST_CASE("scanConnectivities", "[graph]")
     CIE_TEST_CASE_INIT("scanConnectivities")
     using Basis = maths::Polynomial<double>;
 
-    DynamicArray<Basis> basisFunctions {
+    maths::AnsatzSpace<Basis,2>::AnsatzSet basisFunctions {
         Basis(Basis::Coefficients {0.5, -0.5}),
         Basis(Basis::Coefficients {0.5, 0.5})
     };
@@ -260,7 +260,7 @@ CIE_TEST_CASE("AnsatzMap", "[graph]")
     CIE_TEST_CASE_INIT("AnsatzMap")
     using Basis = maths::Polynomial<double>;
 
-    const DynamicArray<Basis> basisFunctions {
+    const maths::AnsatzSpace<Basis,1>::AnsatzSet basisFunctions {
         Basis(Basis::Coefficients { 0.5, -0.5}),
         Basis(Basis::Coefficients { 0.5,  0.5}),
         Basis(Basis::Coefficients { 1.0,  0.0, -1.0})

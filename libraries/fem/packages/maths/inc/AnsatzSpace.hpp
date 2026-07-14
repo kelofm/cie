@@ -5,7 +5,6 @@
 #include "packages/io/inc/GraphML.hpp"
 
 // --- Utility Includes ---
-#include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
@@ -216,13 +215,15 @@ private:
     std::conditional_t<
         hasStaticBasis,
         std::array<TScalarExpression,SetSize>,
-        DynamicArray<TScalarExpression,TAllocator>
+        std::vector<TScalarExpression,TAllocator>
     > _ansatzSet;
 
     std::conditional_t<
         hasStaticBasis,
         std::array<typename TScalarExpression::Derivative,SetSize>,
-        DynamicArray<typename TScalarExpression::Derivative>
+        std::vector<
+            typename TScalarExpression::Derivative,
+            typename std::allocator_traits<TAllocator>::template rebind_alloc<typename TScalarExpression::Derivative>>
     > _derivativeSet;
 }; // class AnsatzSpaceDerivative
 
@@ -326,7 +327,7 @@ public:
     using AnsatzSet = std::conditional_t<
         hasStaticBasis,
         std::array<TScalarExpression,SetSize>,
-        DynamicArray<TScalarExpression,TAllocator>>;
+        std::vector<TScalarExpression,TAllocator>>;
 
     using Derivative = AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>;
 

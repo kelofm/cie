@@ -86,7 +86,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
         // Check default constructor.
         CIE_TEST_CHECK_NOTHROW(Ansatz());
 
-        const DynamicArray<Basis> basisFunctions {
+        const Ansatz::AnsatzSet basisFunctions {
             Basis(Basis::Coefficients { 0.5, -0.5}),
             Basis(Basis::Coefficients { 0.5,  0.5}),
             Basis(Basis::Coefficients { 0.0,  0.0, 1.0})};
