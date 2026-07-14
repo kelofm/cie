@@ -76,6 +76,7 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
             in,
             jacobianInverse,
             {});
+        static_assert(JacobianInverse::size() == Dimension * Dimension);
         Eigen::Map<Eigen::Matrix<Value,Dimension,Dimension,Eigen::RowMajor>> jacobianInverseAdaptor(
             jacobianInverse.data());
 

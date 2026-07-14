@@ -124,7 +124,7 @@ public:
     using typename ExpressionTraits<Value>::BufferSpan;
 
     constexpr AnsatzSpaceDerivative(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpaceDerivative(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
     requires (!hasStaticBasis);
@@ -340,7 +340,7 @@ public:
 
 public:
     constexpr AnsatzSpace(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
-    requires hasStaticBasis;
+    requires (hasStaticBasis);
 
     AnsatzSpace(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
     requires (!hasStaticBasis);

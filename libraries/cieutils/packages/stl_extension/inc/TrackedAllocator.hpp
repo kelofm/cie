@@ -56,6 +56,8 @@ class TrackedAllocator {
 public:
     using value_type = T;
 
+    using propagate_on_container_move_assignment = std::true_type;
+
     constexpr TrackedAllocator() noexcept
     requires std::is_default_constructible_v<TAllocator<T,Ts...>> = default;
 
@@ -89,7 +91,10 @@ public:
 
     template <class U, class ...Us>
     [[nodiscard]] constexpr bool operator==(const TrackedAllocator<TAllocator,U,Us...> rOther) const noexcept {
-        return _allocator == rOther._allocator && _pStats == rOther._pStats;
+        return
+            _allocator == rOther._allocator
+            && _pStats == rOther._pStats
+            ;
     }
 
     template <class U, class ...Us>

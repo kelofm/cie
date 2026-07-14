@@ -137,7 +137,12 @@ public:
 
 public:
     /// @brief Uninitialized by default.
-    constexpr Polynomial() noexcept = default;
+    constexpr Polynomial(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires (!hasStaticCoefficients);
+
+    /// @brief Uninitialized by default.
+    constexpr Polynomial(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires (hasStaticCoefficients);
 
     constexpr Polynomial(Polynomial&&) noexcept;
 

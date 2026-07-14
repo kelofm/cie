@@ -375,7 +375,7 @@ constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::derivativeSe
 
 template <class TE, unsigned D, std::size_t S, class TA>
 constexpr AnsatzSpaceDerivative<TE,D,S,TA>::AnsatzSpaceDerivative(Ref<const TA>) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
 {}
 
 
@@ -383,7 +383,7 @@ template <class TE, unsigned D, std::size_t S, class TA>
 AnsatzSpaceDerivative<TE,D,S,TA>::AnsatzSpaceDerivative(Ref<const TA> rAllocator) noexcept
 requires (!hasStaticBasis)
     :   _ansatzSet(rAllocator),
-        _derivativeSet(rAllocator)
+        _derivativeSet(typename std::allocator_traits<TA>::template rebind_alloc<typename TE::Derivative>(rAllocator))
 {}
 
 
@@ -450,16 +450,16 @@ requires (!hasStaticBasis)
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs)
 requires (!hasStaticBasis)
-    : _ansatzSet(rRhs._ansatzSet),
-      _derivativeSet(rRhs._derivativeSet)
+    :   _ansatzSet(rRhs._ansatzSet),
+        _derivativeSet(rRhs._derivativeSet)
 {}
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs) noexcept
 requires (hasStaticBasis)
-    : _ansatzSet(rRhs._ansatzSet),
-      _derivativeSet(rRhs._derivativeSet)
+    :   _ansatzSet(rRhs._ansatzSet),
+        _derivativeSet(rRhs._derivativeSet)
 {}
 
 
@@ -765,7 +765,7 @@ requires (hasStaticBasis) {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(Ref<const TAllocator>) noexcept
-requires hasStaticBasis
+requires (hasStaticBasis)
     : AnsatzSpace(AnsatzSet {})
 {}
 
@@ -885,7 +885,7 @@ template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAll
 typename AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::Derivative
 AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::makeDerivative() const
 requires (!hasStaticBasis) {
-    return Derivative(this->ansatzSet());
+    return Derivative(this->ansatzSet(), _set.get_allocator());
 }
 
 

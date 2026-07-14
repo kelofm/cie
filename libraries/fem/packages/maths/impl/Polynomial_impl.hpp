@@ -132,6 +132,20 @@ requires (hasStaticCoefficients) {
 
 
 template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(Ref<const TA> rAllocator) noexcept
+requires (!hasStaticCoefficients)
+    : _coefficients(rAllocator)
+{}
+
+
+template <concepts::Numeric T, int P, class TA>
+constexpr Polynomial<T,P,TA>::Polynomial(Ref<const TA>) noexcept
+requires (hasStaticCoefficients)
+    : _coefficients()
+{}
+
+
+template <concepts::Numeric T, int P, class TA>
 constexpr Polynomial<T,P,TA>::Polynomial(RightRef<Coefficients> rCoefficients) noexcept
     : _coefficients(std::move(rCoefficients))
 {}
@@ -266,7 +280,7 @@ template <concepts::Numeric T, int P, class TA>
 typename Polynomial<T,P,TA>::Derivative
 Polynomial<T,P,TA>::makeDerivative() const
 requires (!hasStaticCoefficients) {
-    Polynomial derivative;
+    Polynomial derivative(_coefficients.get_allocator());
     derivative._coefficients.resize(_coefficients.empty() ? 0 : _coefficients.size() - 1);
     this->makeView().makeDerivative(derivative._coefficients);
     return derivative;
@@ -332,6 +346,7 @@ void Polynomial<T,P,TA>::deserialize(
     tags::Binary) {
         std::size_t coefficientCount = static_cast<std::size_t>(P);
         if constexpr (!hasStaticCoefficients) {
+            rInstance._coefficients = Coefficients(allocator);
             cie::io::BinarySerializer::deserialize(
                 rStream,
                 coefficientCount,

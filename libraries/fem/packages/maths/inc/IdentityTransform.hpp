@@ -15,6 +15,63 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
+class IdentityTransformDerivative
+    :   public ExpressionTraits<TValue>,
+        public cie::io::TriviallySerializableBase {
+public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
+    using typename ExpressionTraits<TValue>::ConstSpan;
+
+    using typename ExpressionTraits<TValue>::Span;
+
+    using typename ExpressionTraits<TValue>::BufferSpan;
+
+    using Inverse = IdentityTransformDerivative;
+
+    template <template <class ...> class, class>
+    using Rebind = IdentityTransformDerivative;
+
+public:
+    constexpr IdentityTransformDerivative() noexcept = default;
+
+    constexpr void evaluate(ConstSpan, Span out, BufferSpan) const noexcept {
+        auto it = out.begin();
+        for (unsigned iDimension=0u; iDimension<Dimension; ++iDimension)
+            for (unsigned jDimension=0u; jDimension<Dimension; ++jDimension)
+                *it++ = iDimension == jDimension;
+    }
+
+    static constexpr unsigned size() noexcept
+    {return Dimension * Dimension;}
+
+    static constexpr unsigned bufferSize() noexcept
+    {return 0u;}
+
+    constexpr Inverse makeInverse() const noexcept
+    {return *this;}
+
+    constexpr TValue evaluateDeterminant(ConstSpan, BufferSpan) const noexcept
+    {return static_cast<TValue>(1);}
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream>,
+        tags::Binary = {}) const
+    {}
+
+    template <class TAllocator>
+    void deserialize(
+        Ref<cie::io::Traits::DeserializerStream>,
+        Ref<IdentityTransformDerivative>,
+        Ref<const TAllocator>,
+        tags::Binary = {})
+    {}
+}; // class IdentityTransformDerivative
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
 class IdentityTransform
     :   public ExpressionTraits<TValue>,
         public cie::io::TriviallySerializableBase {
@@ -29,7 +86,7 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-    using Derivative = IdentityTransform;
+    using Derivative = IdentityTransformDerivative<TValue,Dimension>;
 
     using Inverse = IdentityTransform;
 
@@ -48,14 +105,11 @@ public:
     static constexpr unsigned bufferSize() noexcept
     {return 0u;}
 
-    constexpr Inverse makeInverse() const noexcept
-    {return *this;}
-
     constexpr Derivative makeDerivative() const noexcept
-    {return *this;}
+    {return Derivative();}
 
-    constexpr TValue evaluateDeterminant(ConstSpan, BufferSpan) const noexcept
-    {return static_cast<TValue>(1);}
+    constexpr Inverse makeInverse() const noexcept
+    {return Inverse();}
 
     void serialize(
         Ref<cie::io::Traits::SerializerStream>,
