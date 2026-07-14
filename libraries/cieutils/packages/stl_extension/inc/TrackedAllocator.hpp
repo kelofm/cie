@@ -20,6 +20,10 @@ public:
         return _peak;
     }
 
+    [[nodiscard]] std::size_t total() const noexcept {
+        return _total;
+    }
+
 private:
     template <template <class ...> class TAllocator, class T, class ...Ts>
     friend class TrackedAllocator;
@@ -30,6 +34,7 @@ private:
         _peak = std::max<std::size_t>(
             _peak,
             _current);
+        _total += size;
     }
 
     void reportDeallocation(std::size_t size) noexcept {
@@ -41,6 +46,8 @@ private:
     std::atomic<std::size_t> _current = 0ul;
 
     std::atomic<std::size_t> _peak = 0ul;
+
+    std::atomic<std::size_t> _total = 0ul;
 }; // class AllocatorStats
 
 
@@ -60,9 +67,9 @@ public:
     {}
 
     template <class U, class ...Us>
-    TrackedAllocator(const TrackedAllocator<TAllocator,U,Us...> rOther) noexcept
+    TrackedAllocator(const TrackedAllocator<TAllocator,U,Us...>& rOther) noexcept
     requires std::is_constructible_v<TAllocator<T,Ts...>,TAllocator<U,Us...>>
-        :   _allocator(rOther),
+        :   _allocator(rOther._allocator),
             _pStats(rOther._pStats)
     {}
 
@@ -98,6 +105,13 @@ private:
 
     AllocatorStats* _pStats;
 }; // class TrackedAllocator
+
+
+template <class T>
+class TrackedStandardAllocator
+    : public TrackedAllocator<std::allocator,T> {
+        using TrackedAllocator<std::allocator,T>::TrackedAllocator;
+}; // class TrackedStandardAllocator
 
 
 } // namespace cie
