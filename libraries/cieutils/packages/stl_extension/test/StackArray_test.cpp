@@ -1,7 +1,5 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
-
-// --- Internal Includes ---
 #include "packages/stl_extension/inc/StackArray.hpp"
 
 
