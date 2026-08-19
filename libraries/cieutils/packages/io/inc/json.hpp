@@ -307,11 +307,16 @@ public:
 
     JSONSchema& operator=(JSONSchema&& rRHS) noexcept;
 
-    void resolve(Ref<const JSONSchemaLoader> rLoader = {});
+    void resolve();
 
     void validate(Ref<const JSONObject> rJSON) const;
 
     void validateAndFillDefaults(Ref<JSONObject> rJSON) const;
+
+    /// @ingroup cieutils
+    friend std::ostream& operator<<(
+        Ref<std::ostream> rStream,
+        Ref<const JSONSchema> rSchema);
 
 private:
     JSONSchema(const JSONSchema&) = delete;
@@ -327,12 +332,6 @@ private:
 std::ostream& operator<<(
     std::ostream& rStream,
     const JSONObject& rJSON);
-
-
-/// @ingroup cieutils
-std::ostream& operator<<(
-    Ref<std::ostream> rStream,
-    Ref<const JSONSchema> rSchema);
 
 
 } // namespace cie::io

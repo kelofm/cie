@@ -72,5 +72,6 @@
             },
             "verbosity" : 3
         }
-    }
+    },
+    "write-schema" : "schema.json"
 }

@@ -25,7 +25,17 @@ void makeSchema(Ref<cie::io::JSONSchema> rSchema) {
                 },
                 "dirichlet-1d" : {"$ref" : "/cie/fem/dirichlet-condition-1d"},
                 "discretization" : {"$ref" : "/cie/fem/discretization"},
-                "linear-system" : {"$ref" : "/cie/fem/constrained-linear-system"}
+                "linear-system" : {"$ref" : "/cie/fem/constrained-linear-system"},
+                "write-schema" : {
+                    "type" : ["string", "null"],
+                    "default" : null,
+                    "description" : "Path to write the configuration schema to, or null."
+                },
+                "write-applied-configuration" : {
+                    "type" : ["string", "null"],
+                    "default" : null,
+                    "description" : "Path to write the applied configuration JSON to, or null."
+                }
             },
             "default" : {
                 "dirichlet-1d" : {},

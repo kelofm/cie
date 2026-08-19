@@ -1262,8 +1262,46 @@ void JSONSchema::validateAndFillDefaults(Ref<JSONObject> rJSON) const {
 }
 
 
-void JSONSchema::resolve(Ref<const JSONSchemaLoader>) {
-    CIE_THROW(NotImplementedException, "")
+void resolveJSONSchema(
+    Ref<nlohmann::json> rJSON,
+    Ref<const JSONSchemaLoader> rLoader) {
+    if (rJSON.is_array()) {
+        for (auto& value : rJSON)
+            resolveJSONSchema(value, rLoader);
+        return;
+    }
+
+    if (!rJSON.is_object())
+        return;
+
+    if (auto ref = rJSON.find("$ref"); ref != rJSON.end()) {
+        if (!ref->is_string())
+            throw std::runtime_error("$ref must be a string");
+
+        const auto path = ref->get<std::string>();
+        nlohmann::json base = std::move(rLoader.load(path).contents());
+
+        rJSON.erase(ref);
+
+        if (!base.is_object())
+            throw std::runtime_error("referenced JSON must be an object");
+
+        // Local JSON wins over the referenced JSON.
+        base.update(std::move(rJSON));
+        rJSON = std::move(base);
+    }
+
+    for (auto& [key, value] : rJSON.items())
+        resolveJSONSchema(value, rLoader);
+}
+
+
+void JSONSchema::resolve() {
+    CIE_BEGIN_EXCEPTION_TRACING
+        resolveJSONSchema(
+            _pImpl->schema,
+            _pImpl->loader);
+    CIE_END_EXCEPTION_TRACING
 }
 
 
@@ -1379,15 +1417,15 @@ std::ostream& operator<<(
     std::ostream& rStream,
     const JSONObject& rJSON) {
         CIE_BEGIN_EXCEPTION_TRACING
-            return rStream << rJSON.contents();
+            return rStream << rJSON.contents().dump(4);
         CIE_END_EXCEPTION_TRACING
 }
 
 
 std::ostream& operator<<(
-    [[maybe_unused]] std::ostream& rStream,
-    [[maybe_unused]] Ref<const JSONSchema> rSchema) {
-        CIE_THROW(NotImplementedException, "")
+    std::ostream& rStream,
+    Ref<const JSONSchema> rSchema) {
+        return rStream << rSchema._pImpl->schema.dump(4);
 }
 
 

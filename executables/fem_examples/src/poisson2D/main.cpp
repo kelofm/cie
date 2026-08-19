@@ -327,18 +327,25 @@ int main(int argc, const char** argv) {
         cie::io::JSONSchema configSchema;
         cie::fem::makeSchema(configSchema);
         configSchema.validateAndFillDefaults(configuration);
+
+        const auto& rMaybeSchemaPath = configuration["write-schema"];
+        if (!rMaybeSchemaPath.is<std::nullptr_t>()) {
+            const std::filesystem::path schemaPath = rMaybeSchemaPath.as<std::string>();
+            configSchema.resolve();
+            std::ofstream file(schemaPath);
+            file << configSchema;
+        }
     CIE_END_EXCEPTION_TRACING
 
     // Write the augmented configuration.
     CIE_BEGIN_EXCEPTION_TRACING
-        const std::filesystem::path appliedConfigPath =
-            configPath.parent_path() / std::format(
-                "{}_applied{}",
-                std::filesystem::path::string_type(configPath.stem()),
-                std::filesystem::path::string_type(configPath.extension()));
-        std::cout << "Write applied configuration to " << appliedConfigPath << ".\n";
-        std::ofstream appliedConfigFile(appliedConfigPath);
-        configuration.prettyPrint(appliedConfigFile);
+        const auto& rMaybeAppliedConfigPath = configuration["write-applied-configuration"];
+        if (!rMaybeAppliedConfigPath.is<std::nullptr_t>()) {
+            const std::filesystem::path appliedConfigPath = rMaybeAppliedConfigPath.as<std::string>();
+            std::cout << "Write applied configuration to " << appliedConfigPath << ".\n";
+            std::ofstream appliedConfigFile(appliedConfigPath);
+            configuration.prettyPrint(appliedConfigFile);
+        }
     CIE_END_EXCEPTION_TRACING
 
     try {
