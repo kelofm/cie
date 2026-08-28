@@ -15,6 +15,13 @@ if (NOT TARGET fem)
     find_package(fem CONFIG REQUIRED)
 endif()
 
+# Platform specific path definitions.
+if(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CIE_INSTALL_RPATH "$ORIGIN")
+endif()
+
 # Build executables.
 file(GLOB directories "${CMAKE_CURRENT_SOURCE_DIR}/src/*")
 set(targets "")
