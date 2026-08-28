@@ -1,5 +1,9 @@
-import numpy as np
-import cie.splinekernel as splinekernel
+# --- External Imports ---
+import numpy
+
+# --- GEO Imports ---
+import cie.geo
+
 
 class SplineKernel:
     # Constructor -------------------------------------------------------------
@@ -18,22 +22,22 @@ class SplineKernel:
     # CALCULATION -------------------------------------------------------------
     def getSamplePoints(self):
         # Create sample points (10 for every spline segment - not related to segment boundaries)
-        return np.linspace(0.0, 1.0, (len(self.interpolationPoints[0])-1)*10 )
+        return numpy.linspace(0.0, 1.0, (len(self.interpolationPoints[0])-1)*10 )
 
     def updateSpline(self, lastPoint=[]):
         # Interpolate the stored points - if the last point is not empty, interpolate that too
         if len(lastPoint) > 1:
-            self.controlPoints, self.knotVector = splinekernel.interpolateWithBSplineCurve(
+            self.controlPoints, self.knotVector = cie.geo.interpolateWithBSplineCurve(
                     [self.interpolationPoints[0]+[lastPoint[0]], self.interpolationPoints[1]+[lastPoint[1]]],
                     self.polynomialOrder)
         else:
-            self.controlPoints, self.knotVector = splinekernel.interpolateWithBSplineCurve(
+            self.controlPoints, self.knotVector = cie.geo.interpolateWithBSplineCurve(
                     self.interpolationPoints,
                     self.polynomialOrder)
 
     def updatePoints(self):
         # Compute points on the interpolating spline
-        x, y = splinekernel.evaluate2DCurveDeBoor(
+        x, y = cie.geo.evaluate2DCurveDeBoor(
                 self.samplePoints,
                 self.controlPoints[0],
                 self.controlPoints[1],
