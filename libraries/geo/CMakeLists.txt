@@ -16,7 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
-if (NOT TARGET linalg)
+if (NOT TARGET cie::linalg)
     find_package(linalg CONFIG REQUIRED)
 endif()
 

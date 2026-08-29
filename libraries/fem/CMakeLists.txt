@@ -18,7 +18,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
 find_package(LibXml2 REQUIRED)
-if (NOT TARGET geo)
+if (NOT TARGET cie::geo)
     find_package(geo REQUIRED)
 endif()
 
