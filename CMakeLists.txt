@@ -1,7 +1,19 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.20)
 project(cie LANGUAGES CXX VERSION 0.0.0)
 
 set(CMAKE_INSTALL_MESSAGE "LAZY" CACHE STRING "")
+
+if(CIE_ENABLE_GEO)
+    set(CIE_ENABLE_LINALG ON CACHE BOOL "Configure linalg." FORCE)
+endif()
+
+if(CIE_ENABLE_LINALG)
+    set(CIE_ENABLE_CIEUTILS ON CACHE BOOL "Configure cieutils." FORCE)
+endif()
+
+if(CIE_ENABLE_FEM)
+    set(CIE_ENABLE_GEO ON CACHE BOOL "Configure geo." FORCE)
+endif()
 
 set(library_names "cieutils;linalg;geo;fem")
 foreach(project_name ${library_names})
