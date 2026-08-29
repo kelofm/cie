@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.20)
 project(geo LANGUAGES CXX VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -15,33 +15,9 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
 if (NOT TARGET cie::linalg)
     find_package(linalg CONFIG REQUIRED)
 endif()
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror
-        -Wno-dangling-reference
-        -Wno-maybe-uninitialized
-        -Wno-array-bounds)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror
-        -Wno-c2y-extensions
-        -Wno-dtor-name)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    add_compile_options(-Wall -Wpedantic -Wextra -Werror)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    message(FATAL_ERROR "MSVC is not supported yet")
-endif ()
 
 # Platform specific path definitions.
 if(APPLE)
@@ -51,7 +27,7 @@ elseif(UNIX)
 endif()
 
 # Build main library
-file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
 if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE})
     add_library(${PROJECT_NAME} SHARED ${sources})
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
@@ -59,6 +35,29 @@ else()
     add_library(${PROJECT_NAME} STATIC ${sources})
 endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Werror
+        -Wno-dangling-reference
+        -Wno-maybe-uninitialized
+        -Wno-array-bounds)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Werror
+        -Wno-c2y-extensions
+        -Wno-dtor-name)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Werror)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    message(FATAL_ERROR "MSVC is not supported yet")
+endif ()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC cie::linalg)
 target_include_directories(
@@ -76,7 +75,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
-    file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
+    file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
     list(INSERT test_sources 0 "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
 
     find_package(Catch2 REQUIRED)
@@ -91,20 +90,20 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
 
     set(PYBIND11_FINDPYTHON ON)
-    find_package(Python REQUIRED COMPONENTS Interpreter Development)
-    find_package(pybind11 REQUIRED)
+    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(pybind11 CONFIG REQUIRED)
 
-    file(GLOB_RECURSE python_module_sources "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
+    file(GLOB_RECURSE python_module_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
     pybind11_add_module(${PROJECT_NAME}_python_bindings MODULE ${python_module_sources})
     target_link_libraries(${PROJECT_NAME}_python_bindings PRIVATE ${PROJECT_NAME})
     set_target_properties(${PROJECT_NAME}_python_bindings PROPERTIES
                           LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                           ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                          INSTALL_RPATH "${CIE_INSTALL_RPATH}")
+                          INSTALL_RPATH "${CIE_INSTALL_RPATH}/../")
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is
-    file(GLOB children "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/*")
+    file(GLOB children CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/*")
     foreach(child ${children})
         if (IS_DIRECTORY "${child}")
             get_filename_component(module_name "${child}" NAME)
@@ -117,9 +116,6 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     install(
         TARGETS ${PROJECT_NAME}_python_bindings
         EXPORT ${PROJECT_NAME}Targets
-        LIBRARY DESTINATION "lib/cie")
-    install(
-        TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION "lib/cie")
 endif()
 

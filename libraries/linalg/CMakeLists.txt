@@ -38,18 +38,14 @@ endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    target_compile_options(
-        ${PROJECT_NAME}
-        PRIVATE
+    target_compile_options(${PROJECT_NAME} PRIVATE
             -Wall
             -Wpedantic
             -Wextra
             -Wno-dangling-reference
             -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    target_compile_options(
-        ${PROJECT_NAME}
-        PRIVATE
+    target_compile_options(${PROJECT_NAME} PRIVATE
             -Wall
             -Wpedantic
             -Wextra
@@ -57,9 +53,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
             -Wno-c2y-extensions
             -Wno-deprecated-declarations)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    target_compile_options(
-        ${PROJECT_NAME}
-        PRIVATE
+    target_compile_options(${PROJECT_NAME} PRIVATE
             -Wall
             -Wpedantic
             -Wextra
