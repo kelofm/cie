@@ -145,13 +145,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
         DESTINATION "lib/cmake/${PROJECT_NAME}")
 
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${PROJECT_NAME}
-       NAMESPACE cie::
-       FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
-
 # Install data
 install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data"
