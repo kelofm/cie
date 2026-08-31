@@ -1263,42 +1263,70 @@ void JSONSchema::validateAndFillDefaults(Ref<JSONObject> rJSON) const {
 
 
 void resolveJSONSchema(
-    Ref<nlohmann::json> rJSON,
+    Ref<nlohmann::json> rDefs,
+    Ref<nlohmann::json> rCurrentSchema,
     Ref<const JSONSchemaLoader> rLoader) {
-    if (rJSON.is_array()) {
-        for (auto& value : rJSON)
-            resolveJSONSchema(value, rLoader);
-        return;
-    }
+        if (rCurrentSchema.is_array()) {
+            for (auto& value : rCurrentSchema)
+                resolveJSONSchema(rDefs, value, rLoader);
+            return;
+        }
 
-    if (!rJSON.is_object())
-        return;
+        if (!rCurrentSchema.is_object())
+            return;
 
-    if (auto ref = rJSON.find("$ref"); ref != rJSON.end()) {
-        if (!ref->is_string())
-            throw std::runtime_error("$ref must be a string");
+        if (auto itRef = rCurrentSchema.find("$ref"); itRef != rCurrentSchema.end()) {
+            if (!itRef->is_string())
+                CIE_THROW(Exception, "$ref must be a string")
 
-        const auto path = ref->get<std::string>();
-        nlohmann::json base = std::move(rLoader.load(path).contents());
+            const std::string path = itRef->get<std::string>();
+            std::string defPath = path;
+            std::replace(
+                defPath.begin(),
+                defPath.end(),
+                '/',
+                ':');
 
-        rJSON.erase(ref);
+            nlohmann::json base;
+            auto itDef = rDefs.find(defPath);
+            if (itDef == rDefs.end()) {
+                base = std::move(rLoader.load(path).contents());
+                if (!base.is_object())
+                    CIE_THROW(
+                        Exception,
+                        std::format(
+                            "referenced JSON \"{}\" must be an object",
+                            path))
 
-        if (!base.is_object())
-            throw std::runtime_error("referenced JSON must be an object");
+                // Remove $id from the base.
+                if (const auto itId = base.find("$id"); itId != base.end())
+                    base.erase(itId);
 
-        // Local JSON wins over the referenced JSON.
-        base.update(std::move(rJSON));
-        rJSON = std::move(base);
-    }
+                rDefs[defPath] = std::move(base);
+                itDef = rDefs.find(defPath);
 
-    for (auto& [key, value] : rJSON.items())
-        resolveJSONSchema(value, rLoader);
+                for (auto& [key, value] : itDef->items())
+                    resolveJSONSchema(rDefs, value, rLoader);
+            } /*if itDef == rDefs.end()*/
+
+            *itRef = "#/$defs/" + defPath;
+        } /*if has $ref*/ else {
+            for (auto& [key, value] : rCurrentSchema.items())
+                if (key != "$defs")
+                    resolveJSONSchema(rDefs, value, rLoader);
+        }
+
 }
 
 
 void JSONSchema::resolve() {
     CIE_BEGIN_EXCEPTION_TRACING
+        auto itDefs = _pImpl->schema.find("$defs");
+        if (itDefs == _pImpl->schema.end())
+            _pImpl->schema["$defs"] = "{}"_json;
+
         resolveJSONSchema(
+            *_pImpl->schema.find("$defs"),
             _pImpl->schema,
             _pImpl->loader);
     CIE_END_EXCEPTION_TRACING
