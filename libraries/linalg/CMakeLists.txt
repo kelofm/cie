@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.20)
 project(linalg LANGUAGES CXX VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -14,37 +14,11 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
-if (NOT TARGET cieutils)
+if (NOT TARGET cie::cieutils)
     find_package(cieutils CONFIG REQUIRED)
 endif()
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(OpenMP COMPONENTS CXX REQUIRED)
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Wno-dangling-reference
-        -Werror)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror
-        -Wno-c2y-extensions
-        -Wno-deprecated-declarations)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    message(FATAL_ERROR "MSVC is not supported yet")
-endif ()
 
 # Platform specific path definitions.
 if(APPLE)
@@ -54,7 +28,7 @@ elseif(UNIX)
 endif()
 
 # Build main library
-file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
 if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY})
     add_library(${PROJECT_NAME} SHARED ${sources})
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
@@ -62,6 +36,31 @@ else()
     add_library(${PROJECT_NAME} STATIC ${sources})
 endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Wno-dangling-reference
+            -Werror)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror
+            -Wno-c2y-extensions
+            -Wno-deprecated-declarations)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    message(FATAL_ERROR "MSVC is not supported yet")
+endif ()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
                       cie::cieutils
@@ -82,7 +81,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
-    file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
+    file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
     list(INSERT test_sources 0 "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
 
     find_package(Catch2 REQUIRED)
@@ -144,13 +143,6 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
         DESTINATION "lib/cmake/${PROJECT_NAME}")
-
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${PROJECT_NAME}
-       NAMESPACE cie::
-       FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
 
 # Install data
 install(

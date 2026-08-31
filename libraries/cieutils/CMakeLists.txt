@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.20)
 project(cieutils LANGUAGES CXX VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -80,7 +80,7 @@ add_library(
     ALIAS ${PROJECT_NAME})
 
 # Generate sources from source templates
-file(GLOB source_templates "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp.in")
+file(GLOB source_templates CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp.in")
 foreach(source_template ${source_templates})
     # Configure and output to intermediate file (read-write permissions)
     get_filename_component(
@@ -136,7 +136,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 # I have to disable some warnings here.
     target_compile_options(
         ${PROJECT_NAME}
-        PUBLIC
+        PRIVATE
             -Wall
             -Wpedantic
             -Wextra
@@ -146,7 +146,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_compile_options(
         ${PROJECT_NAME}
-        PUBLIC
+        PRIVATE
             -Wall
             -Wpedantic
             -Wextra
@@ -156,7 +156,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     target_compile_options(
         ${PROJECT_NAME}
-        PUBLIC
+        PRIVATE
             -Wall
             -Wpedantic
             -Wextra
@@ -169,6 +169,7 @@ endif ()
 file(
     GLOB_RECURSE
     sources
+    CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 target_sources(
@@ -226,6 +227,7 @@ if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
     file(
         GLOB_RECURSE
         test_sources
+        CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
     list(
         INSERT
@@ -258,12 +260,13 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
         POSITION_INDEPENDENT_CODE 1)
 
     set(PYBIND11_FINDPYTHON ON)
-    find_package(Python REQUIRED COMPONENTS Interpreter Development)
-    find_package(pybind11 REQUIRED)
+    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(pybind11 CONFIG REQUIRED)
 
     file(
         GLOB_RECURSE
         python_module_sources
+        CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
     pybind11_add_module(
         ${PROJECT_NAME}_python_bindings
@@ -278,7 +281,7 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
         PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        INSTALL_RPATH "${CIE_INSTALL_RPATH}")
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../")
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is
@@ -296,9 +299,6 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     install(
         TARGETS ${PROJECT_NAME}_python_bindings
         EXPORT ${PROJECT_NAME}Targets
-        LIBRARY DESTINATION "lib/cie")
-    install(
-        TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION "lib/cie")
 
     # Main CiE module __init__
@@ -394,11 +394,3 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
     DESTINATION
         "lib/cmake/${PROJECT_NAME}")
-
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(
-    TARGETS ${PROJECT_NAME}
-    NAMESPACE cie::
-    FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
