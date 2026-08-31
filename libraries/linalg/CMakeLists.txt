@@ -46,6 +46,13 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     message(FATAL_ERROR "MSVC is not supported yet")
 endif ()
 
+# Platform specific path definitions.
+if(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CIE_INSTALL_RPATH "$ORIGIN")
+endif()
+
 # Build main library
 file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
 if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY})
@@ -71,7 +78,7 @@ target_include_directories(
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      INSTALL_RPATH "$ORIGIN")
+                      INSTALL_RPATH "${CIE_INSTALL_RPATH}")
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)

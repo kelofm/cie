@@ -18,12 +18,14 @@ set(${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE               ON CACHE BOOL "build
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
 
 # Static paths
-if(UNIX)
+if(APPLE)
     set(${PROJECT_NAME_UPPER}_INSTALL_DATA_DIR "${CMAKE_INSTALL_PREFIX}/share/cie" CACHE STRING "")
     set(${PROJECT_NAME_UPPER}_OUTPUT_DIR "." CACHE STRING "")
-elseif(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
     set(${PROJECT_NAME_UPPER}_INSTALL_DATA_DIR "${CMAKE_INSTALL_PREFIX}/share/cie" CACHE STRING "")
     set(${PROJECT_NAME_UPPER}_OUTPUT_DIR "." CACHE STRING "")
+    set(CIE_INSTALL_RPATH "$ORIGIN")
 elseif(WIN32)
     message(FATAL_ERROR "Unsupported OS")
 else()
@@ -200,7 +202,7 @@ set_target_properties(
     PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        INSTALL_RPATH "$ORIGIN")
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}")
 
 # MPI support.
 if (CIE_ENABLE_MPI)
@@ -254,7 +256,9 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
         ${PROJECT_NAME}
         PROPERTY
         POSITION_INDEPENDENT_CODE 1)
-    #find_package(Python REQUIRED) # <== uncomment when this gets merged: https://github.com/pybind/pybind11/pull/5814
+
+    set(PYBIND11_FINDPYTHON ON)
+    find_package(Python REQUIRED COMPONENTS Interpreter Development)
     find_package(pybind11 REQUIRED)
 
     file(
@@ -274,7 +278,7 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
         PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        INSTALL_RPATH "$ORIGIN")
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}")
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is
@@ -292,6 +296,9 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     install(
         TARGETS ${PROJECT_NAME}_python_bindings
         EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION "lib/cie")
+    install(
+        TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION "lib/cie")
 
     # Main CiE module __init__
