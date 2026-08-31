@@ -3,11 +3,10 @@
 
 // --- FEM Includes ---
 #include "packages/io/inc/VTKHDF.hpp"
+#include "packages/postprocessing/inc/AnsatzSpacePostprocessor.hpp"
 
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
-#include "packages/logging/inc/LogBlock.hpp"
-#include "packages/maths/inc/OuterProduct.hpp"
 
 // --- STL Includes ---
 #include <cstdint>
@@ -16,30 +15,141 @@
 namespace cie::fem {
 
 
+void sumComponents(
+    std::span<const Scalar> components,
+    std::size_t componentCount,
+    std::span<Scalar> sums) {
+            const std::size_t itemCount = components.size() / componentCount;
+            for (std::size_t iItem=0ul; iItem<itemCount; ++iItem) {
+                sums[iItem] = std::accumulate(
+                    components.begin() + componentCount * iItem,
+                    components.begin() + componentCount * (iItem + 1),
+                    Scalar(0));
+            }
+}
+
+
+void scatter(
+    Ref<cie::io::VTKHDF::Output> rIO,
+    std::string_view groupName,
+    std::span<const Scalar> coordinates,
+    std::vector<std::pair<
+        std::string,
+        std::span<const Scalar>
+    >> fieldCoefficients,
+    Ref<const Mesh> rMesh,
+    Ref<const BVH> rBVH,
+    Ref<const Assembler> rAssembler,
+    bool writeComponents,
+    Scalar nanReplacement) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            // Select polynomial components to collect.
+            std::vector<std::uint8_t> ansatzOrders(intPow(polynomialOrder + 1, Dimension));
+            std::vector<std::uint8_t> requestedOrders;
+            if (writeComponents) {
+                makeAnsatzMask<Dimension,std::uint8_t>(
+                    polynomialOrder + 1,
+                    ansatzOrders);
+                requestedOrders.resize(polynomialOrder);
+                std::iota(
+                    requestedOrders.begin(),
+                    requestedOrders.end(),
+                    std::uint8_t(1));
+            } else {
+                std::fill(
+                    ansatzOrders.begin(),
+                    ansatzOrders.end(),
+                    std::uint8_t(0));
+                requestedOrders.push_back(0);
+            }
+
+            // Allocate memory for the output values.
+            const std::size_t pointCount = coordinates.size() / Dimension;
+            std::vector<std::span<const Scalar>> input;
+            input.reserve(fieldCoefficients.size());
+            std::transform(
+                fieldCoefficients.begin(),
+                fieldCoefficients.end(),
+                std::back_inserter(input),
+                [] (const auto& rPair) {return rPair.second;});
+
+            std::vector<Scalar> outputBuffer(fieldCoefficients.size() * requestedOrders.size() * pointCount);
+            std::vector<std::span<Scalar>> output;
+            output.reserve(fieldCoefficients.size());
+            for (std::size_t iField=0ul; iField<fieldCoefficients.size(); ++iField)
+                output.emplace_back(
+                    outputBuffer.data() + iField * requestedOrders.size() * pointCount,
+                    requestedOrders.size() * pointCount);
+
+            // Perform the interpolation.
+            AnsatzSpacePostprocessor<Ansatz> postprocessor(nanReplacement);
+            postprocessor.interpolate(
+                Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(coordinates),
+                rMesh,
+                rAssembler,
+                rBVH,
+                input,
+                1,
+                ansatzOrders,
+                requestedOrders,
+                output);
+
+            for (std::size_t iField=0ul; iField<fieldCoefficients.size(); ++iField) {
+                std::string fieldName = fieldCoefficients[iField].first;
+                if (writeComponents) fieldName += "-components";
+                rIO.writeFieldVariables<Scalar>(
+                    groupName,
+                    {{fieldName, {requestedOrders.size()}, output[iField]}});
+            } // for iField
+
+            // If components were requested, they need to be summed up
+            // to output the complete field as well.
+            if (writeComponents) {
+                for (std::size_t iField=0ul; iField<fieldCoefficients.size(); ++iField) {
+                    const std::size_t itemCount = output[iField].size() / requestedOrders.size();
+                    for (std::size_t iItem=0ul; iItem<itemCount; ++iItem) {
+                        output[iField][iItem] = std::accumulate(
+                            output[iField].begin() + requestedOrders.size() * iItem,
+                            output[iField].begin() + requestedOrders.size() * (iItem + 1),
+                            Scalar(0));
+                    } // for iItem
+
+                    rIO.writeFieldVariables<Scalar>(
+                        groupName,
+                        {{
+                            fieldCoefficients[iField].first,
+                            {1},
+                            {output[iField].data(), itemCount}
+                        }});
+                } // for iField
+            } // if writeComponents
+        CIE_END_EXCEPTION_TRACING
+}
+
+
 void postprocess(
     std::span<const Scalar> meshBase,
     std::span<const Scalar> meshLengths,
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<const Scalar> solution,
     std::span<const Scalar> rhs,
     Ref<const Mesh> rMesh,
-    std::span<const CellData> contiguousCellData,
     Ref<const BVH> rBVH,
+    std::span<const BoundarySegment> boundarySegments,
     Ref<const Assembler> rAssembler,
-    Ref<const utils::ArgParse::Results> rArguments,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<mp::ThreadPoolBase> rThreads) {
         CIE_BEGIN_EXCEPTION_TRACING
-            const unsigned postprocessResolution = rArguments.get<std::size_t>("scatter-resolution");
-
+            // Compute the residual.
             std::vector<Scalar> residual(rhs.begin(), rhs.end());
             {
                 Eigen::Map<const Eigen::SparseMatrix<Scalar,Eigen::RowMajor,int>> lhsAdaptor(
-                    lhs.rowCount,
-                    lhs.columnCount,
-                    lhs.entries.size(),
-                    lhs.rowExtents.data(),
-                    lhs.columnIndices.data(),
-                    lhs.entries.data());
+                    lhs.rowCount(),
+                    lhs.columnCount(),
+                    lhs.entries().size(),
+                    lhs.rowExtents().data(),
+                    lhs.columnIndices().data(),
+                    lhs.entries().data());
                 Eigen::Map<const Eigen::Matrix<Scalar,Eigen::Dynamic,1>> solutionAdaptor(
                     solution.data(),
                     solution.size());
@@ -49,170 +159,243 @@ void postprocess(
                 residualAdaptor.noalias() -= lhsAdaptor * solutionAdaptor;
             }
 
+            // Label ansatz functions by their polynomial orders.
+            std::vector<std::uint8_t> ansatzOrders(intPow(polynomialOrder + 1, Dimension));
+            makeAnsatzMask<Dimension,std::uint8_t>(
+                polynomialOrder + 1,
+                ansatzOrders);
+
+            // Define which polynomial components of the solution we request.
+            // In this case, all of them.
+            std::vector<std::uint8_t> requestedOrders(polynomialOrder);
+            std::iota(
+                requestedOrders.begin(),
+                requestedOrders.end(),
+                std::uint8_t(1));
+
             {
                 cie::io::VTKHDF::Output io;
+                const auto discretizationConfig = rConfiguration["discretization"]["postprocessing"];
 
                 // Write the mesh.
-                io(
-                    "mesh",
-                    rMesh);
+                io.writeCells(
+                    "cells",
+                    rMesh.data().cells());
 
                 // Write solution, load and residual.
                 {
+                    std::vector<std::pair<std::string,std::span<const Scalar>>> fieldCoefficients;
+                    if (discretizationConfig["state"].as<bool>())
+                        fieldCoefficients.emplace_back("state", solution);
+                    if (discretizationConfig["load"].as<bool>())
+                        fieldCoefficients.emplace_back("load", rhs);
+                    if (discretizationConfig["residual"].as<bool>())
+                        fieldCoefficients.emplace_back("residual", residual);
+
                     io.writeFieldVariables<Scalar>(
-                        "mesh",
+                        "cells",
                         rMesh,
+                        rMesh.data().cells(),
                         rAssembler,
-                        {
-                            {"state", solution},
-                            {"load", rhs},
-                            {"residual", residual}
-                        });
+                        fieldCoefficients);
                 }
 
-                // Write cell and DoF IDs.
-                {
-                    std::vector<std::size_t> cellIDs, dofIDs;
-                    cellIDs.reserve(contiguousCellData.size());
-                    dofIDs.reserve(contiguousCellData.size() * rMesh.data().ansatz(0).size());
+                // Write cell IDs.
+                if (discretizationConfig["cell-id"].as<bool>()) {
+                    std::vector<std::size_t> buffer;
+                    buffer.reserve(rMesh.data().cells().size());
+                    for (Ref<const Cell> rCell : rMesh.data().cells()) {
+                        buffer.push_back(rCell.id());
+                    }
+                    io.writeCellVariables<std::size_t>(
+                        "cells",
+                        {{"id", {1}, buffer}});
+                }
 
-                    for (Ref<const CellData> rCell : contiguousCellData) {
-                        cellIDs.push_back(rCell.id());
+                // Write DoF IDs.
+                if (discretizationConfig["dof-id"].as<bool>()) {
+                    std::vector<std::size_t> buffer;
+                    buffer.reserve(rMesh.data().cells().size() * rMesh.data().ansatz(0).size());
+                    for (Ref<const Cell> rCell : rMesh.data().cells()) {
                         const auto& rDoFIDs = rAssembler[rCell.id()];
                         std::copy(
                             rDoFIDs.begin(),
                             rDoFIDs.end(),
-                            std::back_inserter(dofIDs));
-                    } // for rCell in contiguousCellData
-
+                            std::back_inserter(buffer));
+                    }
                     io.writeCellVariables<std::size_t>(
-                        "mesh",
-                        {
-                            {"id", {1}, cellIDs},
-                            {"dofs", {rMesh.data().ansatz(0).size()}, dofIDs}
-                        });
+                        "cells",
+                        {{"DoFs", {rMesh.data().ansatz(0).size()}, buffer}});
+                }
+
+                // Write triangulated domains.
+                std::size_t iTesselatedDomain = 0ul;
+                for (const auto domainConfig : rConfiguration["domains"]) {
+                    if (domainConfig["type"].as<std::string>() == "default") continue;
+                    const auto& [rDomainID, rTriangles] = rMesh.data().domainTriangles()[iTesselatedDomain++];
+
+                    // Write triangulation.
+                    const std::string domainName = std::format("domain-{}", rDomainID);
+                    io.writeSTL<Scalar,Dimension>(
+                        domainName,
+                        rTriangles);
+
+                    std::vector<std::pair<std::string,std::span<const Scalar>>> fieldCoefficients;
+                    if (domainConfig["postprocessing"]["state"].as<bool>())
+                        fieldCoefficients.emplace_back("state", solution);
+                    if (domainConfig["postprocessing"]["load"].as<bool>())
+                        fieldCoefficients.emplace_back("load", rhs);
+                    if (domainConfig["postprocessing"]["residual"].as<bool>())
+                        fieldCoefficients.emplace_back("residual", residual);
+
+                    scatter(
+                        io,
+                        domainName,
+                        rTriangles,
+                        fieldCoefficients,
+                        rMesh,
+                        rBVH,
+                        rAssembler,
+                        domainConfig["postprocessing"]["write-components"].as<bool>(),
+                        domainConfig["postprocessing"]["replace-nans"].is<std::nullptr_t>()
+                            ? std::numeric_limits<Scalar>::quiet_NaN()
+                            : domainConfig["postprocessing"]["replace-nans"].as<double>());
+                } // for rDomain, rTriangles in rMesh.data().domainTriangles()
+
+                // Write dirichlet constraints.
+                {
+                    std::vector<Scalar> segmentPoints(boundarySegments.size() * 2 * Dimension);
+                    std::vector<Scalar> segmentStates(boundarySegments.size() * 2);
+                    for (std::size_t iSegment=0ul; iSegment<boundarySegments.size(); ++iSegment) {
+                        std::copy_n(
+                            boundarySegments[iSegment].data(),
+                            Dimension,
+                            segmentPoints.data() + iSegment * 2 * Dimension);
+                        std::copy_n(
+                            boundarySegments[iSegment].data() + Dimension,
+                            Dimension,
+                            segmentPoints.data() + iSegment * 2 * Dimension + Dimension);
+                        std::copy_n(
+                            boundarySegments[iSegment].data() + Dimension + Dimension,
+                            2,
+                            segmentStates.data() + iSegment * 2);
+                    }
+                    io.writeSegments<Scalar,Dimension>(
+                        "dirichlet-1d",
+                        segmentPoints);
+                    io.writeFieldVariables<Scalar>(
+                        "dirichlet-1d",
+                        {{"prescribed-state", {1}, segmentStates}});
+
+                    const auto constraintConfig = rConfiguration["dirichlet-1d"]["postprocessing"];
+                    std::vector<std::pair<std::string,std::span<const Scalar>>> fieldCoefficients;
+                    if (constraintConfig["state"].as<bool>())
+                        fieldCoefficients.emplace_back("state", solution);
+                    if (constraintConfig["load"].as<bool>())
+                        fieldCoefficients.emplace_back("load", rhs);
+                    if (constraintConfig["residual"].as<bool>())
+                        fieldCoefficients.emplace_back("residual", residual);
+                    scatter(
+                        io,
+                        "dirichlet-1d",
+                        segmentPoints,
+                        fieldCoefficients,
+                        rMesh,
+                        rBVH,
+                        rAssembler,
+                        constraintConfig["write-components"].as<bool>(),
+                        constraintConfig["replace-nans"].is<std::nullptr_t>()
+                            ? std::numeric_limits<Scalar>::quiet_NaN()
+                            : constraintConfig["replace-nans"].as<double>());
                 }
 
                 // Pointwise sampling.
                 {
-                    auto logBlock = utils::LoggerSingleton::get().newBlock("scatter postprocess");
-                    const Scalar postprocessDelta  = 1.0 / (postprocessResolution - 1);
+                    auto logBlock = utils::LoggerSingleton::get().newBlock("scatter");
 
-                    const std::size_t sampleCount = intPow(postprocessResolution, 2);
+                    // Parse configuration.
+                    const auto localConfig = rConfiguration["discretization"]["postprocessing"];
+                    std::array<std::size_t,Dimension> scatterResolution;
 
-                    std::vector<unsigned> cellIDs(sampleCount);
-                    std::vector<Scalar> sampleCoordinates(sampleCount * Dimension);
-                    std::vector<std::vector<Scalar>>
-                        sampleState(polynomialOrder + 1),
-                        sampleLoad(polynomialOrder + 1),
-                        sampleResidual(polynomialOrder + 1);
-
-                    std::vector<std::uint8_t> ansatzMask(intPow(polynomialOrder + 1, Dimension));
-                    makeAnsatzMask<Dimension>(
-                        polynomialOrder + 1,
-                        ansatzMask);
-
-                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder + 1; ++iOrder) {
-                        sampleState[iOrder].resize(sampleCount);
-                        sampleLoad[iOrder].resize(sampleCount);
-                        sampleResidual[iOrder].resize(sampleCount);
+                    {
+                        const auto resolutionConfig = discretizationConfig["resolution"];
+                        if (resolutionConfig.is<std::size_t>() || resolutionConfig.is<double>()) {
+                            std::fill(
+                                scatterResolution.begin(),
+                                scatterResolution.end(),
+                                resolutionConfig.as<std::size_t>());
+                        } else {
+                            const auto resolution = resolutionConfig.as<std::vector<std::size_t>>();
+                            CIE_CHECK(
+                                resolution.size() == Dimension,
+                                std::format(
+                                    "expecting an array of size {}, but got one with {} items",
+                                    Dimension,
+                                    resolution.size()))
+                            std::copy(
+                                resolution.begin(),
+                                resolution.end(),
+                                scatterResolution.begin());
+                        }
                     }
 
-                    mp::ParallelFor<std::size_t>(rThreads).firstPrivate(std::vector<Scalar>(), std::vector<Scalar>()).execute(
+                    std::array<Scalar,Dimension> postprocessDelta;
+                    for (std::size_t iDimension=0ul; iDimension<Dimension; ++iDimension)
+                        postprocessDelta[iDimension] = meshLengths[iDimension] / (scatterResolution[iDimension] - 1);
+
+                    const std::size_t sampleCount = std::accumulate(
+                        scatterResolution.begin(),
+                        scatterResolution.end(),
+                        1ul,
+                        std::multiplies<std::size_t>());
+                    std::vector<unsigned> cellIDs(sampleCount);
+                    std::vector<Scalar> sampleCoordinates(sampleCount * Dimension);
+
+                    mp::ParallelFor<std::size_t>(rThreads).execute(
                         sampleCount,
-                        [&](const std::size_t iSample,
-                            Ref<std::vector<Scalar>> rBuffer,
-                            Ref<std::vector<Scalar>> rResults) -> void {
-                                const std::size_t iSampleY = iSample / postprocessResolution;
-                                const std::size_t iSampleX = iSample % postprocessResolution;
+                        [&](const std::size_t iSample) -> void {
+                                const std::size_t iSampleY = iSample / scatterResolution[0];
+                                const std::size_t iSampleX = iSample - iSampleY * scatterResolution[0];
                                 const auto physicalCoordinates = Kernel<Dimension,Scalar>::cast<PhysicalCoordinate<Scalar>>(std::span<Scalar,Dimension> {
                                     sampleCoordinates.data() + iSample * Dimension,
                                     Dimension});
-                                physicalCoordinates[0] = meshBase[0] + meshLengths[0] * iSampleX * postprocessDelta;
-                                physicalCoordinates[1] = meshBase[1] + meshLengths[1] * iSampleY * postprocessDelta;
+                                physicalCoordinates[0] = meshBase[0] + iSampleX * postprocessDelta[0];
+                                physicalCoordinates[1] = meshBase[1] + iSampleY * postprocessDelta[1];
 
                                 // Find which cell the point lies in.
                                 const auto iMaybeCellData = rBVH.makeView().find(
                                     Kernel<Dimension,Scalar>::decay(physicalCoordinates),
-                                    std::span<const CellData>(contiguousCellData));
+                                    std::span<const Cell>(rMesh.data().cells()));
 
-                                if (iMaybeCellData != contiguousCellData.size()) {
-                                    Ref<const CellData> rCellData = contiguousCellData[iMaybeCellData];
-                                    cellIDs[iSample] = rCellData.id();
-
-                                    // Compute sample point in the cell's parametric space.
-                                    StaticArray<ParametricCoordinate<Scalar>,Dimension> parametricCoordinates;
-                                    rBuffer.resize(rCellData.makeSpatialTransform().bufferSize());
-                                    rCellData.transform(
-                                        physicalCoordinates,
-                                        Kernel<Dimension,Scalar>::view(parametricCoordinates),
-                                        rBuffer);
-
-                                    // Evaluate the cell's ansatz functions at the parametric sample point.
-                                    Ref<const Ansatz> rAnsatzSpace = rMesh.data().ansatz(rCellData.ansatzID());
-                                    rResults.resize(rAnsatzSpace.size());
-                                    rBuffer.resize(rAnsatzSpace.bufferSize());
-                                    rAnsatzSpace.evaluate(
-                                        Kernel<Dimension,Scalar>::decayView(
-                                            parametricCoordinates),
-                                        rResults,
-                                        rBuffer);
-
-                                    // Find the entries of the cell's DoFs in the global state vector.
-                                    const auto& rGlobalIndices = rAssembler[rCellData.id()];
-
-                                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
-                                        // Compute state as an indirect inner product of the solution vector
-                                        // and the ansatz function values at the local corner coordinates.
-                                        sampleState[iOrder][iSample] = 0.0;
-                                        sampleLoad[iOrder][iSample] = 0.0;
-                                        sampleResidual[iOrder][iSample] = 0.0;
-                                        for (unsigned iFunction=0u; iFunction<rGlobalIndices.size(); ++iFunction) {
-                                            if (ansatzMask[iFunction] == static_cast<std::uint8_t>(iOrder + 1)) {
-                                                sampleState[iOrder][iSample] += solution[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                                sampleLoad[iOrder][iSample] += rhs[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                                sampleResidual[iOrder][iSample] += residual[rGlobalIndices[iFunction]] * rResults[iFunction];
-                                            }
-                                        } // for iFunction in range(rGlobalIndices.size())
-
-                                        sampleState.back()[iSample] += sampleState[iOrder][iSample];
-                                        sampleLoad.back()[iSample] += sampleLoad[iOrder][iSample];
-                                        sampleResidual.back()[iSample] += sampleResidual[iOrder][iSample];
-                                    }
-                                } else {
-                                    // Could not find the cell that contains the current sample point.
-                                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
-                                        sampleState[iOrder][iSample] = NAN;
-                                        sampleLoad[iOrder][iSample] = NAN;
-                                        sampleResidual[iOrder][iSample] = NAN;
-                                    }
+                                if (iMaybeCellData != rMesh.data().cells().size()) {
+                                    Ref<const Cell> rCell = rMesh.data().cells()[iMaybeCellData];
+                                    cellIDs[iSample] = rCell.id();
                                 }
                         });
 
                     io.writePointCloud<Scalar,Dimension>(
-                        "samples",
+                        "scatter",
                         sampleCoordinates,
-                        /*gridSize=*/postprocessResolution);
-                    io.writeFieldVariables<Scalar>(
-                        "samples",
-                        {
-                            {"state", {1}, sampleState.back()},
-                            {"load",  {1}, sampleLoad.back()},
-                            {"residual", {1}, sampleResidual.back()}
-                        });
-
-                    for (std::size_t iOrder=0ul; iOrder<polynomialOrder; ++iOrder) {
-                        const std::string stateName = std::format("state_p{}", iOrder + 1);
-                        const std::string loadName = std::format("load_p{}", iOrder + 1);
-                        const std::string residualName = std::format("residual_p{}", iOrder + 1);
-                        io.writeFieldVariables<Scalar>(
-                            "samples",
-                            {
-                                {stateName, {1}, sampleState[iOrder]},
-                                {loadName,  {1}, sampleLoad[iOrder]},
-                                {residualName, {1}, sampleResidual[iOrder]}
-                            });
-                    }
+                        scatterResolution);
+                    std::vector<std::pair<std::string,std::span<const Scalar>>> fieldCoefficients;
+                    if (discretizationConfig["state"].as<bool>())
+                        fieldCoefficients.emplace_back("state", solution);
+                    if (discretizationConfig["load"].as<bool>())
+                        fieldCoefficients.emplace_back("load", rhs);
+                    if (discretizationConfig["residual"].as<bool>())
+                        fieldCoefficients.emplace_back("residual", residual);
+                    scatter(
+                        io,
+                        "scatter",
+                        sampleCoordinates,
+                        fieldCoefficients,
+                        rMesh,
+                        rBVH,
+                        rAssembler,
+                        discretizationConfig["write-components"].as<bool>(),
+                        discretizationConfig["replace-nans"].is<std::nullptr_t>()
+                            ? std::numeric_limits<Scalar>::quiet_NaN()
+                            : discretizationConfig["replace-nans"].as<double>());
                 }
             }
         CIE_END_EXCEPTION_TRACING

@@ -27,7 +27,7 @@ concept CompositeDomainLike
 && requires (const T& constInstance,
              std::span<const TValue> points,
              std::span<typename T::DomainData> subdomains) {
-    {constInstance.whichSubdomain(points, subdomains)};
+    {constInstance.subdomain(points, subdomains)};
 }; // CompositeDomain
 
 
@@ -42,7 +42,7 @@ public:
 
     constexpr CellDomain(Ref<const TCell> rCell) noexcept;
 
-    void whichSubdomain(
+    void subdomain(
         std::span<const typename TCell::Value> points,
         std::span<DomainData> subdomains);
 

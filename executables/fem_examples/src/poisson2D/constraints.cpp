@@ -4,15 +4,18 @@
 // --- FEM Includes ---
 #include "packages/integrands/inc/DirichletPenaltyIntegrand.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
-#include "packages/integrands/inc/TransformedIntegrand.hpp"
 #include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- GEO Includes ---
 #include "packages/trees/inc/ContiguousSpaceTree.hpp"
 
+// --- Linalg Includes ---
+#include "packages/solvers/inc/DefaultSpace.hpp"
+
 // --- Utility Includes ---
 #include "packages/logging/inc/LoggerSingleton.hpp"
-#include "packages/logging/inc/LogBlock.hpp"
+#include "packages/io/inc/json.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <regex>
@@ -21,12 +24,12 @@
 namespace cie::fem {
 
 
-BoundaryCellData::BoundaryCellData(
+BoundaryCell::BoundaryCell(
     unsigned id,
     std::size_t ansatzID,
     RightRef<typename Base::SpatialTransform> rEmbedding,
     Ref<const std::array<Scalar,2>> state,
-    Ref<const CellData> rCell) noexcept
+    Ref<const Cell> rCell) noexcept
         : Base(
             id,
             ansatzID,
@@ -37,8 +40,11 @@ BoundaryCellData::BoundaryCellData(
 {}
 
 
-BoundaryMeshData::BoundaryMeshData(std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet)
-    : _quadraturePointSet(quadraturePointSet.begin(), quadraturePointSet.end())
+BoundaryMeshData::BoundaryMeshData(
+    std::span<const QuadraturePoint<1,Scalar>> quadraturePointSet,
+    RightRef<std::vector<BoundaryCell>> rBoundaryCells)
+        :   _quadraturePointSet(quadraturePointSet.begin(), quadraturePointSet.end()),
+            _cells(std::move(rBoundaryCells))
 {}
 
 
@@ -54,6 +60,9 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
     using maths::ExpressionTraits<Scalar>::Span;
     using maths::ExpressionTraits<Scalar>::ConstSpan;
     using maths::ExpressionTraits<Scalar>::BufferSpan;
+
+    template <template <class ...> class, class>
+    using Rebind = DirichletBoundary;
 
     constexpr DirichletBoundary() noexcept = default;
 
@@ -80,6 +89,28 @@ struct DirichletBoundary : public maths::ExpressionTraits<Scalar> {
         return 0u;
     }
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary) const {
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                _state.data(),
+                _state.size());
+    }
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<DirichletBoundary> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._state.data(),
+                rInstance._state.size(),
+                rAllocator);
+    }
+
 private:
     std::array<Scalar,2> _state;
 }; // class DirichletBoundary
@@ -93,118 +124,122 @@ struct ParametricBoundarySegment {
 }; // struct ParametricBoundarySegment
 
 
-void partitionBoundaryCell(Ref<maths::AffineEmbedding<Scalar,1u,Dimension>> rTransform,
-                           BVH::View bvh,
-                           std::span<const CellData> contiguousCellData,
-                           unsigned minBoundaryTreeDepth,
-                           unsigned maxBoundaryTreeDepth,
-                           Ref<DynamicArray<ParametricBoundarySegment>> rOutput) {
-    rOutput.clear();
+void partitionBoundaryCell(
+    Ref<maths::AffineEmbedding<Scalar,1u,Dimension>> rTransform,
+    BVH::View bvh,
+    std::span<const Cell> cells,
+    unsigned minBoundaryTreeDepth,
+    unsigned maxBoundaryTreeDepth,
+    Ref<DynamicArray<ParametricBoundarySegment>> rOutput) {
+        rOutput.clear();
+        CIE_BEGIN_EXCEPTION_TRACING
+            using TreePrimitive = geo::Cube<1,Scalar>;
+            using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
+            Tree tree(Tree::Point {-1.0}, 2.0);
+            std::vector<Scalar> buffer;
 
-    CIE_BEGIN_EXCEPTION_TRACING
-    using TreePrimitive = geo::Cube<1,Scalar>;
-    using Tree          = geo::ContiguousSpaceTree<TreePrimitive,unsigned>;
-    Tree tree(Tree::Point {-1.0}, 2.0);
-    std::vector<Scalar> buffer;
+            const auto visitor = [&] (Ref<const Tree::Node> rNode, unsigned level) -> bool {
+                // Skip processing if the minimum depth has not yet been reached.
+                if (level < minBoundaryTreeDepth) return true;
 
-    const auto visitor = [&] (Ref<const Tree::Node> rNode, unsigned level) -> bool {
-        // Skip processing if the minimum depth has not yet been reached.
-        if (level < minBoundaryTreeDepth) return true;
+                // Stop processing if the maximum depth is reached.
+                if (maxBoundaryTreeDepth < level) return false;
 
-        // Stop processing if the maximum depth is reached.
-        if (maxBoundaryTreeDepth < level) return false;
+                // Recover the node's geometry (line segment in parametric space).
+                Scalar base, edgeLength;
+                tree.getNodeGeometry(rNode, &base, &edgeLength);
 
-        // Recover the node's geometry (line segment in parametric space).
-        Scalar base, edgeLength;
-        tree.getNodeGeometry(rNode, &base, &edgeLength);
+                // Define sample points in the boundary cell's parametric space.
+                const std::array<Scalar,1>
+                    parametricBase {base},
+                    parametricOpposite {base + edgeLength};
 
-        // Define sample points in the boundary cell's parametric space.
-        const std::array<Scalar,1>
-            parametricBase {base},
-            parametricOpposite {base + edgeLength};
+                // Transform sample points to the global coordinate space.
+                std::array<Scalar,Dimension> physicalBase, physicalOpposite;
+                buffer.resize(rTransform.bufferSize());
+                rTransform.evaluate(parametricBase, physicalBase, buffer);
+                rTransform.evaluate(parametricOpposite, physicalOpposite, buffer);
 
-        // Transform sample points to the global coordinate space.
-        std::array<Scalar,Dimension> physicalBase, physicalOpposite;
-        buffer.resize(rTransform.bufferSize());
-        rTransform.evaluate(parametricBase, physicalBase, buffer);
-        rTransform.evaluate(parametricOpposite, physicalOpposite, buffer);
+                // Check whether the two endpoints are in different cells.
+                const std::size_t iBaseCell = bvh.find(
+                    std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(
+                        physicalBase.data()),
+                        Dimension),
+                    cells);
+                const std::size_t iOppositeCell = bvh.find(
+                    std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(
+                        physicalOpposite.data()),
+                        Dimension),
+                    cells);
 
-        // Check whether the two endpoints are in different cells.
-        const std::size_t iBaseCell = bvh.find(
-            std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(
-                physicalBase.data()),
-                Dimension),
-            contiguousCellData);
-        const std::size_t iOppositeCell = bvh.find(
-            std::span<const Scalar,Dimension>(reinterpret_cast<const Scalar*>(
-                physicalOpposite.data()),
-                Dimension),
-            contiguousCellData);
+                // Extend the output if both endpoints lie in the same cell.
+                if (iBaseCell == iOppositeCell && iBaseCell != cells.size() && iOppositeCell != cells.size()) {
+                    auto itSegment = std::lower_bound(
+                        rOutput.begin(),
+                        rOutput.end(),
+                        iBaseCell,
+                        [] (Ref<const ParametricBoundarySegment> rSegment, std::size_t iBaseCell) {
+                            return iBaseCell < rSegment.iCell;
+                        });
+                    if (itSegment == rOutput.end()) {
+                        rOutput.emplace_back(ParametricBoundarySegment {
+                            .iCell          = iBaseCell,
+                            .segmentBegin   = base,
+                            .segmentEnd     = base + edgeLength});
+                    } else if (itSegment->iCell != iBaseCell) {
+                        rOutput.insert(
+                            itSegment,
+                            ParametricBoundarySegment {
+                                .iCell          = iBaseCell,
+                                .segmentBegin   = base,
+                                .segmentEnd     = base + edgeLength});
+                    } else {
+                        itSegment->segmentBegin = std::min(itSegment->segmentBegin, base             );
+                        itSegment->segmentEnd   = std::max(itSegment->segmentEnd,   base + edgeLength);
+                    }
+                }
 
-        // Extend the output if both endpoints lie in the same cell.
-        if (iBaseCell != contiguousCellData.size() && iOppositeCell != contiguousCellData.size() && iBaseCell == iOppositeCell) {
-            auto itSegment = std::lower_bound(
-                rOutput.begin(),
-                rOutput.end(),
-                iBaseCell,
-                [] (Ref<const ParametricBoundarySegment> rSegment, std::size_t iBaseCell) {
-                    return iBaseCell < rSegment.iCell;
-                });
-            if (itSegment == rOutput.end()) {
-                rOutput.emplace_back(ParametricBoundarySegment {
-                    .iCell          = iBaseCell,
-                    .segmentBegin   = base,
-                    .segmentEnd     = base + edgeLength});
-            } else if (itSegment->iCell != iBaseCell) {
-                rOutput.insert(
-                    itSegment,
-                    ParametricBoundarySegment {
-                        .iCell          = iBaseCell,
-                        .segmentBegin   = base,
-                        .segmentEnd     = base + edgeLength});
-            } else {
-                itSegment->segmentBegin = std::min(itSegment->segmentBegin, base             );
-                itSegment->segmentEnd   = std::max(itSegment->segmentEnd,   base + edgeLength);
-            }
-        }
+                return iBaseCell != iOppositeCell
+                    && (iBaseCell != cells.size() || iOppositeCell != cells.size());
+            }; // visitor
 
-        return iBaseCell != iOppositeCell
-            && (iBaseCell != contiguousCellData.size() || iOppositeCell != contiguousCellData.size());
-    }; // visitor
-
-    tree.scan(visitor);
-    CIE_END_EXCEPTION_TRACING
+            tree.scan(visitor);
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rArguments) {
+std::vector<BoundarySegment> makeBoundary(Ref<const cie::io::JSONObject> configuration) {
     std::vector<BoundarySegment> output;
-
     CIE_BEGIN_EXCEPTION_TRACING
-    const std::filesystem::path boundaryFile    = rArguments.get<std::filesystem::path>("boundary-file-path");
-    std::ifstream file(boundaryFile);
-    const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
-    const std::regex pattern(std::format(
-        "^({}),({}),({}),({}),({}),({}).*",
-        floatingPointRegex, floatingPointRegex, floatingPointRegex,
-        floatingPointRegex, floatingPointRegex, floatingPointRegex));
-    std::string line, component;
-    while (std::getline(file, line)) {
-        std::match_results<std::string::iterator> match;
-        if (std::regex_match(line.begin(), line.end(), match, pattern)) {
-            CIE_CHECK(match.size() == 6 + 1, "invalid line in boundary file: '" << line << "'" << "(" << match.size() << " matches)")
-            BoundarySegment segment;
-            std::transform(
-                match.begin() + 1,
-                match.end(),
-                segment.begin(),
-                [] (const auto& rSubMatch) -> Scalar {
-                    const std::string& rString = rSubMatch.str();
-                    return static_cast<Scalar>(std::stold(rString));
-                });
-            output.push_back(segment);
-        } // if regex_match
-    } // while getline
+        const std::filesystem::path boundaryFile = configuration["file-path"].as<std::string>();
+        std::cout << "reading " << boundaryFile << std::endl;
+        std::ifstream file(boundaryFile);
+        const std::string floatingPointRegex(R"(-?(?:(?:(?:[1-9][0-9]*)(?:\.[0-9]*)?)|(?:0(?:\.[0-9]*)?))(?:[eE][\+-]?[0-9]+)?)");
+        const std::regex pattern(std::format(
+            "^({}),({}),({}),({}),({}),({}).*",
+            floatingPointRegex, floatingPointRegex, floatingPointRegex,
+            floatingPointRegex, floatingPointRegex, floatingPointRegex));
+        std::string line, component;
+        while (std::getline(file, line)) {
+            std::match_results<std::string::iterator> match;
+            if (std::regex_match(line.begin(), line.end(), match, pattern)) {
+                CIE_CHECK(
+                    match.size() == 6 + 1,
+                    std::format(
+                        "invalid lin in boundary file: '{}' ({} matches)",
+                        line, match.size()))
+                BoundarySegment segment;
+                std::transform(
+                    match.begin() + 1,
+                    match.end(),
+                    segment.begin(),
+                    [] (const auto& rSubMatch) -> Scalar {
+                        const std::string& rString = rSubMatch.str();
+                        return static_cast<Scalar>(std::stold(rString));
+                    });
+                output.push_back(segment);
+            } // if regex_match
+        } // while getline
     CIE_END_EXCEPTION_TRACING
 
     return output;
@@ -214,15 +249,16 @@ std::vector<BoundarySegment> makeBoundary(Ref<const utils::ArgParse::Results> rA
 BoundaryMesh generateBoundaryMesh(
     std::span<const BoundarySegment> tesselatedBoundary,
     BVH::View bvh,
-    std::span<const CellData> contiguousCellData,
-    Ref<const utils::ArgParse::Results> rArguments,
+    std::span<const Cell> cells,
+    Ref<const cie::io::JSONObject> rConfiguration,
     Ref<DynamicArray<BoundarySegment>> rBoundarySegments) {
         BoundaryMesh boundary;
+        std::vector<BoundaryCell> boundaryCells;
 
         // Parse user input.
-        const std::size_t minBoundaryTreeDepth      = rArguments.get<std::size_t>("min-boundary-tree-depth");
-        const std::size_t maxBoundaryTreeDepth      = rArguments.get<std::size_t>("max-boundary-tree-depth");
-        const Scalar minBoundarySegmentNorm         = rArguments.get<double>("min-boundary-segment-norm");
+        const std::size_t minTreeDepth  = rConfiguration["integration"]["min-tree-depth"].as<std::size_t>();
+        const std::size_t maxTreeDepth  = rConfiguration["integration"]["max-tree-depth"].as<std::size_t>();
+        const Scalar minSegmentNorm     = rConfiguration["integration"]["min-domain-norm"].as<std::size_t>();
 
         // Generate edges for the non-conforming boundary mesh,
         // and cut them by the cells they're located in.
@@ -240,9 +276,9 @@ BoundaryMesh generateBoundaryMesh(
             partitionBoundaryCell(
                 transform,
                 bvh,
-                contiguousCellData,
-                minBoundaryTreeDepth,
-                maxBoundaryTreeDepth,
+                cells,
+                minTreeDepth,
+                maxTreeDepth,
                 boundarySegments);
 
             for (Ref<const ParametricBoundarySegment> rParametricSegment : boundarySegments) {
@@ -259,21 +295,20 @@ BoundaryMesh generateBoundaryMesh(
                 const Scalar segmentNorm = std::pow(segmentEndPoints.back()[0] - segmentEndPoints.front()[0], static_cast<Scalar>(2))
                                         + std::pow(segmentEndPoints.back()[1] - segmentEndPoints.front()[1], static_cast<Scalar>(2));
 
-                if (minBoundarySegmentNorm < segmentNorm) {
+                if (minSegmentNorm < segmentNorm) {
                     const auto id = boundary.vertices().size();
                     const std::array<Scalar,2> state {
-                        rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentBegin + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentBegin + 1.0)),
-                        rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentEnd + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentEnd + 1.0))};
+                        Scalar(rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentBegin + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentBegin + 1.0))),
+                        Scalar(rPhysicalSegment[4] * (1.0 - 0.5 * (rParametricSegment.segmentEnd + 1.0)) + rPhysicalSegment[5] * (0.5 * (rParametricSegment.segmentEnd + 1.0)))};
                     boundary.insert(BoundaryMesh::Vertex(
                         id,
-                        {},
-                        BoundaryCellData(
-                            id,
-                            0ul,
-                            maths::AffineEmbedding<Scalar,1u,Dimension>(segmentEndPoints),
-                            state,
-                            contiguousCellData[rParametricSegment.iCell]
-                        )));
+                        {}));
+                    boundaryCells.emplace_back(
+                        id,
+                        0ul,
+                        maths::AffineEmbedding<Scalar,1u,Dimension>(segmentEndPoints),
+                        state,
+                        cells[rParametricSegment.iCell]);
                     rBoundarySegments.push_back({
                         segmentEndPoints.front().front(),
                         segmentEndPoints.front().back(),
@@ -287,7 +322,7 @@ BoundaryMesh generateBoundaryMesh(
 
         // Generate quadrature points.
         CIE_BEGIN_EXCEPTION_TRACING
-            GaussLegendreQuadrature<Scalar> quadrature(boundaryIntegrationOrder);
+            GaussLegendreQuadrature<Scalar> quadrature(rConfiguration["integration"]["template"]["order"].as<std::size_t>());
             DynamicArray<QuadraturePoint<1,Scalar>> points;
             points.reserve(quadrature.numberOfNodes());
             for (std::size_t iPoint=0ul; iPoint<quadrature.numberOfNodes(); ++iPoint) {
@@ -295,7 +330,9 @@ BoundaryMesh generateBoundaryMesh(
                     quadrature.nodes()[iPoint],
                     quadrature.weights()[iPoint]);
             }
-            boundary.data() = BoundaryMeshData(points);
+            boundary.data() = BoundaryMeshData(
+                points,
+                std::move(boundaryCells));
         CIE_END_EXCEPTION_TRACING
 
         return boundary;
@@ -303,120 +340,208 @@ BoundaryMesh generateBoundaryMesh(
 
 
 DynamicArray<BoundarySegment>
-imposeBoundaryConditions(
+integrateBoundaryConstraints(
     Ref<Mesh> rMesh,
     std::span<const BoundarySegment> tesselatedBoundary,
     Ref<const Assembler> rAssembler,
     BVH::View bvh,
-    std::span<const CellData> contiguousCellData,
-    CSRWrapper lhs,
-    std::span<Scalar> rhs,
-    Ref<const utils::ArgParse::Results> rArguments) {
+    std::span<const Cell> cells,
+    linalg::CSRView<Scalar,const int> lhs,
+    Ref<DynamicArray<int>> rConstraintRowExtents,
+    Ref<DynamicArray<int>> rConstraintColumnIndices,
+    Ref<DynamicArray<Scalar>> rConstraintEntries,
+    Ref<DynamicArray<Scalar>> rConstraintGaps,
+    [[maybe_unused]] Ref<mp::ThreadPoolBase> rThreads,
+    Ref<const cie::io::JSONObject> rConfiguration) {
         DynamicArray<BoundarySegment> boundarySegments;
 
+        using Integrand = DirichletPenaltyIntegrand<
+            DirichletBoundary,
+            Ansatz,
+            maths::AffineEmbedding<Scalar,1u,Dimension>,
+            Cell>;
+
         CIE_BEGIN_EXCEPTION_TRACING
-        auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
+            auto logBlock = utils::LoggerSingleton::get().newBlock("weak boundary condition imposition");
 
-        // Load the boundary mesh.
-        const auto boundary = generateBoundaryMesh(
-            tesselatedBoundary,
-            bvh,
-            contiguousCellData,
-            rArguments,
-            boundarySegments);
+            // Load the boundary mesh.
+            const auto boundaryMesh = generateBoundaryMesh(
+                tesselatedBoundary,
+                bvh,
+                cells,
+                rConfiguration,
+                boundarySegments);
 
-        const auto quadratureRuleFactory = [&boundary] (Ref<const BoundaryMesh::Vertex::Data>) {
-            return boundary.data().makeQuadratureRule();};
+            // Construct a new linear system containing only
+            // contributions from constraints.
+            std::vector<VertexID> constrainedCellIDs;
+            {
+                tsl::robin_set<VertexID> constrainedCellIDSet;
+                for (Ref<const BoundaryCell> rBoundaryCell : boundaryMesh.data().cells())
+                    constrainedCellIDSet.insert(rBoundaryCell.getEmbeddingCell().id());
+                constrainedCellIDs.insert(
+                    constrainedCellIDs.end(),
+                    constrainedCellIDSet.begin(),
+                    constrainedCellIDSet.end());
+            }
 
-        const Scalar penaltyFactor = rArguments.get<double>("penalty-factor");
-        const auto integrandFactory = [&rMesh, penaltyFactor] (Ref<const BoundaryMesh::Vertex::Data> rBoundaryCell) {
-            auto integrand = makeTransformedIntegrand(
-                makeDirichletPenaltyIntegrand(
-                    DirichletBoundary(rBoundaryCell.state()),
-                    penaltyFactor,
-                    rMesh.data().ansatz(rBoundaryCell.ansatzID()),
-                    rBoundaryCell.makeSpatialTransform(),
-                    rBoundaryCell.getEmbeddingCell()),
-                rBoundaryCell.makeJacobian());
-            return integrand;
-        }; // integrandFactory
+            int rowCount, columnCount;
+            rAssembler.makeCSRMatrix(
+                rowCount,
+                columnCount,
+                rConstraintRowExtents,
+                rConstraintColumnIndices,
+                rConstraintEntries,
+                constrainedCellIDs);
 
-        const auto integralSink = [&lhs, &rhs, &rAssembler, &boundary] (
-            std::span<const VertexID> cellIDs,
-            std::span<const Scalar> results) {
-                constexpr std::size_t lhsEntryCount = intPow(Ansatz::size(), Dimension);
-                constexpr std::size_t rhsEntryCount = Ansatz::size();
-                for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
-                    Ptr<const Scalar> pResultsBegin = results.data() + iCell * (lhsEntryCount +rhsEntryCount);
-                    const VertexID cellID = boundary.find(cellIDs[iCell]).value().data().getEmbeddingCell().id();
-                    rAssembler.addContribution<tags::Serial,int>(
-                        std::span<const Scalar>(pResultsBegin, lhsEntryCount),
-                        cellID,
-                        lhs.rowExtents,
-                        lhs.columnIndices,
-                        lhs.entries);
-                    rAssembler.addContribution<tags::Serial>(
-                        std::span<const Scalar>(pResultsBegin + lhsEntryCount, rhsEntryCount),
-                        cellID,
-                        std::span<Scalar>(rhs));
-                } // for iCell in range(cellIDs.size())
-        };
+            // Extend the constraint system to match the unconstrained system's size.
+            rConstraintRowExtents.resize(lhs.rowCount() + 1);
+            std::fill(
+                rConstraintRowExtents.begin() + rowCount,
+                rConstraintRowExtents.end(),
+                rConstraintRowExtents[rowCount]);
+            rowCount = lhs.rowCount();
+            columnCount = lhs.columnCount();
 
-        using Integrand = TransformedIntegrand<
-            DirichletPenaltyIntegrand<
-                DirichletBoundary,
-                Ansatz,
-                maths::AffineEmbedding<Scalar,1u,Dimension>,
-                CellData>,
-            maths::AffineEmbedding<Scalar,1u,Dimension>::Derivative>;
-        const IntegrandProcessor<1,Integrand>::Properties executionProperties{
-            .integrandBatchSize = rArguments.get<std::size_t>("integrand-batch-size"),
-            .integrandsPerItem = {},
-            .verbosity = 3};
-        auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
-        const auto& rBoundaryCells = boundary.vertices();
-        pProcessor->process(
-            rBoundaryCells.begin(),
-            rBoundaryCells.end(),
-            quadratureRuleFactory,
-            integrandFactory,
-            integralSink,
-            executionProperties);
+            linalg::CSRView<Scalar,int> constraintGradient(
+                columnCount,
+                rConstraintRowExtents,
+                rConstraintColumnIndices,
+                rConstraintEntries);
+            rConstraintGaps.resize(rowCount);
+            std::fill(
+                constraintGradient.entries().begin(),
+                constraintGradient.entries().end(),
+                Scalar(0));
+            std::fill(
+                rConstraintGaps.begin(),
+                rConstraintGaps.end(),
+                Scalar(0));
 
-        return boundarySegments;
+            // Define callbacks for the integrand processor.
+            const auto quadratureRuleFactory = [&boundaryMesh] (Ref<const BoundaryCell>) {
+                return boundaryMesh.data().makeQuadratureRule();};
+
+            const auto integrandFactory = [&rMesh, &rConfiguration] (Ref<const BoundaryCell> rBoundaryCell) -> Integrand {
+                auto integrand = makeDirichletPenaltyIntegrand(
+                        DirichletBoundary(rBoundaryCell.state()),
+                        rConfiguration["penalty-factor"].as<double>(),
+                        rMesh.data().ansatz(rBoundaryCell.ansatzID()),
+                        rBoundaryCell.makeSpatialTransform(),
+                        rBoundaryCell.getEmbeddingCell());
+                return integrand;
+            }; // integrandFactory
+
+            const unsigned integrandSize = integrandFactory(boundaryMesh.data().cells().front()).size();
+            const unsigned constraintGradientContributionSize = intPow(Ansatz::size(), 2);
+            const unsigned constraintGapContributionSize = Ansatz::size();
+            const auto integralSink = [&] (
+                std::span<const VertexID> cellIDs,
+                std::span<const Scalar> results) {
+                    for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
+                        // Find the results' offset.
+                        Ptr<const Scalar> pResultsBegin = results.data() + iCell * integrandSize;
+                        const VertexID embeddingCellID = boundaryMesh.data().cells()[iCell].getEmbeddingCell().id();
+
+                        // Separate different integral components.
+                        const std::span<const Scalar> constraintGradientContribution(
+                            pResultsBegin,
+                            constraintGradientContributionSize);
+                        const std::span<const Scalar> constraintGapContribution(
+                            pResultsBegin + constraintGradientContributionSize,
+                            constraintGapContributionSize);
+
+                        // Reduce contributions to the constraint system.
+                        rAssembler.addContribution<tags::SMP,int>(
+                            constraintGradientContribution,
+                            embeddingCellID,
+                            constraintGradient.rowExtents(),
+                            constraintGradient.columnIndices(),
+                            constraintGradient.entries());
+                        rAssembler.addContribution<tags::SMP>(
+                            constraintGapContribution,
+                            embeddingCellID,
+                            std::span<Scalar>(rConstraintGaps));
+                    } // for iCell in range(cellIDs.size())
+            }; // integralSink
+
+            // Perform the integration.
+            const IntegrandProcessor<1,Integrand>::Properties executionProperties{
+                .integrandBatchSize = rConfiguration["integration"]["batch-size"].as<std::size_t>(),
+                .verbosity = rConfiguration["integration"]["verbosity"].as<int>()};
+            auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
+            const auto& rBoundaryCells = boundaryMesh.data().cells();
+            pProcessor->process(
+                std::span<const BoundaryCell>(rBoundaryCells),
+                quadratureRuleFactory,
+                integrandFactory,
+                integralSink,
+                executionProperties);
+
+//            // Shrink the constraint system.
+//            {
+//                std::vector<int> swapConstraintRowExtents(1, 0);
+//                swapConstraintRowExtents.reserve(rConstraintColumnIndices.size());
+//                std::vector<Scalar> swapConstraintGaps;
+//                swapConstraintGaps.reserve(rConstraintGaps.size());
+//
+//                for (int iRow=0ul; iRow<lhs.rowCount(); ++iRow) {
+//                    const int rowSize = rConstraintRowExtents[iRow + 1] - rConstraintRowExtents[iRow];
+//                    if (rowSize) [[unlikely]] {
+//                        swapConstraintRowExtents.push_back(rConstraintRowExtents[iRow + 1]);
+//                        swapConstraintGaps.push_back(rConstraintGaps[iRow]);
+//                    }
+//                } // for iRow
+//
+//                rConstraintRowExtents = std::move(swapConstraintRowExtents);
+//                rConstraintGaps = std::move(swapConstraintGaps);
+//            }
+
+            return boundarySegments;
         CIE_END_EXCEPTION_TRACING
 }
 
 
-BVH makeBoundingVolumeHierarchy(Ref<Mesh> rMesh, std::span<const Scalar> meshBase, std::span<const Scalar> meshLengths) {
-    auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
+BVH makeBoundingVolumeHierarchy(
+    std::span<Cell> cells,
+    std::span<const Scalar> meshBase,
+    std::span<const Scalar> meshLengths) {
+        auto logBlock = utils::LoggerSingleton::get().newBlock("make BVH");
 
-    constexpr int targetLeafWidth = 5;
-    constexpr int maxTreeDepth = 5;
+        constexpr int targetLeafWidth = 5;
+        constexpr int maxTreeDepth = 5;
 
-    geo::AABBoxNode<CellData> root;
-    geo::AABBoxNode<CellData>::Point rootBase, rootLengths;
-    std::copy_n(
-        meshBase.data(),
-        meshBase.size(),
-        rootBase.data());
-    std::copy_n(
-        meshLengths.data(),
-        meshLengths.size(),
-        rootLengths.data());
-    root = geo::AABBoxNode<CellData>(rootBase, rootLengths, nullptr);
+        geo::AABBoxNode<Cell> root;
+        geo::AABBoxNode<Cell>::Point rootBase, rootLengths;
+        std::transform(
+            meshBase.begin(),
+            meshBase.end(),
+            meshLengths.begin(),
+            rootBase.begin(),
+            [] (Scalar base, Scalar length) -> Scalar {
+                return base - 1e-2 * length;
+            });
+        std::transform(
+            meshLengths.begin(),
+            meshLengths.end(),
+            rootLengths.begin(),
+            [] (Scalar length) -> Scalar {
+                return (1 + 2e-2) * length;
+            });
+        root = geo::AABBoxNode<Cell>(rootBase, rootLengths, nullptr);
 
-    for (auto& rCell : rMesh.vertices()) {
-        root.insert(&rCell.data());
-    }
+        for (auto& rCell : cells) {
+            root.insert(&rCell);
+        }
 
-    root.partition(targetLeafWidth, maxTreeDepth);
-    root.shrink();
+        root.partition(targetLeafWidth, maxTreeDepth);
+        //root.shrink();
 
-    return BVH::flatten(
-        root,
-        [] (Ref<const CellData> rCellData) -> unsigned {return rCellData.id();},
-        std::allocator<std::byte>());
+        return BVH::flatten(
+            root,
+            [&cells] (Ref<const Cell> rCellData) -> unsigned {
+                return std::distance<Ptr<const Cell>>(cells.data(), &rCellData);},
+            std::allocator<std::byte>());
 }
 
 

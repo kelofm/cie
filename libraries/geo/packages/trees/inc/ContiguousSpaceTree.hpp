@@ -171,7 +171,7 @@ private:
     void getNodeGeometryImpl(Ref<const Node> rNode,
                              TBaseIt itBaseBegin,
                              TLengthIt itLengthBegin) const
-    requires concepts::Cube<TGeometry>;
+    requires geo::CubeLike<TGeometry>;
 
     template <concepts::Iterator<Coordinate> TBaseIt, concepts::Iterator<Coordinate> TLengthIt>
     void getNodeGeometryImpl(Ref<const Node> rNode,

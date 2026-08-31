@@ -7,6 +7,7 @@
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/macros/inc/typedefs.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- STL Includes ---
 #include <ostream> // std::ostream
@@ -31,6 +32,10 @@ class TranslateScaleTransform;
 template <concepts::Numeric TValue, unsigned Dimension>
 class ScaleTranslateTransformDerivative : public ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ScaleTranslateTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -40,6 +45,9 @@ public:
     using typename ExpressionTraits<TValue>::ConstSpan;
 
     using typename ExpressionTraits<TValue>::BufferSpan;
+
+    template <template <class ...> class, class>
+    using Rebind = ScaleTranslateTransformDerivative;
 
 public:
     /// @brief Identity by default.
@@ -66,6 +74,17 @@ public:
         Ref<std::ostream> rStream,
         Ref<const ScaleTranslateTransformDerivative<TTNumeric,Dim>> rObject);
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ScaleTranslateTransformDerivative> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
+
 private:
     friend class ScaleTranslateTransform<TValue,Dimension>;
 
@@ -86,6 +105,10 @@ private:
 template <concepts::Numeric TValue, unsigned Dimension>
 class ScaleTranslateTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ScaleTranslateTransform)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -99,6 +122,9 @@ public:
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     using Inverse = TranslateScaleTransform<TValue,Dimension>;
+
+    template <template <class ...> class, class>
+    using Rebind = ScaleTranslateTransform;
 
 public:
     /// @brief Identity transform by default.
@@ -136,6 +162,17 @@ public:
         Ref<std::ostream> rStream,
         Ref<const ScaleTranslateTransform<TTNumeric,Dim>> rObject);
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ScaleTranslateTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
+
 private:
     ScaleTranslateTransform(
         RightRef<std::array<TValue,Dimension>> rScales,
@@ -156,9 +193,12 @@ private:
 /// @brief Class representing a translation followed by an independent scaling along orthogonal coordinate axes.
 /// @details Uniquely defines a mapping between axis-aligned hyperrectangles in D-dimensional space.
 template <concepts::Numeric TValue, unsigned Dimension>
-class TranslateScaleTransform : private ExpressionTraits<TValue>
-{
+class TranslateScaleTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(TranslateScaleTransform)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -172,6 +212,9 @@ public:
     using Derivative = ScaleTranslateTransformDerivative<TValue,Dimension>;
 
     using Inverse = ScaleTranslateTransform<TValue,Dimension>;
+
+    template <template <class ...> class, class>
+    using Rebind = TranslateScaleTransform;
 
 public:
     /// @brief Identity transform by default.
@@ -209,6 +252,17 @@ public:
         Ref<std::ostream> rStream,
         Ref<const TranslateScaleTransform<TTNumeric,Dim>> rObject);
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TranslateScaleTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
+
 private:
     TranslateScaleTransform(
         RightRef<std::array<TValue,Dimension>> rScales,
@@ -242,7 +296,7 @@ template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
-    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) noexcept;
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject);
 }; // struct io::GraphML::Serializer<ScaleTranslateTransformDerivative<TValue,Dimension>>
 
 
@@ -250,7 +304,7 @@ template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>> {
     void header(Ref<XMLElement> rElement) noexcept;
 
-    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept;
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject);
 }; // struct io::GraphML::Serializer<ScaleTranslateTransform<TValue,Dimension>>
 
 
@@ -261,15 +315,18 @@ struct GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
 
     using GraphML::DeserializerBase<Value>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view elementName,
-                               std::span<GraphML::AttributePair> attributes);
+    static void onElementBegin(
+        Ptr<void> pThis,
+        std::string_view elementName,
+        std::span<GraphML::AttributePair> attributes);
 
-    static void onText(Ptr<void> pThis,
-                       std::string_view data);
+    static void onText(
+        Ptr<void> pThis,
+        std::string_view data);
 
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName);
+    static void onElementEnd(
+        Ptr<void> pThis,
+        std::string_view elementName);
 
 private:
     std::array<TValue,Dimension * 2> _buffer;
@@ -278,9 +335,9 @@ private:
 
 template <concepts::Numeric TValue, unsigned Dimension>
 struct GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>> {
-    void header(Ref<XMLElement> rElement) noexcept;
+    void header(Ref<XMLElement> rElement);
 
-    void operator()(Ref<XMLElement> rElement, Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) noexcept;
+    void operator()(Ref<XMLElement> rElement, Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject);
 }; // struct io::GraphML::Serializer<TranslateScaleTransform<TValue,Dimension>>
 
 

@@ -16,13 +16,11 @@ namespace cie::geo {
 namespace meshgeneratorhelper {
 
 
-Vector2D minus( const Vector2D& v1, const Vector2D& v2 )
-{
+Vector2D minus( const Vector2D& v1, const Vector2D& v2 ) {
   return { v1[0] - v2[0], v1[1] - v2[1] };
 }
 
-double length( const Vector2D& v )
-{
+double length( const Vector2D& v ) {
   return std::sqrt( v[0] * v[0] + v[1] * v[1] );
 }
 
@@ -31,7 +29,7 @@ double distance( const Vertex2D& v1, const Vertex2D& v2 )
   return length( minus( v2, v1 ) );
 }
 
-double computeAngle( const Vertex2DVector& vertices, const IndexVector& region, size_t v1, size_t v2, size_t v3 )
+double computeAngle( std::span<const Vertex2D> vertices, const IndexVector& region, size_t v1, size_t v2, size_t v3 )
 {
   double tolerance = 1.0e-8;
 
@@ -57,7 +55,7 @@ double computeAngle( const Vertex2DVector& vertices, const IndexVector& region, 
   }
 }
 
-double computeSmallestAngle( const Vertex2DVector& vertices, const IndexVector& region, size_t i, size_t j )
+double computeSmallestAngle( std::span<const Vertex2D> vertices, const IndexVector& region, size_t i, size_t j )
 {
   size_t numberOfVertices = region.size( );
 
@@ -72,7 +70,7 @@ double computeSmallestAngle( const Vertex2DVector& vertices, const IndexVector& 
   return *std::min_element( angles.begin( ), angles.end( ) );
 }
 
-void divideRegion( Vertex2DVector& vertices,
+void divideRegion( Ref<Vertex2DVector> vertices,
                    std::vector<IndexVector>& allRegions,
                    size_t regionToDivide,
                    size_t firstVertexId,
@@ -122,7 +120,7 @@ void divideRegion( Vertex2DVector& vertices,
       CIE_THROW( std::runtime_error, "Regions too small after division" )
 } // divideRegion
 
-bool attemptDivision( Vertex2DVector& vertices,
+bool attemptDivision( Ref<Vertex2DVector> vertices,
                       std::vector<IndexVector>& allRegions,
                       size_t regionToDivide,
                       double angleCriterium,
@@ -165,7 +163,7 @@ bool checkBreakingCriteria( std::vector<IndexVector>& allRegions )
   return !allRegions.empty( );
 }
 
-double chopQuality( const Vertex2DVector& vertices,
+double chopQuality( std::span<const Vertex2D> vertices,
                     const IndexVector& region,
                     size_t id1,
                     size_t id2,
@@ -219,7 +217,7 @@ bool chopTriangle( Triangulation& triangulation,
   return false;
 }
 
-void prepareForTriangulating( const Vertex2DVector& vertices,
+void prepareForTriangulating( std::span<const Vertex2D> vertices,
                               const std::vector<IndexVector>& polygonRegions,
                               TriangulationParameters& parameters )
 {

@@ -15,163 +15,12 @@ namespace cie::io {
 
 
 template <fem::CellLike TCell>
-void VTKHDF::Output::operator()(
+void VTKHDF::Output::writeCells(
     std::string_view groupName,
     std::span<const TCell> cells) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            this->writeMesh<std::monostate,TCell>(
-                {},
-                cells,
-                groupName);
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <fem::DiscretizationLike TMesh>
-void VTKHDF::Output::operator()(
-    std::string_view groupName,
-    Ref<const TMesh> rMesh) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            this->writeMesh<TMesh,typename TMesh::Vertex::Data>(
-                rMesh,
-                {},
-                groupName);
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <class TValue, fem::DiscretizationLike TMesh>
-requires std::is_same_v<typename TMesh::Vertex::Data::Value,TValue>
-void VTKHDF::Output::writeFieldVariables(
-    std::string_view groupName,
-    Ref<const TMesh> rMesh,
-    Ref<const fem::Assembler> rAssembler,
-    std::vector<std::pair<
-        std::string,
-        std::span<const TValue>>
-    > fieldVariables) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            this->writeFieldVariablesImpl<TMesh,typename TMesh::Vertex::Data,TValue>(
-                groupName,
-                rMesh,
-                {},
-                rAssembler,
-                fieldVariables);
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
-requires (
-    std::is_same_v<typename TMesh::Vertex::Data,TCell>
-    && std::is_same_v<typename TCell::Value,TValue>)
-void VTKHDF::Output::writeFieldVariables(
-    std::string_view groupName,
-    Ref<const TMesh> rMesh,
-    std::span<const TCell> cells,
-    Ref<const fem::Assembler> rAssembler,
-    std::vector<std::pair<
-        std::string,
-        std::span<const TValue>>
-    > fieldVariables) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            this->writeFieldVariablesImpl<TMesh,TCell,TValue>(
-                groupName,
-                rMesh,
-                cells,
-                rAssembler,
-                fieldVariables);
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <class TValue>
-void VTKHDF::Output::writeFieldVariables(
-    std::string_view groupName,
-    Ref<const std::vector<std::tuple<
-        std::string,
-        std::vector<std::size_t>,
-        std::span<const TValue>
-    >>> fieldVariables) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName / "PointData";
-            this->makeGroup(groupPrefix);
-            for (const auto& [rName, rShape, rValues] : fieldVariables) {
-                switch (rShape.size()) {
-                    case 0:
-                        this->writeDataset<TValue,1>(
-                            groupPrefix / rName,
-                            {rValues.size()},
-                            rValues);
-                        break;
-                    case 1:
-                        this->writeDataset<TValue,2>(
-                            groupPrefix / rName,
-                            {rValues.size() / rShape.front(), rShape.front()},
-                            rValues);
-                        break;
-                    default: CIE_THROW(Exception, "unhandled field variable array rank " << rShape.size())
-                }
-            } // for rName, rShape, rValues in fieldVariables
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <class TValue>
-void VTKHDF::Output::writeCellVariables(
-    std::string_view groupName,
-    std::vector<std::tuple<
-        std::string,
-        std::vector<std::size_t>,
-        std::span<const TValue>
-    >> cellVariables) {
-        CIE_BEGIN_EXCEPTION_TRACING
-            const Prefix groupPrefix = Prefix("/VTKHDF") / groupName / "CellData";
-            CIE_BEGIN_EXCEPTION_TRACING
-                this->makeGroup(groupPrefix);
-            CIE_END_EXCEPTION_TRACING
-
-            for (const auto& [rName, rShape, rValues] : cellVariables) {
-                const std::size_t componentCount = std::accumulate(
-                    rShape.begin(),
-                    rShape.end(),
-                    1ul,
-                    std::multiplies<std::size_t>());
-                const std::size_t cellCount = rValues.size() / componentCount;
-                CIE_CHECK(
-                    cellCount * componentCount == rValues.size(),
-                    std::format(
-                        "expecting cell array \"{}\" to be of size {}, but has {} components",
-                        rName, cellCount * componentCount, rValues.size()))
-
-                switch (rShape.size()) {
-                    case 0:
-                        this->writeDataset<TValue,1>(
-                            groupPrefix / rName,
-                            {cellCount},
-                            rValues);
-                        break;
-                    case 1:
-                        this->writeDataset<TValue,2>(
-                            groupPrefix / rName,
-                            {cellCount, componentCount},
-                            rValues);
-                        break;
-                    default: CIE_THROW(Exception, "unexpected cell variable array rank " << rShape.size())
-                }; // switch rShape.size()
-            } // for rName, rShape, rValues in cellVariables
-        CIE_END_EXCEPTION_TRACING
-}
-
-
-template <class TMesh, class TCell>
-void VTKHDF::Output::writeMesh(
-    std::optional<std::reference_wrapper<const TMesh>> rMaybeMesh,
-    std::optional<std::span<const TCell>> maybeCells,
-    std::string_view name) {
         using Scalar = typename TCell::Value;
         mp::ThreadPoolBase threads;
-        const Prefix meshPrefix = Prefix("/VTKHDF") / name;
+        const Prefix meshPrefix = Prefix("/VTKHDF") / groupName;
 
         CIE_BEGIN_EXCEPTION_TRACING
             this->makeGroup(meshPrefix);
@@ -188,13 +37,7 @@ void VTKHDF::Output::writeMesh(
 
         CIE_BEGIN_EXCEPTION_TRACING
             // Dataset sizes.
-            std::size_t cellCount = 0ul;
-            if (maybeCells.has_value()) {
-                cellCount = maybeCells.value().size();
-            } else if constexpr (fem::DiscretizationLike<TMesh>) {
-                cellCount = rMaybeMesh.value().get().vertices().size();
-            } else CIE_THROW(Exception, "")
-
+            std::size_t cellCount = cells.size();
             this->writeDataset<std::size_t,1>(
                 meshPrefix / "NumberOfCells",
                 {1},
@@ -215,8 +58,7 @@ void VTKHDF::Output::writeMesh(
 
             // Cell-wise datasets.
             CIE_BEGIN_EXCEPTION_TRACING
-
-                std::vector<int> topology(cellCount * pointsPerCell);
+                std::vector<int> topology(topologySize);
                 std::vector<std::uint8_t> topologyTypes(cellCount);
                 std::vector<int> offsets(cellCount + 1);
                 std::vector<Scalar> points(pointCount * 3);
@@ -224,8 +66,8 @@ void VTKHDF::Output::writeMesh(
 
                 const auto kernel = [&] (
                     std::size_t iCell,
-                    Ref<const TCell> rCell,
                     Ref<std::vector<typename TCell::Value>> rBuffer) {
+                        Ref<const TCell> rCell = cells[iCell];
                         const std::size_t iCellBegin = pointsPerCell * iCell;
 
                         // Get topology.
@@ -258,7 +100,7 @@ void VTKHDF::Output::writeMesh(
                         } else static_assert(TCell::ParametricDimension == 1, "unsupported dimension");
 
                         // Get the index of the cell's topology begin.
-                        offsets[iCell + 1] = offsets[iCell] + pointsPerCell;
+                        offsets[iCell + 1] = (iCell + 1) * pointsPerCell;
 
                         // Get node coordinates.
                         std::array<fem::ParametricCoordinate<Scalar>,TCell::ParametricDimension> parametricCoordinates;
@@ -298,67 +140,59 @@ void VTKHDF::Output::writeMesh(
                         } while (cie::maths::OuterProduct<TCell::ParametricDimension>::next(2u, state.data()));
                 }; // kernel
 
-                if (maybeCells.has_value()) {
-                    const auto cells = maybeCells.value();
-                    mp::ParallelFor<>(threads).firstPrivate(std::vector<typename TCell::Value>()).execute(cells.size(),
-                        [&] (std::size_t iCell, Ref<std::vector<typename TCell::Value>> rBuffer) {
-                            kernel(iCell, cells[iCell], rBuffer);
-                        }); // for rCell in rCells
-                } else if constexpr (fem::DiscretizationLike<TMesh>) {
-                    Ref<const TMesh> rMesh = rMaybeMesh.value();
-                    std::vector<typename TCell::Value> buffer;
-                    std::size_t iCell = 0ul;
-                    for (Ref<const typename TMesh::Vertex> rVertex : rMesh.vertices()) {
-                        kernel(iCell, rVertex.data(), buffer);
-                        ++iCell;
-                    }
-                }
+                mp::ParallelFor<>(threads).firstPrivate(std::vector<typename TCell::Value>()).execute(
+                    cells.size(),
+                    [&] (std::size_t iCell, Ref<std::vector<typename TCell::Value>> rBuffer) {
+                        kernel(iCell, rBuffer);
+                    }); // for rCell in rCells
 
-                    CIE_BEGIN_EXCEPTION_TRACING
-                        this->writeDataset<int,1>(
-                            meshPrefix / "Connectivity",
-                            {topology.size()},
-                            topology);
-                    CIE_END_EXCEPTION_TRACING
 
-                    CIE_BEGIN_EXCEPTION_TRACING
-                        this->writeDataset<std::uint8_t,1>(
-                            meshPrefix / "Types",
-                            {topologyTypes.size()},
-                            topologyTypes);
-                    CIE_END_EXCEPTION_TRACING
+                CIE_BEGIN_EXCEPTION_TRACING
+                    this->writeDataset<int,1>(
+                        meshPrefix / "Connectivity",
+                        {topology.size()},
+                        topology);
+                CIE_END_EXCEPTION_TRACING
 
-                    CIE_BEGIN_EXCEPTION_TRACING
-                        this->writeDataset<int,1>(
-                            meshPrefix / "Offsets",
-                            {offsets.size()},
-                            offsets);
-                    CIE_END_EXCEPTION_TRACING
+                CIE_BEGIN_EXCEPTION_TRACING
+                    this->writeDataset<std::uint8_t,1>(
+                        meshPrefix / "Types",
+                        {topologyTypes.size()},
+                        topologyTypes);
+                CIE_END_EXCEPTION_TRACING
 
-                    CIE_BEGIN_EXCEPTION_TRACING
-                        this->writeDataset<Scalar,2>(
-                            meshPrefix / "Points",
-                            {pointCount, 3},
-                            points);
-                    CIE_END_EXCEPTION_TRACING
-            CIE_END_EXCEPTION_TRACING
+                CIE_BEGIN_EXCEPTION_TRACING
+                    this->writeDataset<int,1>(
+                        meshPrefix / "Offsets",
+                        {offsets.size()},
+                        offsets);
+                CIE_END_EXCEPTION_TRACING
+
+                CIE_BEGIN_EXCEPTION_TRACING
+                    this->writeDataset<Scalar,2>(
+                        meshPrefix / "Points",
+                        {pointCount, 3},
+                        points);
+                CIE_END_EXCEPTION_TRACING
+        CIE_END_EXCEPTION_TRACING
 
         CIE_END_EXCEPTION_TRACING
 
         CIE_BEGIN_EXCEPTION_TRACING
-            this->makeGroup(Prefix("/VTKHDF") / "Assembly" / name);
+            this->makeGroup(Prefix("/VTKHDF") / "Assembly" / groupName);
             this->link(
-                Prefix("/VTKHDF") / "Assembly" / name / name,
+                Prefix("/VTKHDF") / "Assembly" / groupName / groupName,
                 meshPrefix);
         CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TMesh, class TCell, class TValue>
-void VTKHDF::Output::writeFieldVariablesImpl(
+template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
+requires std::is_same_v<typename TCell::Value,TValue>
+void VTKHDF::Output::writeFieldVariables(
     std::string_view groupName,
     Ref<const TMesh> rMesh,
-    std::optional<std::span<const TCell>> maybeCells,
+    std::span<const TCell> cells,
     Ref<const fem::Assembler> rAssembler,
     std::vector<std::pair<
         std::string,
@@ -370,7 +204,13 @@ void VTKHDF::Output::writeFieldVariablesImpl(
         const std::size_t dofCount = rAssembler.dofCount();
 
         // Sanity checks.
-        const std::size_t cellCount = rMesh.vertices().size();
+        CIE_CHECK(
+            cells.size() == rMesh.vertices().size(),
+            std::format(
+                "number of cells in the mesh({}) does not match the number of provided cells ({})",
+                rMesh.vertices().size(),
+                cells.size()))
+        const std::size_t cellCount = cells.size();
         constexpr std::size_t pointsPerCell = intPow<std::size_t>(2, TCell::ParametricDimension);
         const std::size_t pointCount = cellCount * pointsPerCell;
         std::vector<std::size_t> componentCounts(fieldVariables.size());
@@ -381,7 +221,7 @@ void VTKHDF::Output::writeFieldVariablesImpl(
             CIE_CHECK(
                 !(rValues.size() % dofCount),
                 std::format(
-                    "expecting field variable array \"{}\" size to be a muiltiple of {}, but has {} entries",
+                    "expecting field variable array \"{}\" size to be a multiple of {}, but has {} entries",
                     rVariableName, dofCount, rValues.size()))
 
             const std::size_t componentCount = rValues.size() / dofCount;
@@ -396,13 +236,13 @@ void VTKHDF::Output::writeFieldVariablesImpl(
         CIE_BEGIN_EXCEPTION_TRACING
             const auto kernel = [&] (
                 std::size_t iCell,
-                Ref<const TCell> rCell,
                 Ref<std::vector<TValue>> rAnsatzBuffer,
                 Ref<std::vector<TValue>> rExpressionBuffer) -> void {
+                    Ref<const TCell> rCell = cells[iCell];
                     const auto& rGlobalDofIndices = rAssembler[rCell.id()];
-                    const auto ansatz = rMesh.data().ansatz(rCell.ansatzID());
-                    rAnsatzBuffer.resize(ansatz.size());
-                    rExpressionBuffer.resize(ansatz.bufferSize());
+                    const auto& rAnsatz = rMesh.data().ansatz(rCell.ansatzID());
+                    rAnsatzBuffer.resize(rAnsatz.size());
+                    rExpressionBuffer.resize(rAnsatz.bufferSize());
 
                     std::array<TValue,TCell::ParametricDimension> parametricCoordinates;
                     std::array<std::uint8_t,TCell::ParametricDimension> state;
@@ -423,7 +263,7 @@ void VTKHDF::Output::writeFieldVariablesImpl(
                             });
 
                         // Evaluate the ansatz space.
-                        ansatz.evaluate(
+                        rAnsatz.evaluate(
                             parametricCoordinates,
                             rAnsatzBuffer,
                             rExpressionBuffer);
@@ -447,22 +287,11 @@ void VTKHDF::Output::writeFieldVariablesImpl(
             }; // kernel
 
             // Run the kernel on the cells.
-            if (maybeCells.has_value()) {
-                std::span<const TCell> cells = maybeCells.value();
-                mp::ThreadPoolBase threads;
-                mp::ParallelFor<>(threads).firstPrivate(std::vector<TValue>(), std::vector<TValue>()).execute(
-                    cells.size(),
-                    [cells, &kernel] (std::size_t iCell, Ref<std::vector<TValue>> rAnsatzBuffer, Ref<std::vector<TValue>> rExpressionBuffer) {
-                        kernel(iCell, cells[iCell], rAnsatzBuffer, rExpressionBuffer);
-                    });
-            } else {
-                std::size_t iCell = 0ul;
-                std::vector<TValue> ansatzBuffer, expressionBuffer;
-                for (Ref<const typename TMesh::Vertex> rCell : rMesh.vertices()) {
-                    kernel(iCell, rCell.data(), ansatzBuffer, expressionBuffer);
-                    ++iCell;
-                } // for rCell in rMesh.vertices()
-            }
+            mp::ThreadPoolBase threads;
+            mp::ParallelFor<>(threads).firstPrivate(std::vector<TValue>(), std::vector<TValue>()).execute(
+                cells.size(),
+                [&kernel] (std::size_t iCell, Ref<std::vector<TValue>> rAnsatzBuffer, Ref<std::vector<TValue>> rExpressionBuffer) {
+                    kernel(iCell, rAnsatzBuffer, rExpressionBuffer);});
 
             // Write fields to the HDF5 file as PointData.
             for (std::size_t iField=0ul; iField<fieldVariables.size(); ++iField) {

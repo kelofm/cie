@@ -19,7 +19,7 @@ namespace cie::fem {
 template <class T, class TQuadraturePointData = void>
 concept QuadraturePointFactoryLike
 =  cie::concepts::UnsignedInteger<std::remove_const_t<decltype(T::Dimension)>>
-&& QuadraturePointLike<typename T::Value>
+&& QuadraturePointLike<typename T::Value,TQuadraturePointData>
 && cie::concepts::Numeric<typename T::Value::Value::Value>
 && requires(T& rInstance, std::span<QuadraturePoint<T::Dimension,typename T::Value::Value::Value,TQuadraturePointData>> quadraturePoints) {
     {rInstance(quadraturePoints)} -> cie::concepts::UnsignedInteger;

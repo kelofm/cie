@@ -3,6 +3,7 @@
 // --- Utilty Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/macros/inc/typedefs.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
@@ -27,6 +28,10 @@ private:
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension,Dimension>;
 
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(AffineTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Span;
@@ -34,6 +39,9 @@ public:
     using typename ExpressionTraits<TValue>::ConstSpan;
 
     using typename ExpressionTraits<TValue>::BufferSpan;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineTransformDerivative;
 
 public:
     /// @brief Identity by default.
@@ -56,6 +64,17 @@ public:
         ConstSpan input,
         BufferSpan buffer) const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineTransformDerivative> rInstance,
+        TAllocator allocator = TAllocator(),
+        tags::Binary tag = {});
+
 private:
     friend class AffineTransform<TValue,Dimension>;
 
@@ -76,6 +95,10 @@ class AffineTransform final : private ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineTransform)
 
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
 
     using typename ExpressionTraits<TValue>::Value;
@@ -91,6 +114,9 @@ public:
     using Inverse = AffineTransform;
 
     using Point = typename Kernel<Dimension,TValue>::Point;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineTransform;
 
 public:
     /// @brief Identity transform by default
@@ -116,8 +142,7 @@ public:
      *           -1 & -1 & -1 &  1
      *           \end{bmatrix} @f]
      *
-     *  @param itTransformedBegin iterator pointing to the transformed cube's base @f$ [-1]^D @f$.
-     *  @param itTransformedEnd iterator past the last transformed point (should be identical to itTransformedBegin + D + 1 + 1).
+     *  @param transformed Span over the unit cube's transformed base and adjacent vertices.
      */
     AffineTransform(std::span<const Point> transformed);
 
@@ -142,6 +167,17 @@ public:
     /// @brief Get the matrix representation of the transformation.
     Ref<const TransformationMatrix> getTransformationMatrix() const noexcept;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineTransform> rInstance,
+        TAllocator allocator = TAllocator(),
+        tags::Binary tag = {});
+
 private:
     /// @brief Construct from a precomputed transformation matrix.
     AffineTransform(RightRef<TransformationMatrix> rMatrix) noexcept;
@@ -152,8 +188,9 @@ private:
     /// @brief Compute the transformation matrix from the homogeneous representation of transformed points.
     /// @param[in] pTransformedBegin Ptr to the first component of the homogenized transformed points.
     /// @param[out] rMatrix Transformation matrix to write to.
-    static void computeTransformationMatrix(Ptr<const TValue> pTransformedBegin,
-                                            Ref<TransformationMatrix> rMatrix);
+    static void computeTransformationMatrix(
+        Ptr<const TValue> pTransformedBegin,
+        Ref<TransformationMatrix> rMatrix);
 
 private:
     TransformationMatrix _transformationMatrix;

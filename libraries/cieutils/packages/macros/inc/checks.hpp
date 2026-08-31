@@ -14,12 +14,12 @@
 /* The preprocessor variables can be defined/undefined through CMake */
 
 
-#define CIE_CHECK(BOOL_EXPRESSION, MESSAGE) \
-    if (!(BOOL_EXPRESSION))  [[unlikely]]   \
-    {                                       \
-        std::stringstream stream;           \
-        stream << MESSAGE;                  \
-        CIE_THROW(Exception, stream.str())  \
+#define CIE_CHECK(BOOL_EXPRESSION, MESSAGE)     \
+    if (!(BOOL_EXPRESSION))  [[unlikely]]       \
+    {                                           \
+        std::stringstream stream;               \
+        stream << MESSAGE;                      \
+        CIE_THROW(cie::Exception, stream.str()) \
     }
 
 

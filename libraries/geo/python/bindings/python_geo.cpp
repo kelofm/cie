@@ -70,12 +70,12 @@ PYBIND11_MODULE(geo_python_bindings, m){
         ;
 
     // Function cast is required as we have multiple overloads of triangulation
-    m.def("triangulate", (cie::geo::Triangulation (*)(const cie::geo::Vertex2DVector&,
+    m.def("triangulate", (cie::geo::Triangulation (*)(std::span<const cie::geo::Vertex2D>,
                                                       const std::vector<cie::geo::IndexVector>&,
                                                       cie::geo::TriangulationParameters))
             &cie::geo::triangulate, "Triangulates a given polygon");
 
-    m.def("triangulate", (cie::geo::Triangulation (*)(const cie::geo::Vertex2DVector&,
+    m.def("triangulate", (cie::geo::Triangulation (*)(std::span<const cie::geo::Vertex2D>,
                                                       cie::geo::TriangulationParameters))
             &cie::geo::triangulate, "Triangulates a given polygon");
 }

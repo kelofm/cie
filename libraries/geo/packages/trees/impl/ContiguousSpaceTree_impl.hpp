@@ -307,7 +307,7 @@ void
 ContiguousSpaceTree<TGeometry,TIndex,TTag>::getNodeGeometryImpl(Ref<const Node> rNode,
                                                                 TBaseIt itBaseBegin,
                                                                 TLengthIt itLengthBegin) const
-requires concepts::Cube<TGeometry>
+requires geo::CubeLike<TGeometry>
 {
     CIE_BEGIN_EXCEPTION_TRACING
 

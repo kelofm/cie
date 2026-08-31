@@ -1,0 +1,127 @@
+#ifdef CIE_ENABLE_SYCL
+
+// --- Linalg Includes ---
+#include "packages/solvers/inc/SYCLMaskedCSROperator.hpp"
+
+// --- Utility Includes ---
+#include "packages/macros/inc/checks.hpp"
+
+
+namespace cie::linalg {
+
+
+template <class TI, class TV, class TMI>
+SYCLMaskedCSROperator<TI,TV,TMI>::SYCLMaskedCSROperator(
+    CSRView<const TV,const TI> lhs,
+    typename MaskSpace::ConstVectorView mask,
+    TMI threshold,
+    std::shared_ptr<Space> pSpace,
+    std::shared_ptr<MaskSpace> pMaskSpace)
+        :   _lhs(lhs),
+            _mask(mask),
+            _threshold(threshold),
+            _pSpace(pSpace),
+            _pMaskSpace(pMaskSpace),
+            _subGroupSize(0),
+            _groupSize(0) {
+    CIE_BEGIN_EXCEPTION_TRACING
+        Ref<sycl::queue> rQueue = *_pSpace->getQueue();
+        const auto subGroupSizes = rQueue.get_device().get_info<sycl::info::device::sub_group_sizes>();
+        CIE_CHECK(!subGroupSizes.empty(), "")
+
+        _subGroupSize = *std::max_element(subGroupSizes.begin(), subGroupSizes.end());
+        _groupSize = (rQueue.get_device().get_info<sycl::info::device::max_work_group_size>() / _subGroupSize) * _subGroupSize;
+
+        // Make sure the mask and the matrix are on the same device.
+        Ref<const sycl::device>
+            device = pSpace->getQueue()->get_device(),
+            maskDevice = pMaskSpace->getQueue()->get_device();
+        CIE_CHECK(device == maskDevice, "")
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+template <class TI, class TV, class TMI>
+void SYCLMaskedCSROperator<TI,TV,TMI>::product(
+    typename Space::Value inScale,
+    typename Space::ConstVectorView in,
+    typename Space::Value outScale,
+    typename Space::VectorView out) {
+        // Sanity checks.
+        CIE_CHECK(
+            _lhs.rowExtents().size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
+            std::format(
+                "Incompatible matrix-vector product: [{}x{}] * [{}] = [{}]",
+                _lhs.rowExtents().size() - 1, _lhs.columnCount(), in.size(), out.size()))
+
+        CIE_BEGIN_EXCEPTION_TRACING
+            Ref<sycl::queue> rQueue = *_pSpace->getQueue();
+            const std::size_t itemCount = _lhs.rowCount() * _subGroupSize;
+            const std::size_t itemsPerGroup = ((itemCount + _groupSize - 1) / _groupSize) * _groupSize;
+            const sycl::nd_range<1> range(itemsPerGroup, _groupSize);
+
+            rQueue.submit([&, this] (Ref<sycl::handler> rHandler) {
+                Ptr<const TV> pInBegin = in.get();
+                Ptr<TV> pOutBegin = out.get();
+                sycl::accessor<
+                    TV,
+                    1,
+                    sycl::access_mode::read_write,
+                    sycl::access::target::local
+                > groupMemory(_groupSize, rHandler);
+
+                rHandler.parallel_for(
+                    range,
+                    [=, subGroupSize = _subGroupSize, lhs = _lhs, pMaskBegin = _mask.get(), threshold = _threshold] (sycl::nd_item<1> it) -> void {
+                        const std::size_t iItem = it.get_global_linear_id();
+                        const std::size_t iSubGroupItem = it.get_local_linear_id();
+                        const std::size_t iLane = iSubGroupItem % subGroupSize;
+                        const std::size_t iSubGroup = iItem / subGroupSize;
+                        const TI iRow = iSubGroup;
+
+                        auto subGroup = it.get_sub_group();
+
+                        if (iRow < lhs.rowCount()) {
+                            if (pMaskBegin[iRow] < threshold) {
+                                const TI iEntryBegin = lhs.rowExtents()[iRow];
+                                const TI iEntryEnd = lhs.rowExtents()[iRow + 1];
+
+                                TV contribution = 0;
+                                for (TI iEntry=iEntryBegin+iLane; iEntry<iEntryEnd; iEntry+=static_cast<TI>(subGroupSize)) {
+                                    const TI iColumn = lhs.columnIndices()[iEntry];
+                                    if (pMaskBegin[iColumn] < threshold) {
+                                        const TV entry = lhs.entries()[iEntry];
+                                        contribution += entry * pInBegin[iColumn];
+                                    }
+                                } // for iEntry in range(iEntryBegin, iEntryEnd, subGroupSize)
+
+                                contribution = sycl::reduce_over_group(
+                                    subGroup,
+                                    contribution,
+                                    sycl::plus<TV>());
+
+                                if (subGroup.leader()) {
+                                    pOutBegin[iRow] = inScale * pOutBegin[iRow] + outScale * contribution;
+                                } // if subGroup.leader()
+                            } /*if not masked*/ else {
+                                if (subGroup.leader())
+                                    pOutBegin[iRow] = inScale * pOutBegin[iRow];
+                            }
+                        } // if iRow < lhs.rowCount()
+                    }); // rHandler.parallel_for
+            }).wait_and_throw(); // rQueue.submit
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+template class SYCLMaskedCSROperator<int,float,std::uint16_t>;
+template class SYCLMaskedCSROperator<int,float,int>;
+template class SYCLMaskedCSROperator<std::size_t,float,std::size_t>;
+template class SYCLMaskedCSROperator<int,double,std::uint16_t>;
+template class SYCLMaskedCSROperator<int,double,double>;
+template class SYCLMaskedCSROperator<std::size_t,double,double>;
+
+
+} // namespace cie::linalg
+
+#endif

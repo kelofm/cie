@@ -6,30 +6,30 @@
 namespace cie::io {
 
 
-struct NonSerializableTestObject
-{
+struct NonSerializableTestObject {
     NonSerializableTestObject() {}
 
     NonSerializableTestObject(bool b, int i, long double d)
         : _bool(b), _int(i), _double(d)
     {}
 
-    NonSerializableTestObject& operator=(int i)
-    {
+    NonSerializableTestObject& operator=(int i) {
         _bool = bool(i);
         _int = i;
         _double = i*i;
         return *this;
     }
 
-    friend bool operator==(Ref<const NonSerializableTestObject> r_left, Ref<const NonSerializableTestObject> r_right)
-    {
-        return (r_left._bool == r_right._bool) && (r_left._int == r_right._int) && (r_left._double == r_right._double);
+    friend bool operator==(
+        Ref<const NonSerializableTestObject> rLeft,
+        Ref<const NonSerializableTestObject> rRight) {
+            return (rLeft._bool == rRight._bool) && (rLeft._int == rRight._int) && (rLeft._double == rRight._double);
     }
 
-    friend std::ostream& operator<<(std::ostream& r_stream, Ref<const NonSerializableTestObject> r_object)
-    {
-        return r_stream << r_object._bool << ' ' << r_object._int << ' ' << r_object._double;
+    friend std::ostream& operator<<(
+        std::ostream& rStream,
+        Ref<const NonSerializableTestObject> rObject) {
+        return rStream << rObject._bool << ' ' << rObject._int << ' ' << rObject._double;
     }
 
     bool _bool;
@@ -40,57 +40,68 @@ struct NonSerializableTestObject
 }; // class NonSerializableTestObject
 
 
-struct TriviallySerializableTestObject : NonSerializableTestObject, io::TriviallySerializable
-{
+struct TriviallySerializableTestObject : NonSerializableTestObject, io::TriviallySerializableBase {
     using NonSerializableTestObject::NonSerializableTestObject;
 
     using NonSerializableTestObject::operator=;
 };
 
 
-struct SerializableTestObject : NonSerializableTestObject
-{
+struct SerializableTestObject : NonSerializableTestObject {
     using NonSerializableTestObject::NonSerializableTestObject;
 
     using NonSerializableTestObject::operator=;
 
-    void serialize(Ref<Traits::SerializerStream> r_stream,
-                   tags::Binary = tags::Binary()) const
-    {
-        Serializer<tags::Binary> serializer;
-        serializer.serialize(r_stream, _bool);
-        serializer.serialize(r_stream, _int);
-        serializer.serialize(r_stream, _double);
+    void serialize(
+        Ref<Traits::SerializerStream> rStream,
+        tags::Binary = tags::Binary()) const {
+            Serializer<tags::Binary> serializer;
+            serializer.serialize(rStream, _bool);
+            serializer.serialize(rStream, _int);
+            serializer.serialize(rStream, _double);
     }
 
-    static void deserialize(Ref<Traits::DeserializerStream> r_stream,
-                            Ref<NonSerializableTestObject> r_output,
-                            tags::Binary = tags::Binary())
-    {
-        Serializer<tags::Binary> serializer;
-        serializer.deserialize(r_stream, r_output._bool);
-        serializer.deserialize(r_stream, r_output._int);
-        serializer.deserialize(r_stream, r_output._double);
+    static void deserialize(
+        Ref<Traits::DeserializerStream> rStream,
+        Ref<NonSerializableTestObject> rOutput,
+        std::allocator<std::byte> allocator,
+        tags::Binary = tags::Binary()) {
+            Serializer<tags::Binary> serializer;
+            serializer.deserialize(
+                rStream,
+                rOutput._bool,
+                allocator);
+            serializer.deserialize(
+                rStream,
+                rOutput._int,
+                allocator);
+            serializer.deserialize(
+                rStream,
+                rOutput._double,
+                allocator);
     }
 };
 
 
 template <class T>
-void serializeDeserialize(Ref<const T> r_input, Ref<std::stringstream> r_stream)
-{
-    CIE_TEST_REQUIRE_NOTHROW(Serializer<tags::Binary>::serialize(r_stream, r_input));
+void serializeDeserialize(Ref<const T> rInput, Ref<std::stringstream> rStream) {
+    CIE_TEST_REQUIRE_NOTHROW(Serializer<tags::Binary>::serialize(rStream, rInput));
+
+    std::allocator<int> allocator;
 
     T deserialized;
-    Serializer<tags::Binary>::deserialize<T>(r_stream, deserialized);
-    CIE_TEST_CHECK(deserialized == r_input);
+    Serializer<tags::Binary>::deserialize<T>(
+        rStream,
+        deserialized,
+        allocator);
+    CIE_TEST_CHECK(deserialized == rInput);
 }
 
 
 template <class T>
-void serializeDeserialize(Ref<const T> r_input)
-{
+void serializeDeserialize(Ref<const T> rInput) {
     std::stringstream stream;
-    serializeDeserialize(r_input, stream);
+    serializeDeserialize(rInput, stream);
 }
 
 
@@ -103,6 +114,7 @@ CIE_TEST_CASE("Serializer", "[io]")
     #define CIE_TEST_SERIALIZER_FOR_TYPE(TYPE)                  \
         {                                                       \
             CIE_TEST_CASE_INIT(#TYPE)                           \
+            std::allocator<char> allocator;                     \
             TYPE VALUE;                                         \
             for (int i=-128; i<127; ++i)                        \
             {                                                   \
@@ -120,9 +132,12 @@ CIE_TEST_CASE("Serializer", "[io]")
             for (int i=0; i<64; ++i)                            \
                 BUFFER[i] = i + 128;                            \
                                                                 \
-            serializer.deserialize(STREAM,BUFFER,64);           \
-            for (int i=0; i<64; ++i)                            \
-            {                                                   \
+            serializer.deserialize(                             \
+                STREAM,                                         \
+                BUFFER,                                         \
+                64,                                             \
+                allocator);                                     \
+            for (int i=0; i<64; ++i) {                          \
                 TYPE REFERENCE_VALUE;                           \
                 REFERENCE_VALUE = i;                            \
                 CIE_TEST_CHECK(BUFFER[i] == REFERENCE_VALUE);   \

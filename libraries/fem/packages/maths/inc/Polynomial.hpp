@@ -7,16 +7,15 @@
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/DynamicArray.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STD Includes ---
 #include <span>
+#include <memory>
+#include <vector>
 
 
 namespace cie::fem::maths {
-
-
-template <concepts::Numeric TValue, int PolynomialOrder>
-class Polynomial;
 
 
 /// @brief @ref Expression representing a scalar polynomial.
@@ -29,6 +28,9 @@ private:
     constexpr static inline bool hasStaticCoefficients = (0<= Order);
 
 public:
+    template <template <class ...> class TAllocator, class T>
+    using Rebind = PolynomialView;
+
     constexpr static inline unsigned coefficientCount = hasStaticCoefficients
         ? static_cast<unsigned>(PolynomialOrder) + 1u
         : 0u;
@@ -86,9 +88,8 @@ public:
     requires (hasStaticCoefficients);
 
 private:
-    friend class Polynomial<TValue,PolynomialOrder>;
-
-    friend class Polynomial<TValue,PolynomialOrder+1>;
+    template <concepts::Numeric T, int P, class TA>
+    friend class Polynomial;
 
     std::conditional_t<
         hasStaticCoefficients,
@@ -100,9 +101,18 @@ private:
 
 /// @brief @ref Expression representing a scalar polynomial.
 /// @ingroup fem
-template <concepts::Numeric TValue, int PolynomialOrder = -1>
+template <
+    concepts::Numeric TValue,
+    int PolynomialOrder = -1,
+    class TAllocator = std::allocator<TValue>>
 class Polynomial : public ExpressionTraits<TValue> {
 public:
+    template <template <class ...> class TOtherAllocator, class T>
+    using Rebind = Polynomial<
+        TValue,
+        PolynomialOrder,
+        TOtherAllocator<TValue>>;
+
     using View = PolynomialView<TValue,PolynomialOrder>;
 
     static inline constexpr bool hasStaticCoefficients = View::hasStaticCoefficients;
@@ -117,17 +127,22 @@ public:
 
     using Derivative = std::conditional_t<
         hasStaticCoefficients,
-        Polynomial<TValue,std::max(0,PolynomialOrder-1)>,
-        Polynomial<TValue,-1>>;
+        Polynomial<TValue,std::max(0,PolynomialOrder-1),TAllocator>,
+        Polynomial<TValue,-1,TAllocator>>;
 
     using Coefficients = std::conditional_t<
         hasStaticCoefficients,
         std::array<TValue,coefficientCount>,
-        DynamicArray<TValue>>;
+        std::vector<TValue,TAllocator>>;
 
 public:
     /// @brief Uninitialized by default.
-    constexpr Polynomial() noexcept = default;
+    constexpr Polynomial(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires (!hasStaticCoefficients);
+
+    /// @brief Uninitialized by default.
+    constexpr Polynomial(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
+    requires (hasStaticCoefficients);
 
     constexpr Polynomial(Polynomial&&) noexcept;
 
@@ -151,13 +166,17 @@ public:
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    Polynomial(ConstSpan coefficients)
+    Polynomial(
+        ConstSpan coefficients,
+        Ref<const TAllocator> rAllocator = TAllocator())
     requires (!hasStaticCoefficients);
 
     /// @brief Construct from a range of coefficients.
     /// @details The input coefficients are expected to be sorted
     ///          in the order of their corresponding monomials.
-    constexpr Polynomial(std::span<const TValue,coefficientCount> coefficients)
+    constexpr Polynomial(
+        std::span<const TValue,coefficientCount> coefficients,
+        Ref<const TAllocator> rAllocator = TAllocator())
     requires (hasStaticCoefficients);
 
     Polynomial& operator=(Polynomial&&) noexcept
@@ -209,8 +228,18 @@ public:
 
     constexpr View makeView() const noexcept;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<Polynomial> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
-    template <concepts::Numeric T, int O>
+    template <concepts::Numeric T, int O, class TA>
     friend class Polynomial;
 
     Coefficients _coefficients;
@@ -227,38 +256,42 @@ template <class TValue, int PolynomialOrder>
 struct GraphML::Serializer<maths::PolynomialView<TValue,PolynomialOrder>> {
     void header(Ref<XMLElement> rElement);
 
-    void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::PolynomialView<TValue,PolynomialOrder>> rInstance);
+    void operator()(
+        Ref<XMLElement> rElement,
+        Ref<const maths::PolynomialView<TValue,PolynomialOrder>> rInstance);
 }; // struct GraphML::Serializer<PolynomialView>
 
 
-template <class TValue, int PolynomialOrder>
-struct GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder>> {
+template <class TValue, int PolynomialOrder, class TAllocator>
+struct GraphML::Serializer<maths::Polynomial<TValue,PolynomialOrder,TAllocator>> {
     void header(Ref<XMLElement> rElement);
 
-    void operator()(Ref<XMLElement> rElement,
-                    Ref<const maths::Polynomial<TValue,PolynomialOrder>> rInstance);
+    void operator()(
+        Ref<XMLElement> rElement,
+        Ref<const maths::Polynomial<TValue,PolynomialOrder,TAllocator>> rInstance);
 }; // struct GraphML::Serializer<Polynomial>
 
 
-template <class TValue, int PolynomialOrder>
-struct GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder>>
-    : public GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>
-{
-    using GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder>>::DeserializerBase;
+template <class TValue, int PolynomialOrder, class TAllocator>
+struct GraphML::Deserializer<maths::Polynomial<TValue,PolynomialOrder,TAllocator>>
+    : public GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder,TAllocator>> {
+        using GraphML::DeserializerBase<maths::Polynomial<TValue,PolynomialOrder,TAllocator>>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view elementName,
-                               std::span<GraphML::AttributePair> attributes);
+        static void onElementBegin(
+            Ptr<void> pThis,
+            std::string_view elementName,
+            std::span<GraphML::AttributePair> attributes);
 
-    static void onText(Ptr<void> pThis,
-                       std::string_view data);
+        static void onText(
+            Ptr<void> pThis,
+            std::string_view data);
 
-    static void onElementEnd(Ptr<void> pThis,
-                             std::string_view elementName);
+        static void onElementEnd(
+            Ptr<void> pThis,
+            std::string_view elementName);
 
-private:
-    typename maths::Polynomial<TValue,PolynomialOrder>::Coefficients _coefficients;
+    private:
+        typename maths::Polynomial<TValue,PolynomialOrder,TAllocator>::Coefficients _coefficients;
 }; // struct GraphML::Deserializer<Polynomial>
 
 

@@ -3,6 +3,7 @@
 // --- FEM Includes ---
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
 #include "packages/maths/inc/Expression.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/StaticArray.hpp"
@@ -24,6 +25,10 @@ class OrthogonalScaleTransform;
 template <concepts::Numeric TValue, unsigned Dimension>
 class OrthogonalScaleTransformDerivative : public ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(OrthogonalScaleTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -33,6 +38,9 @@ public:
     using typename ExpressionTraits<TValue>::ConstSpan;
 
     using typename ExpressionTraits<TValue>::BufferSpan;
+
+    template <template <class ...> class, class>
+    using Rebind = OrthogonalScaleTransformDerivative;
 
 public:
     /// @brief Identity by default.
@@ -54,6 +62,17 @@ public:
 
     static constexpr unsigned bufferSize() noexcept;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<OrthogonalScaleTransformDerivative> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
+
 private:
     friend class OrthogonalScaleTransform<TValue,Dimension>;
 
@@ -70,6 +89,10 @@ private:
 template <concepts::Numeric TValue, unsigned Dimension>
 class OrthogonalScaleTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(OrthogonalScaleTransform)
 
     using typename ExpressionTraits<TValue>::Value;
@@ -83,6 +106,9 @@ public:
     using Derivative = OrthogonalScaleTransformDerivative<TValue,Dimension>;
 
     using Inverse = OrthogonalScaleTransform;
+
+    template <template <class ...> class, class>
+    using Rebind = OrthogonalScaleTransform;
 
 public:
     /// @brief Identity transform by default.
@@ -114,6 +140,17 @@ public:
 
     /// @brief Construct the inverse transform.
     Inverse makeInverse() const;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<OrthogonalScaleTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
 
 private:
     friend class OrthogonalScaleTransformDerivative<TValue,Dimension>;

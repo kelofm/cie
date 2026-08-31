@@ -7,14 +7,12 @@
 #include <vector>
 #include <string>
 #include <numeric>
-#include <iostream>
 
 
 namespace cie::mp {
 
 
-CIE_TEST_CASE("ParallelFor - empty storage", "[concurrency]")
-{
+CIE_TEST_CASE("ParallelFor - empty storage", "[concurrency]") {
     CIE_TEST_CASE_INIT("ParallelFor - empty storage")
     const Size indexMin       = 5;
     const Size indexMax       = 1005;
@@ -28,12 +26,13 @@ CIE_TEST_CASE("ParallelFor - empty storage", "[concurrency]")
             CIE_TEST_CHECK(threads.size() == iThreadCount);
 
             DynamicArray<int> array(2 * indexMax, 0);
-            ParallelFor<>(threads).operator()(indexMin,
-                                              indexMax,
-                                              stepSize,
-                                              [&array](Size index) {
-                                                  ++array[index];
-                                              });
+            ParallelFor<>(threads).operator()(
+                indexMin,
+                indexMax,
+                stepSize,
+                [&array](Size index) {
+                    ++array[index];
+                });
 
             const Size arraySize = array.size();
             for (Size i=0; i<arraySize; ++i) {
@@ -45,8 +44,7 @@ CIE_TEST_CASE("ParallelFor - empty storage", "[concurrency]")
 }
 
 
-CIE_TEST_CASE("ParallelFor - index loop", "[concurrency]")
-{
+CIE_TEST_CASE("ParallelFor - index loop", "[concurrency]") {
     CIE_TEST_CASE_INIT("ParallelFor - index loop")
     const Size indexMin       = 5;
     const Size indexMax       = 1005;

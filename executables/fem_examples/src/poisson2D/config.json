@@ -1,0 +1,77 @@
+{
+    "domains" : [
+        {
+            "type" : "default",
+            "scale" : 1e-6
+        },
+        {
+            "type" : "tesselated",
+            "file-path" : "domain.stl"
+        }
+    ],
+    "dirichlet-1d" : {
+        "file-path" : "dirichlet.csv",
+        "penalty-factor": 1,
+        "integration": {
+            "batch-size": 1e4,
+            "device": "host",
+            "template": {
+                "order": 11,
+                "type": "gauss-legendre-quadrature"
+            },
+            "type": "kd-tree-quadrature"
+        }
+    },
+    "discretization" : {
+        "functional" : {
+            "type" : "legendre",
+            "order" : 5
+        },
+        "geometric": {
+            "type" : "cartesian-grid-2d",
+            "resolution" : [5e1, 3e1],
+            "discard-default-cells" : true
+        },
+        "integration": {
+            "type": "kd-tree-quadrature",
+            "batch-size": 1e6,
+            "device": "host",
+            "verbosity" : 3,
+            "template": {
+                "order": 6,
+                "type": "gauss-legendre-quadrature"
+            }
+        },
+        "postprocessing": {
+            "cell-id": true,
+            "dof-id": true,
+            "load": true,
+            "replace-nans": 0,
+            "residual": true,
+            "resolution": [1e3, 1e3],
+            "state": true,
+            "write-components" : true
+        }
+    },
+    "linear-system": {
+        "write-unconstrained-lhs" : null,
+        "solver": {
+            "type" : "augmented-lagrange",
+            "penalty-factor" : 1e10,
+            "max-iterations" : 1e1,
+            "absolute-residual" : 1e-6,
+            "relative-residual" : 1e-6,
+            "linear-solver" : {
+                "type": "cg",
+                "max-iterations" : 5e3,
+                "absolute-residual" : 1e-1,
+                "relative-residual" : 1e-6,
+                "preconditioner" : {
+                    "type" : "inverse-diagonal-operator"
+                }
+            },
+            "verbosity" : 3
+        }
+    },
+    "write-schema" : "schema.json"
+}

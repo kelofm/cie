@@ -1,0 +1,11 @@
+{
+    "$id" : "/cie/linalg/llt-eigen",
+    "description" : "Settings for Eigen's implementation of an LLT factorization.",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "llt-eigen"
+        }
+    },
+    "required" : ["type"]
+}

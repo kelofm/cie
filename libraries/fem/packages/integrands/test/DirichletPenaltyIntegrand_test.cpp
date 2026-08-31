@@ -11,10 +11,15 @@
 namespace cie::fem {
 
 
-struct DirichletPenaltyTest : maths::ExpressionTraits<double> {
+struct DirichletPenaltyTest
+    :   maths::ExpressionTraits<double>,
+        cie::io::TriviallySerializableBase {
     using ExpressionTraits<double>::ConstSpan;
     using ExpressionTraits<double>::Span;
     using ExpressionTraits<double>::BufferSpan;
+
+    template <template <class ...> class, class>
+    using Rebind = DirichletPenaltyTest;
 
     void evaluate(ConstSpan in, Span out, BufferSpan buffer) const {
         CIE_TEST_CHECK(in.size() == 2);
@@ -61,7 +66,8 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
             penalty,
             *pAnsatzSpace,
             spatialTransform,
-            spatialTransform);
+            spatialTransform.makeInverse(),
+            spatialTransform.makeDerivative());
     CIE_TEST_REQUIRE(integrand.size() == 4 * 4 + 4);
     CIE_TEST_CHECK(integrand.bufferSize() == 4 + 2 + 2 + 1 + 5);
 

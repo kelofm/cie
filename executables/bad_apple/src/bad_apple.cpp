@@ -67,7 +67,7 @@ NodePtr makeRoot(const Size samplingOrder)
     Sampler::Resolution resolution;
     std::fill(resolution.begin(), resolution.end(), samplingOrder);
 
-    if constexpr (concepts::Cube<typename Node::Cell::Primitive>) {
+    if constexpr (geo::CubeLike<typename Node::Cell::Primitive>) {
         return NodePtr(new Node(
             Node::sampler_ptr(new Sampler(resolution)),
             Node::split_policy_ptr(new Splitter),
@@ -92,7 +92,7 @@ NodePtr makeRoot(const Size samplingOrder)
 template <class TTree> requires std::is_same_v<TTree,ContiguousTree>
 std::unique_ptr<ContiguousTree> makeRoot(const Size samplingOrder)
 {
-    if constexpr (concepts::Cube<typename TTree::Geometry>) {
+    if constexpr (geo::CubeLike<typename TTree::Geometry>) {
         return std::make_unique<ContiguousTree>(PointType {0.0, 0.0}, 1.0);
     } else if constexpr (concepts::Box<typename TTree::Geometry>) {
         return std::make_unique<ContiguousTree>(PointType {0.0, 0.0}, ContiguousTree {1.0, 1.0});
@@ -102,7 +102,7 @@ std::unique_ptr<ContiguousTree> makeRoot(const Size samplingOrder)
 }
 
 
-template <class TPrimitive> requires concepts::Cube<TPrimitive>
+template <class TPrimitive> requires geo::CubeLike<TPrimitive>
 void flattenGeometry(Ref<const TPrimitive> r_primitive, Ptr<typename TPrimitive::Coordinate> p_output)
 {
     std::copy(r_primitive.base().begin(),
@@ -220,7 +220,7 @@ public:
             PointType base, lengths;
             r_root.getNodeGeometry(r_node, base.begin(), lengths.begin());
 
-            if constexpr (concepts::Cube<ContiguousTree::Geometry>) {
+            if constexpr (geo::CubeLike<ContiguousTree::Geometry>) {
                 lengths[1] = lengths[0];
             }
 
@@ -259,7 +259,7 @@ public:
                 r_root.getNodeGeometry(r_node,
                                        _vertexData.begin() + valueCount,
                                        _vertexData.begin() + valueCount + 2);
-                if constexpr (concepts::Cube<ContiguousTree::Geometry>) {
+                if constexpr (geo::CubeLike<ContiguousTree::Geometry>) {
                     _vertexData[valueCount + 3] = _vertexData[valueCount + 2];
                 }
 

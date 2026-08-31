@@ -111,7 +111,7 @@ Quaternion<NT>::toRotationMatrix(MatrixType& r_matrix) const
 {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    CIE_OUT_OF_RANGE_CHECK(3 <= r_matrix.numberOfRows() && 3 <= r_matrix.numberOfColumns())
+    CIE_OUT_OF_RANGE_CHECK(3 <= r_matrix.rowSize() && 3 <= r_matrix.columnSize())
 
     NT normSquared = this->normSquared();
     CIE_DIVISION_BY_ZERO_CHECK(normSquared != 0)

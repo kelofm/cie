@@ -1,0 +1,15 @@
+{
+    "$id" : "/cie/fem/constrained-linear-solver",
+    "description" : "Settings configuring a constrained linear solver.",
+    "type" : "object",
+    "oneOf" : [
+        {"$ref" : "/cie/linalg/penalty"},
+        {"$ref" : "/cie/linalg/augmented-lagrange"}
+    ],
+    "default" : {
+        "type" : "penalty",
+        "max-iterations" : 1e1,
+        "absolute-residual" : 1e-6,
+        "relative-residual" : 1e-6
+    }
+}

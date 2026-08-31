@@ -2,7 +2,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/typedefs.hpp"
-#include "packages/stl_extension/inc/StaticArray.hpp"
+#include "packages/io/inc/Traits.hpp"
 
 // --- FEM Includes ---
 #include "packages/utilities/inc/kernel.hpp"
@@ -40,6 +40,10 @@ private:
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
 
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransformDerivative)
 
     using typename ExpressionTraits<TValue>::Span;
@@ -48,7 +52,9 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-public:
+    template <template <class ...> class, class>
+    using Rebind = ProjectiveTransformDerivative;
+
     /// @brief Identity by default.
     ProjectiveTransformDerivative() noexcept;
 
@@ -67,6 +73,17 @@ public:
     TValue evaluateDeterminant(
         ConstSpan in,
         BufferSpan buffer) const;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ProjectiveTransformDerivative> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
 
 private:
     friend class ProjectiveTransform<TValue,Dimension>;
@@ -92,6 +109,10 @@ private:
 template <concepts::Numeric TValue, unsigned Dimension>
 class ProjectiveTransform : private ExpressionTraits<TValue> {
 public:
+    static constexpr inline unsigned ParametricDimension = Dimension;
+
+    static constexpr inline unsigned PhysicalDimension = Dimension;
+
     CIE_DEFINE_CLASS_POINTERS(ProjectiveTransform)
 
     using TransformationMatrix = typename Kernel<Dimension,TValue>::dense::template static_matrix<Dimension+1, Dimension+1>;
@@ -110,7 +131,9 @@ public:
 
     using Point = typename Kernel<Dimension,TValue>::Point;
 
-public:
+    template <template <class ...> class, class>
+    using Rebind = ProjectiveTransform;
+
     /// @brief Identity transform by default
     ProjectiveTransform() noexcept;
 
@@ -151,6 +174,17 @@ public:
 
     /// @brief Get the matrix representation of the transformation.
     Ref<const TransformationMatrix> getTransformationMatrix() const noexcept;
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<ProjectiveTransform> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
 
 private:
     /// @brief Construct from a precomputed transformation matrix.

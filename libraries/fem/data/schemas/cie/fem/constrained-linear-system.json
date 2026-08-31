@@ -1,0 +1,41 @@
+{
+    "$id" : "/cie/fem/constrained-linear-system",
+    "description" : "Settings related to the solution of a constrained linear system.",
+    "type" : "object",
+    "properties" : {
+        "solver" : {"$ref" : "/cie/linalg/constrained-linear-solver"},
+        "reordering" : {
+            "oneOf" : [
+                {
+                    "type" : "null"
+                },
+                {
+                    "type" : "string",
+                    "enum" : ["cuthill-mckee", "reverse-cuthill-mckee"]
+                }
+            ],
+            "default" : null,
+            "description" : "Reordering strategy to execute before passing the system to the linear solver."
+        },
+        "write-unconstrained-lhs" : {
+            "type" : ["string", "null"],
+            "default" : null,
+            "description" : "Path to write the LHS matrix to, or null."
+        },
+        "write-unconstrained-rhs" : {
+            "type" : ["string", "null"],
+            "default" : null,
+            "description" : "Path to write the RHS vector to, or null."
+        },
+        "write-unconstrained-solution" : {
+            "type" : ["string", "null"],
+            "default" : null,
+            "description" : "Path to write the solution vector to after execution, or null."
+        }
+    },
+    "default" : {
+        "solver" : {}
+    },
+    "required" : [],
+    "additionalProperties" : false
+}

@@ -27,6 +27,31 @@ std::size_t Assembler::dofCount() const noexcept {
 }
 
 
+template <concepts::Integer T>
+void Assembler::reorder(std::span<const T> map) {
+    CIE_CHECK(_dofCounter <= map.size(), "")
+    CIE_BEGIN_EXCEPTION_TRACING
+        for (auto it=_dofMap.begin(); it!=_dofMap.end(); ++it) {
+            for (auto& rDof : it.value())
+                if (rDof.has_value()) {
+                    rDof = static_cast<std::size_t>(map[*rDof]);
+                }
+        }
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+#define CIE_INSTANTIATE_REORDER(T)                          \
+    template void Assembler::reorder<T>(std::span<const T>);
+
+
+CIE_INSTANTIATE_REORDER(std::size_t)
+CIE_INSTANTIATE_REORDER(int)
+
+
+#undef CIE_INSTANTIATE_REORDER
+
+
 template <class TIndex, class TValue>
 void Assembler::makeCSRMatrix(
     Ref<TIndex> rRowCount,
@@ -34,6 +59,7 @@ void Assembler::makeCSRMatrix(
     Ref<DynamicArray<TIndex>> rRowExtents,
     Ref<DynamicArray<TIndex>> rColumnIndices,
     Ref<DynamicArray<TValue>> rNonzeros,
+    std::optional<std::span<const VertexID>> maybeCellIDs,
     OptionalRef<mp::ThreadPoolBase> rThreadPool) const {
         CIE_BEGIN_EXCEPTION_TRACING
 
@@ -91,15 +117,28 @@ void Assembler::makeCSRMatrix(
                 } // for iRow in rIndices
             };
 
-            if (threadCount < 2) {
-                for (const auto& rDofIndices : this->values()) job(rDofIndices);
-            } else {
-                const auto& rDofIndexContainers = this->values();
-                mp::ParallelFor<>(rThreadPool.value())(
-                    rDofIndexContainers.begin(),
-                    rDofIndexContainers.end(),
-                    job);
-            }
+            if (!maybeCellIDs.has_value()) {
+                if (threadCount < 2) {
+                    for (const auto& rDofIndices : this->values()) job(rDofIndices);
+                } else {
+                    const auto& rDofIndexContainers = this->values();
+                    mp::ParallelFor<>(rThreadPool.value()).execute(
+                        rDofIndexContainers.begin(),
+                        rDofIndexContainers.end(),
+                        job);
+                }
+            } /*if !maybeCellIDs.has_value*/ else {
+                const std::span<const VertexID> cellIDs = maybeCellIDs.value();
+                if (threadCount < 2) {
+                    for (VertexID cellID : cellIDs)
+                        job(this->operator[](cellID));
+                } else {
+                    mp::ParallelFor<>(rThreadPool.value()).execute(
+                        cellIDs.begin(),
+                        cellIDs.end(),
+                        [&job, this] (VertexID cellID) {job(this->operator[](cellID));});
+                }
+            } // if maybeCellIDs.has_value
         }
 
         // Make column indices sorted and unique
@@ -157,6 +196,7 @@ void Assembler::makeCSRMatrix(
         Ref<DynamicArray<TIndex>>,                          \
         Ref<DynamicArray<TIndex>>,                          \
         Ref<DynamicArray<TValue>>,                          \
+        std::optional<std::span<const VertexID>>,           \
         OptionalRef<mp::ThreadPoolBase>) const;
 
 CIE_INSTANTIATE_CSR_FACTORY(int, float)
@@ -165,6 +205,44 @@ CIE_INSTANTIATE_CSR_FACTORY(std::size_t, float)
 CIE_INSTANTIATE_CSR_FACTORY(std::size_t, double)
 
 #undef CIE_INSTANTIATE_CSR_FACTORY
+
+
+template <unsigned D, class T>
+void makeAnsatzMask(
+    Ref<const Assembler> rAssembler,
+    std::size_t setSize,
+    std::span<T> mask) {
+        CIE_CHECK(rAssembler.dofCount() <= mask.size(), "")
+        std::vector<T> localMask(intPow(setSize, D));
+        makeAnsatzMask<D,T>(setSize, localMask);
+
+        for (const auto& [cellID, dofs] : rAssembler.items()) {
+            CIE_CHECK(
+                dofs.size() == localMask.size(),
+                std::format(
+                    "DoF set belonging to cell {} has an incompatible number of ansatz functions ({}) with the input mask ({})",
+                    (unsigned)cellID,
+                    dofs.size(),
+                    mask.size()))
+            for (std::size_t iDoF=0ul; iDoF<dofs.size(); ++iDoF)
+                mask[dofs[iDoF]] = localMask[iDoF];
+        }
+}
+
+
+#define CIE_INSTANTIATE_MASK_FACTORY(TIndex)                                                    \
+    template void makeAnsatzMask<1,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>); \
+    template void makeAnsatzMask<2,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>); \
+    template void makeAnsatzMask<3,TIndex>(Ref<const Assembler>,std::size_t,std::span<TIndex>);
+
+CIE_INSTANTIATE_MASK_FACTORY(std::uint8_t)
+CIE_INSTANTIATE_MASK_FACTORY(std::uint16_t)
+CIE_INSTANTIATE_MASK_FACTORY(std::size_t)
+CIE_INSTANTIATE_MASK_FACTORY(int)
+CIE_INSTANTIATE_MASK_FACTORY(float)
+CIE_INSTANTIATE_MASK_FACTORY(double)
+
+#undef CIE_INSTANTIATE_MASK_FACTORY
 
 
 } // namespace cie::fem

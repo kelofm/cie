@@ -14,13 +14,12 @@ namespace cie::fem {
 
 
 template <unsigned Dimension, concepts::Numeric TValue, ParametricSpaceType ST>
-template <concepts::FunctionWithSignature<bool,Ref<const std::span<const std::uint8_t,intPow(2u,Dimension)>>> TFunctor>
+template <concepts::FunctionWithSignature<bool,Ref<const std::span<const std::uint8_t,Dimension>>> TFunctor>
 constexpr void ParametricSpace<Dimension,TValue,ST>::iterateCorners(TFunctor &&rFunctor) noexcept {
-    constexpr unsigned cornerCount = intPow(2u,Dimension);
-    std::array<std::uint8_t,cornerCount> state;
+    std::array<std::uint8_t,Dimension> state;
     std::fill_n(
         state.data(),
-        cornerCount,
+        Dimension,
         false);
     do {
         if (!rFunctor(state)) break;
@@ -29,12 +28,11 @@ constexpr void ParametricSpace<Dimension,TValue,ST>::iterateCorners(TFunctor &&r
 
 
 template <unsigned Dimension, concepts::Numeric TValue, ParametricSpaceType ST>
-template <concepts::FunctionWithSignature<bool,Ref<const std::span<const TValue,intPow(2u,Dimension)>>> TFunctor>
+template <concepts::FunctionWithSignature<bool,Ref<const std::span<const TValue,Dimension>>> TFunctor>
 constexpr void ParametricSpace<Dimension,TValue,ST>::iterateCorners(TFunctor &&rFunctor) noexcept {
-    constexpr unsigned cornerCount = intPow(2u,Dimension);
     ParametricSpace::iterateCorners(
-        [&rFunctor] (Ref<const std::span<const std::uint8_t,cornerCount>> state) -> bool {
-            std::array<TValue,cornerCount> corner;
+        [&rFunctor] (Ref<const std::span<const std::uint8_t,Dimension>> state) -> bool {
+            std::array<TValue,Dimension> corner;
             std::transform(
                 state.begin(),
                 state.end(),

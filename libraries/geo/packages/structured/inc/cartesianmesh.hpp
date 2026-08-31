@@ -37,7 +37,7 @@ PointContainer makeCartesianMesh( const typename GetTraitsT<TPoint>::Domain& r_d
 
 
 /// Generate a cartesian mesh of cube elements into an existing container
-template < concepts::Cube TPrimitive,
+template < geo::CubeLike TPrimitive,
            concepts::Container PrimitiveContainer >
 void makeCartesianMesh( const typename GetTraitsT<TPrimitive>::Resolution& r_numberOfPrimitives,
                         typename GetTraitsT<TPrimitive>::Coordinate edgeLength,
@@ -46,7 +46,7 @@ void makeCartesianMesh( const typename GetTraitsT<TPrimitive>::Resolution& r_num
 
 
 /// Generate a cartesian mesh of cube elements
-template < concepts::Cube TPrimitive,
+template < geo::CubeLike TPrimitive,
            concepts::Container PrimitiveContainer = std::vector<std::shared_ptr<TPrimitive>> >
 PrimitiveContainer makeCartesianMesh( const typename GetTraitsT<TPrimitive>::Resolution& r_numberOfPrimitives,
                                       typename GetTraitsT<TPrimitive>::Coordinate edgeLength,

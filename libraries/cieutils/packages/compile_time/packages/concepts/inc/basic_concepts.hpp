@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_BASIC_CONCEPTS_HPP
-#define CIE_CIEUTILS_BASIC_CONCEPTS_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
@@ -335,4 +334,16 @@ concept Unsatisfiable
 
 } // namespace cie::concepts
 
-#endif
+
+namespace cie {
+
+
+template <class T>
+concept NumericLike = concepts::Numeric<T>;
+
+
+template <class T>
+concept IntegerLike = concepts::Integer<T>;
+
+
+} // namespace cie

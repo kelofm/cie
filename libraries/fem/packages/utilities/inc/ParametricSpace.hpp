@@ -23,10 +23,10 @@ template <
     ParametricSpaceType SpaceType = ParametricSpaceType::Cartesian>
 class ParametricSpace {
 public:
-    template <concepts::FunctionWithSignature<bool,Ref<const std::span<const std::uint8_t,intPow(2u,Dimension)>>> TFunctor>
+    template <concepts::FunctionWithSignature<bool,Ref<const std::span<const std::uint8_t,Dimension>>> TFunctor>
     static constexpr void iterateCorners(TFunctor&& rFunctor) noexcept;
 
-    template <concepts::FunctionWithSignature<bool,Ref<const std::span<const TValue,intPow(2u,Dimension)>>> TFunctor>
+    template <concepts::FunctionWithSignature<bool,Ref<const std::span<const TValue,Dimension>>> TFunctor>
     static constexpr void iterateCorners(TFunctor&& rFunctor) noexcept;
 };
 

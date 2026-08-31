@@ -74,6 +74,28 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
         } // "transformation"
 
         {
+            CIE_TEST_CASE_INIT("serialization/deserialization")
+            std::stringstream stream;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::serialize(
+                stream,
+                transform));
+            Transform other;
+            std::allocator<std::byte> allocator;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::deserialize(
+                stream,
+                other,
+                allocator));
+            for (Size i_point=0; i_point<locals.size(); ++i_point) {
+                Point point;
+                CIE_TEST_CHECK_NOTHROW(other.evaluate(locals[i_point], point, buffer));
+                CIE_TEST_REQUIRE(point.size() == 2);
+
+                for (Size i_component=0; i_component<point.size(); ++i_component)
+                    CIE_TEST_CHECK(point[i_component] == Approx(transformed[i_point][i_component]));
+            }
+        }
+
+        {
             /*
             CIE_TEST_CASE_INIT("derivative")
 
@@ -157,6 +179,28 @@ CIE_TEST_CASE("AffineTransform", "[maths]")
                     CIE_TEST_CHECK(point[i_component] == Approx(transformed[i_point][i_component]));
             }
         } // "transformation"
+
+        {
+            CIE_TEST_CASE_INIT("serialization/deserialization")
+            std::stringstream stream;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::serialize(
+                stream,
+                transform));
+            Transform other;
+            std::allocator<std::byte> allocator;
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::deserialize(
+                stream,
+                other,
+                allocator));
+            for (Size i_point=0; i_point<locals.size(); ++i_point) {
+                Point point;
+                CIE_TEST_CHECK_NOTHROW(other.evaluate(locals[i_point], point, buffer));
+                CIE_TEST_REQUIRE(point.size() == 3);
+
+                for (Size i_component=0; i_component<point.size(); ++i_component)
+                    CIE_TEST_CHECK(point[i_component] == Approx(transformed[i_point][i_component]));
+            }
+        }
 
         {
             /*

@@ -755,7 +755,7 @@ template <bool TMutable>
 template <concepts::SamplableGeometry TObject>
 std::size_t
 FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::find(Ref<const typename Geometry::Point> rPoint,
-                                                                                    Ref<const std::span<const TObject>> rObjects) const noexcept {
+                                                                                    Ref<const std::span<const TObject>> rObjects) const {
     //std::cout << "node at " << std::distance(rData.data(), this->_data) << ":\n"
     //          << "\tbase            : " << this->base()[0] << " " << this->base()[1] << "\n"
     //          << "\tlengths         : " << this->lengths()[0] << " " << this->lengths()[1] << "\n"
@@ -766,12 +766,14 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::Node<TMutable>::f
     //          ;
 
     for (const auto iObject : this->contained()) {
+        CIE_OUT_OF_RANGE_CHECK(iObject < rObjects.size(), iObject << " !< " << rObjects.size())
         Ref<const TObject> rObject = rObjects[iObject];
         const bool inObject = rObject.at(rPoint);
         if (inObject) return iObject;
     } // for iObject in this->contained()
 
     for (const auto iObject : this->intersected()) {
+        CIE_OUT_OF_RANGE_CHECK(iObject < rObjects.size(), iObject << " !< " << rObjects.size())
         Ref<const TObject> rObject = rObjects[iObject];
         const bool inObject = rObject.at(rPoint);
         if (inObject) return iObject;
@@ -928,12 +930,14 @@ FlatAABBoxTree<TCoordinate,Dimension,TObjectIndex,TAllocator>::flatten(Ref<const
             // Fill unique data of the current node.
             const auto base = pNode->base();
             const auto lengths = pNode->lengths();
-            std::copy_n(base.data(),
-                        Dimension,
-                        current.base().data());
-            std::copy_n(lengths.data(),
-                        Dimension,
-                        current.lengths().data());
+            std::copy_n(
+                base.data(),
+                Dimension,
+                current.base().data());
+            std::copy_n(
+                lengths.data(),
+                Dimension,
+                current.lengths().data());
             current.iSibling()          = 0ul; // <== temporary init
             current.containedCount()    = pNode->contained().size();
             current.intersectedCount()  = pNode->intersected().size();

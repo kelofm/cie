@@ -29,6 +29,13 @@ void makeReordering(
     OptionalRef<mp::ThreadPoolBase> rMaybePool = {});
 
 
+template <concepts::Integer TIndex>
+void reverseReorder(
+    std::span<TIndex> map,
+    std::span<TIndex> buffer,
+    OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
+
+
 template <concepts::Integer TIndex, concepts::Numeric TValue, bool Reverse = false>
 void reorder(
     std::span<const TIndex> map,

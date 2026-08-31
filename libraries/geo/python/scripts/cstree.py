@@ -7,18 +7,19 @@ import cie.geo
 
 
 center = numpy.array([0.5, 0.5])
-def predicate(node: cie.geo.ContiguousCubeTree2DNode):
+maxLevel = 8
+
+def predicate(node: cie.geo.ContiguousCubeTree2DNode, depth: int):
+    if maxLevel < depth:
+        return False
     vertices = node.getVertices()
     s = sum(n < 0.5 for n in [numpy.linalg.norm(vertex - center) for vertex in vertices])
     return 0 < s and s < len(vertices)
 
 
-maxLevel = 8
-
-
 trees = [cie.geo.ContiguousCubeTree2D(base, 0.5) for base in ([0.0, 0.0], [0.5, 0.0], [0.0, 0.5], [0.5, 0.5])]
 for tree in trees:
-    tree.scan(predicate, maxLevel)
+    tree.scan(predicate)
 
 
 figure, axes = pyplot.subplots()

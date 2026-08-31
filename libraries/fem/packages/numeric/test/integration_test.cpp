@@ -1,5 +1,6 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- GEO Includes ---
 #include "packages/maths/inc/Expression.hpp"
@@ -14,7 +15,6 @@
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
-#include "packages/maths/inc/LambdaExpression.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
 // --- STL Includes ---
@@ -25,6 +25,74 @@
 namespace cie::fem {
 
 
+bool testDomain(std::span<const double> in) {
+    return linalg::norm2(in) < 1;
+}
+
+
+struct IntegrationTestIntegrand
+    :   public maths::ExpressionTraits<double>,
+        public cie::io::TriviallySerializableBase {
+    template <template <class ...> class, class>
+    using Rebind = IntegrationTestIntegrand;
+
+    IntegrationTestIntegrand() {}
+
+    IntegrationTestIntegrand(Ref<const maths::ScaleTranslateTransform<double,2>> rTransform)
+        : _transform(rTransform) {}
+
+    void evaluate(
+        typename maths::ExpressionTraits<double>::ConstSpan in,
+        typename maths::ExpressionTraits<double>::Span out,
+        typename maths::ExpressionTraits<double>::BufferSpan buffer) const {
+            CIE_TEST_REQUIRE(in.size() == 2);
+            CIE_TEST_REQUIRE(out.size() == this->size());
+            CIE_TEST_REQUIRE(this->bufferSize() <= buffer.size());
+            std::array<double,2> transformed;
+            _transform.evaluate(in, transformed, buffer);
+            if (testDomain(transformed)) {
+                // A unit halfsphere
+                out.front() = std::sqrt(1.0 - std::pow(transformed[0], 2) - std::pow(transformed[1], 2));
+                out.front() *= _transform.makeDerivative().evaluateDeterminant(in, buffer);
+            } else {
+                out.front() = 0;
+            }
+    }
+
+    unsigned size() const {
+        return 1u;
+    }
+
+    unsigned bufferSize() const {
+        return std::max<unsigned>(
+            _transform.bufferSize(),
+            _transform.makeDerivative().bufferSize());
+    }
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary) const {
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                _transform);
+    }
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<IntegrationTestIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._transform,
+                rAllocator);
+    }
+
+    maths::ScaleTranslateTransform<double,2> _transform;
+}; // struct IntegrationTestIntegrand
+
+
 CIE_TEST_CASE("integration", "[fem]") {
     CIE_TEST_CASE_INIT("integration")
 
@@ -33,38 +101,21 @@ CIE_TEST_CASE("integration", "[fem]") {
     const Quadrature<double,2> quadrature(GaussLegendreQuadrature<double>(8));
     QuadTree tree(QuadTree::Point {0.0, 0.0}, 1.0);
 
-    const auto domain = [] (std::span<const double> in) -> bool {
-        return linalg::norm2(in) < 1;
-    };
-
-    const auto treePredicate = [&tree, &domain] (Ref<const QuadTree::Node> rNode, unsigned level) -> bool {
+    const auto treePredicate = [&tree] (Ref<const QuadTree::Node> rNode, unsigned level) -> bool {
         if (10 < level) {return false;}
         QuadTree::Point base;
         double edge;
         tree.getNodeGeometry(rNode, base.data(), &edge);
-        bool isInside = domain(base);
+        bool isInside = testDomain(base);
         base[0] += edge;
-        if (isInside != domain(base)) return true;
+        if (isInside != testDomain(base)) return true;
         base[1] += edge;
-        if (isInside != domain(base)) return true;
+        if (isInside != testDomain(base)) return true;
         base[0] -= edge;
-        if (isInside != domain(base)) return true;
+        if (isInside != testDomain(base)) return true;
         return false;
     };
     tree.scan(treePredicate);
-
-    // Construct an integrand that will be evaluated over the domain
-    const auto integrand = maths::makeLambdaExpression<double>([&domain] (
-            std::span<const double> in,
-            std::span<double> out,
-            std::span<double>) {
-        if (domain(in)) {
-            // A unit halfsphere
-            out.front() = std::sqrt(1.0 - std::pow(in[0], 2) - std::pow(in[1], 2));
-        } else {
-            out.front() = 0;
-        }
-    }, 1, 0);
 
     double integral = 0;
     std::vector<double> buffer;
@@ -84,28 +135,14 @@ CIE_TEST_CASE("integration", "[fem]") {
             const maths::ScaleTranslateTransform<double,2> transform(
                 transformed,
                 transformed + 2);
-            const auto jacobian = transform.makeDerivative();
-            buffer.resize(jacobian.bufferSize());
-            const double determinant = jacobian.evaluateDeterminant(
-                {&edge, 0},
-                buffer);
 
             // Construct the transformed integrand
-            const auto transformedIntegrand = maths::makeLambdaExpression<double>(
-                [&transform, determinant, &integrand] (
-                    std::span<const double> in,
-                    std::span<double> out,
-                    std::span<double> buffer) {
-                StaticArray<double,2> transformedPoint;
-                transform.evaluate(in, transformedPoint, buffer);
-                integrand.evaluate(transformedPoint, out, buffer);
-                out.front() *= determinant;
-            }, integrand.size(), std::max<unsigned>(transform.bufferSize(), integrand.bufferSize()));
+            const IntegrationTestIntegrand integrand(transform);
 
             double term;
-            buffer.resize(quadrature.bufferSize(transformedIntegrand));
+            buffer.resize(quadrature.bufferSize(integrand));
             quadrature.evaluate(
-                transformedIntegrand,
+                integrand,
                 buffer,
                 {&term, 1});
             integral += term;

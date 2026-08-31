@@ -1,0 +1,22 @@
+{
+    "$id" : "/cie/fem/geometric-discretization",
+    "description" : "Settings related to mesh geometry.",
+    "type" : "object",
+    "anyOf" : [
+        {"$ref" : "/cie/fem/uniform-cartesian-grid"},
+        {"$ref" : "/cie/fem/cartesian-grid-2d"}
+    ],
+    "properties" : {
+        "discard-default-cells" : {
+            "type" : "boolean",
+            "default" : true,
+            "description" : "Do not generate cells that lie outside of defined domains (i.e.: only in the default domain)."
+        }
+    },
+    "default" : {
+        "type" : "uniform-cartesian-grid",
+        "resolution" : 10,
+        "discard-default-cells" : true
+    },
+    "required" : ["type"]
+}

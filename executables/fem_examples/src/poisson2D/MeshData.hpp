@@ -6,8 +6,11 @@
 
 // --- FEM Includes ---
 #include "packages/numeric/inc/MeshBase.hpp"
-#include "packages/numeric/inc/QuadraturePointFactory.hpp"
+#include "packages/numeric/inc/KDTreeQuadraturePointFactory.hpp"
 #include "packages/io/inc/GraphML.hpp"
+
+// --- Utility Includes ---
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
@@ -16,11 +19,48 @@ namespace cie::fem {
 /// @brief Data structure common to the entire @ref Graph "mesh".
 class MeshData : public MeshBase<Ansatz> {
 public:
+    using DomainData = Scalar;
+
     MeshData();
 
-    MeshData(RightRef<Ansatz> rAnsatzSpace);
+    MeshData(
+        RightRef<Ansatz> rAnsatzSpace,
+        RightRef<std::vector<std::pair<DomainData,std::vector<Scalar>>>> domainTriangles,
+        std::span<const std::pair<DomainData,Scalar>> domainMap,
+        Ref<const cie::io::JSONObject> rConfiguration);
 
-    CachedQuadraturePointFactory<Dimension,Scalar> makeQuadratureRule() const;
+    KDTreeQuadraturePointFactory<
+        Dimension,
+        Scalar,
+        Cell,
+        Scalar
+    > makeQuadratureRule(Ref<const Cell> rCell) const;
+
+    void subdomain(
+        std::span<const Scalar> points,
+        std::span<DomainData> subdomains) const;
+
+    std::span<const std::pair<
+        DomainData,
+        Scalar>
+    > domainMap() const noexcept;
+
+    void setCells(RightRef<std::vector<Cell>> rCells) noexcept;
+
+    std::span<const std::pair<
+        DomainData,
+        std::vector<Scalar>>
+    > domainTriangles() const noexcept {
+            return _domainTriangles;
+    }
+
+    [[nodiscard]] constexpr std::span<const Cell> cells() const noexcept {
+        return _cells;
+    }
+
+    [[nodiscard]] constexpr std::span<Cell> cells() noexcept {
+        return _cells;
+    }
 
 private:
     friend struct io::GraphML::Serializer<MeshData>;
@@ -30,48 +70,22 @@ private:
     /// @brief Set of quadrature points for a default local hypercube.
     /// @details These quadrature points are used while constructing
     ///          cell-specific quadrature rules.
-    std::vector<QuadraturePoint<Dimension,Scalar>> _quadraturePointSet;
+    std::vector<QuadraturePoint<Dimension,Scalar,Scalar>> _quadraturePointSet;
 
-    DynamicArray<Scalar> _buffer;
+    std::vector<std::pair<
+        DomainData,
+        std::vector<Scalar>>
+    > _domainTriangles;
+
+    std::vector<std::pair<
+        DomainData,
+        Scalar>
+    > _domainMap;
+
+    std::vector<Cell> _cells;
+
+    std::array<unsigned,2> _treeDepthRange;
 }; // class MeshData
-
-
-/// @brief Serializer for @ref MeshData in @p GraphML format.
-template <>
-struct io::GraphML::Serializer<MeshData> {
-    void header(Ref<io::GraphML::XMLElement> rElement) const;
-
-    void operator()(
-        [[maybe_unused]] Ref<io::GraphML::XMLElement> rElement,
-        [[maybe_unused]] Ref<const MeshData> rInstance) const {}
-}; // struct GraphML::Serializer<MeshData>
-
-
-/// @brief Deserializer for @ref MeshData in @p GraphML format.
-template <>
-struct io::GraphML::Deserializer<MeshData>
-    : public io::GraphML::DeserializerBase<MeshData> {
-    using io::GraphML::DeserializerBase<MeshData>::DeserializerBase;
-
-    /// @brief This function is called when an element opening tag is parsed in the XML document.
-    static void onElementBegin(
-        Ptr<void> pThis,
-        std::string_view elementName,
-        std::span<io::GraphML::AttributePair>);
-
-    /// @brief This function is called when text block is parsed in the XML document.
-    static void onText(
-        Ptr<void>,
-        std::string_view);
-
-    /// @brief This function is called when an element closing tag is parsed in the XML document.
-    static void onElementEnd(
-        Ptr<void> pThis,
-        std::string_view elementName);
-
-private:
-    DynamicArray<Ansatz> _buffer;
-}; // struct GraphML::Deserializer<MeshData>
 
 
 } // namespace cie::fem

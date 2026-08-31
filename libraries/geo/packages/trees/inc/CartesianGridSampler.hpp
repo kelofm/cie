@@ -52,7 +52,7 @@ CIE_DEFINE_INVALID_CLASS_TEMPLATE_TO_SPECIALIZE(CartesianGridSampler)
 
 
 /// Cube sampler
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 class CartesianGridSampler<TPrimitive> : public AbsCartesianGridSampler<TPrimitive>
 {
 public:

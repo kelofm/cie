@@ -1,5 +1,4 @@
-#ifndef CIE_MPI_HPP
-#define CIE_MPI_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/concurrency/inc/mpi_fwd.hpp"
@@ -10,8 +9,6 @@
 
 // --- STL Includes ---
 #include <memory>
-#include <string>
-#include <optional>
 
 
 namespace cie::mpi {
@@ -20,20 +17,18 @@ namespace cie::mpi {
 class MPIImpl;
 
 
-class MPI
-{
+class MPI {
 private:
     struct MPIKey {};
 
 public:
     /** @brief Construct the root MPI interface.
-     *
-     *  @param p_comm: Ptr to the MPI_Comm to use, or nullptr.
+     *  @param pComm: Ptr to the MPI_Comm to use, or nullptr.
      *  @param key: private-access key ensuring that this constructor cannot be called by outsiders.
-     *  @details If @a p_comm is not null, this constructor initializes MPI and duplicates
+     *  @details If @a pComm is not null, this constructor initializes MPI and duplicates
      *           the passed communicator.
      */
-    MPI(Ptr<MPI_Comm> p_comm, MPIKey key);
+    MPI(Ptr<MPI_Comm> pComm, MPIKey key);
 
     ~MPI();
 
@@ -47,27 +42,31 @@ public:
     /// @name Ref Interface
     /// @{
 
-    template <concepts::TriviallySerializable T>
-    void send(Ref<const T> r_message,
-              RankID destination,
-              MessageTag tag = 0);
+    template <TriviallySerializable T>
+    void send(
+        Ref<const T> rMessage,
+        RankID destination,
+        MessageTag tag = 0);
 
-    template <concepts::TriviallySerializable T>
-    void receive(Ref<T> r_message,
-                 RankID source,
-                 MessageTag tag = 0);
+    template <TriviallySerializable T>
+    void receive(
+        Ref<T> rMessage,
+        RankID source,
+        MessageTag tag = 0);
 
-    template <concepts::TriviallySerializable T>
-    void sendAndReceive(Ref<const T> r_send,
-                        RankID sendTo,
-                        Ref<T> r_receive,
-                        RankID receiveFrom,
-                        MessageTag tag = 0);
+    template <TriviallySerializable T>
+    void sendAndReceive(
+        Ref<const T> r_send,
+        RankID sendTo,
+        Ref<T> rReceive,
+        RankID receiveFrom,
+        MessageTag tag = 0);
 
-    template <concepts::TriviallySerializable T>
-    void broadcast(Ref<T> r_message,
-                   RankID source,
-                   MessageTag tag = 0);
+    template <TriviallySerializable T>
+    void broadcast(
+        Ref<T> rMessage,
+        RankID source,
+        MessageTag tag = 0);
 
     /// @}
     /// @name Synchronization
@@ -125,5 +124,3 @@ private:
 } // namespace cie::mpi
 
 #include "packages/concurrency/impl/MPI_impl.hpp"
-
-#endif

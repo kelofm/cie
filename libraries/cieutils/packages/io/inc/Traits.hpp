@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_IO_TRAITS_HPP
-#define CIE_UTILS_IO_TRAITS_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
@@ -13,23 +12,20 @@ namespace cie::io {
 
 
 /// @ingroup cieutils
-struct Traits
-{
+struct Traits {
     using SerializerStream = std::ostream;
 
     using DeserializerStream = std::istream;
 }; // struct Traits
 
 
-struct TriviallySerializable {
-    inline constexpr static bool isTriviallySerializable = true;
-};
+struct TriviallySerializableBase {};
 
 
 } // namespace cie::io
 
 
-namespace cie::concepts {
+namespace cie {
 
 
 /** @brief Concept for trivially serializable types.
@@ -47,16 +43,15 @@ template <class T>
 concept TriviallySerializable
 =   std::integral<T>
     || std::floating_point<T>
-    || T::isTriviallySerializable;
+    || std::is_base_of_v<cie::io::TriviallySerializableBase,T>;
 
 
 /// @ingroup cieutils
 template <class T>
 concept BinarySerializable
 = TriviallySerializable<T>
-|| requires (Ref<const T> r_instance, Ref<io::Traits::SerializerStream> r_stream)
-{
-    {r_instance.serialize(r_stream, tags::Binary())};
+|| requires (Ref<const T> rInstance, Ref<io::Traits::SerializerStream> rStream) {
+    {rInstance.serialize(rStream, tags::Binary())};
 }; // concept BinarySerializable
 
 
@@ -64,9 +59,8 @@ concept BinarySerializable
 template <class T>
 concept TextSerializable
 = TriviallySerializable<T>
-|| requires (Ref<const T> r_instance, Ref<io::Traits::SerializerStream> r_stream)
-{
-    {r_instance.serialize(r_stream, tags::Text())};
+|| requires (Ref<const T> rInstance, Ref<io::Traits::SerializerStream> rStream) {
+    {rInstance.serialize(rStream, tags::Text())};
 }; // concept TextSerializable
 
 
@@ -101,40 +95,53 @@ concept TriviallyDeserializable
 
 
 /// @ingroup cieutils
-template <class T>
+template <class T, class TAllocator>
 concept BinaryDeserializable
 = TriviallyDeserializable<T>
-|| requires (Ref<T> r_instance, Ref<io::Traits::DeserializerStream> r_stream)
-{
-    {r_instance.deserialize(r_stream, r_instance, tags::Binary())};
+|| requires (
+    Ref<io::Traits::DeserializerStream> rStream,
+    Ref<T> rInstance,
+    Ref<TAllocator> rAllocator) {
+        {
+            T::deserialize(
+                rStream,
+                rInstance,
+                rAllocator,
+                tags::Binary())
+        };
 };
 
 
 /// @ingroup cieutils
-template <class T>
+template <class T, class TAllocator>
 concept TextDeserializable
 = TriviallyDeserializable<T>
-|| requires (Ref<T> r_instance, Ref<io::Traits::DeserializerStream> r_stream)
-{
-    {r_instance.deserialize(r_stream, r_instance, tags::Text())};
+|| requires (
+    Ref<io::Traits::DeserializerStream> rStream,
+    Ref<T> rInstance,
+    Ref<TAllocator> rAllocator) {
+        {
+            T::deserialize(
+                rStream,
+                rInstance,
+                rAllocator,
+                tags::Text())
+        };
 };
 
 
 /// @ingroup cieutils
-template <class T, class TTag = tags::Null>
+template <class T, class TAllocator, class TTag = tags::Null>
 concept Deserializable
-  = (std::is_same_v<TTag,tags::Null> && (BinaryDeserializable<T> || TextDeserializable<T>))
-    || (std::is_same_v<TTag,tags::Binary> && BinaryDeserializable<T>)
-    || (std::is_same_v<TTag,tags::Text> && TextDeserializable<T>);
+  = (std::is_same_v<TTag,tags::Null> && (BinaryDeserializable<T,TAllocator> || TextDeserializable<T,TAllocator>))
+    || (std::is_same_v<TTag,tags::Binary> && BinaryDeserializable<T,TAllocator>)
+    || (std::is_same_v<TTag,tags::Text> && TextDeserializable<T,TAllocator>);
 
 
 /// @ingroup cieutils
-template <class T>
+template <class T, class TAllocator>
 concept NonTriviallyDeserializable
-= !TriviallyDeserializable<T> && Deserializable<T>;
+= !TriviallyDeserializable<T> && Deserializable<T,TAllocator>;
 
 
-} // namespace cie::concepts
-
-
-#endif
+} // namespace cie

@@ -6,7 +6,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
-#include "packages/types/inc/tags.hpp" // tags::Binary
+#include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
 #include <algorithm> // std::copy, std::transform (already included anyway)
@@ -173,7 +173,8 @@ void TranslateScaleTransform<TValue,Dimension>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan) const {
-        CIE_OUT_OF_RANGE_CHECK(in.size() == Dimension)
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= in.size())
+        CIE_OUT_OF_RANGE_CHECK(Dimension <= out.size())
         for (unsigned iDim=0; iDim<Dimension; ++iDim) {
             out[iDim] = (in[iDim] + this->_offset[iDim]) * this->_scales[iDim];
         }
@@ -189,6 +190,61 @@ constexpr unsigned TranslateScaleTransform<TValue,Dimension>::size() noexcept {
 template <concepts::Numeric TValue, unsigned Dimension>
 constexpr unsigned TranslateScaleTransform<TValue,Dimension>::bufferSize() noexcept {
     return 0u;
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TAllocator>
+void ScaleTranslateTransformDerivative<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ScaleTranslateTransformDerivative> rInstance,
+    Ref<const TAllocator> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TAllocator>
+void ScaleTranslateTransform<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ScaleTranslateTransform> rInstance,
+    Ref<const TAllocator> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._offset.data(),
+            rInstance._offset.size(),
+            rAllocator);
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TAllocator>
+void TranslateScaleTransform<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TranslateScaleTransform> rInstance,
+    Ref<const TAllocator> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._offset.data(),
+            rInstance._offset.size(),
+            rAllocator);
 }
 
 
@@ -240,19 +296,18 @@ void GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimensi
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
-                                                                                                 Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) noexcept
-{
-    std::stringstream stream;
-    stream << rObject;
-    GraphML::XMLElement subElement = rElement.addChild("d-st-tr");
-    subElement.setValue(stream.view());
+void GraphML::Serializer<maths::ScaleTranslateTransformDerivative<TValue,Dimension>>::operator()(
+    Ref<XMLElement> rElement,
+    Ref<const maths::ScaleTranslateTransformDerivative<TValue,Dimension>> rObject) {
+        std::stringstream stream;
+        stream << rObject;
+        GraphML::XMLElement subElement = rElement.addChild("d-st-tr");
+        subElement.setValue(stream.view());
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::header(Ref<XMLElement> rElement) noexcept
-{
+void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::header(Ref<XMLElement> rElement) noexcept {
     auto descriptionElement = rElement.addChild("desc");
     std::stringstream description;
     description << "Scaling followed by a translation in " << Dimension << " dimensions.";
@@ -263,7 +318,7 @@ void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::head
 template <concepts::Numeric TValue, unsigned Dimension>
 void GraphML::Serializer<maths::ScaleTranslateTransform<TValue,Dimension>>::operator()(
     Ref<XMLElement> rElement,
-    Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) noexcept {
+    Ref<const maths::ScaleTranslateTransform<TValue,Dimension>> rObject) {
         std::array<TValue,Dimension>   input;
         std::array<TValue,2*Dimension> output;
         std::vector<TValue> buffer(rObject.bufferSize());
@@ -351,7 +406,7 @@ void io::GraphML::Deserializer<maths::ScaleTranslateTransform<TValue,Dimension>>
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::header(Ref<XMLElement> rElement) noexcept
+void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::header(Ref<XMLElement> rElement)
 {
     auto descriptionElement = rElement.addChild("desc");
     std::stringstream description;
@@ -361,13 +416,13 @@ void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::head
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::operator()(Ref<XMLElement> rElement,
-                                                                                       Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) noexcept
-{
-    std::stringstream stream;
-    stream << rObject;
-    GraphML::XMLElement subElement = rElement.addChild("ts-tr");
-    subElement.setValue(stream.view());
+void GraphML::Serializer<maths::TranslateScaleTransform<TValue,Dimension>>::operator()(
+    Ref<XMLElement> rElement,
+    Ref<const maths::TranslateScaleTransform<TValue,Dimension>> rObject) {
+        std::stringstream stream;
+        stream << rObject;
+        GraphML::XMLElement subElement = rElement.addChild("ts-tr");
+        subElement.setValue(stream.view());
 }
 
 

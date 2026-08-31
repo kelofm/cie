@@ -15,8 +15,7 @@ namespace cie {
 
 
 /// @ingroup cieutils
-class Color
-{
+class Color {
 public:
     using ValueType = std::uint8_t;
 
@@ -71,8 +70,7 @@ std::ostream& operator<<(std::ostream& r_stream, const Color& r_color);
 OutputStream& operator<<(OutputStream& r_stream, const Color& r_color);
 
 
-class RGBAColor : public Color
-{
+class RGBAColor : public Color {
 public:
     using Color::ValueType;
 
@@ -130,9 +128,11 @@ public:
 
     static const RGBAColor TUMGreen;
 
+    static const RGBAColor TUMLightGray;
+
     static const RGBAColor TUMGray;
 
-    static const RGBAColor TUMLightGray;
+    static const RGBAColor TUMDarkGray;
 
     /* --- System Palette --- */
 

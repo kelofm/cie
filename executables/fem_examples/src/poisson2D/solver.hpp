@@ -8,19 +8,21 @@
 
 // --- Utility Includes ---
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
-#include "packages/commandline/inc/ArgParse.hpp"
+#include "packages/io/inc/json.hpp"
 
 
 namespace cie::fem {
 
 
 void solve(
-    CSRWrapper lhs,
+    linalg::CSRView<Scalar,int> lhs,
     std::span<Scalar> solution,
     std::span<Scalar> rhs,
-    Ref<const Assembler> rAssembler,
+    linalg::CSRView<Scalar, int> constraintGradients,
+    std::span<Scalar> constraintGaps,
+    Ref<Assembler> rAssembler,
     Ref<mp::ThreadPoolBase> rThreads,
-    Ref<const utils::ArgParse::Results> rArguments);
+    Ref<const cie::io::JSONObject> rConfiguration);
 
 
 } // namespace cie::fem

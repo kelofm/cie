@@ -8,7 +8,6 @@
 
 // --- STL Includes ---
 #include <algorithm>
-#include <fstream>
 #include <iterator>
 #include <iostream>
 
@@ -18,52 +17,39 @@ namespace cie::utils {
 
 namespace detail {
 
-Time getTime()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
+Time getTime() {
     return std::chrono::steady_clock::now();
-
-    CIE_END_EXCEPTION_TRACING
 }
 
-std::string getDate()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
+std::string getDate() {
     auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     return std::string(std::ctime(&t));
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 } // namespace detail
 
 
-Logger::Logger(const std::filesystem::path& r_filePath) :
+Logger::Logger(const std::filesystem::path& rFilePath) :
     _timeLog( {detail::getTime()} ),
     _prefix( "" ),
     _lineEnd("\n"),
     _forceFlush(true),
-    _newLine(true)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
+    _newLine(true) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            // Create log file
+            auto pFile = std::static_pointer_cast<OutputStream>(
+                std::make_shared<FileOutputStream>(
+                    rFilePath,
+                    std::ios::out));
+            addStream(pFile);
 
-    // Create log file
-    auto p_file = std::static_pointer_cast<OutputStream>(
-        std::make_shared<FileOutputStream>(r_filePath, std::ios::out)
-    );
-    addStream(p_file);
-
-    // Log time
-    logDate( "Log file created on" );
-
-    CIE_END_EXCEPTION_TRACING
+            // Log time
+            logDate("Log file created on");
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger::~Logger()
-{
+Logger::~Logger() {
     noIndent();
     logElapsed("\nLogger ran for", 0, false);
     logDate("Log closed on");
@@ -71,108 +57,104 @@ Logger::~Logger()
 }
 
 
-void Logger::write(const char* p_message, std::streamsize messageSize) {
+void Logger::write(
+    const char* pMessage,
+    std::streamsize messageSize) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            std::scoped_lock<std::mutex> lock(_writeMutex);
+
+            const char* it_begin            = pMessage;
+            const char* const it_messageEnd = pMessage + messageSize;
+            const char* it_end              = it_messageEnd;
+
+            while (it_begin < it_messageEnd) {
+                it_end = std::find(
+                    it_begin,
+                    it_messageEnd,
+                    '\n');
+                this->preWrite();
+                this->directWriteToAll(
+                    it_begin,
+                    std::distance(it_begin, it_end));
+                if (it_end != it_messageEnd)
+                    this->postWrite();
+                it_begin = it_end + 1;
+            }
+
+            if (_forceFlush) this->flush();
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+LogBlock Logger::newBlock(const std::string& rName) {
     CIE_BEGIN_EXCEPTION_TRACING
-    std::scoped_lock<std::mutex> lock(_writeMutex);
-
-    const char* it_begin            = p_message;
-    const char* const it_messageEnd = p_message + messageSize;
-    const char* it_end              = it_messageEnd;
-
-    while (it_begin < it_messageEnd) {
-        it_end = std::find(
-            it_begin,
-            it_messageEnd,
-            '\n');
-        this->preWrite();
-        this->directWriteToAll(
-            it_begin,
-            std::distance(it_begin, it_end));
-        if (it_end != it_messageEnd)
-            this->postWrite();
-        it_begin = it_end + 1;
-    }
-
-    if (_forceFlush) this->flush();
+        return LogBlock(rName, *this);
     CIE_END_EXCEPTION_TRACING
 }
 
 
-LogBlock Logger::newBlock( const std::string& r_name )
-{
+Logger& Logger::addStream(OutputStream::SharedPointer pStream) {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return LogBlock(r_name, *this);
-
+        _streams.push_back(pStream);
+        return *this;
     CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& Logger::addStream(OutputStream::SharedPointer p_stream)
-{
+Logger& Logger::removeStream(OutputStream::SharedPointer pStream) {
     CIE_BEGIN_EXCEPTION_TRACING
+        auto it = std::find(
+            _streams.begin(),
+            _streams.end(),
+            pStream);
 
-    _streams.push_back(p_stream);
-    return *this;
+        if (it != _streams.end() && it!=_streams.begin())
+            _streams.erase(it);
 
+        return *this;
     CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& Logger::removeStream(OutputStream::SharedPointer p_stream)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    auto it = std::find(_streams.begin(),
-                        _streams.end(),
-                        p_stream);
-
-    if (it != _streams.end() && it!=_streams.begin())
-        _streams.erase(it);
-
-    return *this;
-
-    CIE_END_EXCEPTION_TRACING
-}
-
-
-Logger& Logger::forceFlush( bool use )
-{
+Logger& Logger::forceFlush( bool use ) {
     _forceFlush = use;
     return *this;
 }
 
 
-Logger& Logger::log(const std::string& message)
-{
+Logger& Logger::log(
+    const std::string& rMessage,
+    OptionalRef<const Color> rMaybeColor) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            if (rMaybeColor.has_value()) {
+                const std::string color = rMaybeColor.value().ANSI();
+                this->write(
+                    color.c_str(),
+                    color.size());
+            }
+
+            this->write(
+                rMessage.c_str(),
+                rMessage.size());
+            this->write("\033[0m", 4);
+            this->postWrite();
+            return *this;
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+Logger& Logger::warn(const std::string& rMessage) {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    this->write(
-        message.c_str(),
-        message.size());
-    this->postWrite();
-    return *this;
-
+        return log(
+            std::format("WARNING: {}", rMessage),
+            RGBAColor::Warning);
     CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& Logger::warn( const std::string& message )
-{
+Logger& Logger::logDate(const std::string& rMessage) {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return log( "WARNING: " + message );
-
-    CIE_END_EXCEPTION_TRACING
-}
-
-
-Logger& Logger::logDate( const std::string& message )
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    return log( message + " " + detail::getDate() );
-
+        return log( rMessage + " " + detail::getDate() );
     CIE_END_EXCEPTION_TRACING
 }
 
@@ -219,139 +201,128 @@ std::size_t Logger::elapsed(size_t slotID, bool reset) {
 }
 
 
-Logger& Logger::logElapsed(const std::string& message,
-                           std::size_t timeID,
-                           bool reset ) {
-    CIE_BEGIN_EXCEPTION_TRACING
-    auto dt = elapsed( timeID, reset );
-    std::string unit = " [us] ";
+Logger& Logger::logElapsed(
+    const std::string& message,
+    std::size_t timeID,
+    bool reset,
+    OptionalRef<const Color> rMaybeColor) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            auto dt = elapsed(timeID, reset);
+            std::string unit = "[us]";
 
-    if (dt > 100000) {
-        dt /= 1000;
-        unit = " [ms] ";
-        if (dt > 100000) {
-            dt /= 1000;
-            unit = " [s] ";
-            if (dt > 6000) {
-                dt /= 60;
-                unit = " [min] ";
+            if (dt > 100000) {
+                dt /= 1000;
+                unit = "[ms]";
+                if (dt > 100000) {
+                    dt /= 1000;
+                    unit = "[s]";
+                    if (dt > 6000) {
+                        dt /= 60;
+                        unit = "[min]";
+                    }
+                }
             }
-        }
-    }
 
-    return log( message + " " + std::to_string( dt ) + unit );
-    CIE_END_EXCEPTION_TRACING
+            return log(
+                std::format("{} {} {}", message, dt, unit),
+                rMaybeColor);
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& Logger::separate()
-{
+Logger& Logger::separate() {
     CIE_BEGIN_EXCEPTION_TRACING
+        // TODO: separator behaviour is hard-coded
+        const char separatorCharacter   = '-';
+        const Size lineWidth            = 60;
 
-    // TODO: separator behaviour is hard-coded
-    const char separatorCharacter   = '-';
-    const Size lineWidth            = 60;
+        Size numberOfSeparators         = 0;
+        if (lineWidth > _prefix.size())
+            numberOfSeparators = lineWidth - _prefix.size();
 
-    Size numberOfSeparators         = 0;
-    if ( lineWidth > _prefix.size() )
-        numberOfSeparators = lineWidth - _prefix.size();
-
-    return log(std::string(numberOfSeparators, separatorCharacter));
-
+        return log(std::string(numberOfSeparators, separatorCharacter));
     CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& Logger::increaseIndent()
-{
+Logger& Logger::increaseIndent() {
     _prefix += "|   ";
     return *this;
 }
 
 
-Logger& Logger::decreaseIndent()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    if ( _prefix.size() >= 4 )
-        _prefix.resize( _prefix.size() - 4 );
+Logger& Logger::decreaseIndent() {
+    if (_prefix.size() >= 4)
+        _prefix.resize(_prefix.size() - 4);
     else
         _prefix.clear();
     return *this;
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& Logger::noIndent()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    if ( !_prefix.empty())
+Logger& Logger::noIndent() {
+    if (!_prefix.empty())
         while( _prefix.back() == '\t' )
             _prefix.pop_back();
-
     return *this;
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 
-void Logger::streamInsertOperation(const std::string& r_message)
-{
-    this->log(r_message);
+void Logger::streamInsertOperation(const std::string& rMessage) {
+    this->log(rMessage);
 }
 
 
-void Logger::flush()
-{
+void Logger::flush() {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    for (auto& rp_stream : _streams)
-        rp_stream->flush();
-
+        for (auto& rpStream : _streams)
+            rpStream->flush();
     CIE_END_EXCEPTION_TRACING
 }
 
 
-void Logger::preWrite()
-{
-    if (_newLine)
-    {
-        this->directWriteToAll(_prefix.c_str(),
-                               _prefix.size());
+void Logger::preWrite() {
+    if (_newLine) {
+        const auto& rColor = RGBAColor::TUMDarkGray.ANSI();
+        this->directWriteToAll(
+            rColor.data(),
+            rColor.size());
+        this->directWriteToAll(
+            _prefix.data(),
+            _prefix.size());
+        this->directWriteToAll(
+            "\033[0m",
+            4);
         _newLine = false;
     }
 }
 
-void Logger::postWrite()
-{
-    this->directWriteToAll(_lineEnd.c_str(),
-                           _lineEnd.size());
+void Logger::postWrite() {
+    this->directWriteToAll(
+        _lineEnd.c_str(),
+        _lineEnd.size());
     _newLine = true;
 }
 
 
-Logger& Logger::directWriteToAll(const char* p_message,
-                                 std::streamsize messageSize)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    for (auto& rp_stream : _streams)
-        rp_stream->write(p_message, messageSize);
-
-    return *this;
-
-    CIE_END_EXCEPTION_TRACING
+Logger& Logger::directWriteToAll(
+    const char* pMessage,
+    std::streamsize messageSize) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            for (auto& rpStream : _streams)
+                rpStream->write(
+                    pMessage,
+                    messageSize);
+            return *this;
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-Logger& operator<<( Logger& r_logger, const std::string& r_message )
-{
+Logger& operator<<(
+    Logger& r_logger,
+    const std::string& rMessage) {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return r_logger.log( r_message );
-
+        return r_logger.log(rMessage);
     CIE_END_EXCEPTION_TRACING
 }
 

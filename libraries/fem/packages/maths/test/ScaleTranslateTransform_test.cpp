@@ -1,39 +1,41 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
+#include "packages/io/inc/Serializer.hpp"
 
 // --- Internal Includes ---
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
 #include "packages/utilities/inc/kernel.hpp"
 
+// --- STL Includes ---
+#include <sstream>
+
 
 namespace cie::fem::maths {
 
 
+//     (-1, 1)   3----|----2   ( 1, 1)
+//               |    |    |
+//          ----------o----------
+//               |    |    |
+//     (-1,-1)   0----|----1   ( 1,-1)
+//
+//                   |||
+//                   \ /
+//                    v
+//
+//   | ( 2, 3)   2---------------3   ( 6, 3)
+//   |           |               |
+//   |           |               |
+//   |           |               |
+//   | ( 2, 1)   1---------------0   ( 6, 1)
+//   |
+// --o------------------------
+//   |
+//   |
 #define CIE_FEM_DEFINE_SCALE_TRANSLATE_TRANSFORM_TEST(TransformType)                                                        \
     CIE_TEST_CASE(#TransformType, "[maths]")                                                                                \
     {                                                                                                                       \
         CIE_TEST_CASE_INIT(#TransformType)                                                                                  \
-        /*                                                                                                                  \
-        //     (-1, 1)   3----|----2   ( 1, 1)                                                                              \
-        //               |    |    |                                                                                        \
-        //          ----------o----------                                                                                   \
-        //               |    |    |                                                                                        \
-        //     (-1,-1)   0----|----1   ( 1,-1)                                                                              \
-        //                                                                                                                  \
-        //                   |||                                                                                            \
-        //                   \ /                                                                                            \
-        //                    v                                                                                             \
-        //                                                                                                                  \
-        //   | ( 2, 3)   2---------------3   ( 6, 3)                                                                        \
-        //   |           |               |                                                                                  \
-        //   |           |               |                                                                                  \
-        //   |           |               |                                                                                  \
-        //   | ( 2, 1)   1---------------0   ( 6, 1)                                                                        \
-        //   |                                                                                                              \
-        // --o------------------------                                                                                      \
-        //   |                                                                                                              \
-        //   |                                                                                                              \
-        */                                                                                                                  \
         using Transform = TransformType<double,2>;                                                                          \
         using Point = Kernel<2,double>::Point;                                                                              \
         CIE_TEST_CHECK(SpatialTransform<Transform>);                                                                        \
@@ -76,6 +78,30 @@ namespace cie::fem::maths {
                 }                                                                                                           \
             }                                                                                                               \
         } /*"transformation"*/                                                                                              \
+                                                                                                                            \
+        {                                                                                                                   \
+            CIE_TEST_CASE_INIT("(de)serialization")                                                                         \
+            std::stringstream stream;                                                                                       \
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::serialize(                                                  \
+                stream,                                                                                                     \
+                transform));                                                                                                \
+            Transform other;                                                                                                \
+            std::allocator<std::byte> allocator;                                                                            \
+            CIE_TEST_REQUIRE_NOTHROW(cie::io::BinarySerializer::deserialize(                                                \
+                stream,                                                                                                     \
+                other,                                                                                                      \
+                allocator));                                                                                                \
+            buffer.resize(other.bufferSize());                                                                              \
+            for (unsigned iPoint=0; iPoint<locals.size(); ++iPoint) {                                                       \
+                Point point;                                                                                                \
+                other.evaluate(locals[iPoint], point, buffer);                                                              \
+                const auto& rReference = transformed[iPoint];                                                               \
+                CIE_TEST_REQUIRE(point.size() == rReference.size());                                                        \
+                for (unsigned iComponent=0; iComponent<point.size(); ++iComponent) {                                        \
+                    CIE_TEST_CHECK(point[iComponent] == Approx(rReference[iComponent]));                                    \
+                }                                                                                                           \
+            }                                                                                                               \
+        }                                                                                                                   \
                                                                                                                             \
         {                                                                                                                   \
             CIE_TEST_CASE_INIT("derivative")                                                                                \

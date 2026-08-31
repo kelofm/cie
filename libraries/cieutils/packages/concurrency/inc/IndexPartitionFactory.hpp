@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_INDEX_PARTITION_FACTORY_HPP
-#define CIE_UTILS_INDEX_PARTITION_FACTORY_HPP
+#pragma once
 
 // --- Utility Includes ---
 #include "packages/types/inc/types.hpp"
@@ -12,12 +11,10 @@
 namespace cie::mp {
 
 
-struct IndexPartitionFactory
-{
+struct IndexPartitionFactory {
     using Value = Size;
 
-    struct Partition
-    {
+    struct Partition {
         Value begin;
 
         Value end;
@@ -36,8 +33,7 @@ struct IndexPartitionFactory
 }; // struct IndexPartitionFactory
 
 
-class DynamicIndexPartitionFactory final : public IndexPartitionFactory
-{
+class DynamicIndexPartitionFactory final : public IndexPartitionFactory {
 public:
     using IndexPartitionFactory::Value;
 
@@ -45,8 +41,9 @@ public:
 
     DynamicIndexPartitionFactory() noexcept;
 
-    DynamicIndexPartitionFactory(Partition range,
-                                 Size partitionCount);
+    DynamicIndexPartitionFactory(
+        Partition range,
+        Size partitionCount);
 
     ~DynamicIndexPartitionFactory() override;
 
@@ -61,5 +58,3 @@ private:
 
 
 } // namespace cie::mp
-
-#endif

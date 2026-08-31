@@ -216,7 +216,7 @@ private:
         template <concepts::SamplableGeometry TObject>
         std::size_t find(
             Ref<const typename Geometry::Point> rPoint,
-            Ref<const std::span<const TObject>> rObjects) const noexcept;
+            Ref<const std::span<const TObject>> rObjects) const;
 
         Ptr<std::conditional_t<
             TMutable,

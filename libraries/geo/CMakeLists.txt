@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.20)
 project(geo LANGUAGES CXX VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -7,10 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Declare all CMake settings
-set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
-set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
-set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
-set(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS                      OFF CACHE BOOL "Enable macros for checking division by zero errors.")
 set(${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY              ON CACHE BOOL "build shared libraries instead of static ones")
 set(${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE               ON CACHE BOOL "build python bindings for ${PROJECT_NAME}")
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
@@ -19,47 +15,19 @@ set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
-if (NOT TARGET linalg)
+if (NOT TARGET cie::linalg)
     find_package(linalg CONFIG REQUIRED)
 endif()
 
-# Compile definitions
-if(${PROJECT_NAME_UPPER}_ENABLE_PROFILING)
-    add_compile_definitions(CIE_ENABLE_PROFILING=1)
+# Platform specific path definitions.
+if(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CIE_INSTALL_RPATH "$ORIGIN")
 endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_OUT_OF_RANGE_CHECKS)
-    add_compile_definitions(CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
-endif()
-
-if(${PROJECT_NAME_UPPER}_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    add_compile_definitions(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
-endif()
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror
-        -Wno-dangling-reference
-        -Wno-maybe-uninitialized)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror
-        -Wno-c2y-extensions)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    add_compile_options(-Wall -Wpedantic -Wextra -Werror)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    message(FATAL_ERROR "MSVC is not supported yet")
-endif ()
 
 # Build main library
-file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp")
 if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE})
     add_library(${PROJECT_NAME} SHARED ${sources})
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
@@ -68,20 +36,46 @@ else()
 endif()
 add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Werror
+        -Wno-dangling-reference
+        -Wno-maybe-uninitialized
+        -Wno-array-bounds)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wall
+        -Wpedantic
+        -Wextra
+        -Werror
+        -Wno-c2y-extensions
+        -Wno-dtor-name)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Werror)
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    message(FATAL_ERROR "MSVC is not supported yet")
+endif ()
+
 target_link_libraries(${PROJECT_NAME} PUBLIC cie::linalg)
-target_include_directories(${PROJECT_NAME}
-                           PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                           INTERFACE "$<INSTALL_INTERFACE:cie/include>"
-                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+    INTERFACE
+        "$<INSTALL_INTERFACE:include/cie>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      INSTALL_RPATH "$ORIGIN")
+                      INSTALL_RPATH "${CIE_INSTALL_RPATH}")
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
-    file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
+    file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
     list(INSERT test_sources 0 "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
 
     find_package(Catch2 REQUIRED)
@@ -94,31 +88,35 @@ endif()
 # Build python module
 if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
-    find_package(pybind11 REQUIRED)
 
-    file(GLOB_RECURSE python_module_sources "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
+    set(PYBIND11_FINDPYTHON ON)
+    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(pybind11 CONFIG REQUIRED)
+
+    file(GLOB_RECURSE python_module_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
     pybind11_add_module(${PROJECT_NAME}_python_bindings MODULE ${python_module_sources})
     target_link_libraries(${PROJECT_NAME}_python_bindings PRIVATE ${PROJECT_NAME})
     set_target_properties(${PROJECT_NAME}_python_bindings PROPERTIES
                           LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                           ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                          INSTALL_RPATH "$ORIGIN")
+                          INSTALL_RPATH "${CIE_INSTALL_RPATH}/../")
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is
-    file(GLOB children "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/*")
+    file(GLOB children CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/*")
     foreach(child ${children})
         if (IS_DIRECTORY "${child}")
             get_filename_component(module_name "${child}" NAME)
             install(DIRECTORY "${child}"
-                    DESTINATION "cie")
+                    DESTINATION "lib/cie")
         endif()
     endforeach()
 
     # Install bindings
-    install(TARGETS ${PROJECT_NAME}_python_bindings
-            EXPORT ${PROJECT_NAME}Targets
-            LIBRARY DESTINATION "cie/lib")
+    install(
+        TARGETS ${PROJECT_NAME}_python_bindings
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION "lib/cie")
 endif()
 
 # Package
@@ -136,7 +134,10 @@ set(CPACK_SOURCE_IGNORE_FILES
     /.git
     /build
     *.gitignore)
-include(CPack)
+
+if (NOT DEFINED CPack_CMake_INCLUDED)
+    include(CPack)
+endif()
 
 # Generate CMake config
 include(CMakePackageConfigHelpers)
@@ -152,28 +153,21 @@ write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Con
 # Install targets
 install(TARGETS ${PROJECT_NAME}
         EXPORT ${PROJECT_NAME}Targets
-        LIBRARY DESTINATION "cie/lib"
-        ARCHIVE DESTINATION "cie/lib"
-        RUNTIME DESTINATION "cie/bin"
-        INCLUDES DESTINATION "cie/include")
+        LIBRARY DESTINATION "lib"
+        ARCHIVE DESTINATION "lib"
+        RUNTIME DESTINATION "bin"
+        INCLUDES DESTINATION "include/cie")
 install(EXPORT ${PROJECT_NAME}Targets
         FILE ${PROJECT_NAME}Targets.cmake
         NAMESPACE cie::
-        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+        DESTINATION "lib/cmake/${PROJECT_NAME}")
 
 # Install headers
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
-        DESTINATION "cie/include"
+        DESTINATION "include/cie"
         FILES_MATCHING PATTERN "*.hpp")
 
 # Install CMake config
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
-
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${PROJECT_NAME}
-       NAMESPACE cie::
-       FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
+        DESTINATION "lib/cmake/${PROJECT_NAME}")

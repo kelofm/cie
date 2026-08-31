@@ -20,7 +20,7 @@ constexpr CellDomain<TCell>::CellDomain(Ref<const TCell> rCell) noexcept
 
 
 template <CellLike TCell>
-void CellDomain<TCell>::whichSubdomain(
+void CellDomain<TCell>::subdomain(
         std::span<const typename TCell::Value> points,
         std::span<DomainData> subdomains) {
     using Value = typename TCell::Value;

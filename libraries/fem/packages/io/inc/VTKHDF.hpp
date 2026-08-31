@@ -11,7 +11,6 @@
 #include <filesystem> // std::filesystem::path
 #include <memory> // std::unique_ptr
 #include <string_view> // std::string_view
-#include <optional> // std::optional
 #include <vector> // std::vector
 
 
@@ -35,36 +34,28 @@ struct VTKHDF {
 
         /// @brief Write a mesh of cells to an unstructured grid.
         template <fem::CellLike TCell>
-        void operator()(
+        void writeCells(
             std::string_view groupName,
             std::span<const TCell> cells);
-
-        /// @brief Write a mesh of cells to an unstructured grid.
-        template <fem::DiscretizationLike TMesh>
-        void operator()(
-            std::string_view groupName,
-            Ref<const TMesh> rMesh);
 
         template <class TValue, unsigned Dimension>
         void writePointCloud(
             std::string_view groupName,
-            std::span<const TValue> coordinates);
+            std::span<const TValue> coordinates,
+            std::optional<std::array<std::size_t,Dimension>> maybeGridResolution = {});
 
-        template <class TValue, fem::DiscretizationLike TMesh>
-        requires std::is_same_v<typename TMesh::Vertex::Data::Value,TValue>
-        void writeFieldVariables(
+        template <class TValue, unsigned Dimension>
+        void writeSTL(
             std::string_view groupName,
-            Ref<const TMesh> rMesh,
-            Ref<const fem::Assembler> rAssembler,
-            std::vector<std::pair<
-                std::string,
-                std::span<const TValue>>
-            > fieldVariables);
+            std::span<const TValue> triangles);
+
+        template <class TValue, unsigned Dimension>
+        void writeSegments(
+            std::string_view groupName,
+            std::span<const TValue> segments);
 
         template <class TValue, fem::DiscretizationLike TMesh, fem::CellLike TCell>
-        requires (
-            std::is_same_v<typename TMesh::Vertex::Data,TCell>
-            && std::is_same_v<typename TCell::Value,TValue>)
+        requires std::is_same_v<typename TCell::Value,TValue>
         void writeFieldVariables(
             std::string_view groupName,
             Ref<const TMesh> rMesh,
@@ -95,23 +86,6 @@ struct VTKHDF {
 
     protected:
         using Prefix = std::filesystem::path;
-
-        template <class TMesh, class TCell>
-        void writeMesh(
-            std::optional<std::reference_wrapper<const TMesh>> rMaybeMesh,
-            std::optional<std::span<const TCell>> maybeCells,
-            std::string_view groupName);
-
-        template <class TMesh, class TCell, class TValue>
-        void writeFieldVariablesImpl(
-            std::string_view groupName,
-            Ref<const TMesh> rMesh,
-            std::optional<std::span<const TCell>> maybeCells,
-            Ref<const fem::Assembler> rAssembler,
-            std::vector<std::pair<
-                std::string,
-                std::span<const TValue>>
-            > fieldVariables);
 
         void makeGroup(Ref<const Prefix> rPrefix);
 

@@ -62,14 +62,14 @@ AbsCartesianGridSampler<TPrimitive>::getSpatialIndex(Size flatIndex) const
 
 /* --- Cube sampler --- */
 
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 CartesianGridSampler<TPrimitive>::CartesianGridSampler(const Resolution& r_resolution) :
     AbsCartesianGridSampler<TPrimitive>(r_resolution)
 {
 }
 
 
-template <concepts::Cube TPrimitive>
+template <geo::CubeLike TPrimitive>
 inline typename CartesianGridSampler<TPrimitive>::Point
 CartesianGridSampler<TPrimitive>::getSamplePoint(const TPrimitive& r_primitive,
                                                  Size index) const

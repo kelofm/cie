@@ -83,4 +83,34 @@ void OrthogonalScaleTransform<TValue,Dimension>::evaluate(
 }
 
 
+template <concepts::Numeric T, unsigned D>
+template <class TA>
+void OrthogonalScaleTransformDerivative<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<OrthogonalScaleTransformDerivative> rInstance,
+    Ref<const TA> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+}
+
+
+template <concepts::Numeric T, unsigned D>
+template <class TA>
+void OrthogonalScaleTransform<T,D>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<OrthogonalScaleTransform> rInstance,
+    Ref<const TA> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._scales.data(),
+            rInstance._scales.size(),
+            rAllocator);
+}
+
+
 } // namespace cie::fem::maths

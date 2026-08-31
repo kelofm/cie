@@ -2,7 +2,6 @@
 
 // help the language server
 #include "packages/numeric/inc/CellBase.hpp"
-#include <type_traits>
 
 
 namespace cie::fem {

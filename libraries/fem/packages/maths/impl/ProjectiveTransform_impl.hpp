@@ -6,6 +6,9 @@
 // --- Linalg Includes ---
 #include "packages/overloads/inc/matrix_operators.hpp"
 
+// --- Utility Includes ---
+#include "packages/io/inc/Serializer.hpp"
+
 // --- STL Includes ---
 #include <numeric> // std::inner_product
 
@@ -118,6 +121,36 @@ void ProjectiveTransform<TValue,Dimension>::evaluate(
             out.data(),
             [scale](TValue component) {return component * scale;}
         );
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+template <class TA>
+void ProjectiveTransform<TValue,Dimension>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ProjectiveTransform> rInstance,
+    Ref<const TA> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transformationMatrix.data(),
+            rInstance._transformationMatrix.size(),
+            rAllocator);
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+template <class TA>
+void ProjectiveTransformDerivative<TValue,Dimension>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<ProjectiveTransformDerivative> rInstance,
+    Ref<const TA> rAllocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._projectionMatrix.data(),
+            rInstance._projectionMatrix.size(),
+            rAllocator);
 }
 
 

@@ -10,7 +10,11 @@
 namespace cie::fem::maths {
 
 
-template <class TValue, unsigned TParametricDimension, unsigned TPhysicalDimension>
+template <
+    class TValue,
+    unsigned TParametricDimension,
+    unsigned TPhysicalDimension,
+    class TAllocator = std::allocator<TValue>>
 class BSpline : public ExpressionTraits<TValue> {
 public:
     constexpr inline static unsigned ParametricDimension = TParametricDimension;
@@ -25,11 +29,15 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-    BSpline() noexcept = default;
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = BSpline<TValue,TParametricDimension,TPhysicalDimension,TOtherAllocator<TValue>>;
+
+    BSpline(Ref<const TAllocator> rAllocator = TAllocator()) noexcept;
 
     BSpline(
         std::span<const std::span<const TValue>,PhysicalDimension> controlPointCoordinates,
-        std::span<const TValue> knots)
+        std::span<const TValue> knots,
+        Ref<const TAllocator> rAllocator = TAllocator())
     requires (ParametricDimension == 1u);
 
     void evaluate(
@@ -86,7 +94,7 @@ private:
     ///          - control point y coordinates
     ///          - ...
     ///          - knot vector
-    std::vector<TValue> _data;
+    std::vector<TValue,TAllocator> _data;
 
     std::array<std::size_t,ParametricDimension> _controlPointCount;
 }; // class BSpline

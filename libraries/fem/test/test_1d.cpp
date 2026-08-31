@@ -16,7 +16,6 @@
 #include "packages/maths/inc/Polynomial.hpp"
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/ScaleTranslateTransform.hpp"
-#include "packages/maths/inc/LambdaExpression.hpp"
 #include "packages/numeric/inc/GaussLegendreQuadrature.hpp"
 #include "packages/numeric/inc/Quadrature.hpp"
 
@@ -27,7 +26,12 @@
 namespace cie::fem {
 
 
+constexpr unsigned Dimension = 1;
+
+// Construct a linear 1D ansatz space
 using Scalar = double;
+using Basis = maths::Polynomial<Scalar>;
+using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
 
 
 using CellData = CellBase<
@@ -46,6 +50,119 @@ struct BoundaryData {
 };
 
 
+class Test1DIntegrand : public maths::ExpressionTraits<Scalar> {
+public:
+    template <template <class ...> class, class>
+    using Rebind = Test1DIntegrand;
+
+    Test1DIntegrand() noexcept = default;
+
+    Test1DIntegrand(
+        Ref<const Ansatz::Derivative> rAnsatzDerivative,
+        Ref<const CellData::SpatialTransform> rTransform,
+        Scalar coefficient)
+            :   _ansatzDerivative(rAnsatzDerivative),
+                _transform(rTransform),
+                _coefficient(coefficient)
+    {}
+
+    void evaluate(
+        maths::ExpressionTraits<Scalar>::ConstSpan in,
+        maths::ExpressionTraits<Scalar>::Span out,
+        maths::ExpressionTraits<Scalar>::BufferSpan buffer) const {
+            maths::ExpressionTraits<Scalar>::BufferSpan ansatzDerivatives(
+                buffer.data(),
+                _ansatzDerivative.size());
+            const unsigned ansatzCount = ansatzDerivatives.size() / Dimension;
+            maths::ExpressionTraits<Scalar>::BufferSpan product(
+                ansatzDerivatives.end(),
+                ansatzCount * ansatzCount);
+            maths::ExpressionTraits<Scalar>::BufferSpan nestedBuffer(
+                product.end(),
+                buffer.end());
+
+            const Scalar jacobianDeterminant = _transform.makeDerivative().evaluateDeterminant(in, nestedBuffer);
+            _ansatzDerivative.evaluate(in, ansatzDerivatives, nestedBuffer);
+
+            using MatrixAdaptor = Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>>;
+            MatrixAdaptor derivativeAdaptor(
+                ansatzDerivatives.data(),
+                Dimension,
+                ansatzDerivatives.size() / Dimension);
+            MatrixAdaptor productAdaptor(
+                product.data(),
+                ansatzCount,
+                ansatzCount);
+            productAdaptor = derivativeAdaptor.transpose() * derivativeAdaptor;
+
+            auto itOut = out.data();
+            for (unsigned iLocalRow=0u; iLocalRow<productAdaptor.rows(); ++iLocalRow) {
+                for (unsigned iLocalColumn=0u; iLocalColumn<productAdaptor.cols(); ++iLocalColumn) {
+                    *itOut++ += _coefficient * productAdaptor(iLocalRow, iLocalColumn) * std::abs(jacobianDeterminant);
+                } // for iLocalColumn in range(ansatzBuffer.size)
+            } // for iLocalRow in range(ansatzBuffer.size)
+    }
+
+    unsigned size() const {
+        return _ansatzDerivative.size();
+    }
+
+    unsigned bufferSize() const {
+        const unsigned derivativeCount = _ansatzDerivative.size();
+        const unsigned minSize = derivativeCount + (derivativeCount / Dimension) * (derivativeCount / Dimension);
+        unsigned output = minSize + _ansatzDerivative.bufferSize();
+        output = std::max<unsigned>(
+            output,
+            minSize + _transform.bufferSize());
+        output = std::max<unsigned>(
+            output,
+            minSize + _transform.makeDerivative().bufferSize());
+        return output;
+    }
+
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary) const {
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                _ansatzDerivative);
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                _transform);
+            cie::io::BinarySerializer::serialize(
+                rStream,
+                _coefficient);
+    }
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<Test1DIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._ansatzDerivative,
+                rAllocator);
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._transform,
+                rAllocator);
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                rInstance._coefficient,
+                rAllocator);
+    }
+
+private:
+    Ansatz::Derivative _ansatzDerivative;
+
+    CellData::SpatialTransform _transform;
+
+    Scalar _coefficient;
+}; // class Test1DIntegrand
+
+
 /** @brief 1D system test.
  *  @details This test models linear steady-state heat convection on a 1D bar
  *           with Dirichlet conditions on both boundaries.
@@ -62,12 +179,9 @@ struct BoundaryData {
  */
 CIE_TEST_CASE("1D", "[systemTests]") {
     CIE_TEST_CASE_INIT("1D")
-    constexpr unsigned Dimension = 1;
     constexpr Size nodeCount = 10;
 
     // Construct a linear 1D ansatz space
-    using Basis = maths::Polynomial<Scalar>;
-    using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
     auto pAnsatzSpace = std::make_shared<Ansatz>(Ansatz::AnsatzSet {
          Basis({ 0.5,  0.5})
         ,Basis({ 0.5, -0.5})
@@ -148,40 +262,14 @@ CIE_TEST_CASE("1D", "[systemTests]") {
     // Compute element contributions and assemble them into the matrix
     {
         const Quadrature<Scalar,1> quadrature(GaussLegendreQuadrature<Scalar>(/*integrationOrder=*/2));
-        DynamicArray<Scalar> derivativeBuffer(pAnsatzDerivatives->size());
         DynamicArray<Scalar> integrandBuffer(pAnsatzSpace->size() * pAnsatzSpace->size());
-        DynamicArray<Scalar> productBuffer(integrandBuffer.size());
-        DynamicArray<Scalar> nestedBuffer(pAnsatzDerivatives->bufferSize());
         DynamicArray<Scalar> quadratureBuffer;
 
         for (Ref<const Mesh::Vertex> rCell : mesh.vertices()) {
-            const auto jacobian = rCell.data().makeJacobian();
-
-            const auto localIntegrand = maths::makeLambdaExpression<Scalar>(
-                [&] (std::span<const Scalar> in, std::span<Scalar> out, std::span<Scalar> buffer) -> void {
-                    const Scalar jacobianDeterminant = jacobian.evaluateDeterminant(in, buffer);
-                    pAnsatzDerivatives->evaluate(in, derivativeBuffer, buffer);
-
-                    using MatrixAdaptor = Eigen::Map<Eigen::Matrix<Scalar,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>>;
-                    MatrixAdaptor derivativeAdaptor(
-                        derivativeBuffer.data(),
-                        Dimension,
-                        pAnsatzSpace->size());
-                    MatrixAdaptor productAdaptor(
-                        productBuffer.data(),
-                        pAnsatzSpace->size(),
-                        pAnsatzSpace->size());
-                    productAdaptor = derivativeAdaptor.transpose() * derivativeAdaptor;
-
-                    auto itOut = out.data();
-                    for (unsigned iLocalRow=0u; iLocalRow<productAdaptor.rows(); ++iLocalRow) {
-                        for (unsigned iLocalColumn=0u; iLocalColumn<productAdaptor.cols(); ++iLocalColumn) {
-                            *itOut++ += rCell.data().data() * productAdaptor(iLocalRow, iLocalColumn) * std::abs(jacobianDeterminant);
-                        } // for iLocalColumn in range(ansatzBuffer.size)
-                    } // for iLocalRow in range(ansatzBuffer.size)
-                },
-                integrandBuffer.size(),
-                nestedBuffer.size());
+            Test1DIntegrand localIntegrand(
+                *pAnsatzDerivatives,
+                rCell.data().makeSpatialTransform(),
+                rCell.data().data());
 
             quadratureBuffer.resize(quadrature.bufferSize(localIntegrand));
             quadrature.evaluate(

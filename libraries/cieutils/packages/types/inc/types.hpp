@@ -1,5 +1,4 @@
-#ifndef CIE_CIEUTILS_TYPES_HPP
-#define CIE_CIEUTILS_TYPES_HPP
+#pragma once
 
 /// @defgroup cieutils Utility Library
 
@@ -18,8 +17,7 @@ namespace cie {
 
 /// @ingroup cieutils
 template <class T>
-class NoInitWrapper
-{
+class NoInitWrapper {
 public:
     using Value = T;
 
@@ -101,9 +99,18 @@ struct VoidSafe<TVoid, TElse>
     using Ptr = TElse;
 };
 
+/// @brief An empty base class used for inheritance when some condition is not satisfied.
+struct EmptyBase {};
+
+
+template <bool Predicate, class TBase>
+using MaybeBase = std::conditional_t<
+    Predicate,
+    TBase,
+    EmptyBase>;
+
+
 } // namespace cie
 
 #include "packages/types/impl/types_impl.hpp"
 #include "packages/macros/inc/logging.hpp"
-
-#endif

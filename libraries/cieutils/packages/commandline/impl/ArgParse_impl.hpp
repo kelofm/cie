@@ -320,13 +320,14 @@ ArgParse& ArgParse::addFlag(KeyContainer&& r_keys, TArgs&&... r_optionals) {
         else
             CIE_THROW(Exception, "Attempting to add a keyword argument without keys assigned to it.")
 
-        return this->addArgument(std::move(name),
-                                 std::move(r_keys),
-                                 true,
-                                 ArgumentCount::None,
-                                 this->defaultValidator,
-                                 {},
-                                 std::move(rDocString));
+        return this->addArgument(
+            std::move(name),
+            std::move(r_keys),
+            true,
+            ArgumentCount::None,
+            this->defaultValidator,
+            {},
+            std::move(rDocString));
     };
 
     return ct::ArgumentMapper<std::string>(std::string("")).mapTuple<ArgParse&>(add, std::move(optionals));

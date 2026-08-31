@@ -3,50 +3,41 @@
 // --- Linalg Includes ---
 #include "packages/solvers/inc/LinearOperator.hpp"
 #include "packages/solvers/inc/DefaultSpace.hpp"
+#include "packages/utilities/inc/CSRView.hpp"
 
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 
-// --- STL Includes ---
-#include <span>
-
 
 namespace cie::linalg {
 
 
+/// @brief Linear operator representing a scaled matrix-vector product in CSR format.
 template <class TIndex, class TValue, class TMatrixValue = TValue>
 class CSROperator
-    : public LinearOperator<DefaultSpace<TValue,tags::SMP>> {
+    : public LinearOperator<DefaultSpace<TValue>> {
 private:
-    using Space = DefaultSpace<TValue,tags::SMP>;
+    using Space = DefaultSpace<TValue>;
 
 public:
     constexpr CSROperator() noexcept = default;
 
     CSROperator(
-        TIndex columnCount,
-        std::span<const TIndex> rowExtents,
-        std::span<const TIndex> columnIndices,
-        std::span<const TMatrixValue> entries,
+        CSRView<const TMatrixValue,const TIndex> lhs,
         OptionalRef<mp::ThreadPoolBase> rMaybeThreads = {});
 
     /// @copydoc LinearOperator::product
     void product(
+        typename Space::Value inScale,
         typename Space::ConstVectorView in,
-        typename Space::Value scale,
-        typename Space::VectorView out) const override;
+        typename Space::Value outScale,
+        typename Space::VectorView out) override;
 
 protected:
-    TIndex _columnCount;
+    CSRView<const TMatrixValue,const TIndex> _lhs;
 
-    std::span<const TIndex> _rowExtents;
-
-    std::span<const TIndex> _columnIndices;
-
-    std::span<const TMatrixValue> _entries;
-
-    mutable OptionalRef<mp::ThreadPoolBase> _maybeThreads;
+    OptionalRef<mp::ThreadPoolBase> _maybeThreads;
 }; // class CSROperator
 
 

@@ -15,13 +15,13 @@ namespace cie::fem {
 template <class T>
 concept DiscretizationLike
 =   GraphLike<T>
-&&  CellLike<typename T::Vertex::Data>
 &&  maths::Expression<typename T::Data::Ansatz>
 &&  maths::Expression<typename T::Data::Ansatz::Derivative>
 && requires (const typename T::Data& d) {
     {d.ansatzCount()}                       -> std::same_as<std::size_t>;
     {d.ansatz(std::size_t())}               -> std::same_as<Ref<const typename T::Data::Ansatz>>;
     {d.ansatzDerivative(std::size_t())}     -> std::same_as<Ref<const typename T::Data::Ansatz::Derivative>>;
+    {d.cells()};
 }; // concept DiscretizationLike
 
 

@@ -1,0 +1,44 @@
+{
+    "$id" : "/cie/fem/kd-tree-quadrature",
+    "type" : "object",
+    "properties" : {
+        "type" : {
+            "const" : "kd-tree-quadrature"
+        },
+        "template" : {
+            "anyOf" : [
+                {"$ref" : "/cie/fem/gauss-legendre-quadrature"}
+            ],
+            "description" : "Local quadrature rule to use on each subcell."
+        },
+        "min-tree-depth" : {
+            "type" : "integer",
+            "minimum" : 0,
+            "default" : 0,
+            "description" : "Minimum depth of the binary tree before generating quadrature points."
+        },
+        "max-tree-depth" : {
+            "type" : "integer",
+            "minimum" : 0,
+            "default" : 6,
+            "description" : "Maximum depth of the binary tree to generate quadrature points from."
+        },
+        "min-domain-norm" : {
+            "type" : "number",
+            "minimum" : 0,
+            "default" : 1e-10,
+            "description" : "Minimum size of the subcell's domain to generate quadrature points for."
+        }
+    },
+    "default" : {
+        "type" : "kd-tree-quadrature",
+        "template" : {
+            "type" : "gauss-legendre-quadrature",
+            "order" : 3
+        },
+        "min-tree-depth" : 0,
+        "max-tree-depth" : 6,
+        "min-domain-norm" : 1e-10
+    },
+    "required" : ["type"]
+}

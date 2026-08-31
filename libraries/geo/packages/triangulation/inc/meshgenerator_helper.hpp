@@ -4,10 +4,12 @@
 // --- Internal Includes ---
 #include "packages/triangulation/inc/meshgenerator.hpp"
 
-namespace cie::geo
-{
-namespace meshgeneratorhelper
-{
+// --- STL Includes ---
+#include <span>
+
+
+namespace cie::geo {
+namespace meshgeneratorhelper {
 
 /* Computes angle between three vertices a, b and c in polygon.
  * Given are the indices in region, which are again indices. Thus
@@ -17,7 +19,7 @@ namespace meshgeneratorhelper
  * b = vertices[region[v2]]
  * c = vertices[region[v3]]
  */
-double computeAngle( const Vertex2DVector& vertices,
+double computeAngle( std::span<const Vertex2D> vertices,
                      const IndexVector& region,
                      Size v1,
                      Size v2,
@@ -29,7 +31,7 @@ double computeAngle( const Vertex2DVector& vertices,
  * all four angles between the division and the adjacent
  * vertices are computed and the minimum is returned.
  */
-double computeSmallestAngle( const Vertex2DVector& vertices,
+double computeSmallestAngle( std::span<const Vertex2D> vertices,
                              const IndexVector& region,
                              Size i,
                              Size j );
@@ -42,7 +44,7 @@ double computeSmallestAngle( const Vertex2DVector& vertices,
  * two new regions is appended to the region vector. The
  * that was divided is replaced by the second new region.
  */
-void divideRegion( Vertex2DVector& vertices,
+void divideRegion( Ref<Vertex2DVector> vertices,
                    std::vector<IndexVector>& allRegions,
                    Size regionToDivide,
                    Size firstVertexId,
@@ -55,7 +57,7 @@ void divideRegion( Vertex2DVector& vertices,
  * Returns true if division was possible or the passed region
  * has less than four vertices.
  */
-bool attemptDivision( Vertex2DVector& vertices,
+bool attemptDivision( Ref<Vertex2DVector> vertices,
                       std::vector<IndexVector>& allRegions,
                       Size regionToDivide,
                       double angleCriterium,
@@ -81,7 +83,7 @@ bool checkBreakingCriteria( std::vector<IndexVector>& allRegions );
  *
  * quality = min( q1, q2 )
  */
-double chopQuality( const Vertex2DVector& vertices,
+double chopQuality( std::span<const Vertex2D> vertices,
                     const IndexVector& region,
                     Size id1,
                     Size id2,
@@ -102,7 +104,7 @@ double length( const Vector2D& v );
 double distance( const Vertex2D& v1, const Vertex2D& v2 );
 
 // Checks input validity and sets parameters.edgeLength if it was zero.
-void prepareForTriangulating( const Vertex2DVector& vertices,
+void prepareForTriangulating( std::span<const Vertex2D> vertices,
                               const std::vector<IndexVector>& polygonRegions,
                               TriangulationParameters& parameters );
 

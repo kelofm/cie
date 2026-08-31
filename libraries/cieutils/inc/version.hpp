@@ -11,8 +11,7 @@
 namespace cie {
 
 
-class Version
-{
+class Version {
 public:
     using Branch = std::string;
 

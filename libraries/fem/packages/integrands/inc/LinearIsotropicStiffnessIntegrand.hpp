@@ -7,7 +7,7 @@
 namespace cie::fem {
 
 
-template <maths::Expression TAnsatzDerivatives>
+template <maths::Expression TAnsatzDerivatives, maths::SpatialTransform TTransform>
 class LinearIsotropicStiffnessIntegrand
     : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value> {
 public:
@@ -21,16 +21,29 @@ public:
 
     using typename maths::ExpressionTraits<Value>::BufferSpan;
 
+    using Jacobian = typename TTransform::Derivative;
+
+    using JacobianInverse = typename TTransform::Inverse::Derivative;
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = LinearIsotropicStiffnessIntegrand<
+        typename TAnsatzDerivatives::template Rebind<TOtherAllocator,TOther>,
+        typename TTransform::template Rebind<TOtherAllocator,TOther>>;
+
 public:
     LinearIsotropicStiffnessIntegrand();
 
     LinearIsotropicStiffnessIntegrand(
         const Value modulus,
-        RightRef<TAnsatzDerivatives> rAnsatzDerivatives) noexcept;
+        RightRef<TAnsatzDerivatives> rAnsatzDerivatives,
+        RightRef<Jacobian> rJacobian,
+        RightRef<JacobianInverse> rJacobianInverse) noexcept;
 
     LinearIsotropicStiffnessIntegrand(
         const Value modulus,
-        Ref<const TAnsatzDerivatives> rAnsatzDerivatives);
+        Ref<const TAnsatzDerivatives> rAnsatzDerivatives,
+        Ref<const Jacobian> rJacobian,
+        Ref<const JacobianInverse> rJacobianInverse);
 
     void evaluate(
         ConstSpan in,
@@ -49,10 +62,25 @@ public:
     static constexpr unsigned bufferSize() noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
-private:
-    Value _modulus;
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
 
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<LinearIsotropicStiffnessIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
+
+private:
     TAnsatzDerivatives _ansatzDerivatives;
+
+    Jacobian _jacobian;
+
+    JacobianInverse _jacobianInverse;
+
+    Value _modulus;
 }; // class LinearIsotropicStiffnessIntegrand
 
 

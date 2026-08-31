@@ -18,33 +18,37 @@ namespace cie::fem::maths {
 
 
 template <concepts::Numeric TValue,
-          unsigned InDimension,
-          unsigned OutDimension>
+          unsigned ParametricDimension,
+          unsigned PhysicalDimension>
 class AffineEmbedding {};
 
 
 template <concepts::Numeric TValue,
-          unsigned InDimension,
-          unsigned OutDimension>
+          unsigned ParametricDimension,
+          unsigned PhysicalDimension>
 class AffineEmbeddingInverse {};
 
 
 template <concepts::Numeric TValue,
-          unsigned InDimension,
-          unsigned OutDimension>
+          unsigned ParametricDimension,
+          unsigned PhysicalDimension>
 class AffineEmbeddingDerivative {};
 
 
 template <concepts::Numeric TValue,
-          unsigned InDimension,
-          unsigned OutDimension>
+          unsigned ParametricDimension,
+          unsigned PhysicalDimension>
 class AffineEmbeddingInverseDerivative {};
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbedding<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbedding)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbedding;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -54,27 +58,27 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-    static constexpr unsigned InDimension = 1u;
+    static constexpr unsigned ParametricDimension = 1u;
 
-    static constexpr unsigned OutDimension = 2u;
+    static constexpr unsigned PhysicalDimension = 2u;
 
-    using InPoint = std::array<Value,InDimension>;
+    using InPoint = std::array<Value,ParametricDimension>;
 
-    using OutPoint = std::array<TValue,OutDimension>;
+    using OutPoint = std::array<TValue,PhysicalDimension>;
 
-    using Derivative = AffineEmbeddingDerivative<TValue,InDimension,OutDimension>;
+    using Derivative = AffineEmbeddingDerivative<TValue,ParametricDimension,PhysicalDimension>;
 
-    using Inverse = AffineEmbeddingInverse<TValue,OutDimension,InDimension>;
+    using Inverse = AffineEmbeddingInverse<TValue,PhysicalDimension,ParametricDimension>;
 
     AffineEmbedding() noexcept = default;
 
     template <class T>
     requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
-    AffineEmbedding(std::span<const std::array<T,OutDimension>,2> transformed);
+    AffineEmbedding(std::span<const std::array<T,PhysicalDimension>,2> transformed);
 
     template <class T>
     requires ct::Match<T>::template Any<TValue,PhysicalCoordinate<TValue>>
-    AffineEmbedding(Ref<const std::array<std::array<T,OutDimension>,2>> rTransformed);
+    AffineEmbedding(Ref<const std::array<std::array<T,PhysicalDimension>,2>> rTransformed);
 
     void evaluate(
         ConstSpan in,
@@ -89,19 +93,34 @@ public:
 
     Derivative makeDerivative() const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbedding> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
     friend class AffineEmbeddingInverse<TValue,2u,1u>;
 
-    AffineEmbedding(RightRef<AffineTransform<TValue,OutDimension>> rTransform) noexcept;
+    AffineEmbedding(RightRef<AffineTransform<TValue,PhysicalDimension>> rTransform) noexcept;
 
-    AffineTransform<TValue,OutDimension> _transform;
+    AffineTransform<TValue,PhysicalDimension> _transform;
 }; // class AffineEmbedding
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbeddingDerivative<TValue,1u,2u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingDerivative)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbeddingDerivative;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -111,9 +130,9 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-    static constexpr unsigned InDimension = 1u;
+    static constexpr unsigned ParametricDimension = 1u;
 
-    static constexpr unsigned OutDimension = 2u;
+    static constexpr unsigned PhysicalDimension = 2u;
 
     AffineEmbeddingDerivative() noexcept = default;
 
@@ -130,19 +149,34 @@ public:
         ConstSpan in,
         BufferSpan buffer) const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingDerivative> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
-    friend class AffineEmbedding<TValue,InDimension,OutDimension>;
+    friend class AffineEmbedding<TValue,ParametricDimension,PhysicalDimension>;
 
-    AffineEmbeddingDerivative(RightRef<typename AffineTransform<TValue,OutDimension>::Derivative> rTransformDerivative) noexcept;
+    AffineEmbeddingDerivative(RightRef<typename AffineTransform<TValue,PhysicalDimension>::Derivative> rTransformDerivative) noexcept;
 
-    typename AffineTransform<TValue,OutDimension>::Derivative _transformDerivative;
+    typename AffineTransform<TValue,PhysicalDimension>::Derivative _transformDerivative;
 }; // class AffineEmbeddingDerivative
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbeddingInverse<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverse)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbeddingInverse;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -152,13 +186,13 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-    static constexpr unsigned InDimension = 2u;
+    static constexpr unsigned ParametricDimension = 2u;
 
-    static constexpr unsigned OutDimension = 1u;
+    static constexpr unsigned PhysicalDimension = 1u;
 
-    using Inverse = AffineEmbedding<TValue,OutDimension,InDimension>;
+    using Inverse = AffineEmbedding<TValue,PhysicalDimension,ParametricDimension>;
 
-    using Derivative = AffineEmbeddingInverseDerivative<TValue,InDimension,OutDimension>;
+    using Derivative = AffineEmbeddingInverseDerivative<TValue,ParametricDimension,PhysicalDimension>;
 
     AffineEmbeddingInverse() noexcept = default;
 
@@ -175,19 +209,34 @@ public:
 
     Derivative makeDerivative() const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingInverse> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
     friend class AffineEmbedding<TValue,1u,2u>;
 
-    AffineEmbeddingInverse(RightRef<typename AffineTransform<TValue,InDimension>::Inverse> rTransform) noexcept;
+    AffineEmbeddingInverse(RightRef<typename AffineTransform<TValue,ParametricDimension>::Inverse> rTransform) noexcept;
 
-    typename AffineTransform<TValue,InDimension>::Inverse _transform;
+    typename AffineTransform<TValue,ParametricDimension>::Inverse _transform;
 }; // class AffineEmbeddingInverse
 
 
+/// @ingroup fem
 template <concepts::Numeric TValue>
 class AffineEmbeddingInverseDerivative<TValue,2u,1u> : public ExpressionTraits<TValue> {
 public:
     CIE_DEFINE_CLASS_POINTERS(AffineEmbeddingInverseDerivative)
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = AffineEmbeddingInverseDerivative;
 
     using typename ExpressionTraits<TValue>::Value;
 
@@ -197,11 +246,11 @@ public:
 
     using typename ExpressionTraits<TValue>::BufferSpan;
 
-    static constexpr unsigned InDimension = 2u;
+    static constexpr unsigned ParametricDimension = 2u;
 
-    static constexpr unsigned OutDimension = 1u;
+    static constexpr unsigned PhysicalDimension = 1u;
 
-    AffineEmbeddingInverseDerivative() noexcept;
+    AffineEmbeddingInverseDerivative() noexcept = default;
 
     void evaluate(
         ConstSpan in,
@@ -216,12 +265,23 @@ public:
         ConstSpan in,
         BufferSpan buffer) const;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingInverseDerivative> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
-    friend class AffineEmbeddingInverse<TValue,InDimension,OutDimension>;
+    friend class AffineEmbeddingInverse<TValue,ParametricDimension,PhysicalDimension>;
 
-    AffineEmbeddingInverseDerivative(RightRef<typename AffineTransform<TValue,InDimension>::Inverse::Derivative> rTransformDerivative) noexcept;
+    AffineEmbeddingInverseDerivative(RightRef<typename AffineTransform<TValue,ParametricDimension>::Inverse::Derivative> rTransformDerivative) noexcept;
 
-    typename AffineTransform<TValue,InDimension>::Inverse::Derivative _transformDerivative;
+    typename AffineTransform<TValue,ParametricDimension>::Inverse::Derivative _transformDerivative;
 }; // class AffineEmbeddingInverseDerivative
 
 

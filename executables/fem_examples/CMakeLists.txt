@@ -10,9 +10,16 @@ string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake")
 if (NOT TARGET fem)
     find_package(fem CONFIG REQUIRED)
+endif()
+
+# Platform specific path definitions.
+if(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CIE_INSTALL_RPATH "$ORIGIN")
 endif()
 
 # Build executables.
@@ -74,7 +81,7 @@ foreach(directory ${directories})
             INSTALL_RPATH "$ORIGIN/../lib")
     endif()
 
-    install(TARGETS ${driver_name} RUNTIME DESTINATION "cie/bin")
+    install(TARGETS ${driver_name} RUNTIME DESTINATION "bin")
 
     # Package.
     include(InstallRequiredSystemLibraries)
@@ -91,7 +98,10 @@ foreach(directory ${directories})
         /.git
         /build
         *.gitignore)
-    include(CPack)
+
+    if (NOT DEFINED CPack_CMake_INCLUDED)
+        include(CPack)
+    endif()
 endforeach()
 
 # Generate CMake config
@@ -111,13 +121,13 @@ write_basic_package_version_file(
 install(
     TARGETS ${targets}
     EXPORT ${PROJECT_NAME}Targets
-    RUNTIME DESTINATION "cie/bin"
-    INCLUDES DESTINATION "cie/include")
+    RUNTIME DESTINATION "bin"
+    INCLUDES DESTINATION "include/cie")
 install(
     EXPORT ${PROJECT_NAME}Targets
     FILE ${PROJECT_NAME}Targets.cmake
     NAMESPACE cie::
-    DESTINATION "cie/bin/cmake/${PROJECT_NAME}")
+    DESTINATION "bin/cmake/${PROJECT_NAME}")
 
 # Install CMake config
 install(
@@ -125,7 +135,7 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
     DESTINATION
-        "cie/bin/cmake/${PROJECT_NAME}")
+        "bin/cmake/${PROJECT_NAME}")
 
 # Export
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)

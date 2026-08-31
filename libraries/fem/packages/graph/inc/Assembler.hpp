@@ -45,17 +45,34 @@ public:
     explicit Assembler(std::size_t dofBegin) noexcept;
 
     template <
-        class TVertexData,
-        class TEdgeData,
+        CellLike TVertexData,
+        CellBoundaryLike TEdgeData,
         class TGraphData,
         unsigned Dimension>
-    requires (CellLike<TVertexData> && CellBoundaryLike<TEdgeData>)
     void addGraph(
         Ref<const Graph<TVertexData,TEdgeData,TGraphData>> rGraph,
         Ref<const AnsatzMap<Dimension>> rAnsatzMap,
         std::size_t dofsPerCell);
 
+    template <
+        CellLike TCell,
+        unsigned Dimension,
+        GraphLike TGraph,
+        concepts::FunctionWithSignature<
+            Ref<const TCell>,
+            VertexID
+        > TCellGetter>
+    requires CellBoundaryLike<typename TGraph::Edge::Data>
+    void addGraph(
+        Ref<const TGraph> rGraph,
+        TCellGetter&& rCellGetter,
+        Ref<const AnsatzMap<Dimension>> rAnsatzMap,
+        std::size_t dofsPerCell);
+
     std::size_t dofCount() const noexcept;
+
+    template <concepts::Integer T>
+    void reorder(std::span<const T> map);
 
     template <class TIndex, class TValue>
     void makeCSRMatrix(
@@ -64,13 +81,14 @@ public:
         Ref<DynamicArray<TIndex>> rRowExtents,
         Ref<DynamicArray<TIndex>> rColumnIndices,
         Ref<DynamicArray<TValue>> rNonzeros,
+        std::optional<std::span<const VertexID>> maybeCellIDs = {},
         OptionalRef<mp::ThreadPoolBase> rThreadPool = {}) const;
 
     template <
         TagLike TParallel = tags::SMP,
         concepts::Integer TIndex,
-        concepts::Numeric TLocalScalar,
-        concepts::Numeric TGlobalScalar>
+        class TLocalScalar,
+        class TGlobalScalar>
     void addContribution(
         std::span<const TLocalScalar> contribution,
         VertexID cellID,
@@ -80,8 +98,8 @@ public:
 
     template <
         TagLike TParallel = tags::SMP,
-        concepts::Numeric TLocalScalar,
-        concepts::Numeric TGlobalScalar>
+        class TLocalScalar,
+        class TGlobalScalar>
     void addContribution(
         std::span<const TLocalScalar> contribution,
         VertexID cellID,
@@ -111,7 +129,7 @@ public:
 
     auto operator[](VertexID vertexID) const {
         const auto it = _dofMap.find(vertexID);
-        CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end())
+        CIE_OUT_OF_RANGE_CHECK(it != _dofMap.end(), vertexID)
         return this->makeIndexView(it->second);
     }
 
@@ -120,6 +138,13 @@ private:
 
     DoFMap _dofMap;
 }; // class Assembler
+
+
+template <unsigned Dimension, class TIndex>
+void makeAnsatzMask(
+    Ref<const Assembler> rAssembler,
+    std::size_t setSize,
+    std::span<TIndex> mask);
 
 
 } // namespace cie::fem

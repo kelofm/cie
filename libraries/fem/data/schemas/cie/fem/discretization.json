@@ -1,0 +1,26 @@
+{
+    "$id" : "/cie/fem/discretization",
+    "description" : "Settings related to a cartesian discretization.",
+    "type" : "object",
+    "properties" : {
+        "geometric" : {"$ref" : "/cie/fem/geometric-discretization"},
+        "functional" : {"$ref" : "/cie/fem/functional-discretization"},
+        "integration" : {
+            "$ref" : "/cie/fem/integration"
+        },
+        "postprocessing" : {
+            "allOf" : [
+                {"$ref" : "/cie/fem/cell-postprocessing"},
+                {"$ref" : "/cie/fem/scatter-postprocessing"}
+            ]
+        }
+    },
+    "default" : {
+        "geometric" : {},
+        "functional" : {},
+        "integration" : {},
+        "postprocessing" : {}
+    },
+    "required" : [],
+    "additionalProperties" : false
+}

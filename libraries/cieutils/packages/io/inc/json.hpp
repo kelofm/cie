@@ -1,5 +1,4 @@
-#ifndef CIE_UTILS_IO_JSON_HPP
-#define CIE_UTILS_IO_JSON_HPP
+#pragma once
 
 // --- External Includes ---
 #include "nlohmann/json_fwd.hpp"
@@ -7,6 +6,7 @@
 // --- Utility Includes ---
 #include "packages/stl_extension/inc/RuntimeConst.hpp"
 #include "packages/compile_time/packages/concepts/inc/container_concepts.hpp"
+#include "packages/compile_time/packages/parameter_pack/inc/Match.hpp"
 #include "packages/macros/inc/checks.hpp"
 #include "packages/types/inc/modifiers.hpp"
 #include "packages/stl_extension/inc/StaticArray.hpp"
@@ -15,6 +15,7 @@
 #include <istream>
 #include <ostream>
 #include <filesystem>
+#include <span>
 
 
 namespace cie::io {
@@ -25,27 +26,26 @@ class JSONObject;
 namespace cie::concepts::io {
 
 template <class T>
-concept SupportedBase
-=  std::same_as<std::decay_t<T>, bool>
-|| std::same_as<std::decay_t<T>, int>
-|| std::same_as<std::decay_t<T>, long int>
-|| std::same_as<std::decay_t<T>, long long>
-|| std::same_as<std::decay_t<T>, Size>
-|| std::same_as<std::decay_t<T>, float>
-|| std::same_as<std::decay_t<T>, double>
-|| std::same_as<std::decay_t<T>, std::string>
-|| std::same_as<std::decay_t<T>, cie::io::JSONObject>;
+concept SupportedBase = ct::Match<std::decay_t<T>>::template Any<
+    bool,
+    int,
+    long int,
+    long long,
+    Size,
+    float,
+    double,
+    std::string,
+    cie::io::JSONObject,
+    std::nullptr_t>;
 
 template <class T>
 concept SupportedType
 =  SupportedBase<T>
 || (Container<std::decay_t<T>> && SupportedBase<typename std::decay_t<T>::value_type>);
-} // namespace cie::concepts::detail
+} // namespace cie::concepts::io
 
 
-
-namespace cie::io
-{
+namespace cie::io {
 
 
 /** @brief Basic interface for a json parser
@@ -57,19 +57,18 @@ namespace cie::io
  *           - double
  *           - std::string
  *           - JSONObject
+ *           - nullptr
  *           - std::vector of any above except bool
  *           - StaticArray of any above with size 1, 2, or 3
  *  @ingroup cieutils
  */
-class JSONObject
-{
+class JSONObject {
 public:
     using content_type = nlohmann::json;
 
 private:
     template <class Value>
-    class IteratorBase
-    {
+    class IteratorBase {
     public:
         using value_type      = typename CopyConstQualifier<Value,JSONObject>::Type;
         using pointer         = value_type*;
@@ -77,20 +76,20 @@ private:
         using difference_type = int;
 
     public:
-        IteratorBase(value_type& r_json);
+        IteratorBase(value_type& rJSON);
 
-        IteratorBase(value_type& r_json, difference_type index);
+        IteratorBase(value_type& rJSON, difference_type index);
 
         IteratorBase() = delete;
 
-        IteratorBase(IteratorBase&& r_rhs) = default;
+        IteratorBase(IteratorBase&& rRhs) = default;
 
-        IteratorBase(const IteratorBase& r_rhs)
+        IteratorBase(const IteratorBase& rRhs)
         requires concepts::Const<Value> = default;
 
-        IteratorBase& operator=(IteratorBase&& r_rhs) = default;
+        IteratorBase& operator=(IteratorBase&& rRhs) = default;
 
-        IteratorBase& operator=(const IteratorBase& r_rhs)
+        IteratorBase& operator=(const IteratorBase& rRhs)
         requires concepts::Const<Value> = default;
 
         value_type operator*();
@@ -105,34 +104,29 @@ private:
 
         IteratorBase operator--(int);
 
-        //IteratorBase& operator+=(difference_type difference);
+        bool operator!=(const IteratorBase& rRhs) const;
 
-        //IteratorBase& operator-=(difference_type difference);
+        bool operator<(const IteratorBase& rRhs) const;
 
-        //IteratorBase operator+(difference_type rhs);
+        bool operator<=(const IteratorBase& rRhs) const;
 
-        //IteratorBase operator-(difference_type rhs);
+        bool operator>(const IteratorBase& rRhs) const;
 
-        //bool operator==(const IteratorBase& r_rhs);
-
-        bool operator!=(const IteratorBase& r_rhs);
-
-        bool operator<(const IteratorBase& r_rhs);
-
-        bool operator<=(const IteratorBase& r_rhs);
-
-        bool operator>(const IteratorBase& r_rhs);
-
-        bool operator>=(const IteratorBase& r_rhs);
+        bool operator>=(const IteratorBase& rRhs) const;
 
         std::string key() const;
 
         value_type value();
 
-        const value_type value() const;
+        value_type value() const;
 
     private:
+        value_type* get();
+
+        const value_type* get() const;
+
         value_type*     _p_base;
+
         difference_type _index;
     }; // class IteratorBase
 
@@ -143,35 +137,35 @@ public:
 public:
     JSONObject();
 
-    JSONObject(const JSONObject& r_rhs);
+    JSONObject(const JSONObject& rRhs);
 
-    JSONObject(JSONObject&& r_rhs);
+    JSONObject(JSONObject&& rRhs);
 
-    JSONObject& operator=(const JSONObject& r_rhs);
+    JSONObject& operator=(JSONObject&& rRhs);
 
-    JSONObject(const std::string& r_jsonString);
+    JSONObject& operator=(const JSONObject& rRhs);
 
-    JSONObject(std::string&& r_jsonString);
+    JSONObject(const std::string& rJSONString);
 
-    JSONObject(const std::filesystem::path& r_filePath);
+    explicit JSONObject(std::string&& rJSONString);
+
+    explicit JSONObject(const std::filesystem::path& r_filePath);
 
     JSONObject(std::istream& r_stream);
 
     /// Constructor for operator[]
-    JSONObject(content_type* p_contents,
-               const JSONObject* p_root);
+    JSONObject(content_type* pContents);
 
     /// Constructor for operator[] const
-    JSONObject(const content_type* p_contents,
-               const JSONObject* p_root);
+    JSONObject(const content_type* pContents);
 
     ~JSONObject();
 
     /// Get the value associated to the specified key
-    JSONObject operator[](const std::string& r_key);
+    JSONObject operator[](const std::string& rKey);
 
     /// Get the value associated to the specified key
-    const JSONObject operator[](const std::string& r_key) const;
+    const JSONObject operator[](const std::string& rKey) const;
 
     /// Get the specified component if this is an array
     JSONObject operator[](Size index);
@@ -182,15 +176,17 @@ public:
     /** Create a new string item with the specified key and value
      *  @details implicitly converts char arrays to std::string
      */
-    JSONObject& add(const std::string& r_key,
-                    const std::string& r_value,
-                    bool allowOverwrite = false);
+    JSONObject& add(
+        const std::string& rKey,
+        const std::string& r_value,
+        bool allowOverwrite = false);
 
     /// Create a new item with the specified key and value
     template <concepts::io::SupportedType ValueType>
-    JSONObject& add(const std::string& r_key,
-                    const ValueType& r_value,
-                    bool allowOverwrite = false);
+    JSONObject& add(
+        const std::string& rKey,
+        const ValueType& r_value,
+        bool allowOverwrite = false);
 
     /** Set the json value to the specified string
      *  @details implicitly converts char arrays to std::string
@@ -216,7 +212,7 @@ public:
     bool isObject() const;
 
     /// Return true if this has an item with a matching key
-    bool hasKey(const std::string& r_key) const;
+    bool hasKey(const std::string& rKey) const;
 
     /// Item size
     Size size() const;
@@ -232,48 +228,112 @@ public:
     /// Get wrapped object
     const content_type& contents() const;
 
-    /// Get the root that holds the resources
-    const JSONObject& root() const;
+    /// Get wrapped object
+    content_type& contents();
+
+    void prettyPrint(
+        Ref<std::ostream> rStream,
+        int indentation = 4) const;
 
 private:
     /// Set / get helper class
     template <class ValueType>
-    struct SetGet
-    {
-        static void set(JSONObject& r_json,
-                         const ValueType& r_value);
+    struct SetGet {
+        static void set(
+            JSONObject& rJSON,
+            const ValueType& r_value);
 
-        static ValueType as(const JSONObject& r_json);
+        static ValueType as(const JSONObject& rJSON);
     };
 
     /// Type identification and initialization helper
     template <class ValueType>
-    struct TypeQuery
-    {
-        static bool is(const JSONObject& r_json);
+    struct TypeQuery {
+        static bool is(const JSONObject& rJSON);
 
-        static JSONObject addDefault(JSONObject& r_json,
-                                      const std::string& r_key);
+        static JSONObject addDefault(
+            JSONObject& rJSON,
+            const std::string& rKey);
     };
 
     /// Type-safe initialization of a new item's value
     template <concepts::io::SupportedType ValueType>
-    JSONObject addDefault(const std::string& r_key);
+    JSONObject addDefault(const std::string& rKey);
 
 protected:
-    utils::RuntimeConst<content_type> _p_contents;
+    utils::RuntimeConst<content_type> _pContents;
 
 private:
-    const JSONObject* _p_root;
+    bool _isRoot;
 }; // class JSONObject
 
 
 /// @ingroup cieutils
-std::ostream& operator<<(std::ostream& r_stream, const JSONObject& r_json);
+class JSONSchemaLoader {
+public:
+    JSONSchemaLoader();
+
+    explicit JSONSchemaLoader(Ref<const std::filesystem::path> rLibraryRoot);
+
+    explicit JSONSchemaLoader(std::span<const std::filesystem::path> libraryRoots);
+
+    ~JSONSchemaLoader();
+
+    void addLibraryRoot(Ref<const std::filesystem::path> rLibraryRoot);
+
+    JSONObject load(Ref<const std::string> rURI) const;
+
+private:
+    std::vector<std::filesystem::path> _roots;
+}; // class JSONSchemaLoader
+
+
+/// @ingroup cieutils
+class JSONSchema {
+public:
+    JSONSchema();
+
+    JSONSchema(
+        Ref<const JSONObject> rSchema,
+        Ref<const JSONSchemaLoader> rLoader = {});
+
+    JSONSchema(
+        RightRef<JSONObject> rSchema,
+        RightRef<JSONSchemaLoader> rLoader);
+
+    JSONSchema(JSONSchema&&) noexcept;
+
+    ~JSONSchema();
+
+    JSONSchema& operator=(JSONSchema&& rRHS) noexcept;
+
+    void resolve();
+
+    void validate(Ref<const JSONObject> rJSON) const;
+
+    void validateAndFillDefaults(Ref<JSONObject> rJSON) const;
+
+    /// @ingroup cieutils
+    friend std::ostream& operator<<(
+        Ref<std::ostream> rStream,
+        Ref<const JSONSchema> rSchema);
+
+private:
+    JSONSchema(const JSONSchema&) = delete;
+
+    JSONSchema& operator=(const JSONSchema&) = delete;
+
+    struct Impl;
+    std::unique_ptr<Impl> _pImpl;
+}; // class JSONSchema
+
+
+/// @ingroup cieutils
+std::ostream& operator<<(
+    std::ostream& rStream,
+    const JSONObject& rJSON);
 
 
 } // namespace cie::io
 
 #include "packages/io/impl/json_impl.hpp"
-
-#endif

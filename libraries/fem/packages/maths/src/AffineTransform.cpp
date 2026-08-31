@@ -134,43 +134,40 @@ AffineTransform<TValue,Dimension>::AffineTransform() noexcept
 
 template <concepts::Numeric TValue, unsigned Dimension>
 AffineTransform<TValue,Dimension>::AffineTransform(std::span<const Point> transformed)
-    : AffineTransform()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
+    : AffineTransform() {
+        CIE_BEGIN_EXCEPTION_TRACING
+            CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension + 1)
 
-    CIE_OUT_OF_RANGE_CHECK(transformed.size() == Dimension + 1)
+            // Assemble RHS
+            StaticArray<TValue,(Dimension+1)*(Dimension+1)> homogeneousPoints;
 
-    // Assemble RHS
-    StaticArray<TValue,(Dimension+1)*(Dimension+1)> homogeneousPoints;
+            auto itTransformedBegin = transformed.begin();
+            const auto itTransformedEnd = transformed.end();
 
-    auto itTransformedBegin = transformed.begin();
-    const auto itTransformedEnd = transformed.end();
+            // Copy transformed components to the first {{Dimension}} rows
+            for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
+                CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
+                for (Size iComponent=0; iComponent<Dimension; iComponent++) {
+                    // This array will be interpreted as an eigen matrix, which
+                    // stores its data columnwise by default, so the order of the
+                    // components must follow that.
+                    homogeneousPoints[iComponent + iPoint * (Dimension + 1)] = itTransformedBegin->at(iComponent);
+                } // for component in point
+                homogeneousPoints[Dimension + iPoint * (Dimension + 1)] = 1; // <== last row contains homogeneous components
+            } // for point in transformedPoints
 
-    // Copy transformed components to the first {{Dimension}} rows
-    for (Size iPoint=0 ; itTransformedBegin!=itTransformedEnd; itTransformedBegin++, iPoint++) {
-        CIE_OUT_OF_RANGE_CHECK(Dimension <= itTransformedBegin->size())
-        for (Size iComponent=0; iComponent<Dimension; iComponent++) {
-            // This array will be interpreted as an eigen matrix, which
-            // stores its data columnwise by default, so the order of the
-            // components must follow that.
-            homogeneousPoints[iComponent + iPoint * (Dimension + 1)] = itTransformedBegin->at(iComponent);
-        } // for component in point
-        homogeneousPoints[Dimension + iPoint * (Dimension + 1)] = 1; // <== last row contains homogeneous components
-    } // for point in transformedPoints
-
-    // Solve for transformation matrix components
-    this->computeTransformationMatrix(homogeneousPoints.data(),
-                                      this->getTransformationMatrix());
-
-    CIE_END_EXCEPTION_TRACING
+            // Solve for transformation matrix components
+            this->computeTransformationMatrix(
+                homogeneousPoints.data(),
+                this->getTransformationMatrix());
+        CIE_END_EXCEPTION_TRACING
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
 AffineTransform<TValue,Dimension>::AffineTransform(RightRef<TransformationMatrix> rMatrix) noexcept
     : _transformationMatrix(std::move(rMatrix))
-{
-}
+{}
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
@@ -205,16 +202,39 @@ AffineTransform<TValue,Dimension>::makeInverse() const {
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline Ref<const typename AffineTransform<TValue,Dimension>::TransformationMatrix>
+Ref<const typename AffineTransform<TValue,Dimension>::TransformationMatrix>
 AffineTransform<TValue,Dimension>::getTransformationMatrix() const noexcept {
     return _transformationMatrix;
 }
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-inline Ref<typename AffineTransform<TValue,Dimension>::TransformationMatrix>
+Ref<typename AffineTransform<TValue,Dimension>::TransformationMatrix>
 AffineTransform<TValue,Dimension>::getTransformationMatrix() noexcept {
     return _transformationMatrix;
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void AffineTransform<TValue,Dimension>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        constexpr std::size_t entryCount = (Dimension + 1) * (Dimension + 1);
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _transformationMatrix.data(),
+            entryCount);
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+void AffineTransformDerivative<TValue,Dimension>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _matrix.data(),
+            _matrix.size());
 }
 
 

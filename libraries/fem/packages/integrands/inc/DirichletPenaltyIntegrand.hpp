@@ -4,8 +4,8 @@
 #include "packages/maths/inc/Expression.hpp"
 #include "packages/numeric/inc/CellBase.hpp"
 
-// --- STL Includes ---
-#include <span> // span
+// --- Utility Includes ---
+#include "packages/io/inc/Traits.hpp"
 
 
 namespace cie::fem{
@@ -19,16 +19,25 @@ namespace cie::fem{
 ///          @f[
 ///              p N_i \left( \xi \right) u_d \left( x(\xi) \right)
 ///          @f]
+///          if @p Symmetric is true, otherwise
+///          @f[
+///              p N_i \left( \xi \right)
+///          @f]
+///          and
+///          @f[
+///              p N_i \left( \xi \right) u_d \left( x(\xi) \right)
+///          @f]
 ///          where
 ///          - @f$ p @f$ is the penalty factor,
 ///          - @f$ u_d @f$ is the desired state at global position @f$ x @f$,
 ///          - @f$ N_i @f$ is the ansatz function related to degree of freedom @f$ i @f$,
 ///          - @f$ \xi @f$ is the local coordinate within the cell to evaluate at,
 ///          - @f$ x @f$ is the global coordinate within the cell to evaluate at.
-template <maths::Expression TDirichlet,
-          maths::Expression TAnsatzSpace,
-          maths::Expression TEmbedding,
-          CellLike TCell>
+template <
+    maths::Expression TDirichlet,
+    maths::Expression TAnsatzSpace,
+    maths::Expression TEmbedding,
+    CellLike TCell>
 class DirichletPenaltyIntegrand : public maths::ExpressionTraits<typename TAnsatzSpace::Value> {
 public:
     static constexpr unsigned Dimension = TAnsatzSpace::Dimension;
@@ -43,21 +52,23 @@ public:
 
     using CellInverseTransform = typename TCell::SpatialTransform::Inverse;
 
+    using CellJacobian = typename TCell::SpatialTransform::Derivative;
+
     static inline constexpr bool isStatic = (
            maths::StaticExpression<TDirichlet>
-        || maths::StaticExpression<TAnsatzSpace>
-        || maths::StaticExpression<TEmbedding>
-        || maths::StaticExpression<CellInverseTransform>);
+        && maths::StaticExpression<TAnsatzSpace>
+        && maths::StaticExpression<TEmbedding>
+        && maths::StaticExpression<CellInverseTransform>);
+
+    template <template <class ...> class TOtherAllocator, class TOther>
+    using Rebind = DirichletPenaltyIntegrand<
+        typename TDirichlet::template Rebind<TOtherAllocator,TOther>,
+        typename TAnsatzSpace::template Rebind<TOtherAllocator,TOther>,
+        typename TEmbedding::template Rebind<TOtherAllocator,TOther>,
+        TCell>;
 
 public:
-    DirichletPenaltyIntegrand();
-
-    DirichletPenaltyIntegrand(
-        Ref<const TDirichlet> rDirichletFunctor,
-        const Value penalty,
-        Ref<const TAnsatzSpace> rAnsatzSpace,
-        Ref<const TEmbedding> rSpatialTransform,
-        Ref<const CellInverseTransform> rCellInverseTransform);
+    DirichletPenaltyIntegrand() noexcept;
 
     DirichletPenaltyIntegrand(
         Ref<const TDirichlet> rDirichletFunctor,
@@ -65,7 +76,7 @@ public:
         Ref<const TAnsatzSpace> rAnsatzSpace,
         Ref<const TEmbedding> rSpatialTransform,
         Ref<const CellInverseTransform> rCellInverseTransform,
-        std::span<Value> buffer);
+        Ref<const CellJacobian> rCellJacobian);
 
     void evaluate(
         ConstSpan in,
@@ -76,16 +87,29 @@ public:
 
     unsigned bufferSize() const noexcept;
 
+    void serialize(
+        Ref<cie::io::Traits::SerializerStream> rStream,
+        tags::Binary tag = {}) const;
+
+    template <class TAllocator>
+    static void deserialize(
+        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<DirichletPenaltyIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
+        tags::Binary tag = {});
+
 private:
-    Value _penalty;
-
-    TDirichlet _dirichletFunctor;
-
     TAnsatzSpace _ansatzSpace;
 
     TEmbedding _embedding;
 
     CellInverseTransform _cellInverseTransform;
+
+    CellJacobian _cellJacobian;
+
+    TDirichlet _dirichletFunctor;
+
+    Value _penalty;
 }; // class DirichletPenaltyIntegrand
 
 
@@ -106,7 +130,8 @@ makeDirichletPenaltyIntegrand(
             penalty,
             rAnsatzSpace,
             rSpatialTransform,
-            rCell.makeInverseSpatialTransform());
+            rCell.makeInverseSpatialTransform(),
+            rCell.makeJacobian());
 }
 
 

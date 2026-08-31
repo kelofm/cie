@@ -1,7 +1,6 @@
 #pragma once
 
 // --- Utility Includes ---
-#include "packages/types/inc/tags.hpp"
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 #include "packages/stl_extension/inc/OptionalRef.hpp"
 
@@ -13,8 +12,7 @@
 namespace cie::linalg {
 
 
-template <class T, TagLike TTag = tags::SMP>
-requires (std::is_same_v<TTag,tags::Serial> || std::is_same_v<TTag,tags::SMP>)
+template <class T>
 class DefaultSpace {
 public:
     using Value = T;
@@ -27,28 +25,53 @@ public:
 
     constexpr DefaultSpace() noexcept = default;
 
-    DefaultSpace(Ref<mp::ThreadPoolBase> rThreads)
-    requires std::is_same_v<TTag,tags::SMP>;
+    DefaultSpace(OptionalRef<mp::ThreadPoolBase> rMaybeThreads) noexcept;
 
-    static VectorView view(Ref<Vector> rVector) noexcept;
+    DefaultSpace(Ref<mp::ThreadPoolBase> rThreads);
 
-    static ConstVectorView view(Ref<const Vector> rVector) noexcept;
+    [[nodiscard]] static VectorView view(Ref<Vector> rVector) noexcept;
 
-    static std::size_t size(ConstVectorView view) noexcept;
+    [[nodiscard]] static ConstVectorView view(Ref<const Vector> rVector) noexcept;
 
-    static Vector makeVector(std::size_t size);
+    [[nodiscard]] static VectorView view(std::span<Value> span) noexcept;
 
-    Value innerProduct(ConstVectorView left, ConstVectorView right) const;
+    [[nodiscard]] static ConstVectorView view(std::span<const Value> span) noexcept;
 
-    void scale(VectorView target, ConstVectorView source, Value scale) const;
+    [[nodiscard]] Value* data(VectorView view) noexcept;
 
-    void scale(VectorView view, Value value) const;
+    [[nodiscard]] const Value* data(ConstVectorView view) const noexcept;
 
-    void add(VectorView target, ConstVectorView source, Value scale) const;
+    [[nodiscard]] static std::size_t size(ConstVectorView view) noexcept;
 
-    void assign(VectorView target, ConstVectorView source) const;
+    [[nodiscard]] static Vector makeVector(std::size_t size);
 
-    void fill(VectorView view, Value value) const;
+    [[nodiscard]] Value innerProduct(
+        ConstVectorView left,
+        ConstVectorView right) const;
+
+    void scale(
+        VectorView target,
+        ConstVectorView source,
+        Value scale) const;
+
+    void scale(
+        VectorView view,
+        Value value) const;
+
+    void add(
+        VectorView target,
+        ConstVectorView source,
+        Value scale) const;
+
+    void assign(
+        VectorView target,
+        ConstVectorView source) const;
+
+    void fill(
+        VectorView view,
+        Value value) const;
+
+    OptionalRef<mp::ThreadPoolBase> getThreads();
 
 private:
     OptionalRef<mp::ThreadPoolBase> _maybeThreads;

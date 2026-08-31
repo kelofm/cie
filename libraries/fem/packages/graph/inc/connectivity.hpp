@@ -167,10 +167,10 @@ makeAnsatzMap(
     utils::Comparison<TValue> comparison = utils::Comparison<typename TAnsatzSpace::Value>());
 
 
-template <unsigned Dimension>
+template <unsigned Dimension, class TIndex>
 void makeAnsatzMask(
     std::size_t setSize,
-    std::span<std::uint8_t> mask);
+    std::span<TIndex> mask);
 
 
 } // namespace cie::fem

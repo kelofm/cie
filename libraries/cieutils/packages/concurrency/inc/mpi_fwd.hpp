@@ -19,7 +19,7 @@
  *           Great, @todo time. The following is only valid for the OpenMPI
  *           implementation.
  */
-#ifdef CIEUTILS_COMPILE_MPI
+#ifdef CIE_ENABLE_MPI
     typedef struct ompi_communicator_t *MPI_Comm; // <== OpenMPI
 #else
     struct MPI_Comm {};

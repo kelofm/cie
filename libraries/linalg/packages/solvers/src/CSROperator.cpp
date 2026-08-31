@@ -14,98 +14,105 @@ namespace cie::linalg {
 
 template <class TI, class TV, class TMV>
 CSROperator<TI,TV,TMV>::CSROperator(
-    TI columnCount,
-    std::span<const TI> rowExtents,
-    std::span<const TI> columnIndices,
-    std::span<const TMV> entries,
+    CSRView<const TMV,const TI> lhs,
     OptionalRef<mp::ThreadPoolBase> rMaybeThreads)
-        :
-        _columnCount(columnCount),
-        _rowExtents(rowExtents),
-        _columnIndices(columnIndices),
-        _entries(entries),
-        _maybeThreads(rMaybeThreads) {
+        :   _lhs(lhs),
+            _maybeThreads(rMaybeThreads) {
     CIE_CHECK(
-        0 < _rowExtents.size(),
+        0 < _lhs.rowExtents().size(),
         std::format(
             "expecting the row extents of a CSR matrix to have at least 1 entry, but it has none"))
     CIE_CHECK(
-        columnIndices.size() == entries.size(),
+        _lhs.columnIndices().size() == _lhs.entries().size(),
         std::format(
             "number of column indices ({}) is inconsistent with the number of entries ({}) in the provided CSR matrix",
-            columnIndices.size(), entries.size()))
+            _lhs.columnIndices().size(), _lhs.entries().size()))
 }
 
 
 template <class TI, class TV, class TMV>
 void CSROperator<TI,TV,TMV>::product(
+    typename Space::Value inScale,
     typename Space::ConstVectorView in,
-    typename Space::Value scale,
-    typename Space::VectorView out) const {
+    typename Space::Value outScale,
+    typename Space::VectorView out) {
         // Sanity checks.
         CIE_CHECK(
-            _rowExtents.size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_columnCount),
+            _lhs.rowExtents().size() - 1 == out.size() && in.size() == static_cast<std::size_t>(_lhs.columnCount()),
             std::format(
                 "Incompatible matrix-vector product: [{}x{}] * [{}] = [{}]",
-                _rowExtents.size() - 1, _columnCount, in.size(), out.size()))
+                _lhs.rowExtents().size() - 1, _lhs.columnCount(), in.size(), out.size()))
 
-        const auto kernel = [this, in, out] (TI iRow, const auto& op) -> void {
-            const TI iEntryBegin = _rowExtents[iRow];
-            const TI iEntryEnd   = _rowExtents[iRow + 1];
-            TV contribution = static_cast<TV>(0);
-            for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                const TI iColumn = _columnIndices[iEntry];
-                const TV entry   = _entries[iEntry];
-                contribution += entry * in[iColumn];
-            } // for iEntry in range(iEntryBegin, iEntryEnd)
-            op(out[iRow], contribution);
+        const auto kernel = [this, in, out] (TI iRowBegin, TI iRowEnd, const auto& op) -> void {
+            for (TI iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
+                const TI iEntryBegin = _lhs.rowExtents()[iRow];
+                const TI iEntryEnd   = _lhs.rowExtents()[iRow + 1];
+                TV contribution = static_cast<TV>(0);
+                for (TI iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
+                    const TI iColumn = _lhs.columnIndices()[iEntry];
+                    const TV entry   = _lhs.entries()[iEntry];
+                    contribution += entry * in[iColumn];
+                } // for iEntry in range(iEntryBegin, iEntryEnd)
+                op(out[iRow], contribution);
+            }
         }; // kernel
 
-        const TI rowCount = _rowExtents.size() - 1;
+        const TI rowCount = _lhs.rowExtents().size() - 1;
+        const auto job = [&kernel, rowCount, this] (const auto& op) -> void {
+            if (_maybeThreads.has_value()) {
+                mp::ParallelFor<TI>(_maybeThreads.value())
+                    .execute(
+                        mp::DynamicIndexPartitionFactory(
+                            {0, static_cast<std::size_t>(rowCount), 1},
+                            0x10 * _maybeThreads.value().size()),
+                        [&kernel, &op] (
+                            std::size_t iRowBegin,
+                            std::size_t iRowEnd) -> void {
+                                kernel(iRowBegin, iRowEnd, op);
+                        });
+                } else {
+                    kernel(0, rowCount, op);
+                }
+        }; // job
 
-        if (scale == static_cast<TV>(1)) {
-            if (_maybeThreads.has_value()) {
-                mp::ParallelFor<TI>(_maybeThreads.value())
-                    .firstPrivate([] (Ref<TV> rLeft, TV right) -> void {std::atomic_ref<TV>(rLeft) += right;})
-                    .execute(
-                        _rowExtents.size() - 1,
-                        kernel);
-            } else {
-                const auto op = [] (Ref<TV> rLeft, TV right) -> void {rLeft += right;};
-                for (TI iRow=0; iRow<rowCount; ++iRow)
-                    kernel(iRow, op);
+        if (inScale == static_cast<TV>(1)) {
+            if (outScale == static_cast<TV>(1)) {
+                job([] (Ref<TV> rLeft, TV right) -> void {rLeft += right;});
+            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
+                job([] (Ref<TV> rLeft, TV right) -> void {rLeft -= right;});
+            } /*if outScale == -1*/ else {
+                job([outScale] (Ref<TV> rLeft, TV right) -> void {rLeft += outScale * right;});
             }
-        } /*if scale == 1*/ else if (scale == static_cast<TV>(-1)) {
-            if (_maybeThreads.has_value()) {
-                mp::ParallelFor<TI>(_maybeThreads.value())
-                    .firstPrivate([] (Ref<TV> rLeft, TV right) -> void {std::atomic_ref<TV>(rLeft) -= right;})
-                    .execute(
-                        _rowExtents.size() - 1,
-                        kernel);
-            } else {
-                const auto op = [] (Ref<TV> rLeft, TV right) -> void {rLeft -= right;};
-                for (TI iRow=0; iRow<rowCount; ++iRow)
-                    kernel(iRow, op);
+        } /*if inScale == 1*/ else if (inScale == static_cast<TV>(0)) {
+            if (outScale == static_cast<TV>(1)) {
+                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = right;});
+            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
+                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = -right;});
+            } /*if outScale == -1*/ else {
+                job([outScale] (Ref<TV> rLeft, TV right) -> void {rLeft = outScale * right;});
             }
-        } /*if scale == -1*/ else {
-            if (_maybeThreads.has_value()) {
-                const auto op = [scale] (Ref<TV> rLeft, TV right) -> void {std::atomic_ref<TV>(rLeft) += scale * right;};
-                mp::ParallelFor<TI>(_maybeThreads.value())
-                    .execute(
-                        _rowExtents.size() - 1,
-                        [&op, &kernel] (std::size_t iRow) -> void {kernel(iRow, op);});
-            } else {
-                const auto op = [scale] (Ref<TV> rLeft, TV right) -> void {rLeft += scale * right;};
-                for (TI iRow=0; iRow<rowCount; ++iRow)
-                    kernel(iRow, op);
+        } /*if inScale == 0*/ else if (inScale == static_cast<TV>(-1)) {
+            if (outScale == static_cast<TV>(1)) {
+                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = right - rLeft;});
+            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
+                job([] (Ref<TV> rLeft, TV right) -> void {rLeft = right - rLeft;});
+            } /*if outScale == -1*/ else {
+                job([outScale] (Ref<TV> rLeft, TV right) -> void {rLeft = outScale * right - rLeft;});
             }
-        }
+        } /*if inScale == -1*/ else {
+            if (outScale == static_cast<TV>(1)) {
+                job([inScale] (Ref<TV> rLeft, TV right) -> void {rLeft = inScale * rLeft + right;});
+            } /*if outScale == 1*/ else if (outScale == static_cast<TV>(-1)) {
+                job([inScale] (Ref<TV> rLeft, TV right) -> void {rLeft = inScale * rLeft - right;});
+            } /*if outScale == -1*/ else {
+                job([inScale, outScale] (Ref<TV> rLeft, TV right) -> void {rLeft = inScale * rLeft + outScale * right;});
+            }
+        } // else
 }
 
 
 template class CSROperator<int,float,float>;
 template class CSROperator<std::size_t,float,float>;
-
 template class CSROperator<int,double,double>;
 template class CSROperator<std::size_t,double,double>;
 

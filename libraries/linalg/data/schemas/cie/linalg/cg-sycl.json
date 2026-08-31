@@ -1,0 +1,26 @@
+{
+    "$id" : "/cie/linalg/cg-sycl",
+    "description" : "Settings for a conjugate gradient solver with a SYCL backend.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/iterative-solver"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "cg-sycl"
+                },
+                "preconditioner" : {
+                    "type" : ["object", "null"],
+                    "anyOf" : [
+                        {"type" : "null"},
+                        {"$ref" : "/cie/linalg/inverse-diagonal-operator-sycl"},
+                        {"$ref" : "/cie/linalg/jacobi-sycl"}
+                    ],
+                    "default" : {"type" : "inverse-diagonal-operator-sycl"},
+                    "description" : "Settings for an optional preconditioner."
+                }
+            }
+        }
+    ],
+    "required" : ["type"]
+}

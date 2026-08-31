@@ -4,12 +4,14 @@
 // --- Internal Includes ---
 #include "packages/maths/inc/Polynomial.hpp"
 
+// --- STL Includes ---
+#include <sstream>
+
 
 namespace cie::fem::maths {
 
 
-CIE_TEST_CASE("Polynomial", "[maths]")
-{
+CIE_TEST_CASE("Polynomial", "[maths]") {
     CIE_TEST_CASE_INIT("Polynomial")
 
     {
@@ -79,6 +81,23 @@ CIE_TEST_CASE("Polynomial", "[maths]")
                 CIE_TMP_CHECK((*pSwap))
                 pSwap.reset();
                 CIE_TMP_CHECK(other)
+            }
+
+            // Check serialization and deserialization.
+            {
+                Polynomial<double> instance(coefficients);
+                std::stringstream stream;
+                CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::serialize(
+                    stream,
+                    instance));
+                Polynomial<double> other;
+                std::allocator<std::byte> allocator;
+                CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
+                    stream,
+                    other,
+                    allocator));
+                CIE_TMP_CHECK(other);
+                CIE_TMP_CHECK(instance);
             }
 
             #undef CIE_TMP_CHECK
@@ -200,6 +219,23 @@ CIE_TEST_CASE("Polynomial", "[maths]")
                 CIE_TMP_CHECK((*pSwap))
                 pSwap.reset();
                 CIE_TMP_CHECK(other)
+            }
+
+            // Check serialization and deserialization.
+            {
+                Polynomial<double> instance(coefficients);
+                std::stringstream stream;
+                CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::serialize(
+                    stream,
+                    instance));
+                Polynomial<double> other;
+                std::allocator<std::byte> allocator;
+                CIE_TEST_REQUIRE_NOTHROW(cie::io::Serializer<tags::Binary>::deserialize(
+                    stream,
+                    other,
+                    allocator));
+                CIE_TMP_CHECK(other);
+                CIE_TMP_CHECK(instance);
             }
 
             #undef CIE_TMP_CHECK

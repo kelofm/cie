@@ -7,6 +7,7 @@
 
 // --- Utility Includes ---
 #include "packages/macros/inc/checks.hpp"
+#include "packages/maths/inc/power.hpp"
 
 // --- STL Includes ---
 #include <algorithm>
@@ -202,8 +203,8 @@ struct AnsatzDerivativeTraits {
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
 constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivativeView() noexcept
-    : _ansatzSet(static_cast<const TScalarExpression*>(nullptr), SetSize),
-      _derivativeSet(static_cast<const typename TScalarExpression::Derivative*>(nullptr), SetSize)
+    :   _ansatzSet(static_cast<const TScalarExpression*>(nullptr), SetSize),
+        _derivativeSet(static_cast<const typename TScalarExpression::Derivative*>(nullptr), SetSize)
 {}
 
 
@@ -212,8 +213,8 @@ constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceD
     std::span<const TScalarExpression,SetSize> ansatzSet,
     std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet) noexcept
 requires (hasStaticBasis)
-    : _ansatzSet(ansatzSet),
-      _derivativeSet(derivativeSet)
+    :   _ansatzSet(ansatzSet),
+        _derivativeSet(derivativeSet)
 {}
 
 
@@ -222,9 +223,9 @@ AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivativeV
     std::span<const TScalarExpression> ansatzSet,
     std::span<const typename TScalarExpression::Derivative> derivativeSet)
 requires (!hasStaticBasis)
-    : _ansatzSet(ansatzSet),
-      _derivativeSet(derivativeSet) {
-        assert(_derivativeSet.size() == _ansatzSet.size());
+    :   _ansatzSet(ansatzSet),
+        _derivativeSet(derivativeSet) {
+            assert(_derivativeSet.size() == _ansatzSet.size());
 }
 
 
@@ -372,26 +373,43 @@ constexpr AnsatzSpaceDerivativeView<TScalarExpression,Dim,SetSize>::derivativeSe
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(
-    std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
-requires (hasStaticBasis) {
-    std::copy_n(
-        ansatzSet.data(),
-        SetSize,
-        _ansatzSet.data());
-    std::transform(
-        _ansatzSet.begin(),
-        _ansatzSet.end(),
-        _derivativeSet.begin(),
-        [](Ref<const TScalarExpression> rAnsatzFunction){
-             return rAnsatzFunction.makeDerivative();
-        });
+template <class TE, unsigned D, std::size_t S, class TA>
+constexpr AnsatzSpaceDerivative<TE,D,S,TA>::AnsatzSpaceDerivative(Ref<const TA>) noexcept
+requires (hasStaticBasis)
+{}
+
+
+template <class TE, unsigned D, std::size_t S, class TA>
+AnsatzSpaceDerivative<TE,D,S,TA>::AnsatzSpaceDerivative(Ref<const TA> rAllocator) noexcept
+requires (!hasStaticBasis)
+    :   _ansatzSet(rAllocator),
+        _derivativeSet(typename std::allocator_traits<TA>::template rebind_alloc<typename TE::Derivative>(rAllocator))
+{}
+
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(
+    std::span<const TScalarExpression,SetSize> ansatzSet,
+    Ref<const TAllocator> rAllocator) noexcept
+requires (hasStaticBasis)
+    : AnsatzSpaceDerivative(rAllocator) {
+        std::copy_n(
+            ansatzSet.data(),
+            SetSize,
+            _ansatzSet.data());
+        std::transform(
+            _ansatzSet.begin(),
+            _ansatzSet.end(),
+            _derivativeSet.begin(),
+            [](Ref<const TScalarExpression> rAnsatzFunction){
+                return rAnsatzFunction.makeDerivative();
+            });
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(
     AnsatzSpaceDerivative&& rRhs) noexcept
 requires (!hasStaticBasis)
     : _ansatzSet(std::move(rRhs._ansatzSet)),
@@ -399,8 +417,8 @@ requires (!hasStaticBasis)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(
     AnsatzSpaceDerivative&& rRhs) noexcept
 requires (hasStaticBasis)
     : _ansatzSet(rRhs._ansatzSet),
@@ -408,41 +426,46 @@ requires (hasStaticBasis)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(std::span<const TScalarExpression> ansatzSet)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(
+    std::span<const TScalarExpression> ansatzSet,
+    Ref<const TAllocator> rAllocator)
 requires (!hasStaticBasis)
-    : _ansatzSet(ansatzSet.begin(), ansatzSet.end()),
-      _derivativeSet(ansatzSet.size())
-{
-    std::transform(
-        _ansatzSet.begin(),
-        _ansatzSet.end(),
-        _derivativeSet.begin(),
-        [](Ref<const TScalarExpression> rAnsatzFunction){
-             return rAnsatzFunction.makeDerivative();
-        });
+    : AnsatzSpaceDerivative(rAllocator) {
+        _ansatzSet.insert(
+            _ansatzSet.end(),
+            ansatzSet.begin(),
+            ansatzSet.end());
+        _derivativeSet.resize(ansatzSet.size());
+        std::transform(
+            _ansatzSet.begin(),
+            _ansatzSet.end(),
+            _derivativeSet.begin(),
+            [](Ref<const TScalarExpression> rAnsatzFunction){
+                return rAnsatzFunction.makeDerivative();
+            });
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs)
 requires (!hasStaticBasis)
-    : _ansatzSet(rRhs._ansatzSet),
-      _derivativeSet(rRhs._derivativeSet)
+    :   _ansatzSet(rRhs._ansatzSet),
+        _derivativeSet(rRhs._derivativeSet)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpaceDerivative(const AnsatzSpaceDerivative& rRhs) noexcept
 requires (hasStaticBasis)
-    : _ansatzSet(rRhs._ansatzSet),
-      _derivativeSet(rRhs._derivativeSet)
+    :   _ansatzSet(rRhs._ansatzSet),
+        _derivativeSet(rRhs._derivativeSet)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpaceDerivative&& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::operator=(AnsatzSpaceDerivative&& rRhs) noexcept
 requires (!hasStaticBasis) {
     _ansatzSet = std::move(rRhs._ansatzSet);
     _derivativeSet = std::move(rRhs._derivativeSet);
@@ -450,9 +473,9 @@ requires (!hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpaceDerivative&& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::operator=(AnsatzSpaceDerivative&& rRhs) noexcept
 requires (hasStaticBasis) {
     _ansatzSet = rRhs._ansatzSet;
     _derivativeSet = rRhs._derivativeSet;
@@ -460,9 +483,9 @@ requires (hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpaceDerivative& rRhs)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::operator=(const AnsatzSpaceDerivative& rRhs)
 requires (!hasStaticBasis) {
     _ansatzSet = rRhs._ansatzSet;
     _derivativeSet = rRhs._derivativeSet;
@@ -470,9 +493,9 @@ requires (!hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>&
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpaceDerivative& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::operator=(const AnsatzSpaceDerivative& rRhs) noexcept
 requires (hasStaticBasis) {
     _ansatzSet = rRhs._ansatzSet;
     _derivativeSet = rRhs._derivativeSet;
@@ -480,8 +503,8 @@ requires (hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::evaluate(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const {
@@ -492,53 +515,53 @@ void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::evaluate(
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::size() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::size() const noexcept
 requires (!hasStaticBasis) {
     return this->makeView().size();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::size() noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::size() noexcept
 requires (hasStaticBasis) {
     return View::size();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::bufferSize() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::bufferSize() const noexcept
 requires (!hasStaticBasis) {
     return this->makeView().bufferSize();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::bufferSize() noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr unsigned AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::bufferSize() noexcept
 requires (hasStaticBasis) {
     return View::bufferSize();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 std::span<const TScalarExpression>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::ansatzSet() const noexcept
 requires (!hasStaticBasis) {
     return {_ansatzSet.data(), _ansatzSet.size()};
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 std::span<const typename TScalarExpression::Derivative>
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::derivativeSet() const noexcept
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::derivativeSet() const noexcept
 requires (!hasStaticBasis) {
     return {_derivativeSet.data(), _derivativeSet.size()};
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 std::span<const TScalarExpression,SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::ansatzSet() const noexcept
 requires (hasStaticBasis) {
     return std::span<const TScalarExpression,SetSize>(
         _ansatzSet.data(),
@@ -546,9 +569,9 @@ requires (hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
 std::span<const typename TScalarExpression::Derivative,SetSize>
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::derivativeSet() const noexcept
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::derivativeSet() const noexcept
 requires (hasStaticBasis) {
     return std::span<const typename TScalarExpression::Derivative,SetSize>(
         _derivativeSet.data(),
@@ -556,9 +579,9 @@ requires (hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-typename AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::View
-AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::makeView() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+typename AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::View
+AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::makeView() const noexcept
 requires (!hasStaticBasis) {
     return View(
         _ansatzSet,
@@ -566,13 +589,54 @@ requires (!hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-typename AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::View
-constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>::makeView() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+typename AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::View
+constexpr AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::makeView() const noexcept
 requires (hasStaticBasis) {
     return View(
         _ansatzSet,
         _derivativeSet);
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        if constexpr (!hasStaticBasis)
+            cie::io::BinarySerializer::serialize<std::size_t>(
+                rStream,
+                _ansatzSet.size());
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _ansatzSet.data(),
+            _ansatzSet.size());
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<AnsatzSpaceDerivative> rInstance,
+    TAllocator allocator,
+    tags::Binary) {
+        std::size_t setSize = SetSize;
+        rInstance = AnsatzSpaceDerivative(allocator);
+        if constexpr (!hasStaticBasis) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                setSize,
+                allocator);
+            rInstance._ansatzSet.resize(setSize);
+            rInstance._derivativeSet.resize(setSize);
+        }
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._ansatzSet.data(),
+            rInstance._ansatzSet.size(),
+            allocator);
+        for (std::size_t iBasis=0ul; iBasis<rInstance._ansatzSet.size(); ++iBasis)
+            rInstance._derivativeSet[iBasis] = rInstance._ansatzSet[iBasis].makeDerivative();
 }
 
 
@@ -699,106 +763,114 @@ requires (hasStaticBasis) {
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace() noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(Ref<const TAllocator>) noexcept
+requires (hasStaticBasis)
     : AnsatzSpace(AnsatzSet {})
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSet&& rSet)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(Ref<const TAllocator> rAllocator) noexcept
+requires (!hasStaticBasis)
+    : AnsatzSpace(AnsatzSet(rAllocator))
+{}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(AnsatzSet&& rSet)
 requires (!hasStaticBasis)
     : _set(std::move(rSet))
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSet&& rSet) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(AnsatzSet&& rSet) noexcept
 requires (hasStaticBasis)
     : _set(std::move(rSet))
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSet& rSet)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(const AnsatzSet& rSet)
 requires (!hasStaticBasis)
     : AnsatzSpace(AnsatzSet(rSet))
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSet& rSet) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(const AnsatzSet& rSet) noexcept
 requires (hasStaticBasis)
     : _set(std::move(rSet))
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSpace&& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(AnsatzSpace&& rRhs) noexcept
 requires (!hasStaticBasis)
     : AnsatzSpace(std::move(rRhs._set))
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(AnsatzSpace&& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(AnsatzSpace&& rRhs) noexcept
 requires (hasStaticBasis)
     : AnsatzSpace(std::move(rRhs._set))
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSpace& rRhs)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(const AnsatzSpace& rRhs)
 requires (!hasStaticBasis)
     : AnsatzSpace(rRhs._set)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>::AnsatzSpace(const AnsatzSpace& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::AnsatzSpace(const AnsatzSpace& rRhs) noexcept
 requires (hasStaticBasis)
     : AnsatzSpace(rRhs._set)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpace<TScalarExpression,Dim,SetSize>&
-AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpace&& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::operator=(AnsatzSpace&& rRhs) noexcept
 requires (!hasStaticBasis) {
     _set = std::move(rRhs._set);
     return *this;
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>&
-AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(AnsatzSpace&& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::operator=(AnsatzSpace&& rRhs) noexcept
 requires (hasStaticBasis) {
     _set = rRhs._set;
     return *this;
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-AnsatzSpace<TScalarExpression,Dim,SetSize>&
-AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpace& rRhs)
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::operator=(const AnsatzSpace& rRhs)
 requires (!hasStaticBasis) {
     (*this) = AnsatzSpace(rRhs._set);
     return *this;
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr AnsatzSpace<TScalarExpression,Dim,SetSize>&
-AnsatzSpace<TScalarExpression,Dim,SetSize>::operator=(const AnsatzSpace& rRhs) noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>&
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::operator=(const AnsatzSpace& rRhs) noexcept
 requires (hasStaticBasis) {
     (*this) = AnsatzSpace(rRhs._set);
     return *this;
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void AnsatzSpace<TScalarExpression,Dim,SetSize>::evaluate(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const {
@@ -809,77 +881,115 @@ void AnsatzSpace<TScalarExpression,Dim,SetSize>::evaluate(
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-typename AnsatzSpace<TScalarExpression,Dim,SetSize>::Derivative
-AnsatzSpace<TScalarExpression,Dim,SetSize>::makeDerivative() const
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+typename AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::Derivative
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::makeDerivative() const
 requires (!hasStaticBasis) {
-    return Derivative(this->ansatzSet());
+    return Derivative(this->ansatzSet(), _set.get_allocator());
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize>::Derivative
-AnsatzSpace<TScalarExpression,Dim,SetSize>::makeDerivative() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::Derivative
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::makeDerivative() const noexcept
 requires (hasStaticBasis) {
     return Derivative(this->ansatzSet());
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-unsigned AnsatzSpace<TScalarExpression,Dim,SetSize>::size() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+unsigned AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::size() const noexcept
 requires (!hasStaticBasis) {
     return this->makeView().size();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr unsigned AnsatzSpace<TScalarExpression,Dim,SetSize>::size() noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr unsigned AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::size() noexcept
 requires (hasStaticBasis) {
     return View::size();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-unsigned AnsatzSpace<TScalarExpression,Dim,SetSize>::bufferSize() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+unsigned AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::bufferSize() const noexcept
 requires (!hasStaticBasis) {
     return this->makeView().bufferSize();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr unsigned AnsatzSpace<TScalarExpression,Dim,SetSize>::bufferSize() noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr unsigned AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::bufferSize() noexcept
 requires (hasStaticBasis) {
     return View::bufferSize();
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-std::span<const TScalarExpression> AnsatzSpace<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+std::span<const TScalarExpression> AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::ansatzSet() const noexcept
 requires (!hasStaticBasis) {
     return {_set.data(), _set.size()};
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr std::span<const TScalarExpression,SetSize> AnsatzSpace<TScalarExpression,Dim,SetSize>::ansatzSet() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr std::span<const TScalarExpression,SetSize> AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::ansatzSet() const noexcept
 requires (hasStaticBasis) {
     return std::span<const TScalarExpression,SetSize>(_set.data(), _set.size());
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-typename AnsatzSpace<TScalarExpression,Dim,SetSize>::View
-AnsatzSpace<TScalarExpression,Dim,SetSize>::makeView() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+typename AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::View
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::makeView() const noexcept
 requires (!hasStaticBasis) {
     return View(_set);
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize>::View
-AnsatzSpace<TScalarExpression,Dim,SetSize>::makeView() const noexcept
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+constexpr typename AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::View
+AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::makeView() const noexcept
 requires (hasStaticBasis) {
     return View(_set);
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::serialize(
+    Ref<cie::io::Traits::SerializerStream> rStream,
+    tags::Binary) const {
+        if constexpr (!hasStaticBasis)
+            cie::io::BinarySerializer::serialize<std::size_t>(
+                rStream,
+                _set.size());
+        cie::io::BinarySerializer::serialize(
+            rStream,
+            _set.data(),
+            _set.size());
+}
+
+
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<AnsatzSpace> rInstance,
+    TAllocator allocator,
+    tags::Binary) {
+        std::size_t setSize = SetSize;
+        rInstance = AnsatzSpace(allocator);
+        if constexpr (!hasStaticBasis) {
+            cie::io::BinarySerializer::deserialize(
+                rStream,
+                setSize,
+                allocator);
+            rInstance._set.resize(setSize);
+        }
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._set.data(),
+            rInstance._set.size(),
+            allocator);
 }
 
 
@@ -889,18 +999,18 @@ requires (hasStaticBasis) {
 namespace cie::fem::io {
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::header(Ref<XMLElement> rElement) {
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>>::header(Ref<XMLElement> rElement) {
     CIE_BEGIN_EXCEPTION_TRACING
         GraphML::XMLElement defaultData = rElement.addChild("default");
     CIE_END_EXCEPTION_TRACING
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::operator()(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>>::operator()(
     Ref<XMLElement> rElement,
-    Ref<const maths::AnsatzSpace<TScalarExpression,Dim,SetSize>> rInstance) {
+    Ref<const maths::AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>> rInstance) {
         CIE_BEGIN_EXCEPTION_TRACING
             using SubSerializer = GraphML::Serializer<std::span<const TScalarExpression>>;
             SubSerializer subSerializer;
@@ -910,8 +1020,8 @@ void GraphML::Serializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::ope
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::onElementBegin(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>>::onElementBegin(
     Ptr<void> pThis,
     std::string_view elementName,
     [[maybe_unused]] std::span<GraphML::AttributePair> attributes) {
@@ -929,15 +1039,15 @@ void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::o
 }
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::onText(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>>::onText(
     Ptr<void>,
     std::string_view)
 {}
 
 
-template <class TScalarExpression, unsigned Dim, std::size_t SetSize>
-void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize>>::onElementEnd(
+template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+void GraphML::Deserializer<maths::AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>>::onElementEnd(
     Ptr<void> pThis,
     std::string_view elementName) {
         CIE_BEGIN_EXCEPTION_TRACING

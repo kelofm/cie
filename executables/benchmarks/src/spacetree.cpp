@@ -30,7 +30,7 @@ constexpr unsigned MAX_DEPTH = 8;
 constexpr unsigned CELL_RESOLUTION = 5;
 
 
-template <cie::concepts::Cube TGeometry>
+template <cie::geo::CubeLike TGeometry>
 TGeometry makeRootGeometry()
 {
     typename TGeometry::Point base;
@@ -94,7 +94,7 @@ void contiguousTree(benchmark::State& r_state)
             // Query node geometry
             typename Tree::Point base, lengths;
             tree.getNodeGeometry(r_node, base.data(), lengths.data());
-            if constexpr (cie::concepts::Cube<TGeometry>) {
+            if constexpr (cie::geo::CubeLike<TGeometry>) {
                 std::fill(lengths.begin() + 1,
                           lengths.end(),
                           lengths.front());
@@ -185,7 +185,7 @@ void flexibleTree(benchmark::State& r_state)
         const std::function<void(const Node&)> visitor = [&volume, &target](const Node& r_node) -> void {
             if (r_node.isLeaf() && !r_node.isBoundary() && target(r_node.base())) {
                 Value cellVolume = 1;
-                if constexpr (cie::concepts::Cube<TGeometry>) {
+                if constexpr (cie::geo::CubeLike<TGeometry>) {
                     cellVolume = std::pow(r_node.length(), Dimension);
                 } else {
                     cellVolume = std::accumulate(r_node.lengths().begin(),

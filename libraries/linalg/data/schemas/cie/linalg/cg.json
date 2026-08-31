@@ -1,0 +1,26 @@
+{
+    "$id" : "/cie/linalg/cg",
+    "description" : "Settings for a conjugate gradient solver.",
+    "type" : "object",
+    "allOf" : [
+        {"$ref" : "/cie/linalg/base/iterative-solver"},
+        {
+            "properties" : {
+                "type" : {
+                    "const" : "cg"
+                },
+                "preconditioner" : {
+                    "type" : ["object", "null"],
+                    "anyOf" : [
+                        {"type" : "null"},
+                        {"$ref" : "/cie/linalg/inverse-diagonal-operator"},
+                        {"$ref" : "/cie/linalg/jacobi"}
+                    ],
+                    "default" : {"type" : "inverse-diagonal-operator"},
+                    "description" : "Settings for an optional preconditioner."
+                }
+            }
+        }
+    ],
+    "required" : ["type"]
+}

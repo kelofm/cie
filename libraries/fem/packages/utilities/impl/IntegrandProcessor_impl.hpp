@@ -95,14 +95,14 @@ IntegrandProcessor<Dim,TIntegrand,TQD>::~IntegrandProcessor() = default;
 
 template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 template <
-    concepts::Iterator TCellIt,
+    CellLike TCell,
     QuadratureRuleFactoryLike<
-        typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>::Data,
+        TCell,
         TQD
     > TQuadratureRuleFactory,
     concepts::FunctionWithSignature<
         TIntegrand,
-        Ref<const typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>::Data>
+        Ref<const TCell>
     > TIntegrandFactory,
     concepts::FunctionWithSignature<
         void,
@@ -110,77 +110,9 @@ template <
         std::span<const typename TIntegrand::Value>
     > TIntegralSink
 >
-requires CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type::Data>>
 void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
-    TCellIt itCellBegin,
-    TCellIt itCellEnd,
+    std::span<const TCell> cells,
     Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
-    TIntegrandFactory&& rIntegrandFactory,
-    TIntegralSink&& rIntegralSink,
-    Ref<const Properties> rExecutionProperties)
-{
-    using TItValueType = typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>;
-    this->processImpl<typename TItValueType::Data>(
-        [] (const TItValueType& rItem) -> const typename TItValueType::Data& {return rItem.data();},
-        itCellBegin,
-        itCellEnd,
-        rQuadratureRuleFactory,
-        rIntegrandFactory,
-        rIntegralSink,
-        rExecutionProperties);
-}
-
-
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
-template <
-    concepts::Iterator TCellIt,
-    QuadratureRuleFactoryLike<
-        typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>,
-        TQD
-    > TQuadratureRuleFactory,
-    concepts::FunctionWithSignature<
-        TIntegrand,
-        Ref<const typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
-    > TIntegrandFactory,
-    concepts::FunctionWithSignature<
-        void,
-        std::span<const VertexID>,
-        std::span<const typename TIntegrand::Value>
-    > TIntegralSink
->
-requires CellLike<std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>>
-void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
-    TCellIt itCellBegin,
-    TCellIt itCellEnd,
-    Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
-    TIntegrandFactory&& rIntegrandFactory,
-    TIntegralSink&& rIntegralSink,
-    Ref<const Properties> rExecutionProperties)
-{
-    using TItValueType = typename std::remove_const_t<typename std::iterator_traits<TCellIt>::value_type>;
-    this->processImpl<TItValueType>(
-        [] (const TItValueType& rItem) -> const TItValueType& {return rItem;},
-        itCellBegin,
-        itCellEnd,
-        rQuadratureRuleFactory,
-        rIntegrandFactory,
-        rIntegralSink,
-        rExecutionProperties);
-}
-
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
-template <
-    class TCell,
-    class TCellGetter,
-    class TCellIt,
-    class TQuadratureRuleFactory,
-    class TIntegrandFactory,
-    class TIntegralSink>
-void IntegrandProcessor<Dim,TIntegrand,TQD>::processImpl(
-    TCellGetter&& rCellGetter,
-    TCellIt itCellBegin,
-    TCellIt itCellEnd,
-    TQuadratureRuleFactory&& rQuadratureRuleFactory,
     TIntegrandFactory&& rIntegrandFactory,
     TIntegralSink&& rIntegralSink,
     Ref<const Properties> rExecutionProperties) {
@@ -204,8 +136,8 @@ void IntegrandProcessor<Dim,TIntegrand,TQD>::processImpl(
             // 0) Generate quadrature points.
             // 1) Evaluate integrands at quadrature points.
             // 2) Call the consumer with the cell-wise reduced results.
-            for (auto itCell=itCellBegin; itCell!=itCellEnd; ++itCell) {
-                Ref<const TCell> rCell = rCellGetter(*itCell);
+            for (std::size_t iCell=0ul; iCell<cells.size(); ++iCell) {
+                Ref<const TCell> rCell = cells[iCell];
 
                 // Mark the begin of recording quadrature points for a new cell
                 // and thus new integrand.
@@ -299,7 +231,7 @@ void IntegrandProcessor<Dim,TIntegrand,TQD>::processImpl(
                 const auto extentView = _pImpl->extents.get();
                 _pImpl->quadraturePoints.resize(extentView.back().iQuadraturePointBegin);
                 const std::size_t cellCount = extentView.size() - 1;
-                output.resize(cellCount * extentView.back().integrand.size());
+                output.resize(cellCount * extentView.front().integrand.size());
 
                 CIE_BEGIN_EXCEPTION_TRACING
                     this->execute(
@@ -335,7 +267,6 @@ std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::Properties>
 IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
     return std::make_unique<Properties>(Properties {
         .integrandBatchSize = 0x8000,
-        .integrandsPerItem = 0x8,
         .verbosity = 1
     });
 }
@@ -457,8 +388,7 @@ void ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                         iQuadraturePoint,
                         [](std::size_t iQuadraturePoint, Ref<const typename Base::Impl::Extents::Value> rExtent) -> bool {
                             return iQuadraturePoint < rExtent.iQuadraturePointBegin;
-                        });
-                    if (iQuadraturePoint < pExtent->iQuadraturePointBegin) --pExtent;
+                        }) - 1;
                     Ref<const TIntegrand> rIntegrand = pExtent->integrand;
 
                     // Adjust the result and integrand buffers if necessary.
@@ -500,6 +430,65 @@ void ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
 struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     std::shared_ptr<sycl::queue> pQueue;
+
+    struct Kernel {
+        Ptr<const typename Base::Impl::Extents::Value> pExtentBegin;
+
+        Ptr<const typename Base::Impl::Extents::Value> pExtentEnd;
+
+        Ptr<const typename Base::Impl::QPoint> pQuadraturePointBegin;
+
+        Ptr<typename TIntegrand::Value> pOutputBegin;
+
+        Ptr<typename TIntegrand::Value> pBufferBegin;
+
+        std::size_t quadraturePointCount;
+
+        std::size_t itemBufferSize;
+
+        void operator()(sycl::nd_item<1> item) const noexcept {
+            // Get work item index.
+            const std::size_t iItem = item.get_global_linear_id();
+            if (quadraturePointCount <= iItem) return;
+
+            // Find which integrand the first quadrature point belongs to.
+            Ptr<const typename Base::Impl::Extents::Value> pExtent = std::upper_bound(
+                pExtentBegin,
+                pExtentEnd,
+                iItem,
+                [](std::size_t iQuadraturePoint, Ref<const typename Base::Impl::Extents::Value> rExtent) -> bool {
+                    return iQuadraturePoint < rExtent.iQuadraturePointBegin;
+                }) - 1;
+            const std::span<typename TIntegrand::Value> integrandBuffer(
+                pBufferBegin + iItem * itemBufferSize,
+                TIntegrand::bufferSize());
+            const std::span<typename TIntegrand::Value> results(
+                integrandBuffer.data() + integrandBuffer.size(),
+                TIntegrand::size());
+
+            // Find which integrand the current quadrature point belongs to.
+            Ref<const TIntegrand> rIntegrand = pExtent->integrand;
+
+            // Evaluate the integrand at the current quadrature point.
+            pQuadraturePointBegin[iItem].evaluate(
+                rIntegrand,
+                results,
+                integrandBuffer);
+
+            // Reduce the results.
+            std::span<typename TIntegrand::Value> output(
+                pOutputBegin + std::distance<decltype(pExtent)>(pExtentBegin, pExtent) * TIntegrand::size(),
+                TIntegrand::size());
+            for (std::size_t iComponent=0ul; iComponent<TIntegrand::size(); ++iComponent) {
+                sycl::atomic_ref<
+                    typename TIntegrand::Value,
+                    sycl::memory_order::relaxed,
+                    sycl::memory_scope::device,
+                    sycl::access::address_space::global_space
+                >(output[iComponent]) += results[iComponent];
+            } // for iComponent in range(TIntegrand::size())
+        } // kernel operator()
+    }; // struct Kernel
 }; // struct SYCLIntegrandProcessor::Impl
 
 
@@ -520,7 +509,6 @@ template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
 void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
     std::span<typename TIntegrand::Value> output,
     Ref<const typename Base::Properties> rExecutionProperties) {
-        const auto timer = utils::LoggerSingleton::get().startTimer();
         Ref<sycl::queue> rQueue = *_pSYCLImpl->pQueue;
         const auto extentView = this->_pImpl->extents.get();
         const auto& rQuadraturePoints = this->_pImpl->quadraturePoints;
@@ -535,20 +523,52 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                     deviceName.crend(),
                     [](int c) {return !std::isspace(c);})));
 
+        std::optional<utils::LogBlock> maybeLogBlock;
+        if (rExecutionProperties.verbosity && 3 <= rExecutionProperties.verbosity.value())
+            maybeLogBlock.emplace(
+                std::format(
+                    "evaluate {} integrand(s) at {} quadrature point(s) on {}",
+                    extentView.size() - 1,
+                    extentView.back().iQuadraturePointBegin,
+                    trimmedDeviceName),
+                utils::LoggerSingleton::get());
+
         // Parse execution properties.
         auto pDefaultExecutionProperties = this->makeDefaultProperties();
-        const std::size_t integrandsPerItem = rExecutionProperties.integrandsPerItem.has_value()
-            ? rExecutionProperties.integrandsPerItem.value()
-            : pDefaultExecutionProperties->integrandsPerItem.value();
+
+        // Query kernel properties.
+        // @todo uncomment when AdaptiveCpp implements sycl::get_kernel_bundle
+        //const sycl::kernel dummyKernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(rQueue.get_context()).get_kernel<typename Impl::Kernel>();
+        //const std::size_t kernelMaxWorkGroupSize = dummyKernel.get_work_group_info<
+        //    sycl::info::kernel_work_group::work_group_size>(rQueue.get_device());
+        const std::size_t kernelMaxWorkGroupSize = 256;
+
+        // Partition work items and groups.
+        const std::size_t pointCount = rQuadraturePoints.size();
+        const std::size_t pointsPerGroup = std::min<std::size_t>(
+            pointCount,
+            kernelMaxWorkGroupSize);
+        const std::size_t groupCount = (pointCount + pointsPerGroup - 1) / pointsPerGroup;
+        const auto range = sycl::nd_range<1>(
+            pointsPerGroup * groupCount,
+            pointsPerGroup);
+        if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value())
+            std::cout << std::format(
+                "point count {}\ngroup count {}\npoints per group {}\n",
+                pointCount,
+                groupCount,
+                pointsPerGroup);
 
         // Allocate memory on the device.
+        const std::size_t itemBufferSize = TIntegrand::size() + TIntegrand::bufferSize();
+        const std::size_t deviceBufferSize = groupCount * pointsPerGroup * itemBufferSize;
         if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
             utils::LoggerSingleton::get().log(std::format(
-                "allocate {} bytes on {}",
+                "allocate {} bytes",
                 extentView.size() * sizeof(typename Base::Impl::Extents::Value)
                     + rQuadraturePoints.size() * sizeof(typename Base::Impl::QPoint)
-                    + output.size() * sizeof(typename TIntegrand::Value),
-                trimmedDeviceName));
+                    + output.size() * sizeof(typename TIntegrand::Value)
+                    + deviceBufferSize));
         }
         const auto memoryTimer = utils::LoggerSingleton::get().startTimer();
         auto pDeviceExtents = makeDeviceMemory<typename Base::Impl::Extents::Value>(
@@ -560,104 +580,56 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
         auto pDeviceOutput = makeDeviceMemory<typename TIntegrand::Value>(
             output.size(),
             rQueue);
+        auto pDeviceBuffer = makeDeviceMemory<typename TIntegrand::Value>(
+            deviceBufferSize,
+            rQueue);
         if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
             utils::LoggerSingleton::get().logElapsed(
                 std::format(
-                    "allocation on {} took ",
+                    "allocation took",
                     trimmedDeviceName),
                 memoryTimer);
         }
 
         // Copy input data to the device.
-        [[maybe_unused]] sycl::event extentCopyEvent = rQueue.copy(
-            extentView.data(),
-            pDeviceExtents.get(),
-            extentView.size());
-        [[maybe_unused]] sycl::event quadraturePointCopyEvent = rQueue.copy(
-            rQuadraturePoints.data(),
-            pDeviceQuadraturePoints.get(),
-            rQuadraturePoints.size());
-
-        // Initialize output values on the device side.
-        [[maybe_unused]] sycl::event outputInitEvent = rQueue.fill(
-            pDeviceOutput.get(),
-            static_cast<typename TIntegrand::Value>(0),
-            output.size());
+        {
+            const auto timerID = utils::LoggerSingleton::get().startTimer();
+            [[maybe_unused]] sycl::event extentCopyEvent = rQueue.copy(
+                extentView.data(),
+                pDeviceExtents.get(),
+                extentView.size());
+            [[maybe_unused]] sycl::event quadraturePointCopyEvent = rQueue.copy(
+                rQuadraturePoints.data(),
+                pDeviceQuadraturePoints.get(),
+                rQuadraturePoints.size());
+            [[maybe_unused]] sycl::event outputInitEvent = rQueue.fill(
+                pDeviceOutput.get(),
+                static_cast<typename TIntegrand::Value>(0),
+                output.size());
+            rQueue.wait_and_throw();
+            if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value())
+                utils::LoggerSingleton::get().logElapsed(
+                    std::format(
+                        "initializing and copying data took",
+                        trimmedDeviceName),
+                    timerID);
+        } // finish copying data to the device
 
         // Perform integration on the device.
         CIE_BEGIN_EXCEPTION_TRACING
-        const std::size_t workItemCount = rQuadraturePoints.size() / integrandsPerItem + bool(rQuadraturePoints.size() % integrandsPerItem);
-        const std::size_t itemsPerWorkGroup = std::min<std::size_t>(
-            workItemCount,
-            rQueue.get_device().get_info<sycl::info::device::max_work_group_size>());
-        const std::size_t workGroupCount = workItemCount / itemsPerWorkGroup + bool(workItemCount % itemsPerWorkGroup);
-        const auto range = sycl::nd_range<1>(
-            itemsPerWorkGroup * workGroupCount,
-            itemsPerWorkGroup);
-
-        rQueue.wait_and_throw();
-        rQueue.submit([&] (sycl::handler& rHandler) {
-            rHandler.parallel_for(
-                range,
-                [
-                    pExtentBegin            = pDeviceExtents.get(),
-                    pExtentEnd              = pDeviceExtents.get() + extentView.size(),
-                    pQuadraturePointBegin   = pDeviceQuadraturePoints.get(),
-                    pOutputBegin            = pDeviceOutput.get(),
-                    quadraturePointCount    = rQuadraturePoints.size(),
-                    integrandsPerItem
-                ] (sycl::nd_item<1> item) {
-                    // Get work item index.
-                    //const std::size_t iItem = item.get(0);
-                    const std::size_t iItem = item.get_global_linear_id();
-
-                    // Map to quadrature point range.
-                    const std::size_t iQuadraturePointBegin = std::min<std::size_t>(
-                        iItem * integrandsPerItem,
-                        quadraturePointCount);
-                    const std::size_t iQuadraturePointEnd   = std::min<std::size_t>(
-                        iQuadraturePointBegin + integrandsPerItem,
-                        quadraturePointCount);
-
-                    // Find which integrand the first quadrature point belongs to.
-                    Ptr<const typename Base::Impl::Extents::Value> pExtent = std::upper_bound(
-                        pExtentBegin,
-                        pExtentEnd,
-                        iQuadraturePointBegin,
-                        [](std::size_t iQuadraturePoint, Ref<const typename Base::Impl::Extents::Value> rExtent) -> bool {
-                            return iQuadraturePoint < rExtent.iQuadraturePointBegin;
-                        }) - 1;
-                    std::array<typename TIntegrand::Value,TIntegrand::size()> results;
-                    std::array<typename TIntegrand::Value,TIntegrand::bufferSize()> integrandBuffer;
-
-                    // Loop through assigned quadrature points and evaluate their corresponding integrands.
-                    for (std::size_t iQuadraturePoint=iQuadraturePointBegin; iQuadraturePoint<iQuadraturePointEnd; ++iQuadraturePoint) {
-                        // Find which integrand the current quadrature point belongs to.
-                        for (; (pExtent + 1)->iQuadraturePointBegin <= iQuadraturePoint; ++pExtent) {}
-                        Ref<const TIntegrand> rIntegrand = pExtent->integrand;
-
-                        // Evaluate the integrand at the current quadrature point.
-                        pQuadraturePointBegin[iQuadraturePoint].evaluate(
-                            rIntegrand,
-                            results,
-                            integrandBuffer);
-
-                        // Reduce the results.
-                        std::span<typename TIntegrand::Value> output(
-                            pOutputBegin + std::distance<decltype(pExtent)>(pExtentBegin, pExtent) * TIntegrand::size(),
-                            TIntegrand::size());
-                        for (std::size_t iComponent=0ul; iComponent<TIntegrand::size(); ++iComponent) {
-                            sycl::atomic_ref<
-                                typename TIntegrand::Value,
-                                sycl::memory_order::relaxed,
-                                sycl::memory_scope::device,
-                                sycl::access::address_space::local_space
-                            >(output[iComponent]) += results[iComponent];
-                        } // for iComponent in range(TIntegrand::size())
-                    } // for iQuadraturePoint in range(iQuadraturePointBegin, iQuadraturePointEnd)
+            rQueue.submit([&] (sycl::handler& rHandler) {
+                rHandler.parallel_for<typename Impl::Kernel>(
+                    range,
+                    typename Impl::Kernel {
+                        .pExtentBegin           = pDeviceExtents.get(),
+                        .pExtentEnd             = pDeviceExtents.get() + extentView.size(),
+                        .pQuadraturePointBegin  = pDeviceQuadraturePoints.get(),
+                        .pOutputBegin           = pDeviceOutput.get(),
+                        .pBufferBegin           = pDeviceBuffer.get(),
+                        .quadraturePointCount   = rQuadraturePoints.size(),
+                        .itemBufferSize         = itemBufferSize});
                 });
-            });
-        rQueue.wait_and_throw();
+            rQueue.wait_and_throw();
         CIE_END_EXCEPTION_TRACING
 
         // Fetch results from the device.
@@ -667,16 +639,6 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
             output.data(),
             output.size()).wait_and_throw();
         CIE_END_EXCEPTION_TRACING
-
-        if (rExecutionProperties.verbosity && 3 <= rExecutionProperties.verbosity.value()) {
-            utils::LoggerSingleton::get().logElapsed(
-                std::format(
-                    "evaluated {} integrand(s) at {} quadrature point(s) on {} in",
-                    extentView.size() - 1,
-                    extentView.back().iQuadraturePointBegin,
-                    trimmedDeviceName),
-                timer);
-        }
 }
 
 

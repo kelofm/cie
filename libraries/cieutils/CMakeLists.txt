@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.20)
 project(cieutils LANGUAGES CXX VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -9,6 +9,7 @@ string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 # Declare all CMake settings
 set(CIE_ENABLE_SYCL                                         OFF CACHE BOOL "Build CiE projects with SYCL support.")
 set(CIE_ENABLE_MPI                                          OFF CACHE BOOL "Build CiE projects with MPI support")
+set(CIE_ENABLE_EXCEPTION_TRACING                            ON  CACHE BOOL "Catch and rethrow exceptions to build a traceback for runtime errors.")
 set(CIE_ENABLE_PROFILING                                    OFF CACHE BOOL "Enable CiE projects profiling macros.")
 set(CIE_ENABLE_OUT_OF_RANGE_CHECKS                          OFF CACHE BOOL "Enable macros for checking out-of-range errors.")
 set(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS                      OFF CACHE BOOL "Enable macros for checking division by zero errors.")
@@ -17,12 +18,14 @@ set(${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE               ON CACHE BOOL "build
 set(${PROJECT_NAME_UPPER}_BUILD_TESTS                       ON CACHE BOOL "build testrunner for ${PROJECT_NAME}")
 
 # Static paths
-if(UNIX)
-    set(${PROJECT_NAME_UPPER}_INSTALL_DATA_DIR "${CMAKE_INSTALL_PREFIX}/cie/data" CACHE STRING "")
+if(APPLE)
+    set(${PROJECT_NAME_UPPER}_INSTALL_DATA_DIR "${CMAKE_INSTALL_PREFIX}/share/cie" CACHE STRING "")
     set(${PROJECT_NAME_UPPER}_OUTPUT_DIR "." CACHE STRING "")
-elseif(APPLE)
-    set(${PROJECT_NAME_UPPER}_INSTALL_DATA_DIR "${CMAKE_INSTALL_PREFIX}/cie/data" CACHE STRING "")
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(${PROJECT_NAME_UPPER}_INSTALL_DATA_DIR "${CMAKE_INSTALL_PREFIX}/share/cie" CACHE STRING "")
     set(${PROJECT_NAME_UPPER}_OUTPUT_DIR "." CACHE STRING "")
+    set(CIE_INSTALL_RPATH "$ORIGIN")
 elseif(WIN32)
     message(FATAL_ERROR "Unsupported OS")
 else()
@@ -34,21 +37,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Collect dependencies
 find_package(nlohmann_json REQUIRED)
+find_package(nlohmann_json_schema_validator REQUIRED)
 
 # Get the current commit hash
 find_package(Git)
 if (${Git_FOUND})
-    execute_process(COMMAND
-                    "${GIT_EXECUTABLE}" rev-parse --abbrev-ref HEAD
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                    OUTPUT_VARIABLE ${PROJECT_NAME_UPPER}_BRANCH_NAME
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+        COMMAND
+            "${GIT_EXECUTABLE}" rev-parse --abbrev-ref HEAD
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE ${PROJECT_NAME_UPPER}_BRANCH_NAME
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-    execute_process(COMMAND
-                    "${GIT_EXECUTABLE}" rev-parse HEAD
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                    OUTPUT_VARIABLE ${PROJECT_NAME_UPPER}_COMMIT_HASH
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+        COMMAND
+            "${GIT_EXECUTABLE}" rev-parse HEAD
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE ${PROJECT_NAME_UPPER}_COMMIT_HASH
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
 else()
     set(${PROJECT_NAME_UPPER}_BRANCH_NAME "unavailable")
     set(${PROJECT_NAME_UPPER}_COMMIT_HASH "unavailable")
@@ -56,50 +62,91 @@ endif()
 
 # Create a target for the main library.
 if (${${PROJECT_NAME_UPPER}_BUILD_SHARED_LIBRARY} OR ${${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE})
-    add_library(${PROJECT_NAME} SHARED)
-    set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
+    add_library(
+        ${PROJECT_NAME}
+        SHARED)
+    set_property(
+        TARGET
+            ${PROJECT_NAME}
+        PROPERTY
+            POSITION_INDEPENDENT_CODE 1)
 else()
-    add_library(${PROJECT_NAME} STATIC)
+    add_library(
+        ${PROJECT_NAME}
+        STATIC)
 endif()
-add_library(cie::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+add_library(
+    cie::${PROJECT_NAME}
+    ALIAS ${PROJECT_NAME})
 
 # Generate sources from source templates
-file(GLOB source_templates "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp.in")
+file(GLOB source_templates CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp.in")
 foreach(source_template ${source_templates})
     # Configure and output to intermediate file (read-write permissions)
-    get_filename_component(source_template_name "${source_template}" NAME_WE)
-    configure_file("${source_template}" "${CMAKE_CURRENT_SOURCE_DIR}/src/${source_template_name}.cpp")
+    get_filename_component(
+        source_template_name
+        "${source_template}"
+        NAME_WE)
+    configure_file(
+        "${source_template}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/${source_template_name}.cpp")
 
     # Withdraw write permission from the generated file
-    file(CHMOD
-         "${CMAKE_CURRENT_SOURCE_DIR}/src/${source_template_name}.cpp"
-         FILE_PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
+    file(
+        CHMOD
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/${source_template_name}.cpp"
+            FILE_PERMISSIONS
+                OWNER_READ
+                GROUP_READ
+                WORLD_READ)
 endforeach()
 
 # Compile definitions
+if(CIE_ENABLE_EXCEPTION_TRACING)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        CIE_ENABLE_EXCEPTION_TRACING=1)
+endif()
+
 if(CIE_ENABLE_PROFILING)
-    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_PROFILING=1)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        CIE_ENABLE_PROFILING=1)
 endif()
 
 if(CIE_ENABLE_OUT_OF_RANGE_CHECKS)
-    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        CIE_ENABLE_OUT_OF_RANGE_CHECKS=1)
 endif()
 
 if(CIE_ENABLE_DIVISION_BY_ZERO_CHECKS)
-    target_add_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        CIE_ENABLE_DIVISION_BY_ZERO_CHECKS=1)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 # GCC with sanitizers spews out insane amounts of false positive warnings, even within
 # its own standard library. This is a known issue but GCC devs don't seem to care, so
 # I have to disable some warnings here.
-    target_compile_options(${PROJECT_NAME} PUBLIC
-                           -Wall -Wpedantic -Wextra -Werror
-                           -Wno-dangling-reference -Wno-maybe-uninitialized)
+    target_compile_options(
+        ${PROJECT_NAME}
+        PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror
+            -Wno-dangling-reference
+            -Wno-maybe-uninitialized)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     target_compile_options(
         ${PROJECT_NAME}
-        PUBLIC
+        PRIVATE
             -Wall
             -Wpedantic
             -Wextra
@@ -109,71 +156,132 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     target_compile_options(
         ${PROJECT_NAME}
-        PUBLIC
-        -Wall
-        -Wpedantic
-        -Wextra
-        -Werror)
+        PRIVATE
+            -Wall
+            -Wpedantic
+            -Wextra
+            -Werror)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     message(FATAL_ERROR "MSVC is not supported yet")
 endif ()
 
 # Add sources to the main library.
-file(GLOB_RECURSE sources
-     "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp"
-     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-target_sources(${PROJECT_NAME} PRIVATE ${sources})
+file(
+    GLOB_RECURSE
+    sources
+    CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+target_sources(
+    ${PROJECT_NAME}
+    PRIVATE
+    ${sources})
 
-
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json)
-target_include_directories(${PROJECT_NAME}
-                           PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
-                                   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
-                           INTERFACE "$<INSTALL_INTERFACE:cie/include>"
-                                     "$<INSTALL_INTERFACE:cie/include/inc>"
-                                     "$<INSTALL_INTERFACE:cie/include/external/tessil/include>"
-                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
-                                     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
-set_target_properties(${PROJECT_NAME} PROPERTIES
-                      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      INSTALL_RPATH "$ORIGIN")
+target_link_libraries(
+    ${PROJECT_NAME}
+    PUBLIC
+    nlohmann_json::nlohmann_json)
+target_link_libraries(
+    ${PROJECT_NAME}
+    PRIVATE
+    nlohmann_json_schema_validator::validator)
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>"
+    INTERFACE
+        "$<INSTALL_INTERFACE:include/cie>"
+        "$<INSTALL_INTERFACE:include/cie/inc>"
+        "$<INSTALL_INTERFACE:include/cie/external/tessil/include>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/tessil/include>")
+set_target_properties(
+    ${PROJECT_NAME}
+    PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}")
 
 # MPI support.
 if (CIE_ENABLE_MPI)
     find_package(MPI REQUIRED)
-    target_include_directories(${PROJECT_NAME} PRIVATE "${MPI_INCLUDE_PATH}")
-    target_compile_definitions(${PROJECT_NAME} PUBLIC "${PROJECT_NAME_UPPER}_COMPILE_MPI")
-    target_link_libraries(${PROJECT_NAME} PUBLIC MPI::MPI_CXX)
+    target_include_directories(
+        ${PROJECT_NAME}
+        PRIVATE
+        "${MPI_INCLUDE_PATH}")
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        CIE_ENABLE_COMPILE_MPI=1)
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PUBLIC
+        MPI::MPI_CXX)
 endif()
 
 # Build test executable.
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
-    file(GLOB_RECURSE test_sources "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
-    list(INSERT test_sources 0 "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
+    file(
+        GLOB_RECURSE
+        test_sources
+        CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/packages/*/test/*.cpp")
+    list(
+        INSERT
+        test_sources
+        0
+        "${CMAKE_CURRENT_SOURCE_DIR}/test/${PROJECT_NAME}_testrunner.cpp")
 
     find_package(Catch2 REQUIRED)
     add_executable(${PROJECT_NAME}_testrunner)
-    target_sources(${PROJECT_NAME}_testrunner PRIVATE ${test_sources})
-    target_link_libraries(${PROJECT_NAME}_testrunner PRIVATE ${PROJECT_NAME} Catch2::Catch2)
-    set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES
-                          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    target_sources(
+        ${PROJECT_NAME}_testrunner
+        PRIVATE
+        ${test_sources})
+    target_link_libraries(
+        ${PROJECT_NAME}_testrunner
+        PRIVATE ${PROJECT_NAME}
+        Catch2::Catch2)
+    set_target_properties(
+        ${PROJECT_NAME}_testrunner
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()
 
 # Build python module
 if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
-    set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE 1)
-    find_package(pybind11 REQUIRED)
+    set_property(
+        TARGET
+        ${PROJECT_NAME}
+        PROPERTY
+        POSITION_INDEPENDENT_CODE 1)
 
-    file(GLOB_RECURSE python_module_sources "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
-    pybind11_add_module(${PROJECT_NAME}_python_bindings MODULE ${python_module_sources})
-    target_link_libraries(${PROJECT_NAME}_python_bindings PRIVATE ${PROJECT_NAME})
-    set_target_properties(${PROJECT_NAME}_python_bindings PROPERTIES
-                          LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                          ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                          INSTALL_RPATH "$ORIGIN")
+    set(PYBIND11_FINDPYTHON ON)
+    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(pybind11 CONFIG REQUIRED)
+
+    file(
+        GLOB_RECURSE
+        python_module_sources
+        CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/python/bindings/*.cpp")
+    pybind11_add_module(
+        ${PROJECT_NAME}_python_bindings
+        MODULE
+        ${python_module_sources})
+    target_link_libraries(
+        ${PROJECT_NAME}_python_bindings
+        PRIVATE
+        ${PROJECT_NAME})
+    set_target_properties(
+        ${PROJECT_NAME}_python_bindings
+        PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../")
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is
@@ -181,25 +289,37 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     foreach(child ${children})
         if (IS_DIRECTORY "${child}")
             get_filename_component(module_name "${child}" NAME)
-            install(DIRECTORY "${child}"
-                    DESTINATION "cie")
+            install(
+                DIRECTORY "${child}"
+                DESTINATION "lib/cie")
         endif()
     endforeach()
 
     # Install bindings
-    install(TARGETS ${PROJECT_NAME}_python_bindings
-            EXPORT ${PROJECT_NAME}Targets
-            LIBRARY DESTINATION "cie/lib")
+    install(
+        TARGETS ${PROJECT_NAME}_python_bindings
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION "lib/cie")
 
     # Main CiE module __init__
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/__init__.py" DESTINATION "cie")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/python/modules/__init__.py" DESTINATION "lib/cie")
 endif()
 
 # SYCL extension.
 if (${CIE_ENABLE_SYCL})
-    target_compile_definitions(${PROJECT_NAME} PUBLIC CIE_ENABLE_SYCL)
-    find_package(OpenMP COMPONENTS CXX REQUIRED)
-    target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        CIE_ENABLE_SYCL=1)
+    find_package(
+        OpenMP
+        COMPONENTS
+        CXX
+        REQUIRED)
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PUBLIC
+        OpenMP::OpenMP_CXX)
 endif()
 
 # Package
@@ -217,7 +337,10 @@ set(CPACK_SOURCE_IGNORE_FILES
     /.git
     /build
     *.gitignore)
-include(CPack)
+
+if (NOT DEFINED CPack_CMake_INCLUDED)
+    include(CPack)
+endif()
 
 # Generate CMake config
 include(CMakePackageConfigHelpers)
@@ -233,37 +356,41 @@ write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Con
 # Install targets
 install(TARGETS ${PROJECT_NAME}
         EXPORT ${PROJECT_NAME}Targets
-        LIBRARY DESTINATION "cie/lib"
-        ARCHIVE DESTINATION "cie/lib"
-        RUNTIME DESTINATION "cie/bin"
-        INCLUDES DESTINATION "cie/include")
+        LIBRARY DESTINATION "lib"
+        ARCHIVE DESTINATION "lib"
+        RUNTIME DESTINATION "bin"
+        INCLUDES DESTINATION "include")
 install(EXPORT ${PROJECT_NAME}Targets
         FILE ${PROJECT_NAME}Targets.cmake
         NAMESPACE cie::
-        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
+        DESTINATION "lib/cmake/${PROJECT_NAME}")
 
 # Install headers
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packages"
-        DESTINATION "cie/include"
-        FILES_MATCHING PATTERN "*.hpp")
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc"
-        DESTINATION "cie/include/"
-        FILES_MATCHING PATTERN "*.hpp")
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python"
-        DESTINATION "cie/include/"
-        FILES_MATCHING PATTERN "*.hpp")
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external"
-        DESTINATION "cie/include"
-        FILES_MATCHING PATTERN "*.h*")
+install(
+    DIRECTORY
+    "${CMAKE_CURRENT_SOURCE_DIR}/packages"
+    DESTINATION "include/cie"
+    FILES_MATCHING PATTERN "*.hpp")
+install(
+    DIRECTORY
+    "${CMAKE_CURRENT_SOURCE_DIR}/inc"
+    DESTINATION "include/cie/"
+    FILES_MATCHING PATTERN "*.hpp")
+install(
+    DIRECTORY
+    "${CMAKE_CURRENT_SOURCE_DIR}/python"
+    DESTINATION "include/cie/"
+    FILES_MATCHING PATTERN "*.hpp")
+install(
+    DIRECTORY
+    "${CMAKE_CURRENT_SOURCE_DIR}/external"
+    DESTINATION "include/cie"
+    FILES_MATCHING PATTERN "*.h*")
 
 # Install CMake config
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-        DESTINATION "cie/lib/cmake/${PROJECT_NAME}")
-
-# Export
-set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
-export(TARGETS ${PROJECT_NAME}
-       NAMESPACE cie::
-       FILE ${PROJECT_NAME}Targets.cmake)
-export(PACKAGE ${PROJECT_NAME})
+install(
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION
+        "lib/cmake/${PROJECT_NAME}")

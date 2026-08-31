@@ -87,4 +87,35 @@ void AffineTransform<TValue,Dimension>::evaluate(
 }
 
 
+template <concepts::Numeric TValue, unsigned Dimension>
+template <class TA>
+void AffineTransform<TValue,Dimension>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<AffineTransform> rInstance,
+    TA allocator,
+    tags::Binary) {
+        constexpr std::size_t entryCount = (Dimension + 1) * (Dimension + 1);
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transformationMatrix.data(),
+            entryCount,
+            allocator);
+}
+
+
+template <concepts::Numeric TValue, unsigned Dimension>
+template <class TA>
+void AffineTransformDerivative<TValue,Dimension>::deserialize(
+    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<AffineTransformDerivative> rInstance,
+    TA allocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._matrix.data(),
+            rInstance._matrix.size(),
+            allocator);
+}
+
+
 } // namespace cie::fem::maths

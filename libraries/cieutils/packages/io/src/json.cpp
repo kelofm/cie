@@ -1,18 +1,19 @@
 // --- External Includes ---
 #include "nlohmann/json.hpp"
+#include "nlohmann/json-schema.hpp"
 
 // --- Utiltity Includes ---
 #include "packages/macros/inc/exceptions.hpp"
 #include "packages/stl_extension/inc/StaticArray.hpp"
-
-// --- Internal Includes ---
 #include "packages/io/inc/json.hpp"
+#include "cmake_variables.hpp"
 
 // --- STL Includes ---
 #include <fstream>
 #include <vector>
 #include <array>
 #include <iostream>
+#include <format>
 
 
 namespace cie::io {
@@ -25,15 +26,13 @@ namespace jsonimpl {
 using iterator = nlohmann::json::iterator;
 using const_iterator = nlohmann::json::const_iterator;
 
-iterator advance(iterator it, int difference)
-{
+iterator advance(iterator it, int difference) {
     for (int i=0; i<difference; ++i)
         ++it;
     return it;
 }
 
-const_iterator advance(const_iterator it, int difference)
-{
+const_iterator advance(const_iterator it, int difference) {
     for (int i=0; i<difference; ++i)
         ++it;
     return it;
@@ -42,45 +41,50 @@ const_iterator advance(const_iterator it, int difference)
 
 
 template <class Value>
-JSONObject::IteratorBase<Value>::IteratorBase(value_type& r_json)
-    : _p_base(&r_json),
+JSONObject::IteratorBase<Value>::IteratorBase(value_type& rJSON)
+    : _p_base(&rJSON),
         _index(0)
 {}
 
 
 template <class Value>
-JSONObject::IteratorBase<Value>::IteratorBase(value_type& r_json, difference_type index)
-    : _p_base(&r_json),
+JSONObject::IteratorBase<Value>::IteratorBase(value_type& rJSON, difference_type index)
+    : _p_base(&rJSON),
         _index(index)
 {}
 
 
+template <class T>
+typename JSONObject::IteratorBase<T>::value_type*
+JSONObject::IteratorBase<T>::get() {
+    return _p_base;
+}
+
+
+template <class T>
+const typename JSONObject::IteratorBase<T>::value_type*
+JSONObject::IteratorBase<T>::get() const {
+    return _p_base;
+}
+
+
 template <class Value>
 typename JSONObject::IteratorBase<Value>::value_type
-JSONObject::IteratorBase<Value>::operator*()
-{
-    return JSONObject(
-        &*jsonimpl::advance(_p_base->_p_contents->begin(), _index),
-        &_p_base->root()
-    );
+JSONObject::IteratorBase<Value>::operator*() {
+    return JSONObject(&*jsonimpl::advance(this->get()->_pContents->begin(), _index));
 }
 
 
 template <class Value>
 const typename JSONObject::IteratorBase<Value>::value_type
-JSONObject::IteratorBase<Value>::operator*() const
-{
-    return JSONObject(
-        &*jsonimpl::advance(_p_base->_p_contents->begin(), _index),
-        &_p_base->root()
-    );
+JSONObject::IteratorBase<Value>::operator*() const {
+    return JSONObject(&*jsonimpl::advance(this->get()->_pContents->begin(), _index));
 }
 
 
 template <class Value>
 JSONObject::IteratorBase<Value>&
-JSONObject::IteratorBase<Value>::operator++()
-{
+JSONObject::IteratorBase<Value>::operator++() {
     ++_index;
     return *this;
 }
@@ -90,7 +94,7 @@ template <class Value>
 JSONObject::IteratorBase<Value>
 JSONObject::IteratorBase<Value>::operator++(int)
 {
-    return JSONObject::IteratorBase<Value>(*_p_base, _index + 1);
+    return JSONObject::IteratorBase<Value>(*this->get(), _index + 1);
 }
 
 
@@ -107,117 +111,95 @@ template <class Value>
 JSONObject::IteratorBase<Value>
 JSONObject::IteratorBase<Value>::operator--(int)
 {
-    return JSONObject::IteratorBase<Value>(*_p_base, _index - 1);
-}
-
-
-//template <class Value>
-//JSONObject::IteratorBase<Value>&
-//JSONObject::IteratorBase<Value>::operator+=(difference_type difference)
-//{
-//    _index += difference;
-//    return *this;
-//}
-
-
-//template <class Value>
-//JSONObject::IteratorBase<Value>&
-//JSONObject::IteratorBase<Value>::operator-=(difference_type difference)
-//{
-//    _index -= difference;
-//    return *this;
-//}
-
-
-//template <class Value>
-//JSONObject::IteratorBase<Value>
-//JSONObject::IteratorBase<Value>::operator+(difference_type rhs)
-//{
-//    JSONObject::IteratorBase<Value> output(*this->_p_base);
-//    output += rhs;
-//    return output;
-//}
-
-
-//template <class Value>
-//JSONObject::IteratorBase<Value>
-//JSONObject::IteratorBase<Value>::operator-(difference_type rhs)
-//{
-//    JSONObject::IteratorBase<Value> output(*this->_p_base);
-//    output -= rhs;
-//    return output;
-//}
-
-
-//template <class Value>
-//bool
-//JSONObject::IteratorBase<Value>::operator==(const JSONObject::IteratorBase<Value>& r_rhs)
-//{
-//    return jsonimpl::advance(_p_base->_p_contents->begin(), _index) == jsonimpl::advance(r_rhs._p_contents->begin(), r_rhs._index);
-//}
-
-
-template <class Value>
-bool
-JSONObject::IteratorBase<Value>::operator!=(const JSONObject::IteratorBase<Value>& r_rhs)
-{
-    return jsonimpl::advance(_p_base->_p_contents->begin(), _index) != jsonimpl::advance(r_rhs._p_base->_p_contents->begin(), r_rhs._index);
+    return JSONObject::IteratorBase<Value>(*this->get(), _index - 1);
 }
 
 
 template <class Value>
 bool
-JSONObject::IteratorBase<Value>::operator<(const JSONObject::IteratorBase<Value>& r_rhs)
-{
-    return jsonimpl::advance(_p_base->_p_contents->begin(), _index) < jsonimpl::advance(r_rhs._p_base->_p_contents->begin(), r_rhs._index);
+JSONObject::IteratorBase<Value>::operator!=(const IteratorBase& rRHS) const {
+    return jsonimpl::advance(
+        this->get()->_pContents->begin(),
+        _index)
+    !=
+    jsonimpl::advance(
+        rRHS.get()->_pContents->begin(),
+        rRHS._index);
 }
 
 
 template <class Value>
 bool
-JSONObject::IteratorBase<Value>::operator<=(const JSONObject::IteratorBase<Value>& r_rhs)
-{
-    return jsonimpl::advance(_p_base->_p_contents->begin(), _index) <= jsonimpl::advance(r_rhs._p_base->_p_contents->begin(), r_rhs._index);
+JSONObject::IteratorBase<Value>::operator<(const IteratorBase& rRHS) const {
+    return jsonimpl::advance(
+        this->get()->_pContents->begin(),
+        _index)
+    <
+    jsonimpl::advance(
+        rRHS.get()->_pContents->begin(),
+        rRHS._index);
 }
 
 
 template <class Value>
 bool
-JSONObject::IteratorBase<Value>::operator>(const JSONObject::IteratorBase<Value>& r_rhs)
-{
-    return jsonimpl::advance(_p_base->_p_contents->begin(), _index) > jsonimpl::advance(r_rhs._p_base->_p_contents->begin(), r_rhs._index);
+JSONObject::IteratorBase<Value>::operator<=(const IteratorBase& rRHS) const {
+    return jsonimpl::advance(
+        this->get()->_pContents->begin(),
+        _index)
+    <=
+    jsonimpl::advance(
+        rRHS.get()->_pContents->begin(),
+        rRHS._index);
 }
 
 
 template <class Value>
 bool
-JSONObject::IteratorBase<Value>::operator>=(const JSONObject::IteratorBase<Value>& r_rhs)
-{
-    return jsonimpl::advance(_p_base->_p_contents->begin(), _index) >= jsonimpl::advance(r_rhs._p_base->_p_contents->begin(), r_rhs._index);
+JSONObject::IteratorBase<Value>::operator>(const IteratorBase& rRHS) const {
+    return jsonimpl::advance(
+        this->get()->_pContents->begin(),
+        _index)
+    >
+    jsonimpl::advance(
+        rRHS.get()->_pContents->begin(),
+        rRHS._index);
+}
+
+
+template <class Value>
+bool
+JSONObject::IteratorBase<Value>::operator>=(const IteratorBase& rRHS) const {
+    return jsonimpl::advance(
+        this->get()->_pContents->begin(),
+        _index)
+    >=
+    jsonimpl::advance(
+        rRHS.get()->_pContents->begin(),
+        rRHS._index);
 }
 
 
 template <class Value>
 std::string
-JSONObject::IteratorBase<Value>::key() const
-{
-    auto it = jsonimpl::advance(_p_base->_p_contents->begin(), _index);
+JSONObject::IteratorBase<Value>::key() const {
+    auto it = jsonimpl::advance(
+        this->get()->_pContents->begin(),
+        _index);
     return it.key();
 }
 
 
 template <class Value>
 typename JSONObject::IteratorBase<Value>::value_type
-JSONObject::IteratorBase<Value>::value()
-{
+JSONObject::IteratorBase<Value>::value() {
     return **this;
 }
 
 
 template <class Value>
-const typename JSONObject::IteratorBase<Value>::value_type
-JSONObject::IteratorBase<Value>::value() const
-{
+typename JSONObject::IteratorBase<Value>::value_type
+JSONObject::IteratorBase<Value>::value() const {
     return **this;
 }
 
@@ -232,254 +214,220 @@ template class JSONObject::IteratorBase<const JSONObject>;
 // ----------------------------------------------------------
 
 template <class ValueType>
-struct SetGetTemplate
-{
-    static void set(nlohmann::json& r_json,
-                    const ValueType& r_value)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-        r_json = r_value;
-        CIE_END_EXCEPTION_TRACING
+struct SetGetTemplate {
+    static void set(
+        nlohmann::json& rJSON,
+        const ValueType& rValue) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rJSON = rValue;
+            CIE_END_EXCEPTION_TRACING
     }
 
-    static ValueType as(const nlohmann::json& r_json)
-    {
+    static ValueType as(const nlohmann::json& rJSON) {
         CIE_BEGIN_EXCEPTION_TRACING
-        return r_json.get<ValueType>();
+            return rJSON.get<ValueType>();
         CIE_END_EXCEPTION_TRACING
     }
 };
 
 
 template <>
-struct SetGetTemplate<JSONObject>
-{
-    static void set(nlohmann::json& r_json,
-                     const JSONObject& r_value)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-        r_json = r_value.contents();
-        CIE_END_EXCEPTION_TRACING
+struct SetGetTemplate<JSONObject> {
+    static void set(
+        nlohmann::json& rJSON,
+        const JSONObject& rValue) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rJSON = rValue.contents();
+            CIE_END_EXCEPTION_TRACING
     }
 
-    static JSONObject as(const nlohmann::json& r_json)
-    {
+    static JSONObject as(const nlohmann::json& rJSON) {
         CIE_BEGIN_EXCEPTION_TRACING
-        return JSONObject(r_json.dump());
+            return JSONObject(rJSON.dump());
         CIE_END_EXCEPTION_TRACING
     }
 };
 
 
 template <concepts::io::SupportedType ValueType>
-struct TypeQueryTemplate
-{
+struct TypeQueryTemplate {};
+
+
+template <>
+struct TypeQueryTemplate<bool> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_boolean();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = false;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
 };
 
 
 template <>
-struct TypeQueryTemplate<bool>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_boolean(); }
+struct TypeQueryTemplate<int> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_number_integer();
+    }
 
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = 0;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<long int> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_number_integer();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = 0;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<long long> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_number_integer();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = 0;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<Size> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_number_unsigned() && rJSON.contents().is_number_integer();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = 0;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<float> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_number_float();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = 0;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<double> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_number_float();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = 0;
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
+    }
+};
+
+
+template <>
+struct TypeQueryTemplate<std::string> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.contents().is_string();
+    }
+
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
         CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = false;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
+            rContents[rKey] = "";
+            return JSONObject(&rContents[rKey]);
         CIE_END_EXCEPTION_TRACING
     }
 };
 
 
 template <>
-struct TypeQueryTemplate<int>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_number_integer(); }
+struct TypeQueryTemplate<JSONObject> {
+    static bool is(const JSONObject& rJSON) {
+        return rJSON.isObject();
+    }
 
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = 0;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = {};
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
     }
 };
 
 
 template <>
-struct TypeQueryTemplate<long int>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_number_integer(); }
+struct TypeQueryTemplate<std::nullptr_t> {
+    static bool is(const JSONObject& rJSON)
+    { return rJSON.contents().is_null(); }
 
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = 0;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
-    }
-};
-
-
-template <>
-struct TypeQueryTemplate<long long>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_number_integer(); }
-
-    static JSONObject addDefault(JSONObject& r_json,
-                                 JSONObject::content_type& r_contents,
-                                 const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = 0;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
-    }
-};
-
-
-template <>
-struct TypeQueryTemplate<Size>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_number_unsigned() && r_json.contents().is_number_integer(); }
-
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = 0;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
-    }
-};
-
-
-template <>
-struct TypeQueryTemplate<float>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_number_float(); }
-
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = 0;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
-    }
-};
-
-
-template <>
-struct TypeQueryTemplate<double>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_number_float(); }
-
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = 0;
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
-    }
-};
-
-
-template <>
-struct TypeQueryTemplate<std::string>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.contents().is_string(); }
-
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = "";
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
-    }
-};
-
-
-template <>
-struct TypeQueryTemplate<JSONObject>
-{
-    static bool is(const JSONObject& r_json)
-    { return r_json.isObject(); }
-
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = {};
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = JSONObject::content_type();
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
     }
 };
 
@@ -491,17 +439,14 @@ struct TypeQueryTemplate<JSONObject>
 // Helper for array assignments
 // WARNING: an adequately preallocated contiguous array is required
 template <class ValueType>
-struct AssignToContiguousArray
-{
-    static void as(const nlohmann::json& r_json,
-                    ValueType* p_begin)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        for (const auto& r_component : r_json)
-            *p_begin++ = SetGetTemplate<ValueType>::as(r_component);
-
-        CIE_END_EXCEPTION_TRACING
+struct AssignToContiguousArray {
+    static void as(
+        const nlohmann::json& rJSON,
+        ValueType* pBegin) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                for (const auto& rComponent : rJSON)
+                    *pBegin++ = SetGetTemplate<ValueType>::as(rComponent);
+            CIE_END_EXCEPTION_TRACING
     }
 };
 
@@ -510,28 +455,28 @@ struct AssignToContiguousArray
 template <class ValueType>
 struct SetGetTemplate<std::vector<ValueType>>
 {
-    static void set(nlohmann::json& r_json,
-                     const std::vector<ValueType>& r_value)
+    static void set(nlohmann::json& rJSON,
+                     const std::vector<ValueType>& rValue)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_json.clear();
+        rJSON.clear();
 
-        for (const auto& r_component : r_value)
-            r_json.push_back(r_component);
+        for (const auto& rComponent : rValue)
+            rJSON.push_back(rComponent);
 
         CIE_END_EXCEPTION_TRACING
     }
 
-    static std::vector<ValueType> as(const nlohmann::json& r_json)
+    static std::vector<ValueType> as(const nlohmann::json& rJSON)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
         std::vector<ValueType> output;
-        output.resize(r_json.size());
+        output.resize(rJSON.size());
 
         if (!output.empty())
-            AssignToContiguousArray<ValueType>::as(r_json, &output[0]);
+            AssignToContiguousArray<ValueType>::as(rJSON, &output[0]);
 
         return output;
 
@@ -544,28 +489,28 @@ struct SetGetTemplate<std::vector<ValueType>>
 template <>
 struct SetGetTemplate<std::vector<JSONObject>>
 {
-    static void set(nlohmann::json& r_json,
-                     const std::vector<JSONObject>& r_value)
+    static void set(nlohmann::json& rJSON,
+                     const std::vector<JSONObject>& rValue)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_json.clear();
+        rJSON.clear();
 
-        for (const auto& r_component : r_value)
-            r_json.push_back(r_component.contents());
+        for (const auto& rComponent : rValue)
+            rJSON.push_back(rComponent.contents());
 
         CIE_END_EXCEPTION_TRACING
     }
 
-    static std::vector<JSONObject> as(const nlohmann::json& r_json)
+    static std::vector<JSONObject> as(const nlohmann::json& rJSON)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
         std::vector<JSONObject> output;
-        output.resize(r_json.size());
+        output.resize(rJSON.size());
 
         if (!output.empty())
-            AssignToContiguousArray<JSONObject>::as(r_json, &output[0]);
+            AssignToContiguousArray<JSONObject>::as(rJSON, &output[0]);
 
         return output;
 
@@ -578,30 +523,30 @@ struct SetGetTemplate<std::vector<JSONObject>>
 template <class ValueType, Size ArraySize>
 struct SetGetTemplate<StaticArray<ValueType,ArraySize>>
 {
-    static void set(nlohmann::json& r_json,
-                     const StaticArray<ValueType,ArraySize>& r_value)
+    static void set(nlohmann::json& rJSON,
+                     const StaticArray<ValueType,ArraySize>& rValue)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
-        r_json.clear();
+        rJSON.clear();
 
-        for (const auto& r_component : r_value)
-            r_json.push_back(r_component);
+        for (const auto& rComponent : rValue)
+            rJSON.push_back(rComponent);
 
         CIE_END_EXCEPTION_TRACING
     }
 
-    static StaticArray<ValueType,ArraySize> as(const nlohmann::json& r_json)
+    static StaticArray<ValueType,ArraySize> as(const nlohmann::json& rJSON)
     {
         CIE_BEGIN_EXCEPTION_TRACING
 
         CIE_CHECK(
-            r_json.size() == ArraySize,
-            "destination size (" + std::to_string(ArraySize) + ") does not match source size (" + std::to_string(r_json.size()) + ")"
+            rJSON.size() == ArraySize,
+            "destination size (" + std::to_string(ArraySize) + ") does not match source size (" + std::to_string(rJSON.size()) + ")"
         )
 
         StaticArray<ValueType,ArraySize> output;
-        AssignToContiguousArray<ValueType>::as(r_json, &output[0]);
+        AssignToContiguousArray<ValueType>::as(rJSON, &output[0]);
 
         return output;
 
@@ -614,101 +559,70 @@ struct SetGetTemplate<StaticArray<ValueType,ArraySize>>
 template <Size ArraySize>
 struct SetGetTemplate<StaticArray<JSONObject,ArraySize>>
 {
-    static void set(nlohmann::json& r_json,
-                     const StaticArray<JSONObject,ArraySize>& r_value)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_json.clear();
-
-        for (const auto& r_component : r_value)
-            r_json.push_back(r_component.contents());
-
-        CIE_END_EXCEPTION_TRACING
+    static void set(
+        nlohmann::json& rJSON,
+        const StaticArray<JSONObject,ArraySize>& rValue) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rJSON.clear();
+                for (const auto& rComponent : rValue)
+                    rJSON.push_back(rComponent.contents());
+            CIE_END_EXCEPTION_TRACING
     }
 
-    static StaticArray<JSONObject,ArraySize> as(const nlohmann::json& r_json)
-    {
+    static StaticArray<JSONObject,ArraySize> as(const nlohmann::json& rJSON) {
         CIE_BEGIN_EXCEPTION_TRACING
-
-        CIE_CHECK(
-            r_json.size() == ArraySize,
-            "destination size (" + std::to_string(ArraySize) + ") does not match source size (" + std::to_string(r_json.size()) + ")"
-        )
-
-        StaticArray<JSONObject,ArraySize> output;
-        AssignToContiguousArray<JSONObject>::as(r_json, &output[0]);
-
-        return output;
-
+            CIE_CHECK(
+                rJSON.size() == ArraySize,
+                "destination size (" + std::to_string(ArraySize) + ") does not match source size (" + std::to_string(rJSON.size()) + ")")
+            StaticArray<JSONObject,ArraySize> output;
+            AssignToContiguousArray<JSONObject>::as(rJSON, &output[0]);
+            return output;
         CIE_END_EXCEPTION_TRACING
     }
 };
 
 
 template <class ValueType>
-struct TypeQueryTemplate<std::vector<ValueType>>
-{
-    static bool is(const JSONObject& r_json)
-    {
+struct TypeQueryTemplate<std::vector<ValueType>> {
+    static bool is(const JSONObject& rJSON) {
         CIE_BEGIN_EXCEPTION_TRACING
-
-        if (!r_json.isArray())
-            return false;
-
-        const Size size = r_json.size();
-        for (Size i_component=0; i_component<size; ++i_component)
-            if (!r_json[i_component].is<ValueType>())
+            if (!rJSON.isArray())
                 return false;
-
-        return true;
-
+            const Size size = rJSON.size();
+            for (Size i_component=0; i_component<size; ++i_component)
+                if (!rJSON[i_component].is<ValueType>())
+                    return false;
+            return true;
         CIE_END_EXCEPTION_TRACING
     }
 
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = JSONObject::content_type::array();
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = JSONObject::content_type::array();
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
     }
 };
 
 
 // Helper for StaticArray<ValueType,ArraySize>
 template <class ValueType, Size ArraySize>
-struct TypeQueryTemplate<StaticArray<ValueType,ArraySize>>
-{
-    static bool is(const JSONObject& r_json)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        return TypeQueryTemplate<std::vector<ValueType>>::is(r_json) && r_json.size() == ArraySize;
-
-        CIE_END_EXCEPTION_TRACING
+struct TypeQueryTemplate<StaticArray<ValueType,ArraySize>> {
+    static bool is(const JSONObject& rJSON) {
+        return TypeQueryTemplate<std::vector<ValueType>>::is(rJSON) && rJSON.size() == ArraySize;
     }
 
-    static JSONObject addDefault(JSONObject& r_json,
-                                  JSONObject::content_type& r_contents,
-                                  const std::string& r_key)
-    {
-        CIE_BEGIN_EXCEPTION_TRACING
-
-        r_contents[r_key] = JSONObject::content_type::array();
-        return JSONObject(
-            &r_contents[r_key],
-            &r_json.root()
-        );
-
-        CIE_END_EXCEPTION_TRACING
+    static JSONObject addDefault(
+        JSONObject&,
+        JSONObject::content_type& rContents,
+        Ref<const std::string> rKey) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                rContents[rKey] = JSONObject::content_type::array();
+                return JSONObject(&rContents[rKey]);
+            CIE_END_EXCEPTION_TRACING
     }
 };
 
@@ -719,54 +633,52 @@ struct TypeQueryTemplate<StaticArray<ValueType,ArraySize>>
 
 template <class ValueType>
 void
-JSONObject::SetGet<ValueType>::set(JSONObject& r_json,
-                                    const ValueType& r_value)
-{
-    SetGetTemplate<ValueType>::set(
-        *r_json._p_contents,
-        r_value
-    );
+JSONObject::SetGet<ValueType>::set(
+    JSONObject& rJSON,
+    const ValueType& rValue) {
+        SetGetTemplate<ValueType>::set(
+            *rJSON._pContents,
+            rValue);
 }
 
 
 template <class ValueType>
 ValueType
-JSONObject::SetGet<ValueType>::as(const JSONObject& r_json)
+JSONObject::SetGet<ValueType>::as(const JSONObject& rJSON)
 {
-    return SetGetTemplate<ValueType>::as(*r_json._p_contents);
+    return SetGetTemplate<ValueType>::as(*rJSON._pContents);
 }
 
 
 template <class ValueType>
-bool JSONObject::TypeQuery<ValueType>::is(const JSONObject& r_json)
-{
-    return TypeQueryTemplate<ValueType>::is(r_json);
+bool JSONObject::TypeQuery<ValueType>::is(const JSONObject& rJSON) {
+    return TypeQueryTemplate<ValueType>::is(rJSON);
 }
 
 
 template <class ValueType>
-JSONObject JSONObject::TypeQuery<ValueType>::addDefault(JSONObject& r_json,
-                                                         const std::string& r_key)
+JSONObject JSONObject::TypeQuery<ValueType>::addDefault(JSONObject& rJSON,
+                                                         Ref<const std::string> rKey)
 {
     return TypeQueryTemplate<ValueType>::addDefault(
-        r_json,
-        *r_json._p_contents.get(),
-        r_key
+        rJSON,
+        *rJSON._pContents.get(),
+        rKey
     );
 }
 
 
 // Template instantiations
-#define CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(ValueType)  \
-    template struct JSONObject::SetGet<ValueType>;                  \
-    template struct JSONObject::SetGet<std::vector<ValueType>>;     \
-    template struct JSONObject::SetGet<StaticArray<ValueType,1>>;    \
-    template struct JSONObject::SetGet<StaticArray<ValueType,2>>;    \
-    template struct JSONObject::SetGet<StaticArray<ValueType,3>>;    \
-    template struct JSONObject::TypeQuery<ValueType>;               \
-    template struct JSONObject::TypeQuery<std::vector<ValueType>>;  \
-    template struct JSONObject::TypeQuery<StaticArray<ValueType,1>>; \
-    template struct JSONObject::TypeQuery<StaticArray<ValueType,2>>; \
+#define CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(ValueType)        \
+    template struct JSONObject::SetGet<ValueType>;                      \
+    template struct JSONObject::SetGet<std::vector<ValueType>>;         \
+    template struct JSONObject::SetGet<StaticArray<ValueType,1>>;       \
+    template struct JSONObject::SetGet<StaticArray<ValueType,2>>;       \
+    template struct JSONObject::SetGet<StaticArray<ValueType,3>>;       \
+    template struct JSONObject::TypeQuery<ValueType>;                   \
+    template struct JSONObject::TypeQuery<std::vector<ValueType>>;      \
+    template struct JSONObject::TypeQuery<StaticArray<ValueType,1>>;    \
+    template struct JSONObject::TypeQuery<StaticArray<ValueType,2>>;    \
     template struct JSONObject::TypeQuery<StaticArray<ValueType,3>>;
 
 
@@ -778,6 +690,7 @@ CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(float)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(double)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(std::string)
 CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(JSONObject)
+CIE_INSTANTIATE_JSON_TEMPLATE_SPECIALIZATIONS(std::nullptr_t)
 
 
 // bool requires special treatment because of std::vector<bool> ¯\_(ツ)_/¯
@@ -796,107 +709,105 @@ template struct JSONObject::TypeQuery<StaticArray<bool,3>>;
 // ----------------------------------------------------------
 
 JSONObject::JSONObject()
-    : _p_contents(new nlohmann::json)
-{
-    _p_root = this;
+    :   _pContents(new nlohmann::json),
+        _isRoot(true)
+{}
+
+
+JSONObject::JSONObject(const JSONObject& rRHS)
+    :   _pContents(new nlohmann::json(*rRHS._pContents)),
+        _isRoot(true)
+{}
+
+
+JSONObject::JSONObject(JSONObject&& rRHS)
+    :   _pContents(rRHS._pContents),
+        _isRoot(rRHS._isRoot) {
+            rRHS._pContents = nullptr;
+            rRHS._isRoot = false;
 }
 
 
-JSONObject::JSONObject(const JSONObject& r_rhs)
-    : _p_contents(new nlohmann::json(*r_rhs._p_contents))
-{
-    _p_root = this;
-}
-
-
-JSONObject::JSONObject(JSONObject&& r_rhs)
-    : _p_contents(std::move(r_rhs._p_contents))
-{
-    _p_root = this;
-}
-
-
-JSONObject& JSONObject::operator=(const JSONObject& r_rhs)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
-    if (_p_root == this)
-        delete (JSONObject::content_type*)_p_contents;
-
-    _p_contents = new JSONObject::content_type(*r_rhs._p_contents);
-    _p_root = this;
-
+JSONObject& JSONObject::operator=(JSONObject&& rRHS) {
+    if (&rRHS != this) {
+        this->~JSONObject();
+        _pContents = rRHS._pContents;
+        _isRoot = rRHS._isRoot;
+        rRHS._pContents = nullptr;
+        rRHS._isRoot = false;
+    }
     return *this;
-
-    CIE_END_EXCEPTION_TRACING
 }
 
 
-JSONObject::JSONObject(const std::string& r_jsonString)
-    : _p_contents(new JSONObject::content_type(JSONObject::content_type::parse(r_jsonString)))
-{
-    _p_root = this;
-}
+JSONObject& JSONObject::operator=(const JSONObject& rRHS) {
+    if (&rRHS == this) return *this;
 
-
-JSONObject::JSONObject(std::string&& r_jsonString)
-    : _p_contents(new JSONObject::content_type(JSONObject::content_type::parse(std::move(r_jsonString))))
-{
-    _p_root = this;
-}
-
-
-JSONObject::JSONObject(const std::filesystem::path& r_filePath)
-    : JSONObject()
-{
     CIE_BEGIN_EXCEPTION_TRACING
-
-    std::ifstream file(r_filePath);
-
-    try
-    {
-        file >> *_p_contents;
-    }
-    catch (std::exception& r_exception)
-    {
-        throw Exception("Failed to parse '" + r_filePath.string() + "'\n" + r_exception.what(), 0);
-    }
-
+        this->~JSONObject();
+        _pContents = new JSONObject::content_type(*rRHS._pContents);
+        _isRoot = true;
+        return *this;
     CIE_END_EXCEPTION_TRACING
 }
 
 
-JSONObject::JSONObject(std::istream& r_stream)
-    : JSONObject()
-{
-    CIE_BEGIN_EXCEPTION_TRACING
+JSONObject::JSONObject(Ref<const std::string> rJSONString)
+    :   _pContents(new JSONObject::content_type(JSONObject::content_type::parse(rJSONString))),
+        _isRoot(true)
+{}
 
-    r_stream >> *_p_contents;
 
-    CIE_END_EXCEPTION_TRACING
+JSONObject::JSONObject(std::string&& rJSONString)
+    :   _pContents(new JSONObject::content_type(JSONObject::content_type::parse(std::move(rJSONString)))),
+        _isRoot(true)
+{}
+
+
+JSONObject::JSONObject(const std::filesystem::path& rFilePath)
+    : JSONObject() {
+        CIE_BEGIN_EXCEPTION_TRACING
+            std::ifstream file(rFilePath);
+            try {
+                file >> *_pContents;
+            } catch (std::exception& rException) {
+                CIE_THROW(
+                    Exception,
+                    std::format(
+                        "Failed to parse '{}'\n{}",
+                        rFilePath.string(),
+                        rException.what()))
+            }
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-JSONObject::JSONObject(JSONObject::content_type* p_contents,
-                        const JSONObject* p_root)
-    : _p_contents(p_contents),
-      _p_root(p_root)
-{
+JSONObject::JSONObject(std::istream& rStream)
+    : JSONObject() {
+        CIE_BEGIN_EXCEPTION_TRACING
+            rStream >> *_pContents;
+        CIE_END_EXCEPTION_TRACING
 }
 
 
-JSONObject::JSONObject(const JSONObject::content_type* p_contents,
-                        const JSONObject* p_root)
-    : _p_contents(p_contents),
-      _p_root(p_root)
-{
-}
+JSONObject::JSONObject(JSONObject::content_type* pContents)
+        :   _pContents(pContents),
+            _isRoot(false)
+{}
 
 
-JSONObject::~JSONObject()
-{
-    if (_p_root == this)
-        delete (JSONObject::content_type*)_p_contents;
+JSONObject::JSONObject(const JSONObject::content_type* pContents)
+        :   _pContents(pContents),
+            _isRoot(false)
+{}
+
+
+JSONObject::~JSONObject() {
+    if (_isRoot && _pContents) {
+        delete _pContents;
+        _pContents = nullptr;
+        _isRoot = false;
+    }
 }
 
 
@@ -904,176 +815,645 @@ JSONObject::~JSONObject()
 // NON-TEMPLATE MEMBERS
 // ----------------------------------------------------------
 
-JSONObject JSONObject::operator[](const std::string& r_key)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
+JSONObject JSONObject::operator[](Ref<const std::string> rKey) {
     CIE_CHECK(
-        this->hasKey(r_key),
-        "'" + r_key + "' is not a key"
-    )
-
-    return JSONObject(
-        &_p_contents->operator[](r_key),
-        _p_root
-    );
-
+        this->hasKey(rKey),
+        "'" + rKey + "' is not a key")
+    CIE_BEGIN_EXCEPTION_TRACING
+        return JSONObject(&_pContents->operator[](rKey));
     CIE_END_EXCEPTION_TRACING
 }
 
 
-const JSONObject JSONObject::operator[](const std::string& r_key) const
-{
-    CIE_BEGIN_EXCEPTION_TRACING
-
+const JSONObject JSONObject::operator[](Ref<const std::string> rKey) const {
     CIE_CHECK(
-        this->hasKey(r_key),
-        "'" + r_key + "' is not a key"
-    )
-
-    return JSONObject(&_p_contents->operator[](r_key), _p_root);
-
-    CIE_END_EXCEPTION_TRACING
-}
-
-
-JSONObject JSONObject::operator[](Size index)
-{
+        this->hasKey(rKey),
+        "'" + rKey + "' is not a key")
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return JSONObject(
-        &_p_contents->operator[](index),
-        _p_root
-    );
-
+        return JSONObject(&_pContents->operator[](rKey));
     CIE_END_EXCEPTION_TRACING
 }
 
 
-const JSONObject JSONObject::operator[](Size index) const
-{
+JSONObject JSONObject::operator[](Size index) {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return JSONObject(
-        &_p_contents->operator[](index),
-        _p_root
-    );
-
+        return JSONObject(&_pContents->operator[](index));
     CIE_END_EXCEPTION_TRACING
 }
 
 
-bool JSONObject::hasKey(const std::string& r_key) const
-{
+const JSONObject JSONObject::operator[](Size index) const {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    return _p_contents->contains(r_key);
-
+        return JSONObject(&_pContents->operator[](index));
     CIE_END_EXCEPTION_TRACING
 }
 
 
-Size JSONObject::size() const
-{
-    return _p_contents->size();
+bool JSONObject::hasKey(Ref<const std::string> rKey) const {
+    return _pContents->contains(rKey);
 }
 
 
-JSONObject::iterator JSONObject::begin()
-{
+Size JSONObject::size() const {
+    return _pContents->size();
+}
+
+
+JSONObject::iterator JSONObject::begin() {
     return JSONObject::iterator(*this);
 }
 
 
-JSONObject::const_iterator JSONObject::begin() const
-{
+JSONObject::const_iterator JSONObject::begin() const {
     return JSONObject::const_iterator(*this);
 }
 
 
-JSONObject::iterator JSONObject::end()
-{
+JSONObject::iterator JSONObject::end() {
     return JSONObject::iterator(*this, this->size());
 }
 
 
-JSONObject::const_iterator JSONObject::end() const
-{
+JSONObject::const_iterator JSONObject::end() const {
     return JSONObject::const_iterator(*this, this->size());
 }
 
 
-bool JSONObject::isArray() const
-{
-    return _p_contents->is_array();
+bool JSONObject::isArray() const {
+    return _pContents->is_array();
 }
 
 
-bool JSONObject::isObject() const
-{
-    return _p_contents->is_object();
+bool JSONObject::isObject() const {
+    return _pContents->is_object();
 }
 
 
-const JSONObject::content_type& JSONObject::contents() const
-{
-    return *_p_contents;
+const JSONObject::content_type& JSONObject::contents() const {
+    return *_pContents;
 }
 
 
-JSONObject& JSONObject::add(const std::string& r_key,
-                             const std::string& r_value,
-                             bool allowOverwrite)
-{
+JSONObject::content_type& JSONObject::contents() {
+    return *_pContents;
+}
+
+
+JSONObject& JSONObject::add(
+    Ref<const std::string> rKey,
+    Ref<const std::string> rValue,
+    bool allowOverwrite) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            if (this->hasKey(rKey)) {
+                if (!allowOverwrite)
+                    CIE_THROW(Exception, "'" + rKey + "' is an existing key")
+                this->operator[](rKey).set(rValue);
+            } else {
+                this->addDefault<std::string>(rKey).set(rValue);
+            }
+            return *this;
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+JSONObject& JSONObject::set(Ref<const std::string> rValue) {
     CIE_BEGIN_EXCEPTION_TRACING
 
-    if (this->hasKey(r_key))
-    {
-        if (!allowOverwrite)
-            CIE_THROW(Exception, "'" + r_key + "' is an existing key")
-
-        this->operator[](r_key).set(r_value);
-    }
-    else
-    {
-        this->addDefault<std::string>(r_key).set(r_value);
-    }
-
+    JSONObject::SetGet<std::string>::set(*this, rValue);
     return *this;
 
     CIE_END_EXCEPTION_TRACING
 }
 
 
-JSONObject& JSONObject::set(const std::string& r_value)
-{
+void JSONObject::prettyPrint(
+    Ref<std::ostream> rStream,
+    int indentation) const {
+        rStream << this->contents().dump(indentation);
+}
+
+
+// ----------------------------------------------------------
+// JSONSchema
+// ----------------------------------------------------------
+
+
+nlohmann::json_schema::schema_loader makeJSONSchemaLoader(Ref<const JSONSchemaLoader> rLoader) {
+    return [&rLoader] (
+        const nlohmann::json_uri& rURI,
+        nlohmann::json& rResource) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                JSONObject loadedResource = rLoader.load(rURI.path());
+                rResource = std::move(loadedResource.contents());
+            CIE_END_EXCEPTION_TRACING
+        };
+}
+
+
+struct JSONSchema::Impl {
+    JSONObject::content_type schema;
+
+    nlohmann::json_schema::json_validator validator;
+
+    JSONSchemaLoader loader;
+}; // struct JSONSchema::Impl
+
+
+JSONSchema::~JSONSchema() = default;
+
+
+JSONSchema::JSONSchema()
+    : _pImpl(new Impl)
+{}
+
+
+JSONSchema::JSONSchema(
+    Ref<const JSONObject> rSchema,
+    Ref<const JSONSchemaLoader> rLoader)
+    : JSONSchema(JSONObject(rSchema), JSONSchemaLoader(rLoader))
+{}
+
+
+JSONSchema::JSONSchema(
+    RightRef<JSONObject> rSchema,
+    RightRef<JSONSchemaLoader> rLoader)
+        : _pImpl(new Impl) {
+            CIE_BEGIN_EXCEPTION_TRACING
+                _pImpl->loader = std::move(rLoader);
+                _pImpl->validator = nlohmann::json_schema::json_validator(makeJSONSchemaLoader(_pImpl->loader));
+                _pImpl->schema = std::move(rSchema.contents());
+                _pImpl->validator.set_root_schema(_pImpl->schema);
+            CIE_END_EXCEPTION_TRACING
+}
+
+
+JSONSchema::JSONSchema(JSONSchema&&) noexcept = default;
+
+
+JSONSchema& JSONSchema::operator=(JSONSchema&&) noexcept = default;
+
+
+enum class JSONSchemaConstraint {
+    Property,
+    AnyOf,
+    OneOf,
+    AllOf
+}; // enum class JSONSchemaConstraint
+
+
+class RecursiveFillErrorHandler : public nlohmann::json_schema::error_handler {
+public:
+    RecursiveFillErrorHandler()
+        : _triggered(false)
+    {}
+
+    void error(
+        const nlohmann::json::json_pointer&,
+        const nlohmann::json&,
+        Ref<const std::string>) override {
+            _triggered = true;
+    }
+
+    [[nodiscard]] bool isTriggered() const noexcept {
+        return _triggered;
+    }
+
+private:
+    bool _triggered;
+}; // RecursiveFillErrorHandler
+
+
+bool recursiveFill(
+    Ref<const JSONObject::content_type> rSchema,
+    Ref<JSONObject::content_type> rJSON,
+    Ref<const JSONSchemaLoader> rLoader,
+    Ref<std::unordered_map<std::string,JSONObject>> rCache);
+
+
+template <JSONSchemaConstraint TConstraint>
+bool recursiveFillConstraint(
+    Ref<const JSONObject::content_type> rSchema,
+    Ref<JSONObject::content_type> rJSON,
+    Ref<const JSONSchemaLoader> rLoader,
+    Ref<std::unordered_map<std::string,JSONObject>> rCache) {
+        bool modified = false;
+
+        if constexpr (TConstraint == JSONSchemaConstraint::Property) {
+            for (auto it=rSchema.begin(); it!=rSchema.end(); ++it) {
+                // Handle references.
+                std::optional<JSONObject> maybeLoadedSchema;
+                if (it->contains("$ref")) {
+                    Ref<const std::string> rURI = it->find("$ref")->get<std::string>();
+                    const auto itCache = rCache.find(rURI);
+                    if (itCache == rCache.end())
+                        CIE_BEGIN_EXCEPTION_TRACING
+                            maybeLoadedSchema = rCache.emplace(
+                                rURI,
+                                rLoader.load(rURI)
+                            ).first->second;
+                        CIE_END_EXCEPTION_TRACING
+                    else
+                        maybeLoadedSchema = itCache->second;
+                }
+                const auto& rResolvedSchema = maybeLoadedSchema.has_value()
+                    ? maybeLoadedSchema.value().contents()
+                    : *it;
+
+                if (rResolvedSchema.contains("default")) {
+                    const auto& rDefaultProperty = *rResolvedSchema.find("default");
+                    if (!rJSON.contains(it.key())) {
+                        modified = true;
+                        rJSON.operator[](it.key()) = rDefaultProperty;
+                    } else {
+                        auto& rProperty = rJSON[it.key()];
+                        if (rProperty.is_object()) {
+                            modified |= recursiveFill(*it, rProperty, rLoader, rCache);
+                        } else if (rProperty.is_array()) {
+                            for (auto& rItem : rProperty)
+                                modified |= recursiveFill(*it, rItem, rLoader, rCache);
+                        }
+                    }
+                } /*property has default*/ else if (rJSON.contains(it.key())) {
+                    auto& rProperty = rJSON[it.key()];
+                    if (rProperty.is_structured()) {
+                        modified |= recursiveFill(*it, rProperty, rLoader, rCache);
+                    }
+                } /*json contains property*/ else {
+                    modified |= recursiveFill(*it, rJSON[it.key()], rLoader, rCache);
+                }
+            } // for it
+        } /*TConstraint == JSONSchemaConstraint::Property*/ else if constexpr (TConstraint == JSONSchemaConstraint::AnyOf) {
+            // Loop over all subschemas, find out which ones apply to the
+            // subject, and apply defaults to it if necessary.
+            for (const auto& rSubschema : rSchema) {
+                // Handle references.
+                std::optional<JSONObject> maybeLoadedSchema;
+                if (rSubschema.contains("$ref")) {
+                    Ref<const std::string> rURI = rSubschema.find("$ref")->get<std::string>();
+                    const auto itCache = rCache.find(rURI);
+                    if (itCache == rCache.end())
+                        CIE_BEGIN_EXCEPTION_TRACING
+                            maybeLoadedSchema = rCache.emplace(
+                                rURI,
+                                rLoader.load(rURI)
+                            ).first->second;
+                        CIE_END_EXCEPTION_TRACING
+                    else
+                        maybeLoadedSchema = itCache->second;
+                }
+                const auto& rResolvedSchema = maybeLoadedSchema.has_value()
+                    ? maybeLoadedSchema.value().contents()
+                    : rSubschema;
+
+                RecursiveFillErrorHandler errorHandler;
+                nlohmann::json_schema::json_validator validator(makeJSONSchemaLoader(rLoader));
+                validator.set_root_schema(rResolvedSchema);
+                validator.validate(
+                    rJSON,
+                    errorHandler);
+                if (!errorHandler.isTriggered()) modified |= recursiveFill(rResolvedSchema, rJSON, rLoader, rCache);
+            } // for rSubschema
+        } /*TConstraint == JSONSchemaConstraint::AnyOf*/ else if constexpr (TConstraint == JSONSchemaConstraint::OneOf) {
+            // Loop over all subschemas, find out which one applies to
+            // the subject, and apply defaults to it if necessary.
+            for (const auto& rSubschema : rSchema) {
+                // Handle references.
+                std::optional<JSONObject> maybeLoadedSchema;
+                if (rSubschema.contains("$ref")) {
+                    Ref<const std::string> rURI = rSubschema.find("$ref")->get<std::string>();
+                    const auto itCache = rCache.find(rURI);
+                    if (itCache == rCache.end())
+                        CIE_BEGIN_EXCEPTION_TRACING
+                            maybeLoadedSchema = rCache.emplace(
+                                rURI,
+                                rLoader.load(rURI)
+                            ).first->second;
+                        CIE_END_EXCEPTION_TRACING
+                    else
+                        maybeLoadedSchema = itCache->second;
+                }
+                const auto& rResolvedSchema = maybeLoadedSchema.has_value()
+                    ? maybeLoadedSchema.value().contents()
+                    : rSubschema;
+
+                RecursiveFillErrorHandler errorHandler;
+                nlohmann::json_schema::json_validator validator(makeJSONSchemaLoader(rLoader));
+                validator.set_root_schema(rResolvedSchema);
+                validator.validate(
+                    rJSON,
+                    errorHandler);
+                if (!errorHandler.isTriggered()) {
+                    modified |= recursiveFill(rResolvedSchema, rJSON, rLoader, rCache);
+                    break;
+                }
+            } // for rSubschema
+        } /*TConstraint == JSONSchemaConstraint::OneOf*/ else if constexpr (TConstraint == JSONSchemaConstraint::AllOf) {
+            for (const auto& rSubschema : rSchema) {
+                // Handle references.
+                std::optional<JSONObject> maybeLoadedSchema;
+                if (rSubschema.contains("$ref")) {
+                    Ref<const std::string> rURI = rSubschema.find("$ref")->get<std::string>();
+                    const auto itCache = rCache.find(rURI);
+                    if (itCache == rCache.end())
+                        CIE_BEGIN_EXCEPTION_TRACING
+                            maybeLoadedSchema = rCache.emplace(
+                                rURI,
+                                rLoader.load(rURI)
+                            ).first->second;
+                        CIE_END_EXCEPTION_TRACING
+                    else
+                        maybeLoadedSchema = itCache->second;
+                }
+                const auto& rResolvedSchema = maybeLoadedSchema.has_value()
+                    ? maybeLoadedSchema.value().contents()
+                    : rSubschema;
+
+                modified |= recursiveFill(rResolvedSchema, rJSON, rLoader, rCache);
+            } // for rSubschema
+        } /*TConstraint == JSONSchemaConstraint::AllOf*/ else static_assert(TConstraint == JSONSchemaConstraint::Property, "invalid JSON constraint");
+
+        return modified;
+}
+
+
+bool recursiveFill(
+    Ref<const JSONObject::content_type> rSchema,
+    Ref<JSONObject::content_type> rJSON,
+    Ref<const JSONSchemaLoader> rLoader,
+    Ref<std::unordered_map<std::string,JSONObject>> rCache) {
+        bool modified = false;
+        for (auto it=rSchema.begin(); it!=rSchema.end(); ++it) {
+            Ref<const std::string> rConstraintName = it.key();
+            if (
+                   rConstraintName == "title"
+                || rConstraintName == "description"
+                || rConstraintName == "$id"
+                || rConstraintName == "$schema"
+                || rConstraintName == "additionalProperties"
+                || rConstraintName == "required"
+                || rConstraintName == "maxItems"
+                || rConstraintName == "minItems"
+                || rConstraintName == "minimum"
+                || rConstraintName == "maximum") {
+                    // Not an actual constraint. Do nothing.
+            } else if (rConstraintName == "type") {
+                // Not a constraint default assignment has anything to do with.
+            } else if (rConstraintName == "default") {
+                // Handled elsewhere.
+            } else if (rConstraintName == "properties") {
+                modified |= recursiveFillConstraint<JSONSchemaConstraint::Property>(
+                    *it,
+                    rJSON,
+                    rLoader,
+                    rCache);
+            } else if (rConstraintName == "oneOf") {
+                modified |= recursiveFillConstraint<JSONSchemaConstraint::OneOf>(
+                    *it,
+                    rJSON,
+                    rLoader,
+                    rCache);
+            } else if (rConstraintName == "anyOf") {
+                modified |= recursiveFillConstraint<JSONSchemaConstraint::AnyOf>(
+                    *it,
+                    rJSON,
+                    rLoader,
+                    rCache);
+            } else if (rConstraintName == "allOf") {
+                modified |= recursiveFillConstraint<JSONSchemaConstraint::AllOf>(
+                    *it,
+                    rJSON,
+                    rLoader,
+                    rCache);
+            } else if (rConstraintName == "items") {
+                for (auto& rItem : rJSON)
+                    modified |= recursiveFill(*it, rItem, rLoader, rCache);
+            } else if (rConstraintName == "$ref") {
+                Ref<const std::string> rURI = it->get<std::string>();
+                auto itCache = rCache.find(rURI);
+                if (itCache == rCache.end())
+                    CIE_BEGIN_EXCEPTION_TRACING
+                        itCache = rCache.emplace(
+                            rURI,
+                            rLoader.load(rURI)).first;
+                    CIE_END_EXCEPTION_TRACING
+                recursiveFill(itCache->second.contents(), rJSON, rLoader, rCache);
+            } else CIE_THROW(Exception, std::format(
+                "JSON constraint '{}' is not supported",
+                rConstraintName))
+        } // for it
+        return modified;
+}
+
+
+void JSONSchema::validate(Ref<const JSONObject> rJSON) const {
     CIE_BEGIN_EXCEPTION_TRACING
-
-    JSONObject::SetGet<std::string>::set(*this, r_value);
-    return *this;
-
+        _pImpl->validator.validate(rJSON.contents());
     CIE_END_EXCEPTION_TRACING
 }
 
 
-const JSONObject& JSONObject::root() const
-{
-    CIE_CHECK_POINTER(_p_root)
-    return *_p_root;
+void JSONSchema::validateAndFillDefaults(Ref<JSONObject> rJSON) const {
+    CIE_BEGIN_EXCEPTION_TRACING
+        std::unordered_map<std::string,JSONObject> cache;
+        do {
+            _pImpl->validator.validate(rJSON.contents());
+        } while (recursiveFill(_pImpl->schema, rJSON.contents(), _pImpl->loader, cache));
+    CIE_END_EXCEPTION_TRACING
 }
+
+
+void resolveJSONSchema(
+    Ref<nlohmann::json> rDefs,
+    Ref<nlohmann::json> rCurrentSchema,
+    Ref<const JSONSchemaLoader> rLoader) {
+        if (rCurrentSchema.is_array()) {
+            for (auto& value : rCurrentSchema)
+                resolveJSONSchema(rDefs, value, rLoader);
+            return;
+        }
+
+        if (!rCurrentSchema.is_object())
+            return;
+
+        if (auto itRef = rCurrentSchema.find("$ref"); itRef != rCurrentSchema.end()) {
+            if (!itRef->is_string())
+                CIE_THROW(Exception, "$ref must be a string")
+
+            const std::string path = itRef->get<std::string>();
+            std::string defPath = path;
+            std::replace(
+                defPath.begin(),
+                defPath.end(),
+                '/',
+                ':');
+
+            nlohmann::json base;
+            auto itDef = rDefs.find(defPath);
+            if (itDef == rDefs.end()) {
+                base = std::move(rLoader.load(path).contents());
+                if (!base.is_object())
+                    CIE_THROW(
+                        Exception,
+                        std::format(
+                            "referenced JSON \"{}\" must be an object",
+                            path))
+
+                // Remove $id from the base.
+                if (const auto itId = base.find("$id"); itId != base.end())
+                    base.erase(itId);
+
+                rDefs[defPath] = std::move(base);
+                itDef = rDefs.find(defPath);
+
+                for (auto& [key, value] : itDef->items())
+                    resolveJSONSchema(rDefs, value, rLoader);
+            } /*if itDef == rDefs.end()*/
+
+            *itRef = "#/$defs/" + defPath;
+        } /*if has $ref*/ else {
+            for (auto& [key, value] : rCurrentSchema.items())
+                if (key != "$defs")
+                    resolveJSONSchema(rDefs, value, rLoader);
+        }
+
+}
+
+
+void JSONSchema::resolve() {
+    CIE_BEGIN_EXCEPTION_TRACING
+        auto itDefs = _pImpl->schema.find("$defs");
+        if (itDefs == _pImpl->schema.end())
+            _pImpl->schema["$defs"] = "{}"_json;
+
+        resolveJSONSchema(
+            *_pImpl->schema.find("$defs"),
+            _pImpl->schema,
+            _pImpl->loader);
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+// ----------------------------------------------------------
+// JSONSchema
+// ----------------------------------------------------------
+
+
+JSONSchemaLoader::JSONSchemaLoader()
+    : JSONSchemaLoader(cie::getDataPath() / "data" / "schemas")
+{}
+
+
+JSONSchemaLoader::JSONSchemaLoader(Ref<const std::filesystem::path> rLibraryRoot)
+    : JSONSchemaLoader(std::span<const std::filesystem::path>(&rLibraryRoot, 1))
+{}
+
+
+JSONSchemaLoader::JSONSchemaLoader(std::span<const std::filesystem::path> libraryRoots)
+    : _roots() {
+        CIE_BEGIN_EXCEPTION_TRACING
+            for (Ref<const std::filesystem::path> rRoot : libraryRoots)
+                this->addLibraryRoot(rRoot);
+        CIE_END_EXCEPTION_TRACING
+}
+
+
+JSONSchemaLoader::~JSONSchemaLoader() = default;
+
+
+void JSONSchemaLoader::addLibraryRoot(Ref<const std::filesystem::path> rLibraryRoot) {
+    CIE_BEGIN_EXCEPTION_TRACING
+        //this->validateLibraryRoot(rLibraryRoot);
+        if (std::find(_roots.begin(), _roots.end(), rLibraryRoot) == _roots.end())
+            _roots.push_back(rLibraryRoot);
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+JSONObject JSONSchemaLoader::load(Ref<const std::string> rURI) const {
+    const std::filesystem::path relativeURIPath = rURI.empty()
+        ? ""
+        : rURI[0] == '/'
+            ? rURI.substr(1, rURI.npos) + ".json"
+            : rURI + ".json";
+
+    CIE_BEGIN_EXCEPTION_TRACING
+        std::optional<std::filesystem::path> maybePath;
+        for (Ref<const std::filesystem::path> rRoot : _roots) {
+            const std::filesystem::path candidate = rRoot / relativeURIPath;
+            const auto status = std::filesystem::status(candidate);
+            if (status.type() == std::filesystem::file_type::regular) {
+                maybePath = candidate;
+                break;
+            } // @todo: deal with symlinks
+        } // for rRoot in roots
+
+        // Make sure it was found and loaded.
+        CIE_CHECK(
+            maybePath.has_value(),
+            std::format(
+                "'{}' does not refer to a schema in the following schema libraries:\n{}",
+                rURI,
+                [this](){
+                    std::stringstream message;
+                    for (Ref<const std::filesystem::path> rRoot : _roots)
+                        message << "  " << rRoot << "\n";
+                    return message.str();
+                }()))
+
+        return JSONObject(maybePath.value());
+    CIE_END_EXCEPTION_TRACING
+}
+
+
+//void JSONSchemaLoader::validateLibraryRoot(Ref<const std::filesystem::path> rRoot) {
+//    const auto status = std::filesystem::status(rRoot);
+//        switch (status.type()) {
+//            case std::filesystem::file_type::directory: break; // <== ok
+//            case std::filesystem::file_type::regular:
+//                CIE_THROW(
+//                    Exception,
+//                    std::format(
+//                        "expecting a directory, but '{}' is a file",
+//                        rRoot.string()))
+//            case std::filesystem::file_type::none:
+//                CIE_THROW(
+//                    Exception,
+//                    std::format(
+//                        "expecting a directory, but '{}' does not exist",
+//                        rRoot.string()))
+//            case std::filesystem::file_type::symlink:
+//                CIE_THROW(
+//                    NotImplementedException,
+//                    std::format(
+//                        "expecting a directory, but '{}' is a symlink, which is not supported yet",
+//                        rRoot.string()))
+//            default:
+//                CIE_THROW(
+//                    Exception,
+//                    std::format(
+//                        "expecting a directory, but '{}' is of unsupported type",
+//                        rRoot.string()))
+//        } // switch status.type()
+//}
 
 
 // ----------------------------------------------------------
 // NON-MEMBERS
 // ----------------------------------------------------------
 
-std::ostream& operator<<(std::ostream& r_stream, const JSONObject& r_json)
-{
-    CIE_BEGIN_EXCEPTION_TRACING
+std::ostream& operator<<(
+    std::ostream& rStream,
+    const JSONObject& rJSON) {
+        CIE_BEGIN_EXCEPTION_TRACING
+            return rStream << rJSON.contents().dump(4);
+        CIE_END_EXCEPTION_TRACING
+}
 
-    return r_stream << r_json.contents();
 
-    CIE_END_EXCEPTION_TRACING
+std::ostream& operator<<(
+    std::ostream& rStream,
+    Ref<const JSONSchema> rSchema) {
+        return rStream << rSchema._pImpl->schema.dump(4);
 }
 
 

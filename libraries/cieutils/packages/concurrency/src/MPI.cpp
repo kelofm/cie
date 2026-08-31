@@ -16,7 +16,7 @@ namespace cie::mpi {
 
 MPI::MPI(Ptr<MPI_Comm> p_comm, MPIKey)
 {
-    #ifdef CIEUTILS_COMPILE_MPI
+    #ifdef CIE_ENABLE_MPI
     if (p_comm) {
         _p_impl.reset(new MPIDistributedImpl(p_comm));
     } else {
