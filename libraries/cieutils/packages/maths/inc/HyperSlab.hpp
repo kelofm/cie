@@ -23,6 +23,8 @@ public:
 
     explicit constexpr HyperSlab(Ref<const std::array<TValue,2*Dim>> rData) noexcept;
 
+    [[nodiscard]] constexpr std::span<const TValue,2*Dim> data() const noexcept;
+
     [[nodiscard]] constexpr bool empty() const noexcept;
 
     [[nodiscard]] constexpr TValue count() const noexcept;

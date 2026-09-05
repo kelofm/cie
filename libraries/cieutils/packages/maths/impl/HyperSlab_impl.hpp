@@ -41,6 +41,12 @@ constexpr HyperSlab<D,T>::HyperSlab(Ref<const std::array<T,2*D>> rData) noexcept
 
 
 template <unsigned D, concepts::Integer T>
+constexpr std::span<const T,2*D> HyperSlab<D,T>::data() const noexcept {
+    return _data;
+}
+
+
+template <unsigned D, concepts::Integer T>
 constexpr bool HyperSlab<D,T>::empty() const noexcept {
     for (auto it=_data.data(); it!=_data.end(); it+=2)
         if (*it == *(it + 1)) return true;
