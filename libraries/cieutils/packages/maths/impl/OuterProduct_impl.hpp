@@ -135,4 +135,40 @@ constexpr bool OuterProduct<Dimension>::next(Ptr<const Ptr<const TValue>> itOpti
 }
 
 
+template <unsigned D>
+template <class T>
+constexpr bool OuterProduct<D>::next(
+    Ref<const HyperSlab<D,T>> rSlab,
+    std::span<T,D> state) noexcept {
+        if (rSlab.empty()) return false;
+
+        for (unsigned iComponent=0u; iComponent<D; ++iComponent) {
+            const T begin = rSlab.data()[2 * iComponent];
+            const T end   = rSlab.data()[2 * iComponent + 1];
+
+            Ref<T> rComponent = state[iComponent];
+
+            if (++rComponent < end) {            // <= found a component to increment
+                return true;
+            } /*if ++rComponent < end*/ else {   // <= overflow: reset every component until the next incrementable is found
+                rComponent = begin;
+            }
+        } // for iComponent in range(D)
+
+        // Could not find component to increment
+        return false;
+}
+
+
+template <unsigned D>
+template <class T>
+constexpr bool OuterProduct<D>::next(
+    Ref<const HyperSlab<D,T>> rSlab,
+    Ref<std::array<T,D>> rState) noexcept {
+        return OuterProduct<D>::template next<T>(
+            rSlab,
+            std::span<T,D>(rState));
+}
+
+
 } // namespace cie::maths

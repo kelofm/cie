@@ -34,14 +34,20 @@ constexpr HyperSlab<D,T>::HyperSlab(std::span<const T,2*D> data) noexcept {
 
 template <unsigned D, concepts::Integer T>
 constexpr HyperSlab<D,T>::HyperSlab(Ref<const std::array<T,2*D>> rData) noexcept
-    : HyperSlab(std::span<const T,2*D>(
-        rData.data(),
-        2 * rData.size()))
+    :   HyperSlab(std::span<const T,2*D>(
+            rData.data(),
+            rData.size()))
 {}
 
 
 template <unsigned D, concepts::Integer T>
 constexpr std::span<const T,2*D> HyperSlab<D,T>::data() const noexcept {
+    return _data;
+}
+
+
+template <unsigned D, concepts::Integer T>
+constexpr std::span<T,2*D> HyperSlab<D,T>::data() noexcept {
     return _data;
 }
 
@@ -121,6 +127,16 @@ constexpr bool HyperSlab<D,T>::expand(
             }
         }
         return true;
+}
+
+
+template <unsigned D, concepts::Integer T>
+constexpr bool HyperSlab<D,T>::expand(
+    Ref<const std::array<T,D>> rRange,
+    std::span<T> out) const noexcept {
+        return this->expand(
+            std::span<const T,D>(rRange),
+            out);
 }
 
 

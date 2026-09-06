@@ -9,29 +9,30 @@
 
 
 template <class TValue, unsigned Dimension>
-void linear(benchmark::State& r_state)
+void linear(benchmark::State& rState)
 {
     using Basis = cie::fem::maths::Polynomial<TValue>;
     const cie::fem::maths::AnsatzSpace<Basis,Dimension> ansatzSpace(
-        cie::DynamicArray<Basis> {
+        std::vector<Basis> {
             Basis(typename Basis::Coefficients {0.5, -0.5}),
             Basis(typename Basis::Coefficients {0.5,  0.5})
         }
     );
 
-    cie::DynamicArray<TValue> valueBuffer(ansatzSpace.size());
+    std::vector<TValue> buffer;
+    std::vector<TValue> valueBuffer(ansatzSpace.size());
 
     using Quadrature = cie::fem::Quadrature<TValue,Dimension>;
-    cie::DynamicArray<typename Quadrature::Point> samples;
+    std::vector<typename Quadrature::Point> samples;
     Quadrature(
         cie::fem::GaussLegendreQuadrature<TValue>(/*integrationOrder*/ 5)
     ).getIntegrationPoints(std::back_inserter(samples));
 
-    for ([[maybe_unused]] auto dummy : r_state) {
-        for (const auto& r_sample : samples) {
-            ansatzSpace.evaluate(r_sample.data(),
-                                 r_sample.data() + r_sample.size(),
-                                 valueBuffer.data());
+    for ([[maybe_unused]] auto dummy : rState) {
+        for (const auto& rSample : samples) {
+            ansatzSpace.evaluate(
+                rSample,
+                valueBuffer);
             benchmark::DoNotOptimize(valueBuffer);
         }
     }
@@ -39,29 +40,29 @@ void linear(benchmark::State& r_state)
 
 
 template <class TValue, unsigned Dimension>
-void quadratic(benchmark::State& r_state)
+void quadratic(benchmark::State& rState)
 {
     using Basis = cie::fem::maths::Polynomial<TValue>;
     const cie::fem::maths::AnsatzSpace<Basis,Dimension> ansatzSpace(
-        cie::DynamicArray<Basis> {
+        std::vector<Basis> {
             Basis(typename Basis::Coefficients {0.5, -0.5}),
             Basis(typename Basis::Coefficients {0.5,  0.5}),
             Basis(typename Basis::Coefficients {1.0,  0.0, -1.0})
         }
     );
 
-    cie::DynamicArray<TValue> valueBuffer(ansatzSpace.size());
+    std::vector<TValue> valueBuffer(ansatzSpace.size());
 
     using Quadrature = cie::fem::Quadrature<TValue,Dimension>;
-    cie::DynamicArray<typename Quadrature::Point> samples;
+    std::vector<typename Quadrature::Point> samples;
     Quadrature(
         cie::fem::GaussLegendreQuadrature<TValue>(/*integrationOrder*/ 5)
     ).getIntegrationPoints(std::back_inserter(samples));
 
-    for ([[maybe_unused]] auto dummy : r_state) {
-        for (const auto& r_sample : samples) {
-            ansatzSpace.evaluate(r_sample.data(),
-                                 r_sample.data() + r_sample.size(),
+    for ([[maybe_unused]] auto dummy : rState) {
+        for (const auto& rSample : samples) {
+            ansatzSpace.evaluate(rSample.data(),
+                                 rSample.data() + rSample.size(),
                                  valueBuffer.data());
             benchmark::DoNotOptimize(valueBuffer);
         }

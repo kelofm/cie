@@ -6,6 +6,7 @@
 
 // --- Utility Includes ---
 #include "packages/io/inc/Serializer.hpp"
+#include "packages/maths/inc/HyperSlab.hpp"
 
 // --- STL Includes ---
 #include <array>
@@ -29,7 +30,7 @@ class AnsatzSpaceDerivativeView
 public:
     constexpr static inline bool hasStaticBasis = (SetSize != 0ul) && StaticExpression<TScalarExpression> && StaticExpression<typename TScalarExpression::Derivative>;
 
-    static constexpr unsigned Dimension = Dim;
+    static constexpr unsigned ParametricDimension = Dim;
 
     using typename ExpressionTraits<typename TScalarExpression::Value>::Value;
 
@@ -38,6 +39,8 @@ public:
     using typename ExpressionTraits<Value>::Span;
 
     using typename ExpressionTraits<Value>::BufferSpan;
+
+    using Context = HyperSlab<Dim,std::uint16_t>;
 
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = AnsatzSpaceDerivativeView;
@@ -55,10 +58,24 @@ public:
         std::span<const typename TScalarExpression::Derivative> derivativeSet)
     requires (!hasStaticBasis);
 
+    /// @name Common Expression Interface
+    /// @{
+
     void evaluate(
         ConstSpan in,
         Span out,
         BufferSpan buffer) const;
+
+    /// @see @ref SliceableExpression
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
+
+    /// @}
+    /// @name Runtime Expression Interface
+    /// @{
 
     unsigned size() const noexcept
     requires (!hasStaticBasis);
@@ -66,11 +83,25 @@ public:
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
+    /// @}
+    /// @name Static Expression Interface
+    /// @{
+
     static constexpr unsigned size() noexcept
     requires (hasStaticBasis);
 
     static constexpr unsigned bufferSize() noexcept
     requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @}
 
     constexpr std::span<const TScalarExpression> ansatzSet() const noexcept;
 
@@ -113,7 +144,7 @@ public:
 
     static inline constexpr bool hasStaticBasis = View::hasStaticBasis;
 
-    static constexpr unsigned Dimension = Dim;
+    static constexpr unsigned ParametricDimension = Dim;
 
     using typename ExpressionTraits<typename TScalarExpression::Value>::Value;
 
@@ -122,6 +153,8 @@ public:
     using typename ExpressionTraits<Value>::Span;
 
     using typename ExpressionTraits<Value>::BufferSpan;
+
+    using Context = typename View::Context;
 
     constexpr AnsatzSpaceDerivative(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
     requires (hasStaticBasis);
@@ -163,10 +196,24 @@ public:
     constexpr AnsatzSpaceDerivative& operator=(const AnsatzSpaceDerivative&) noexcept
     requires (hasStaticBasis);
 
+    /// @name Common Expression Interface
+    /// @{
+
     void evaluate(
         ConstSpan in,
         Span out,
         BufferSpan buffer) const;
+
+    /// @see @ref SliceableExpression
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
+
+    /// @}
+    /// @name Runtime Expression Interface
+    /// @{
 
     unsigned size() const noexcept
     requires (!hasStaticBasis);
@@ -177,11 +224,9 @@ public:
     View makeView() const noexcept
     requires (!hasStaticBasis);
 
-    std::span<const TScalarExpression> ansatzSet() const noexcept
-    requires (!hasStaticBasis);
-
-    std::span<const typename TScalarExpression::Derivative> derivativeSet() const noexcept
-    requires (!hasStaticBasis);
+    /// @}
+    /// @name Static Expression Interface
+    /// @{
 
     constexpr static unsigned size() noexcept
     requires (hasStaticBasis);
@@ -189,14 +234,33 @@ public:
     constexpr static unsigned bufferSize() noexcept
     requires (hasStaticBasis);
 
+    /// @see @ref SliceableExpression
+    constexpr static unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    constexpr static unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @}
+
     constexpr View makeView() const noexcept
     requires (hasStaticBasis);
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept
+    requires (!hasStaticBasis);
+
+    std::span<const typename TScalarExpression::Derivative> derivativeSet() const noexcept
+    requires (!hasStaticBasis);
 
     constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
     requires (hasStaticBasis);
 
     constexpr std::span<const typename TScalarExpression::Derivative,SetSize> derivativeSet() const noexcept
     requires (hasStaticBasis);
+
+    /// @name Serialization
+    /// @{
 
     void serialize(
         Ref<cie::io::Traits::SerializerStream> rStream,
@@ -207,6 +271,8 @@ public:
         Ref<AnsatzSpaceDerivative> rInstance,
         TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
+
+    /// @}
 
 private:
     template <class,unsigned,std::size_t,class>
@@ -242,7 +308,7 @@ public:
 
     constexpr static inline bool hasStaticBasis = (SetSize != 0ul) && StaticExpression<TScalarExpression>;
 
-    static constexpr unsigned Dimension = Dim;
+    static constexpr unsigned ParametricDimension = Dim;
 
     using typename Base::Value;
 
@@ -251,6 +317,8 @@ public:
     using typename Base::ConstSpan;
 
     using typename Base::BufferSpan;
+
+    using Context = HyperSlab<Dim,std::uint16_t>;
 
     template <template <class ...> class, class>
     using Rebind = AnsatzSpaceView<
@@ -266,10 +334,24 @@ public:
     constexpr AnsatzSpaceView(std::span<const TScalarExpression,SetSize> ansatzSet) noexcept
     requires (hasStaticBasis);
 
+    /// @name Common Expression Interface
+    /// @{
+
     void evaluate(
         ConstSpan in,
         Span out,
         BufferSpan buffer) const;
+
+    /// @see @ref SliceableExpression
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
+
+    /// @}
+    /// @name Runtime Expression Interface
+    /// @{
 
     unsigned size() const noexcept
     requires (!hasStaticBasis);
@@ -277,14 +359,28 @@ public:
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
-    std::span<const TScalarExpression> ansatzSet() const noexcept
-    requires (!hasStaticBasis);
+    /// @}
+    /// @name Static Expression Interface
+    /// @{
 
     static constexpr unsigned size() noexcept
     requires (hasStaticBasis);
 
     static constexpr unsigned bufferSize() noexcept
     requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @}
+
+    std::span<const TScalarExpression> ansatzSet() const noexcept
+    requires (!hasStaticBasis);
 
     constexpr std::span<const TScalarExpression,SetSize> ansatzSet() const noexcept
     requires (hasStaticBasis);
@@ -314,7 +410,7 @@ public:
 
     static inline constexpr bool hasStaticBasis = View::hasStaticBasis;
 
-    static constexpr unsigned Dimension = Dim;
+    static constexpr unsigned ParametricDimension = Dim;
 
     using typename Base::Value;
 
@@ -323,6 +419,8 @@ public:
     using typename Base::ConstSpan;
 
     using typename Base::BufferSpan;
+
+    using Context = typename View::Context;
 
     using AnsatzSet = std::conditional_t<
         hasStaticBasis,
@@ -381,27 +479,55 @@ public:
     constexpr AnsatzSpace& operator=(const AnsatzSpace& rRhs) noexcept
     requires (hasStaticBasis);
 
+    /// @name Common Expression Interface
+    /// @{
+
     void evaluate(
         ConstSpan in,
         Span out,
         BufferSpan buffer) const;
 
-    Derivative makeDerivative() const
-    requires (!hasStaticBasis);
+    /// @see @ref SliceableExpression
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
 
-    constexpr Derivative makeDerivative() const noexcept
-    requires (hasStaticBasis);
+    /// @}
+    /// @name Runtime Expression Interface
+    /// @{
 
     unsigned size() const noexcept
     requires (!hasStaticBasis);
 
-    constexpr static unsigned size() noexcept
-    requires (hasStaticBasis);
-
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
+    /// @}
+    /// @name Static Expression Interface
+    /// @{
+
+    constexpr static unsigned size() noexcept
+    requires (hasStaticBasis);
+
     constexpr static unsigned bufferSize() noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    constexpr static unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    constexpr static unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @}
+
+    Derivative makeDerivative() const
+    requires (!hasStaticBasis);
+
+    constexpr Derivative makeDerivative() const noexcept
     requires (hasStaticBasis);
 
     std::span<const TScalarExpression> ansatzSet() const noexcept
@@ -416,6 +542,9 @@ public:
     constexpr View makeView() const noexcept
     requires (hasStaticBasis);
 
+    /// @name Serialization
+    /// @{
+
     void serialize(
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
@@ -425,6 +554,8 @@ public:
         Ref<AnsatzSpace> rInstance,
         TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
+
+    /// @}
 
 private:
     friend class AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize>;

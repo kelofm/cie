@@ -160,7 +160,7 @@ private:
 
 template <maths::Expression TAnsatzSpace, class TValue>
 requires std::is_same_v<TValue,typename TAnsatzSpace::Value>
-AnsatzMap<TAnsatzSpace::Dimension>
+AnsatzMap<TAnsatzSpace::ParametricDimension>
 makeAnsatzMap(
     Ref<const TAnsatzSpace> rAnsatzSpace,
     std::size_t integrationOrder,

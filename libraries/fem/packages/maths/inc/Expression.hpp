@@ -8,6 +8,7 @@
 #include "packages/types/inc/types.hpp"
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/io/inc/Traits.hpp"
+#include "packages/maths/inc/HyperSlab.hpp"
 
 // --- STL Includes ---
 #include <utility> // declval
@@ -90,27 +91,84 @@ concept Expression
 }; // concept Expression
 
 
+/// @brief Interface for @ref Expression "expressions" sliceable with @ref HyperSlab "hyperslabs".
+/// @details Slicing specifically refers to selecting subsets of the @ref AnsatzSpace "ansatz space",
+///          not the expression's output directly. As a result, a sliced expression's output size
+///          cannot be deduced in general from only the hyperslab used for slicing.
+/// @ingroup fem
+template <class T>
+concept SliceableExpression
+=  maths::Expression<T>
+&& HyperSlabLike<typename std::remove_cvref_t<T>::Context>
+&& requires (
+    Ref<const T> t,
+    Ref<const typename std::remove_cvref_t<T>::Context> rContext) {
+        {std::remove_cvref_t<T>::ParametricDimension}       -> std::same_as<unsigned>;
+        {t.size(rContext)}                                  -> concepts::UnsignedInteger;
+        {t.bufferSize(rContext)}                            -> concepts::UnsignedInteger;
+        {t.evaluate(
+            std::declval<typename std::remove_cvref_t<T>::ConstSpan>(),
+            std::declval<typename std::remove_cvref_t<T>::Span>(),
+            std::declval<typename std::remove_cvref_t<T>::BufferSpan>(),
+            rContext)}                                      -> std::same_as<void>;
+}; // concept SliceableExpression
+
+
 /// @brief Static interface for @ref Expression "expressions" with static memory requirements.
-/// @details A static expression must know its output size and buffer size at compile time.
+/// @details A static expression must know its output size and buffer size at compile time. If
+///          the expression is also @ref SliceableExpression "sliceable", it must also know its
+///          sliced size and sliced buffer size at compile time.
+/// @ingroup fem
 template <class T>
 concept StaticExpression
-= Expression<T> && requires () {
+=  Expression<T> && requires () {
     {std::remove_cvref_t<T>::size()} -> std::same_as<unsigned>;
-    {std::remove_cvref_t<T>::bufferSize()} -> std::same_as<unsigned>;
-};
+    {std::remove_cvref_t<T>::bufferSize()} -> std::same_as<unsigned>;}
+&& (!SliceableExpression<T> || requires () {
+    {std::remove_cvref_t<T>::size(std::declval<typename std::remove_cvref_t<T>::Context>())} -> std::same_as<unsigned>;
+    {std::remove_cvref_t<T>::bufferSize(std::declval<typename std::remove_cvref_t<T>::Context>())} -> std::same_as<unsigned>;
+}); // concept StaticExpression
 
 
+/// @brief Utility class allowing the static query of @ref "Expression" expression sizes.
+/// @details The functions of this class return meaningful sizes only if @p T satisfies
+///          @ref StaticExpression, otherwise @p 0 sizes are returned. This is useful for
+///          making parts of the code cleaner that combine static and non-static implementations
+///          within the same body.
+/// @ingroup fem
 template <class T>
 struct StaticExpressionSize {
-    static inline constexpr unsigned size = 0u;
-    static inline constexpr unsigned bufferSize = 0u;
-};
+private:
+    template <class TT>
+    struct ContextOrDefault {
+        using Value = std::nullptr_t;
+    }; // struct ContextOrDefault
 
+    template <SliceableExpression TT>
+    struct ContextOrDefault<TT> {
+        using Value = typename TT::Context;
+    }; // struct ContextOrDefault<SliceableExpression>
 
-template <StaticExpression T>
-struct StaticExpressionSize<T> {
-    static inline constexpr unsigned size = T::size();
-    static inline constexpr unsigned bufferSize = T::bufferSize();
+public:
+    static constexpr unsigned size() noexcept {
+        if constexpr (StaticExpression<T>) return T::size();
+        else return 0u;
+    }
+
+    static constexpr unsigned bufferSize() noexcept {
+        if constexpr (StaticExpression<T>) return T::bufferSize();
+        else return 0u;
+    }
+
+    static constexpr unsigned size(Ref<const typename ContextOrDefault<T>::Value> rContext) noexcept {
+        if constexpr (StaticExpression<T>) return T::size(rContext);
+        else return 0u;
+    }
+
+    static constexpr unsigned bufferSize(Ref<const typename ContextOrDefault<T>::Value> rContext) noexcept {
+        if constexpr (StaticExpression<T>) return T::bufferSize(rContext);
+        else return 0u;
+    }
 };
 
 
@@ -137,7 +195,6 @@ concept JacobianExpression
 
 
 /// @brief Static interface for spatial transformations between different spaces of identical dimensions.
-///
 /// @details On top of the requirements defined by @ref cie::fem::maths::Expression "Expression",
 ///          @p SpatialTransform adds 2 extra requirements:
 ///
