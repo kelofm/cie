@@ -19,14 +19,14 @@ namespace cie::fem {
 
 template <
     maths::Expression TAnsatz,
-    unsigned PhysicalDimension = TAnsatz::Dimension>
+    unsigned PhysicalDimension = TAnsatz::ParametricDimension>
 class AnsatzSpacePostprocessor {
 public:
     using Ansatz = TAnsatz;
 
     using Value = typename TAnsatz::Value;
 
-    static constexpr inline unsigned ParametricDimension = Ansatz::Dimension;
+    static constexpr inline unsigned ParametricDimension = Ansatz::ParametricDimension;
 
     AnsatzSpacePostprocessor() noexcept;
 

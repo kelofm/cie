@@ -4,6 +4,7 @@
 #include "packages/types/inc/types.hpp" // Ref, Ptr
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/compile_time/packages/concepts/inc/iterator_concepts.hpp"
+#include "packages/maths/inc/HyperSlab.hpp"
 
 // --- STL Includes ---
 #include <concepts> // std::incrementable
@@ -45,6 +46,16 @@ public:
         Ptr<const Ptr<const TValue>> itOptionBeginsArray,
         Ptr<const Ptr<const TValue>> itOptionEndsArray,
         Ptr<TValue> itStateBegin);
+
+    template <class T>
+    constexpr static bool next(
+        Ref<const HyperSlab<Dimension,T>> rSlab,
+        std::span<T,Dimension> state) noexcept;
+
+    template <class T>
+    constexpr static bool next(
+        Ref<const HyperSlab<Dimension,T>> rSlab,
+        Ref<std::array<T,Dimension>> rState) noexcept;
 
     constexpr static bool next(Ref<unsigned> rState)
     {return rState++ < (1<<Dimension);}

@@ -59,8 +59,8 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
     Span out,
     BufferSpan buffer) const {
         Span ansatzDerivativeBuffer, nestedBuffer;
-        [[maybe_unused]] std::array<Value,maths::StaticExpressionSize<TAD>::size> ansatzDerivativeBufferArray;
-        [[maybe_unused]] std::array<Value,maths::StaticExpressionSize<TAD>::bufferSize> nestedBufferArray;
+        [[maybe_unused]] std::array<Value,maths::StaticExpressionSize<TAD>::size()> ansatzDerivativeBufferArray;
+        [[maybe_unused]] std::array<Value,maths::StaticExpressionSize<TAD>::bufferSize()> nestedBufferArray;
 
         if constexpr (maths::StaticExpression<TAD>) {
             ansatzDerivativeBuffer = ansatzDerivativeBufferArray;

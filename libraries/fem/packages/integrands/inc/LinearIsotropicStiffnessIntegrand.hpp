@@ -11,7 +11,7 @@ template <maths::Expression TAnsatzDerivatives, maths::SpatialTransform TTransfo
 class LinearIsotropicStiffnessIntegrand
     : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value> {
 public:
-    static constexpr unsigned ParametricDimension = TAnsatzDerivatives::ParametricDimension;
+    static constexpr unsigned Dimension = TAnsatzDerivatives::ParametricDimension;
 
     using typename maths::ExpressionTraits<typename TAnsatzDerivatives::Value>::Value;
 

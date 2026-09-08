@@ -284,13 +284,13 @@ void IntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         using ResultBuffer = std::conditional_t<
             maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::size>,
+            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::size()>,
             std::vector<typename TIntegrand::Value>>;
         ResultBuffer result;
 
         using IntegrandBuffer = std::conditional_t<
             maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::bufferSize>,
+            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::bufferSize()>,
             std::vector<typename TIntegrand::Value>>;
         IntegrandBuffer integrandBuffer;
 
@@ -359,12 +359,12 @@ void ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         using ResultBuffer = std::conditional_t<
             maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::size>,
+            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::size()>,
             std::vector<typename TIntegrand::Value>>;
 
         using IntegrandBuffer = std::conditional_t<
             maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::bufferSize>,
+            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::bufferSize()>,
             std::vector<typename TIntegrand::Value>>;
 
         // Evaluate integrand at all requested quadrature points.

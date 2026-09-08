@@ -59,7 +59,7 @@ void scanConnectivities(Ref<const TAnsatzSpace> rAnsatzSpace,
                         typename TAnsatzSpace::Value tolerance) {
     CIE_BEGIN_EXCEPTION_TRACING
     using Value = typename TAnsatzSpace::Value;
-    constexpr unsigned Dimension = TAnsatzSpace::Dimension;
+    constexpr unsigned Dimension = TAnsatzSpace::ParametricDimension;
     static_assert(0 < Dimension);
     std::vector<typename TAnsatzSpace::Value> ansatzBuffer(rAnsatzSpace.bufferSize());
 
@@ -343,11 +343,11 @@ AnsatzMap<Dimension>::AnsatzMap(
 
 template <maths::Expression TAnsatzSpace, class TValue>
 requires std::is_same_v<TValue,typename TAnsatzSpace::Value>
-AnsatzMap<TAnsatzSpace::Dimension>
+AnsatzMap<TAnsatzSpace::ParametricDimension>
 makeAnsatzMap(Ref<const TAnsatzSpace> rAnsatzSpace,
               std::size_t integrationOrder,
               utils::Comparison<TValue> comparison) {
-    return AnsatzMap<TAnsatzSpace::Dimension>(rAnsatzSpace, integrationOrder, comparison);
+    return AnsatzMap<TAnsatzSpace::ParametricDimension>(rAnsatzSpace, integrationOrder, comparison);
 }
 
 
