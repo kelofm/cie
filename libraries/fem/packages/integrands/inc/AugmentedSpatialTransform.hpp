@@ -8,6 +8,8 @@
 namespace cie::fem {
 
 
+/// @brief Utility class that wraps a @ref maths::SpatialTransform, allowing additional arguments to be passed along coordinates.
+/// @ingroup fem
 template <maths::SpatialTransform T>
 class AugmentedSpatialTransform : public T {
 public:

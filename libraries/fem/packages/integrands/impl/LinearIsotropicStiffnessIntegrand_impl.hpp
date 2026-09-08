@@ -49,6 +49,10 @@ LinearIsotropicStiffnessIntegrand<TAD,TT>::LinearIsotropicStiffnessIntegrand(
 {}
 
 
+/// @name Common Expression Interface
+/// @{
+
+
 template <maths::Expression TAD, maths::SpatialTransform TT>
 void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
     ConstSpan in,
@@ -76,13 +80,13 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
             in,
             jacobianInverse,
             {});
-        static_assert(JacobianInverse::size() == Dimension * Dimension);
-        Eigen::Map<Eigen::Matrix<Value,Dimension,Dimension,Eigen::RowMajor>> jacobianInverseAdaptor(
+        static_assert(JacobianInverse::size() == ParametricDimension * ParametricDimension);
+        Eigen::Map<Eigen::Matrix<Value,ParametricDimension,ParametricDimension,Eigen::RowMajor>> jacobianInverseAdaptor(
             jacobianInverse.data());
 
         {
             std::array<Value,JacobianInverse::size()> productBuffer;
-            Eigen::Map<Eigen::Matrix<Value,Dimension,Dimension,Eigen::RowMajor>> productBufferAdaptor(
+            Eigen::Map<Eigen::Matrix<Value,ParametricDimension,ParametricDimension,Eigen::RowMajor>> productBufferAdaptor(
                 productBuffer.data());
             productBufferAdaptor.noalias() = jacobianInverseAdaptor.transpose().lazyProduct(jacobianInverseAdaptor);
             jacobianInverse = productBuffer;
@@ -94,10 +98,10 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
 
         if constexpr (maths::StaticExpression<TAD>) {
             constexpr unsigned derivativeComponentCount = TAD::size();
-            constexpr unsigned ansatzCount = derivativeComponentCount / Dimension;
+            constexpr unsigned ansatzCount = derivativeComponentCount / ParametricDimension;
             _ansatzDerivatives.evaluate(in, ansatzDerivativeBuffer, nestedBuffer);
 
-            using DerivativeMatrix = Eigen::Matrix<Value,Dimension,ansatzCount,Eigen::RowMajor>;
+            using DerivativeMatrix = Eigen::Matrix<Value,ParametricDimension,ansatzCount,Eigen::RowMajor>;
             using OutputMatrix = Eigen::Matrix<Value,ansatzCount,ansatzCount,Eigen::RowMajor>;
             Eigen::Map<DerivativeMatrix> derivativeAdaptor(ansatzDerivativeBuffer.data());
             Eigen::Map<OutputMatrix> outputAdaptor(
@@ -111,14 +115,14 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
                         derivativeAdaptor));
         } else {
             const unsigned derivativeComponentCount = ansatzDerivativeBuffer.size();
-            const unsigned ansatzCount = derivativeComponentCount / Dimension;
+            const unsigned ansatzCount = derivativeComponentCount / ParametricDimension;
             _ansatzDerivatives.evaluate(in, ansatzDerivativeBuffer, nestedBuffer);
 
             using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
             using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
             EigenAdaptor derivativeAdaptor(
                 ansatzDerivativeBuffer.data(),
-                Dimension,
+                ParametricDimension,
                 ansatzCount);
             EigenAdaptor outputAdaptor(
                 out.data(),
@@ -129,20 +133,37 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
 }
 
 
+/// @}
+/// @name Runtime Expression Interface
+/// @{
+
+
 template <maths::Expression TAD, maths::SpatialTransform TT>
 unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size() const noexcept
 requires (!maths::StaticExpression<TAD>) {
     const auto derivativeComponentCount = _ansatzDerivatives.size();
-    const auto ansatzCount = derivativeComponentCount / Dimension;
+    const auto ansatzCount = derivativeComponentCount / ParametricDimension;
     return ansatzCount * ansatzCount;
 }
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize() const noexcept
+requires (!maths::StaticExpression<TAD>) {
+    return _ansatzDerivatives.size() + _ansatzDerivatives.bufferSize();
+}
+
+
+/// @}
+/// @name Static Expression Interface
+/// @{
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
 constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size() noexcept
 requires (maths::StaticExpression<TAD>) {
     const auto derivativeComponentCount = TAD::size();
-    const auto ansatzCount = derivativeComponentCount / Dimension;
+    const auto ansatzCount = derivativeComponentCount / ParametricDimension;
     return ansatzCount * ansatzCount;
 }
 
@@ -154,11 +175,9 @@ requires (maths::StaticExpression<TAD>) {
 }
 
 
-template <maths::Expression TAD, maths::SpatialTransform TT>
-unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize() const noexcept
-requires (!maths::StaticExpression<TAD>) {
-    return _ansatzDerivatives.size() + _ansatzDerivatives.bufferSize();
-}
+/// @}
+/// @name Serialization
+/// @{
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
@@ -206,6 +225,9 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::deserialize(
             rInstance._modulus,
             rAllocator);
 }
+
+
+/// @}
 
 
 } // namespace cie::fem

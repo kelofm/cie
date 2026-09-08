@@ -11,7 +11,7 @@ template <maths::Expression TAnsatzDerivatives, maths::SpatialTransform TTransfo
 class LinearIsotropicStiffnessIntegrand
     : public maths::ExpressionTraits<typename TAnsatzDerivatives::Value> {
 public:
-    static constexpr unsigned Dimension = TAnsatzDerivatives::Dimension;
+    static constexpr unsigned ParametricDimension = TAnsatzDerivatives::ParametricDimension;
 
     using typename maths::ExpressionTraits<typename TAnsatzDerivatives::Value>::Value;
 
@@ -24,6 +24,8 @@ public:
     using Jacobian = typename TTransform::Derivative;
 
     using JacobianInverse = typename TTransform::Inverse::Derivative;
+
+    using Context = typename TAnsatzDerivatives::Context;
 
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = LinearIsotropicStiffnessIntegrand<
@@ -45,22 +47,37 @@ public:
         Ref<const Jacobian> rJacobian,
         Ref<const JacobianInverse> rJacobianInverse);
 
+    /// @name Common Expression Interface
+    /// @{
+
     void evaluate(
         ConstSpan in,
         Span out,
         BufferSpan buffer) const;
 
+    /// @}
+    /// @name Runtime Expression Interface
+    /// @{
+
     unsigned size() const noexcept
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
-
-    static constexpr unsigned size() noexcept
-    requires (maths::StaticExpression<TAnsatzDerivatives>);
 
     unsigned bufferSize() const noexcept
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
 
+    /// @}
+    /// @name Static Expression Interface
+    /// @{
+
+    static constexpr unsigned size() noexcept
+    requires (maths::StaticExpression<TAnsatzDerivatives>);
+
     static constexpr unsigned bufferSize() noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
+
+    /// @}
+    /// @name Serialization
+    /// @{
 
     void serialize(
         Ref<cie::io::Traits::SerializerStream> rStream,
@@ -72,6 +89,8 @@ public:
         Ref<LinearIsotropicStiffnessIntegrand> rInstance,
         Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
+
+    /// @}
 
 private:
     TAnsatzDerivatives _ansatzDerivatives;
