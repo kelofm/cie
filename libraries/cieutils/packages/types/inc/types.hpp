@@ -73,14 +73,13 @@ template <class T>
 inline constexpr Size bitSize = CHAR_BIT * sizeof(T);
 
 template <class T>
-Ptr<const T> makePtrTo(Ref<const T> r_t);
+Ptr<const T> makePtrTo(Ref<const T> ref);
 
 template <class T>
-Ptr<T> makePtrTo(Ref<T> r_t);
+Ptr<T> makePtrTo(Ref<T> ref);
 
 template <class T, class TElse = void>
-struct VoidSafe
-{
+struct VoidSafe {
     using RightRef = T&&;
 
     using Ref = T&;
@@ -90,8 +89,7 @@ struct VoidSafe
 
 template <class TVoid, class TElse>
 requires std::is_same_v<std::remove_const_t<TVoid>,void>
-struct VoidSafe<TVoid, TElse>
-{
+struct VoidSafe<TVoid, TElse> {
     using RightRef = TElse;
 
     using Ref = TElse;

@@ -175,6 +175,22 @@ requires (maths::StaticExpression<TAD>) {
 }
 
 
+template <maths::Expression TAD, maths::SpatialTransform TT>
+constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size(Ref<const Context> rContext) noexcept
+requires (maths::StaticExpression<TAD>) {
+    const auto derivativeComponentCount = TAD::size(rContext);
+    const auto ansatzCount = derivativeComponentCount / ParametricDimension;
+    return ansatzCount * ansatzCount;
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize(Ref<const Context> rContext) noexcept
+requires (maths::StaticExpression<TAD>) {
+    return TAD::bufferSize(rContext);
+}
+
+
 /// @}
 /// @name Serialization
 /// @{

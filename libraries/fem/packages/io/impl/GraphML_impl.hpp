@@ -17,37 +17,38 @@ namespace cie::fem::io {
 
 template <class T>
 template <class ...TArgs>
-Ptr<GraphML::Deserializer<T>> GraphML::DeserializerBase<T>::make(typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
-                                                                 Ref<SAXHandler> rSAX,
-                                                                 [[maybe_unused]] std::string_view elementName,
-                                                                 TArgs&&... rArguments) {
-    return new GraphML::Deserializer<T>(rInstance, rSAX, std::forward<TArgs>(rArguments)...);
+Ptr<GraphML::Deserializer<T>> GraphML::DeserializerBase<T>::make(
+    typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
+    Ref<SAXHandler> rSAX,
+    [[maybe_unused]] std::string_view elementName,
+    TArgs&&... rArguments) {
+        return new GraphML::Deserializer<T>(rInstance, rSAX, std::forward<TArgs>(rArguments)...);
 }
 
 
 template <class T>
 template <class TDerived>
-void GraphML::DeserializerBase<T>::release(Ptr<TDerived> pThis,
-                                           [[maybe_unused]] std::string_view elementName) noexcept {
-    //std::cout << "release " << "\033[0;31m" << elementName << "\033[0;37m"
-    //          << " " << typeid(T).name()
-    //          << std::endl;
-    delete pThis;
+void GraphML::DeserializerBase<T>::release(
+    Ptr<TDerived> pThis,
+    [[maybe_unused]] std::string_view elementName) noexcept {
+        //std::cout << "release " << "\033[0;31m" << elementName << "\033[0;37m"
+        //          << " " << typeid(T).name()
+        //          << std::endl;
+        delete pThis;
 }
 
 
 template <class T>
-GraphML::DeserializerBase<T>::DeserializerBase(typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
-                                               Ref<SAXHandler> rSAX) noexcept
-    : _pInstance(&rInstance),
-      _pSAX(&rSAX)
-{
-}
+GraphML::DeserializerBase<T>::DeserializerBase(
+    typename VoidSafe<T,std::nullptr_t>::Ref rInstance,
+    Ref<SAXHandler> rSAX) noexcept
+        :   _pInstance(&rInstance),
+            _pSAX(&rSAX)
+{}
 
 
 template <class T>
-typename VoidSafe<T,std::nullptr_t>::Ref GraphML::DeserializerBase<T>::instance() noexcept
-{
+typename VoidSafe<T,std::nullptr_t>::Ref GraphML::DeserializerBase<T>::instance() noexcept {
     if constexpr (std::is_same_v<T,void>) {
         return _pInstance;
     } else {
@@ -57,8 +58,7 @@ typename VoidSafe<T,std::nullptr_t>::Ref GraphML::DeserializerBase<T>::instance(
 
 
 template <class T>
-Ref<GraphML::SAXHandler> GraphML::DeserializerBase<T>::sax() noexcept
-{
+Ref<GraphML::SAXHandler> GraphML::DeserializerBase<T>::sax() noexcept {
     return *_pSAX;
 }
 
@@ -88,54 +88,54 @@ struct GraphMLRoot {
 
 
 template <class TGraph>
-struct GraphML::Deserializer<detail::GraphMLElement<TGraph>>
-    : public GraphML::DeserializerBase<detail::GraphMLElement<TGraph>>
-{
+struct GraphML::Deserializer<detail::GraphMLElement<TGraph>> : public GraphML::DeserializerBase<detail::GraphMLElement<TGraph>> {
     using GraphML::DeserializerBase<detail::GraphMLElement<TGraph>>::DeserializerBase;
 
-    static void onElementBegin(Ptr<void> pThis,
-                               std::string_view elementName,
-                               std::span<GraphML::AttributePair>) {
-        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+    static void onElementBegin(
+        Ptr<void> pThis,
+        std::string_view elementName,
+        std::span<GraphML::AttributePair>) {
+            Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
 
-        if (elementName == "graph") {
-            using SubDeserializer = GraphML::Deserializer<TGraph>;
-            rThis.sax().push({
-                SubDeserializer::make(
-                    *rThis.instance().pGraph,
-                    rThis.sax(),
-                    elementName),
-                SubDeserializer::onElementBegin,
-                SubDeserializer::onText,
-                SubDeserializer::onElementEnd
-            });
-        } else {
-            CIE_THROW(
-                Exception,
-                "Expecting a <graph> element, but got <" << elementName << ">."
-            )
-        }
+            if (elementName == "graph") {
+                using SubDeserializer = GraphML::Deserializer<TGraph>;
+                rThis.sax().push({
+                    SubDeserializer::make(
+                        *rThis.instance().pGraph,
+                        rThis.sax(),
+                        elementName),
+                    SubDeserializer::onElementBegin,
+                    SubDeserializer::onText,
+                    SubDeserializer::onElementEnd
+                });
+            } else {
+                CIE_THROW(
+                    Exception,
+                    "Expecting a <graph> element, but got <" << elementName << ">."
+                )
+            }
     }
 
-    static void onText(Ptr<void>,
-                       std::string_view t) {
-        if (std::find_if(t.begin(), t.end(), [](auto c) {return !std::isspace(c);}) != t.end())
-            CIE_THROW(
-                Exception,
-                std::format("Unexpected text data on a <graphml> element: '{}'.", t))
+    static void onText(
+        Ptr<void>,
+        std::string_view t) {
+            if (std::find_if(t.begin(), t.end(), [](auto c) {return !std::isspace(c);}) != t.end())
+                CIE_THROW(
+                    Exception,
+                    std::format("Unexpected text data on a <graphml> element: '{}'.", t))
     }
 
-    static void onElementEnd(Ptr<void> pThis,
-                             [[maybe_unused]] std::string_view elementName)
-    {
-        if (elementName != "graphml") {
-            CIE_THROW(
-                Exception,
-                "Expecting a </graphml> end but got </" << elementName << ">."
-            )
-        }
-        Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
-        rThis.template release<Deserializer>(&rThis, elementName);
+    static void onElementEnd(
+        Ptr<void> pThis,
+        [[maybe_unused]] std::string_view elementName) {
+            if (elementName != "graphml") {
+                CIE_THROW(
+                    Exception,
+                    "Expecting a </graphml> end but got </" << elementName << ">."
+                )
+            }
+            Ref<Deserializer> rThis = *static_cast<Ptr<Deserializer>>(pThis);
+            rThis.template release<Deserializer>(&rThis, elementName);
     }
 }; // struct GraphMLDeserializer
 
