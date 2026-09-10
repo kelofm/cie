@@ -15,7 +15,7 @@ namespace cie::fem {
 
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
 DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand() noexcept
@@ -30,7 +30,7 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
 
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
 DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenaltyIntegrand(
@@ -49,19 +49,47 @@ DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::DirichletPenalty
 {}
 
 
+/// @name Runtime Expression Interface
+/// @{
+
+
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
 void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
     ConstSpan in,
     Span out,
     BufferSpan buffer) const {
-        assert(this->bufferSize() <= buffer.size());
+        const auto bounds = this->contextBounds();
+        Context context;
+        for (unsigned iDimension=0u; iDimension<ParametricDimension; ++iDimension) {
+            context.data()[2 * iDimension] = 0;
+            context.data()[2 * iDimension + 1] = bounds[iDimension];
+        }
+        return this->evaluate(
+            in,
+            out,
+            buffer,
+            context);
+}
+
+
+template <
+    maths::Expression TDirichlet,
+    maths::SliceableExpression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell>
+void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer,
+    Ref<const Context> rContext) const {
+        assert(this->bufferSize(rContext) <= buffer.size());
 
         // Fetch object output sizes.
-        const unsigned ansatzCount = _ansatzSpace.size();
+        const unsigned ansatzCount = _ansatzSpace.size(rContext);
         const unsigned stateVariableCount = _dirichletFunctor.size();
 
         using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
@@ -90,7 +118,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
         _embedding.evaluate(in, boundaryTransformedBuffer, nestedBuffer);
         _cellInverseTransform.evaluate(boundaryTransformedBuffer, cellTransformedBuffer, nestedBuffer);
 
-        _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer, nestedBuffer);
+        _ansatzSpace.evaluate(cellTransformedBuffer, ansatzBuffer, nestedBuffer, rContext);
         EigenAdaptor ansatzAdaptor(ansatzBuffer.data(), ansatzBuffer.size(), 1);
         EigenAdaptor lhsAdaptor(out.data(), ansatzCount, ansatzCount);
         lhsAdaptor.noalias() = ansatzAdaptor * scaledPenalty * ansatzAdaptor.transpose();
@@ -115,10 +143,10 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::evaluate(
 
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
-unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() const {
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() const noexcept {
     const auto ansatzCount = _ansatzSpace.size();
     return
           ansatzCount * ansatzCount     // <= LHS contribution
@@ -128,7 +156,7 @@ unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size() 
 
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
 unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::bufferSize() const noexcept {
@@ -150,7 +178,58 @@ unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::bufferS
 
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::size(Ref<const Context> rContext) const noexcept {
+    const auto ansatzCount = _ansatzSpace.size(rContext);
+    return
+          ansatzCount * ansatzCount     // <= LHS contribution
+        + ansatzCount;                  // <= RHS contribution
+}
+
+
+template <
+    maths::Expression TDirichlet,
+    maths::SliceableExpression TAnsatz,
+    maths::Expression TEmbedding,
+    CellLike TCell>
+unsigned DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::bufferSize(Ref<const Context> rContext) const noexcept {
+    const std::array<unsigned,4> nestedBufferRequirements {
+        _dirichletFunctor.bufferSize(),
+        _ansatzSpace.bufferSize(rContext),
+        _embedding.bufferSize(),
+        _cellInverseTransform.bufferSize()};
+    const unsigned nestedBufferSize = *std::max_element(
+        nestedBufferRequirements.begin(),
+        nestedBufferRequirements.end());
+    return _ansatzSpace.size()
+         + TCell::PhysicalDimension
+         + TCell::ParametricDimension
+         + _dirichletFunctor.size()
+         + nestedBufferSize;
+}
+
+
+template <
+    maths::Expression TD,
+    maths::SliceableExpression TA,
+    maths::Expression TE,
+    CellLike TC>
+std::array<
+    typename DirichletPenaltyIntegrand<TD,TA,TE,TC>::Context::Value,
+    DirichletPenaltyIntegrand<TD,TA,TE,TC>::ParametricDimension>
+DirichletPenaltyIntegrand<TD,TA,TE,TC>::contextBounds() const noexcept {
+    return _ansatzSpace.contextBounds();
+}
+
+
+/// @}
+
+
+template <
+    maths::Expression TDirichlet,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
 void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::serialize(
@@ -180,7 +259,7 @@ void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::serialize(
 
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatz,
+    maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
 template <class TAllocator>

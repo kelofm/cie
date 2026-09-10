@@ -55,6 +55,12 @@ public:
         Span out,
         BufferSpan buffer) const;
 
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
+
     /// @}
     /// @name Runtime Expression Interface
     /// @{
@@ -63,6 +69,18 @@ public:
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
 
     unsigned bufferSize() const noexcept
+    requires (!maths::StaticExpression<TAnsatzDerivatives>);
+
+    /// @see @ref SliceableExpression
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!maths::StaticExpression<TAnsatzDerivatives>);
+
+    /// @see @ref SliceableExpression
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!maths::StaticExpression<TAnsatzDerivatives>);
+
+    /// @see @ref SliceableExpression
+    std::array<typename Context::Value,ParametricDimension> contextBounds() const noexcept
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
 
     /// @}
@@ -75,10 +93,16 @@ public:
     static constexpr unsigned bufferSize() noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
+    /// @see @ref SliceableExpression
     static constexpr unsigned size(Ref<const Context> rContext) noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
+    /// @see @ref SliceableExpression
     static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (maths::StaticExpression<TAnsatzDerivatives>);
+
+    /// @see @ref SliceableExpression
+    static constexpr std::array<typename Context::Value,ParametricDimension> contextBounds() noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
     /// @}

@@ -35,12 +35,12 @@ namespace cie::fem{
 ///          - @f$ x @f$ is the global coordinate within the cell to evaluate at.
 template <
     maths::Expression TDirichlet,
-    maths::Expression TAnsatzSpace,
+    maths::SliceableExpression TAnsatzSpace,
     maths::Expression TEmbedding,
     CellLike TCell>
 class DirichletPenaltyIntegrand : public maths::ExpressionTraits<typename TAnsatzSpace::Value> {
 public:
-    static constexpr unsigned Dimension = TAnsatzSpace::Dimension;
+    static constexpr unsigned ParametricDimension = TAnsatzSpace::ParametricDimension;
 
     using typename maths::ExpressionTraits<typename TAnsatzSpace::Value>::Value;
 
@@ -53,6 +53,8 @@ public:
     using CellInverseTransform = typename TCell::SpatialTransform::Inverse;
 
     using CellJacobian = typename TCell::SpatialTransform::Derivative;
+
+    using Context = TAnsatzSpace::Context;
 
     static inline constexpr bool isStatic = (
            maths::StaticExpression<TDirichlet>
@@ -78,14 +80,33 @@ public:
         Ref<const CellInverseTransform> rCellInverseTransform,
         Ref<const CellJacobian> rCellJacobian);
 
+    /// @name Runtime Expression Interface
+    /// @{
+
     void evaluate(
         ConstSpan in,
         Span out,
         BufferSpan buffer) const;
 
-    unsigned size() const;
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
+
+    unsigned size() const noexcept;
 
     unsigned bufferSize() const noexcept;
+
+    unsigned size(Ref<const Context> rContext) const noexcept;
+
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept;
+
+    std::array<typename Context::Value,ParametricDimension> contextBounds() const noexcept;
+
+    /// @}
+    /// @name Serialization
+    /// @{
 
     void serialize(
         Ref<cie::io::Traits::SerializerStream> rStream,
@@ -97,6 +118,8 @@ public:
         Ref<DirichletPenaltyIntegrand> rInstance,
         Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
+
+    /// @}
 
 private:
     TAnsatzSpace _ansatzSpace;

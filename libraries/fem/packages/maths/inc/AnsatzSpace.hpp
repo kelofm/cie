@@ -83,6 +83,18 @@ public:
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
+    /// @see @ref SliceableExpression
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    std::array<typename Context::Value,Dim> contextBounds() const noexcept
+    requires (!hasStaticBasis);
+
     /// @}
     /// @name Static Expression Interface
     /// @{
@@ -99,6 +111,10 @@ public:
 
     /// @see @ref SliceableExpression
     static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
     requires (hasStaticBasis);
 
     /// @}
@@ -221,7 +237,16 @@ public:
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
-    View makeView() const noexcept
+    /// @see @ref SliceableExpression
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    std::array<typename Context::Value,Dim> contextBounds() const noexcept
     requires (!hasStaticBasis);
 
     /// @}
@@ -242,7 +267,14 @@ public:
     constexpr static unsigned bufferSize(Ref<const Context> rContext) noexcept
     requires (hasStaticBasis);
 
+    /// @see @ref SliceableExpression
+    static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
+    requires (hasStaticBasis);
+
     /// @}
+
+    View makeView() const noexcept
+    requires (!hasStaticBasis);
 
     constexpr View makeView() const noexcept
     requires (hasStaticBasis);
@@ -359,6 +391,18 @@ public:
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
+    /// @see @ref SliceableExpression
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    std::array<typename Context::Value,Dim> contextBounds() const noexcept
+    requires (!hasStaticBasis);
+
     /// @}
     /// @name Static Expression Interface
     /// @{
@@ -375,6 +419,10 @@ public:
 
     /// @see @ref SliceableExpression
     static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
     requires (hasStaticBasis);
 
     /// @}
@@ -504,6 +552,18 @@ public:
     unsigned bufferSize() const noexcept
     requires (!hasStaticBasis);
 
+    /// @see @ref SliceableExpression
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    std::array<typename Context::Value,Dim> contextBounds() const noexcept
+    requires (!hasStaticBasis);
+
     /// @}
     /// @name Static Expression Interface
     /// @{
@@ -520,6 +580,10 @@ public:
 
     /// @see @ref SliceableExpression
     constexpr static unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis);
+
+    /// @see @ref SliceableExpression
+    static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
     requires (hasStaticBasis);
 
     /// @}

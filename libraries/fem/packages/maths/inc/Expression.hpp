@@ -9,6 +9,7 @@
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
 #include "packages/io/inc/Traits.hpp"
 #include "packages/maths/inc/HyperSlab.hpp"
+#include "packages/types/inc/Dummy.hpp"
 
 // --- STL Includes ---
 #include <utility> // declval
@@ -103,14 +104,15 @@ concept SliceableExpression
 && requires (
     Ref<const T> t,
     Ref<const typename std::remove_cvref_t<T>::Context> rContext) {
-        {std::remove_cvref_t<T>::ParametricDimension}       -> std::same_as<unsigned>;
-        {t.size(rContext)}                                  -> concepts::UnsignedInteger;
-        {t.bufferSize(rContext)}                            -> concepts::UnsignedInteger;
+        {std::remove_cvref_t<T>::ParametricDimension};
+        {t.size(rContext)}          -> concepts::UnsignedInteger;
+        {t.bufferSize(rContext)}    -> concepts::UnsignedInteger;
+        {t.contextBounds()}         -> std::same_as<std::array<typename std::remove_cvref_t<T>::Context::Value,std::remove_cvref_t<T>::Context::Dimension>>;
         {t.evaluate(
             std::declval<typename std::remove_cvref_t<T>::ConstSpan>(),
             std::declval<typename std::remove_cvref_t<T>::Span>(),
             std::declval<typename std::remove_cvref_t<T>::BufferSpan>(),
-            rContext)}                                      -> std::same_as<void>;
+            rContext)}              -> std::same_as<void>;
 }; // concept SliceableExpression
 
 
@@ -141,7 +143,7 @@ struct StaticExpressionSize {
 private:
     template <class TT>
     struct ContextOrDefault {
-        using Value = std::nullptr_t;
+        using Value = Dummy;
     }; // struct ContextOrDefault
 
     template <SliceableExpression TT>

@@ -18,8 +18,8 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
     using Scalar = double;
     constexpr unsigned Dimension = 2u;
 
-    using Basis = maths::Polynomial<Scalar>;
-    using Ansatz = maths::AnsatzSpace<Basis,Dimension>;
+    using Basis = maths::Polynomial<Scalar,1>;
+    using Ansatz = maths::AnsatzSpace<Basis,Dimension,2>;
     using Transform = maths::IdentityTransform<Scalar,Dimension>;
 
     // Define a bilinear ansatz space.
@@ -30,7 +30,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
     // Compute the derivatives of the ansatz space.
     const auto pAnsatzDerivatives = std::make_shared<Ansatz::Derivative>(pAnsatzSpace->makeDerivative());
 
-    // Construct the integrand without a buffer.
+    // Construct the integrand.
     constexpr Scalar modulus = 10.0;
     LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,Transform> integrand(
         modulus,
@@ -94,11 +94,48 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
     );
 
     for (const auto& [rSamplePoint, rReference] : references) {
-        std::vector<Scalar> result(integrand.size());
-        CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result, buffer));
-        for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
-            CIE_TEST_CHECK(result[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-14));
-        } // for iComponent in range(rReference.size())
+        // Evaluate the whole expression.
+        {
+            std::vector<Scalar> result(integrand.size());
+            CIE_TEST_REQUIRE_NOTHROW(buffer.resize(integrand.bufferSize()));
+            CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, result, buffer));
+            for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
+                CIE_TEST_CHECK(result[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-14));
+            } // for iComponent in range(rReference.size())
+        }
+
+        // Evaluate the expression by subsets.
+        {
+            std::vector<Ansatz::Context> tiling;
+            tiling.emplace_back(std::array<Ansatz::Context::Value,2*Dimension> {0, 1, 0, 2});
+            tiling.emplace_back(std::array<Ansatz::Context::Value,2*Dimension> {1, 2, 0, 2});
+
+            std::vector<Scalar> result(integrand.size(), Scalar(0));
+            for (const auto& rTile : tiling) {
+                std::vector<Scalar> tileResults;
+                CIE_TEST_REQUIRE_NOTHROW(tileResults.resize(integrand.size(rTile)));
+                CIE_TEST_REQUIRE_NOTHROW(buffer.resize(integrand.bufferSize(rTile)));
+                CIE_TEST_CHECK_NOTHROW(integrand.evaluate(
+                    rSamplePoint,
+                    tileResults,
+                    buffer,
+                    rTile));
+
+                std::vector<std::size_t> tileOutputMap(tileResults.size());
+                std::vector<Ansatz::Context::Value> tileIndices(rTile.count());
+                CIE_TEST_REQUIRE_NOTHROW(rTile.expand({2, 2}, tileIndices));
+
+                for (std::size_t iTileComponent=0ul; iTileComponent<tileIndices.size(); ++iTileComponent) {
+                    for (unsigned iDimension=0; iDimension<Dimension; ++iDimension) {
+                        tileOutputMap[iTileComponent * Dimension + iDimension] = tileIndices[iTileComponent] + iDimension;
+                    } // for iDimension
+                } // for iTileComponent
+
+                for (std::size_t iComponent=0; iComponent<tileResults.size(); ++iComponent) {
+                    result[tileOutputMap[iComponent]] += tileResults[iComponent];
+                }
+            } // for rTile : tiling
+        }
     } // for rSamplePoint, rReferences in references
 }
 
@@ -156,7 +193,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand - tracked allocator", "[integra
 
     CIE_TEST_CHECK(consumerStats.peak() <= producerStats.peak());
 
-    // Construct the integrand without a buffer.
+    // Construct the integrand.
     constexpr Scalar modulus = 10.0;
     LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,Transform> integrand(
         modulus,
