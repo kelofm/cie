@@ -85,12 +85,16 @@ void integrateStiffness(
                         integrandProcessorDeviceName))
                 partitions.push_back(cells.size());
                 if (rThreads.size() == 1) {
+                    if (2 <= rConfiguration["verbosity"].as<int>())
+                        std::cout << "processing integrands on 1 host thread\n";
                     integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
                             Dimension,
                             Integrand,
                             Scalar
                         >>());
                 } else {
+                    if (2 <= rConfiguration["verbosity"].as<int>())
+                        std::cout << "processing integrands on " << rThreads.size() << " host threads\n";
                     integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
                         Dimension,
                         Integrand,
