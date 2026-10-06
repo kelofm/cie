@@ -3,6 +3,7 @@
 #include "packages/maths/inc/HyperSlab.hpp"
 
 // --- STL Includes ---
+#include <algorithm>
 #include <array>
 
 
@@ -48,6 +49,28 @@ void TestHyperSlab() {
         CIE_TEST_CHECK(slab.expand(range, output));
     }
 } // void TestHyperSlab
+
+
+CIE_TEST_CASE("Tiling", "[maths]") {
+    CIE_TEST_CASE_INIT("Tiling")
+
+    using T = unsigned;
+    const HyperSlab<2,T> target(std::array<T,4>{1, 6, 2, 7});
+    const Tiling<2,T> tiling(std::array<T,2>{2, 3});
+    std::array<HyperSlab<2,T>,6> output;
+
+    CIE_TEST_CHECK(tiling.count(target) == output.size());
+    CIE_TEST_CHECK(tiling.tile(target, output));
+    CIE_TEST_CHECK(std::equal(output[0].data().begin(), output[0].data().end(), std::array<T,4>{1, 3, 2, 5}.begin()));
+    CIE_TEST_CHECK(std::equal(output[1].data().begin(), output[1].data().end(), std::array<T,4>{3, 5, 2, 5}.begin()));
+    CIE_TEST_CHECK(std::equal(output[2].data().begin(), output[2].data().end(), std::array<T,4>{5, 6, 2, 5}.begin()));
+    CIE_TEST_CHECK(std::equal(output[3].data().begin(), output[3].data().end(), std::array<T,4>{1, 3, 5, 7}.begin()));
+    CIE_TEST_CHECK(std::equal(output[4].data().begin(), output[4].data().end(), std::array<T,4>{3, 5, 5, 7}.begin()));
+    CIE_TEST_CHECK(std::equal(output[5].data().begin(), output[5].data().end(), std::array<T,4>{5, 6, 5, 7}.begin()));
+
+    std::array<HyperSlab<2,T>,5> undersizedOutput;
+    CIE_TEST_CHECK(!tiling.tile(target, undersizedOutput));
+} // CIE_TEST_CASE Tiling
 
 
 CIE_TEST_CASE("HyperSlab", "[maths]") {

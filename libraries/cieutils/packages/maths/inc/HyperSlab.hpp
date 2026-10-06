@@ -54,6 +54,42 @@ concept HyperSlabLike = std::is_same_v<
     HyperSlab<T::Dimension,typename T::Value>>;
 
 
+template <class T, unsigned Dim, class TValue>
+concept TilingLike
+=  std::is_same_v<typename T::Value,HyperSlab<Dim,TValue>>
+&& requires (
+    T instance,
+    HyperSlab<Dim,TValue> target,
+    std::span<HyperSlab<Dim,TValue>> outRange) {
+        {instance.count(target)}            -> std::same_as<TValue>;
+        {instance.tile(target, outRange)}   -> std::same_as<bool>;
+}; // concept TilingLike
+
+
+template <unsigned Dim, class T>
+class Tiling {
+public:
+    using Value = HyperSlab<Dim,T>;
+
+    constexpr Tiling() noexcept;
+
+    constexpr Tiling(Ref<const std::array<T,Dim>> rTileShape) noexcept;
+
+    constexpr Tiling(std::span<const T,Dim> tileShape) noexcept;
+
+    constexpr virtual ~Tiling() = default;
+
+    constexpr virtual T count(Ref<const Value> rTarget) const noexcept;
+
+    constexpr virtual bool tile(
+        Ref<const Value> rTarget,
+        std::span<Value> out) const noexcept;
+
+private:
+    std::array<T,Dim> _tileShape;
+}; // class Tiling
+
+
 } // namespace cie
 
 #include "packages/maths/impl/HyperSlab_impl.hpp"

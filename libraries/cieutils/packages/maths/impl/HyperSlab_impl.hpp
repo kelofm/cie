@@ -140,4 +140,85 @@ constexpr bool HyperSlab<D,T>::expand(
 }
 
 
+template <unsigned D, class T>
+constexpr Tiling<D,T>::Tiling() noexcept
+    : _tileShape() {
+        std::fill(
+            _tileShape.begin(),
+            _tileShape.end(),
+            static_cast<T>(1));
+}
+
+
+template <unsigned D, class T>
+constexpr Tiling<D,T>::Tiling(Ref<const std::array<T,D>> rTileShape) noexcept
+    : Tiling(std::span<const T,D>(rTileShape.data(), rTileShape.size()))
+{}
+
+
+template <unsigned D, class T>
+constexpr Tiling<D,T>::Tiling(std::span<const T,D> tileShape) noexcept
+    : _tileShape() {
+        std::transform(
+            tileShape.begin(),
+            tileShape.end(),
+            _tileShape.begin(),
+            [] (T component) {
+                return std::max<T>(component, 1);
+            });
+}
+
+
+template <unsigned D, class T>
+constexpr T Tiling<D,T>::count(Ref<const Value> rTarget) const noexcept {
+    T out = 1;
+    for (unsigned iDimension=0u; iDimension<D; ++iDimension)
+        out *= (rTarget.data()[2 * iDimension + 1] - rTarget.data()[2 * iDimension] + _tileShape[iDimension] - 1) / _tileShape[iDimension];
+    return out;
+}
+
+
+template <unsigned D, class T>
+constexpr bool Tiling<D,T>::tile(
+    Ref<const Value> rTarget,
+    std::span<Value> out) const noexcept {
+        if (out.size() != this->count(rTarget))
+            return false;
+
+        std::array<T,D> tileCounts;
+        for (unsigned iDimension=0u; iDimension<D; ++iDimension) {
+            const T extent = rTarget.data()[2 * iDimension + 1] - rTarget.data()[2 * iDimension];
+            tileCounts[iDimension] = (extent + _tileShape[iDimension] - 1) / _tileShape[iDimension];
+        }
+
+        std::array<T,D> tileIndices;
+        std::fill(
+            tileIndices.begin(),
+            tileIndices.end(),
+            static_cast<T>(0));
+
+        std::array<T,2 * D> tileData;
+        for (std::size_t iOut=0; iOut<out.size(); ++iOut) {
+            for (unsigned iDimension=0u; iDimension<D; ++iDimension) {
+                const T targetBegin = rTarget.data()[2 * iDimension];
+                const T targetEnd = rTarget.data()[2 * iDimension + 1];
+                const T tileBegin = targetBegin + tileIndices[iDimension] * _tileShape[iDimension];
+                const T tileExtent = std::min<T>(
+                    _tileShape[iDimension],
+                    targetEnd - tileBegin);
+                tileData[2 * iDimension] = tileBegin;
+                tileData[2 * iDimension + 1] = tileBegin + tileExtent;
+            }
+            out[iOut] = Value(tileData);
+
+            for (unsigned iDimension=0u; iDimension<D; ++iDimension) {
+                if (++tileIndices[iDimension] < tileCounts[iDimension])
+                    break;
+                tileIndices[iDimension] = 0;
+            }
+        } // for iOut
+        return true;
+}
+
+
 } // namespace cie::fem
