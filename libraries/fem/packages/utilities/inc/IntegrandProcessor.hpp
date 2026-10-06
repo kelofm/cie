@@ -1,7 +1,7 @@
 #pragma once
 
 // --- FEM Includes ---
-#include "packages/graph/inc/Graph.hpp"
+#include "packages/graph/inc/GraphTraits.hpp"
 #include "packages/maths/inc/Expression.hpp"
 #include "packages/numeric/inc/QuadraturePointFactory.hpp"
 
@@ -22,11 +22,15 @@ namespace cie::fem {
 
 template <
     unsigned Dim,
-    maths::Expression TIntegrand,
+    maths::SliceableExpression TIntegrand,
     class TQuadraturePointData = void>
 class IntegrandProcessor {
 public:
     static inline constexpr unsigned Dimension = Dim;
+
+    using ContextTiling = Tiling<
+        TIntegrand::Context::Dimension,
+        typename TIntegrand::Context::Dim>;
 
     struct Properties {
         std::optional<std::size_t>  integrandBatchSize;
@@ -34,6 +38,8 @@ public:
     };
 
     IntegrandProcessor();
+
+    IntegrandProcessor(RightRef<std::unique_ptr<ContextTiling>> rpTiling);
 
     virtual ~IntegrandProcessor();
 
