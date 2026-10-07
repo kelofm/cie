@@ -100,19 +100,22 @@ concept Expression
 template <class T>
 concept SliceableExpression
 =  maths::Expression<T>
-&& HyperSlabLike<typename std::remove_cvref_t<T>::Context>
+&& HyperSlabArrayLike<typename std::remove_cvref_t<T>::InContext>
+&& HyperSlabLike<typename std::remove_cvref_t<T>::OutContext>
 && requires (
     Ref<const T> t,
-    Ref<const typename std::remove_cvref_t<T>::Context> rContext) {
+    Ref<const typename std::remove_cvref_t<T>::InContext> rInContext) {
         {std::remove_cvref_t<T>::ParametricDimension};
-        {t.size(rContext)}          -> concepts::UnsignedInteger;
-        {t.bufferSize(rContext)}    -> concepts::UnsignedInteger;
-        {t.contextBounds()}         -> std::same_as<std::array<typename std::remove_cvref_t<T>::Context::Value,std::remove_cvref_t<T>::Context::Dimension>>;
+        {t.size(rInContext)}          -> concepts::UnsignedInteger;
+        {t.bufferSize(rInContext)}    -> concepts::UnsignedInteger;
+        {t.contextBounds()}           -> std::same_as<std::array<typename std::remove_cvref_t<T>::Context::Value,std::remove_cvref_t<T>::Context::Dimension>>;
+        {t.outContext(rInContext)}    -> std::same_as<typename std::remove_cvref_t<T>::OutContext>;
+
         {t.evaluate(
             std::declval<typename std::remove_cvref_t<T>::ConstSpan>(),
             std::declval<typename std::remove_cvref_t<T>::Span>(),
             std::declval<typename std::remove_cvref_t<T>::BufferSpan>(),
-            rContext)}              -> std::same_as<void>;
+            rInContext)}              -> std::same_as<void>;
 }; // concept SliceableExpression
 
 
