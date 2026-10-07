@@ -124,7 +124,8 @@ public:
     requires (hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    static constexpr OutContext outContext() noexcept;
+    static constexpr OutContext outContext() noexcept
+    requires (hasStaticBasis);
 
     /// @}
 
