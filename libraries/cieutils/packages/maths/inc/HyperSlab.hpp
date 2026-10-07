@@ -54,6 +54,16 @@ concept HyperSlabLike = std::is_same_v<
     HyperSlab<T::Dimension,typename T::Value>>;
 
 
+template <class T>
+concept HyperSlabArrayLike
+= HyperSlabLike<T> && std::is_same_v<
+    std::remove_cvref_t<T>,
+    std::array<
+        typename std::remove_cvref_t<T>::value_type,
+        std::remove_cvref_t<T>::size()>
+>;
+
+
 template <class T, unsigned Dim, class TValue>
 concept TilingLike
 =  std::is_same_v<typename T::Value,HyperSlab<Dim,TValue>>
