@@ -4,6 +4,7 @@
 #include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- Utility Includes ---
+#include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/concurrency/inc/ParallelFor.hpp"
 #include "packages/logging/inc/LoggerSingleton.hpp"
 
@@ -17,48 +18,16 @@
 namespace cie::fem {
 
 
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     using QPoint = QuadraturePoint<Dimension,typename TIntegrand::Value,TQD>;
 
-    /// @brief Class mapping data structures related to evaluating integrands at quadrature points.
-    /// @details Each integrand is associated with a @ref CellBase "cell" and a context defining
-    ///          which basis functions within that cell are supposed to be taken into account.
-    ///          From this input data, the following objects are generated for each cell:
-    ///          1) a set of @ref QuadraturePoint "quadrature points",
-    ///          2) a set of @ref HyperSlab "contexts", fully and uniquely tiling the root context,
-    ///          3) a chunk of memory serving as a buffer for the evaluation of the integrand, and
-    ///          4) a chunk of memory to store the output of the root context.
-    ///
-    ///          At each quadrature point, the associated integrand will be evaluated with each
-    ///          associated context. For example, if integrand @f$i_k@f$ has @f$p_k@f$ quadrature points
-    ///          and is tiled into @f$t_k@f$ contexts, the total number of all integrand evaluations
-    ///          will be @f$ \sum_k p_k t_k @f$.
-    ///
-    ///          Each integrand's buffer (3) is supposed to store
-    ///          - the largest sized evaluation results coming from associated contexts, and
-    ///          - the largest buffer required to perform the evaluation with respect to the
-    ///            associated contexts.
     class Extents {
     public:
         struct Value {
-            /// @brief Integrand to evaluate.
-            TIntegrand integrand;
-
-            /// @brief Index of the first quadrature point associated with the integrand.
-            std::size_t iQuadraturePointBegin;
-
-            /// @brief Index of the first context associated with the integrand.
-            std::size_t iContextBegin;
-
-            /// @brief Index pointing to the first component with the associated buffer.
-            std::size_t iBufferBegin;
-
-            /// @brief Index of the first output component.
-            std::size_t iOutputBegin;
-
-            /// @brief ID of the associated cell.
             VertexID cellID;
+            std::size_t iQuadraturePointBegin;
+            TIntegrand integrand;
         }; // struct Value
 
         Extents() {
@@ -69,32 +38,21 @@ struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
             return _data.size() == 1ul && _data.back().iQuadraturePointBegin == 0ul;
         }
 
-        void push(
-            VertexID cellID,
-            RightRef<TIntegrand> rIntegrand,
-            std::size_t iContextBegin,
-            std::size_t iBufferBegin,
-            std::size_t iOutputBegin) {
-                if (1 < _data.size() && _data[_data.size() - 2].iQuadraturePointBegin == _data.back().iQuadraturePointBegin) [[unlikely]] {
-                    _data[_data.size() - 2] = Value {
-                        .integrand = std::move(rIntegrand),
-                        .iQuadraturePointBegin = _data.back().iQuadraturePointBegin,
-                        .iContextBegin = iContextBegin,
-                        .iBufferBegin = iBufferBegin,
-                        .iOutputBegin = iOutputBegin,
-                        .cellID = cellID};
-                } else {
-                    _data.emplace_back(Value{
-                        .integrand = std::move(rIntegrand)
-                        .iQuadraturePointBegin = _data.back().iQuadraturePointBegin,
-                        .iContextBegin = iContextBegin,
-                        .iBufferBegin = iBufferBegin,
-                        .iOutputBegin = iOutputBegin,
-                        .cellID = cellID});
-                    std::swap(
-                        _data[_data.size() - 2],
-                        _data[_data.size() - 1]);
-                }
+        void push(VertexID cellID, RightRef<TIntegrand> rIntegrand) {
+            if (1 < _data.size() && _data[_data.size() - 2].iQuadraturePointBegin == _data.back().iQuadraturePointBegin) [[unlikely]] {
+                _data[_data.size() - 2] = Value {
+                    .cellID = cellID,
+                    .iQuadraturePointBegin = _data.back().iQuadraturePointBegin,
+                    .integrand = std::move(rIntegrand)};
+            } else {
+                _data.emplace_back(Value{
+                    .cellID = cellID,
+                    .iQuadraturePointBegin = _data.back().iQuadraturePointBegin,
+                    .integrand = std::move(rIntegrand)});
+                std::swap(
+                    _data[_data.size() - 2],
+                    _data[_data.size() - 1]);
+            }
         }
 
         void extend(std::size_t count) noexcept {
@@ -116,37 +74,26 @@ struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
         }
 
     private:
-        std::vector<Value> _data;
+        DynamicArray<Value> _data;
     }; // class Extents
 
     Extents extents;
 
-    std::vector<QPoint> quadraturePoints;
-
-    std::vector<typename TIntegrand::Context> contexts;
-
-    std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::ContextTiling> pTiling;
+    DynamicArray<QPoint> quadraturePoints;
 }; // struct IntegrandProcessor::Impl
 
 
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 IntegrandProcessor<Dim,TIntegrand,TQD>::IntegrandProcessor()
-    : IntegrandProcessor(std::make_unique<ContextTiling>())
+    : _pImpl(new Impl)
 {}
 
 
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
-IntegrandProcessor<Dim,TIntegrand,TQD>::IntegrandProcessor(RightRef<std::unique_ptr<ContextTiling>> rpTiling)
-    : _pImpl(new Impl) {
-        _pImpl->pTiling = std::move(rpTiling);
-}
-
-
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 IntegrandProcessor<Dim,TIntegrand,TQD>::~IntegrandProcessor() = default;
 
 
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 template <
     CellLike TCell,
     QuadratureRuleFactoryLike<
@@ -315,7 +262,7 @@ void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
 }
 
 
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::Properties>
 IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
     return std::make_unique<Properties>(Properties {
@@ -325,7 +272,7 @@ IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
 }
 
 
-template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+template <unsigned Dim, maths::Expression TIntegrand, class TQD>
 void IntegrandProcessor<Dim,TIntegrand,TQD>::execute(
     std::span<typename TIntegrand::Value> output,
     Ref<const Properties> rExecutionProperties) {
