@@ -72,8 +72,7 @@ foreach(directory ${directories})
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         set_target_properties(
             ${driver_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-            INSTALL_RPATH "@loader_path/../lib")
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
     else()
         set_target_properties(
             ${driver_name} PROPERTIES
