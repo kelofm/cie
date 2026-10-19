@@ -13,8 +13,10 @@
 #include "packages/io/inc/Traits.hpp"
 
 // --- STL Includes ---
+#include <array>
 #include <span>
 #include <memory>
+#include <optional>
 
 
 namespace cie::fem {
@@ -22,18 +24,26 @@ namespace cie::fem {
 
 template <
     unsigned Dim,
-    maths::Expression TIntegrand,
+    maths::SliceableExpression TIntegrand,
     class TQuadraturePointData = void>
 class IntegrandProcessor {
 public:
     static inline constexpr unsigned Dimension = Dim;
 
+    using ContextTiling = Tiling<
+        TIntegrand::Context::Dimension,
+        typename TIntegrand::Context::Value>;
+
     struct Properties {
         std::optional<std::size_t>  integrandBatchSize;
         std::optional<std::uint8_t> verbosity;
+        /// Maximum tile extent for each Context axis; an empty optional means unbounded.
+        std::array<std::optional<std::size_t>,TIntegrand::Context::Dimension> maxTileSizes {};
     };
 
     IntegrandProcessor();
+
+    explicit IntegrandProcessor(RightRef<std::unique_ptr<ContextTiling>> rpTiling);
 
     virtual ~IntegrandProcessor();
 
@@ -51,8 +61,11 @@ public:
             void,
             std::span<const VertexID>,
             std::span<const typename TIntegrand::Value>
-        > TIntegralSink
+    > TIntegralSink
     >
+    /// @details If a cell has an `activeContext()` method returning either Context or InContext,
+    ///          that context is tiled. Otherwise the complete context bounds are used. Each input
+    ///          context is tiled independently and all tile combinations are evaluated.
     void process(
         std::span<const TCell> cells,
         Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
@@ -76,6 +89,7 @@ template <
     unsigned Dim,
     maths::StaticExpression TIntegrand,
     class TQuadraturePointData = void>
+requires maths::SliceableExpression<TIntegrand>
 class ParallelIntegrandProcessor
     : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
 public:
@@ -97,6 +111,7 @@ template <
     unsigned Dim,
     maths::StaticExpression TIntegrand,
     class TQuadraturePointData = void>
+requires maths::SliceableExpression<TIntegrand>
 class SYCLIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
 public:
     SYCLIntegrandProcessor(std::shared_ptr<sycl::queue> pQueue);

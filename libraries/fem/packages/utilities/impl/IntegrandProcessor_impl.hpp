@@ -4,96 +4,103 @@
 #include "packages/utilities/inc/IntegrandProcessor.hpp"
 
 // --- Utility Includes ---
-#include "packages/stl_extension/inc/DynamicArray.hpp"
 #include "packages/concurrency/inc/ParallelFor.hpp"
 #include "packages/logging/inc/LoggerSingleton.hpp"
 
 // --- STL Includes ---
-#include <array>
 #include <algorithm>
-#include <limits>
+#include <array>
+#include <atomic>
+#include <cctype>
 #include <format>
+#include <limits>
+#include <numeric>
+#include <tuple>
+#include <vector>
 
 
 namespace cie::fem {
 
 
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
 struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     using QPoint = QuadraturePoint<Dimension,typename TIntegrand::Value,TQD>;
+    using Context = typename TIntegrand::Context;
+    using InContext = typename TIntegrand::InContext;
+    using OutContext = typename TIntegrand::OutContext;
 
-    class Extents {
-    public:
-        struct Value {
-            VertexID cellID;
-            std::size_t iQuadraturePointBegin;
-            TIntegrand integrand;
-        }; // struct Value
+    static constexpr std::size_t InputCount = std::tuple_size_v<InContext>;
 
-        Extents() {
-            this->clear();
+    struct Tile {
+        InContext inContext;
+        std::size_t iOutputMapBegin;
+        std::size_t outputCount;
+    };
+
+    struct Cell {
+        TIntegrand integrand;
+        VertexID cellID;
+        std::size_t iQuadraturePointBegin;
+        std::size_t quadraturePointCount;
+        std::size_t iTileBegin;
+        std::size_t tileCount;
+        std::size_t iOutputBegin;
+        std::size_t outputSize;
+        std::size_t iWorkBegin;
+        std::size_t iWorkEnd;
+    };
+
+    std::vector<Cell> cells;
+    std::vector<Tile> tiles;
+    std::vector<std::size_t> outputMap;
+    std::vector<QPoint> quadraturePoints;
+    std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::ContextTiling> pTiling;
+
+    std::size_t assignWorkRanges() {
+        std::size_t iWorkEnd = 0ul;
+        for (auto& rCell : cells) {
+            rCell.iWorkBegin = iWorkEnd;
+            CIE_CHECK(
+                rCell.tileCount == 0ul
+                    || rCell.quadraturePointCount <= std::numeric_limits<std::size_t>::max() / rCell.tileCount,
+                "Tiled integrand work count overflow")
+            const std::size_t cellWorkCount = rCell.quadraturePointCount * rCell.tileCount;
+            CIE_CHECK(
+                cellWorkCount <= std::numeric_limits<std::size_t>::max() - iWorkEnd,
+                "Tiled integrand work count overflow")
+            iWorkEnd += cellWorkCount;
+            rCell.iWorkEnd = iWorkEnd;
         }
-
-        bool empty() const noexcept {
-            return _data.size() == 1ul && _data.back().iQuadraturePointBegin == 0ul;
-        }
-
-        void push(VertexID cellID, RightRef<TIntegrand> rIntegrand) {
-            if (1 < _data.size() && _data[_data.size() - 2].iQuadraturePointBegin == _data.back().iQuadraturePointBegin) [[unlikely]] {
-                _data[_data.size() - 2] = Value {
-                    .cellID = cellID,
-                    .iQuadraturePointBegin = _data.back().iQuadraturePointBegin,
-                    .integrand = std::move(rIntegrand)};
-            } else {
-                _data.emplace_back(Value{
-                    .cellID = cellID,
-                    .iQuadraturePointBegin = _data.back().iQuadraturePointBegin,
-                    .integrand = std::move(rIntegrand)});
-                std::swap(
-                    _data[_data.size() - 2],
-                    _data[_data.size() - 1]);
-            }
-        }
-
-        void extend(std::size_t count) noexcept {
-            _data.back().iQuadraturePointBegin += count;
-        }
-
-        void clear() {
-            _data.resize(1);
-            _data.back().iQuadraturePointBegin = 0ul;
-            _data.back().cellID = std::numeric_limits<VertexID::Value>::max();
-        }
-
-        std::span<Value> get() noexcept {
-            return _data;
-        }
-
-        std::span<const Value> get() const noexcept {
-            return _data;
-        }
-
-    private:
-        DynamicArray<Value> _data;
-    }; // class Extents
-
-    Extents extents;
-
-    DynamicArray<QPoint> quadraturePoints;
+        return iWorkEnd;
+    }
 }; // struct IntegrandProcessor::Impl
 
 
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
 IntegrandProcessor<Dim,TIntegrand,TQD>::IntegrandProcessor()
-    : _pImpl(new Impl)
+    : IntegrandProcessor([] {
+        using Context = typename TIntegrand::Context;
+        std::array<typename Context::Value,Context::Dimension> tileShape;
+        tileShape.fill(std::numeric_limits<typename Context::Value>::max());
+        return std::make_unique<ContextTiling>(tileShape);
+    }())
 {}
 
 
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
+IntegrandProcessor<Dim,TIntegrand,TQD>::IntegrandProcessor(
+    RightRef<std::unique_ptr<ContextTiling>> rpTiling)
+    : _pImpl(new Impl) {
+        CIE_CHECK(rpTiling, "IntegrandProcessor requires a non-null tiling policy")
+        _pImpl->pTiling = std::move(rpTiling);
+}
+
+
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
 IntegrandProcessor<Dim,TIntegrand,TQD>::~IntegrandProcessor() = default;
 
 
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
 template <
     CellLike TCell,
     QuadratureRuleFactoryLike<
@@ -110,315 +117,360 @@ template <
         std::span<const typename TIntegrand::Value>
     > TIntegralSink
 >
-void  IntegrandProcessor<Dim,TIntegrand,TQD>::process(
+void IntegrandProcessor<Dim,TIntegrand,TQD>::process(
     std::span<const TCell> cells,
     Ref<const TQuadratureRuleFactory> rQuadratureRuleFactory,
     TIntegrandFactory&& rIntegrandFactory,
     TIntegralSink&& rIntegralSink,
     Ref<const Properties> rExecutionProperties) {
+        using Context = typename TIntegrand::Context;
+        using InContext = typename TIntegrand::InContext;
+        using OutContext = typename TIntegrand::OutContext;
+
         CIE_BEGIN_EXCEPTION_TRACING
-            // Parse execution properties.
             auto pDefaultProperties = this->makeDefaultProperties();
             const std::size_t batchSize = rExecutionProperties.integrandBatchSize.has_value()
                 ? rExecutionProperties.integrandBatchSize.value()
                 : pDefaultProperties->integrandBatchSize.value();
+            CIE_CHECK(0ul < batchSize, "IntegrandProcessor batch size must be positive")
 
-            // Allocate memory.
-            _pImpl->quadraturePoints.resize(batchSize);
-            DynamicArray<VertexID> cellIDs;
-            DynamicArray<typename TIntegrand::Value> output;
-            using TQuadraturePointFactory = std::invoke_result_t<
-                TQuadratureRuleFactory,
-                Ref<const TCell>>;
-            TQuadraturePointFactory quadraturePointFactory;
+            const ContextTiling* pTiling = _pImpl->pTiling.get();
+            std::unique_ptr<ContextTiling> pConfiguredTiling;
+            const bool hasConfiguredTileSize = std::any_of(
+                rExecutionProperties.maxTileSizes.begin(),
+                rExecutionProperties.maxTileSizes.end(),
+                [] (const auto& rSize) { return rSize.has_value(); });
+            if (hasConfiguredTileSize) {
+                std::array<typename Context::Value,Context::Dimension> tileShape{};
+                for (unsigned iDimension=0u; iDimension<Context::Dimension; ++iDimension) {
+                    const std::size_t tileSize = rExecutionProperties.maxTileSizes[iDimension]
+                        .value_or(static_cast<std::size_t>(std::numeric_limits<typename Context::Value>::max()));
+                    CIE_CHECK(
+                        0ul < tileSize
+                            && tileSize <= static_cast<std::size_t>(std::numeric_limits<typename Context::Value>::max()),
+                        "Configured tile sizes must fit the integrand context index type")
+                    tileShape[iDimension] = static_cast<typename Context::Value>(tileSize);
+                }
+                pConfiguredTiling = std::make_unique<ContextTiling>(tileShape);
+                pTiling = pConfiguredTiling.get();
+            }
 
-            // Producer-consumer loop.
-            // 0) Generate quadrature points.
-            // 1) Evaluate integrands at quadrature points.
-            // 2) Call the consumer with the cell-wise reduced results.
+            auto& rQuadraturePoints = _pImpl->quadraturePoints;
+            auto& rCells = _pImpl->cells;
+            auto& rTiles = _pImpl->tiles;
+            auto& rOutputMap = _pImpl->outputMap;
+            rCells.clear();
+            rTiles.clear();
+            rOutputMap.clear();
+            rQuadraturePoints.resize(batchSize);
+
+            std::vector<VertexID> cellIDs;
+            std::vector<typename TIntegrand::Value> output;
+            std::size_t quadraturePointCount = 0ul;
+            std::size_t outputSize = 0ul;
+
+            const auto appendCellWork = [&] (
+                Ref<const TCell> rCell,
+                TIntegrand&& rIntegrand,
+                const std::size_t iQuadraturePointBegin,
+                const std::size_t cellQuadraturePointCount) -> void {
+                    // Create the complete input context used to determine the dense output shape.
+                    const auto contextBounds = rIntegrand.contextBounds();
+                    Context completeContext;
+                    for (unsigned iDimension=0u; iDimension<Context::Dimension; ++iDimension) {
+                        completeContext.data()[2 * iDimension] = 0;
+                        completeContext.data()[2 * iDimension + 1] = contextBounds[iDimension];
+                    }
+                    InContext completeInContext;
+                    completeInContext.fill(completeContext);
+                    const OutContext completeOutContext = rIntegrand.outContext(completeInContext);
+                    const std::size_t cellOutputSize = rIntegrand.size(completeInContext);
+                    CIE_CHECK(
+                        completeOutContext.count() == cellOutputSize,
+                        "A complete integrand context must map to its complete output")
+
+                    std::array<typename OutContext::Value,OutContext::Dimension> outputBounds{};
+                    for (unsigned iDimension=0u; iDimension<OutContext::Dimension; ++iDimension) {
+                        CIE_CHECK(
+                            completeOutContext.data()[2 * iDimension] == 0,
+                            "Complete output contexts must be zero-based")
+                        outputBounds[iDimension] = completeOutContext.data()[2 * iDimension + 1];
+                    }
+
+                    // A cell may provide either one active slab (shared by each operand) or the
+                    // full operand-context array. If it does not expose activeContext(), preserve
+                    // the legacy behavior and activate the complete ansatz space.
+                    InContext activeInContext = completeInContext;
+                    if constexpr (requires { rCell.activeContext(); }) {
+                        using ActiveContext = std::remove_cvref_t<decltype(rCell.activeContext())>;
+                        if constexpr (std::is_same_v<ActiveContext,InContext>) {
+                            activeInContext = rCell.activeContext();
+                        } else if constexpr (std::is_same_v<ActiveContext,Context>) {
+                            activeInContext.fill(rCell.activeContext());
+                        } else {
+                            static_assert(
+                                std::is_same_v<ActiveContext,Context> || std::is_same_v<ActiveContext,InContext>,
+                                "Cell::activeContext() must return the integrand Context or InContext");
+                        }
+                    }
+
+                    // Tile each input independently and evaluate every combination. This is
+                    // necessary for bilinear forms: a row tile paired with a different column
+                    // tile contributes an off-diagonal block.
+                    std::array<std::vector<Context>,Impl::InputCount> axisTiles;
+                    for (std::size_t iInput=0ul; iInput<Impl::InputCount; ++iInput) {
+                        const std::size_t tileCount = pTiling->count(activeInContext[iInput]);
+                        axisTiles[iInput].resize(tileCount);
+                        CIE_CHECK(
+                            pTiling->tile(activeInContext[iInput], axisTiles[iInput]),
+                            "Failed to tile an active input context")
+                    }
+
+                    const std::size_t iTileBegin = rTiles.size();
+                    InContext currentInContext;
+                    const auto appendTileCombination = [&] (auto&& rSelf, const std::size_t iInput) -> void {
+                        if (iInput < Impl::InputCount) {
+                            for (const Context& rContext : axisTiles[iInput]) {
+                                currentInContext[iInput] = rContext;
+                                rSelf(rSelf, iInput + 1ul);
+                            }
+                            return;
+                        }
+
+                        const OutContext outContext = rIntegrand.outContext(currentInContext);
+                        const std::size_t tileOutputCount = rIntegrand.size(currentInContext);
+                        CIE_CHECK(
+                            outContext.count() == tileOutputCount,
+                            "A sliced integrand result must match its output hyperslab")
+                        std::vector<typename OutContext::Value> localMap(tileOutputCount);
+                        CIE_CHECK(
+                            outContext.expand(outputBounds, localMap),
+                            "A sliced output hyperslab lies outside the complete output")
+
+                        const std::size_t iOutputMapBegin = rOutputMap.size();
+                        rOutputMap.reserve(iOutputMapBegin + localMap.size());
+                        for (const auto iOutput : localMap)
+                            rOutputMap.push_back(static_cast<std::size_t>(iOutput));
+                        rTiles.push_back(typename Impl::Tile {
+                            .inContext = currentInContext,
+                            .iOutputMapBegin = iOutputMapBegin,
+                            .outputCount = tileOutputCount});
+                    };
+                    appendTileCombination(appendTileCombination, 0ul);
+
+                    rCells.push_back(typename Impl::Cell {
+                        .integrand = std::move(rIntegrand),
+                        .cellID = rCell.id(),
+                        .iQuadraturePointBegin = iQuadraturePointBegin,
+                        .quadraturePointCount = cellQuadraturePointCount,
+                        .iTileBegin = iTileBegin,
+                        .tileCount = rTiles.size() - iTileBegin,
+                        .iOutputBegin = outputSize,
+                        .outputSize = cellOutputSize,
+                        .iWorkBegin = 0ul,
+                        .iWorkEnd = 0ul});
+                    outputSize += cellOutputSize;
+            };
+
+            const auto flushBatch = [&] () -> void {
+                if (quadraturePointCount == 0ul) return;
+
+                rQuadraturePoints.resize(quadraturePointCount);
+                output.resize(outputSize);
+                this->execute(output, rExecutionProperties);
+
+                cellIDs.resize(rCells.size());
+                std::transform(
+                    rCells.begin(),
+                    rCells.end(),
+                    cellIDs.begin(),
+                    [] (Ref<const typename Impl::Cell> rCell) -> VertexID { return rCell.cellID; });
+                rIntegralSink(cellIDs, output);
+
+                rCells.clear();
+                rTiles.clear();
+                rOutputMap.clear();
+                outputSize = 0ul;
+                quadraturePointCount = 0ul;
+                rQuadraturePoints.resize(batchSize);
+            };
+
             for (std::size_t iCell=0ul; iCell<cells.size(); ++iCell) {
                 Ref<const TCell> rCell = cells[iCell];
+                auto quadraturePointFactory = rQuadratureRuleFactory(rCell);
+                bool cellAddedToBatch = false;
 
-                // Mark the begin of recording quadrature points for a new cell
-                // and thus new integrand.
-                _pImpl->extents.push(
-                    rCell.id(),
-                    rIntegrandFactory(rCell));
-
-                // Construct a new quadrature rule for the current cell.
-                CIE_BEGIN_EXCEPTION_TRACING
-                    quadraturePointFactory = rQuadratureRuleFactory(rCell);
-                CIE_END_EXCEPTION_TRACING
-
-                // Generate quadrature points for the current cell,
-                // filling the internal container.
-                // If the internal container reaches capacity before
-                // all quadrature points could be generated for the
-                // current cell, evaluate  and clear the internal
-                // structures, then continue generating quadrature
-                // points.
                 while (true) {
-                    // If an evaluation was issued and the internal structures cleared,
-                    // the current cell and its integrand must be pushed to the internal
-                    // structures.
-                    if (_pImpl->extents.empty()) {
-                        _pImpl->extents.push(
-                            rCell.id(),
-                            rIntegrandFactory(rCell));
-                    } // extents.empty()
+                    if (quadraturePointCount == batchSize) {
+                        flushBatch();
+                        cellAddedToBatch = false;
+                    }
 
-                    // Generate quadrature points into the remaining range
-                    // of available slots.
-                    const std::size_t iQuadraturePointBegin = _pImpl->extents.get().back().iQuadraturePointBegin;
-                    std::span<typename Impl::QPoint> availableQuadraturePointSpan(
-                        _pImpl->quadraturePoints.data() + iQuadraturePointBegin,
-                        _pImpl->quadraturePoints.data() + _pImpl->quadraturePoints.size());
-                    const std::size_t newQuadraturePointCount = quadraturePointFactory(availableQuadraturePointSpan);
+                    std::span<typename Impl::QPoint> availableQuadraturePoints(
+                        rQuadraturePoints.data() + quadraturePointCount,
+                        batchSize - quadraturePointCount);
+                    const std::size_t newPointCount = quadraturePointFactory(availableQuadraturePoints);
+                    CIE_CHECK(
+                        newPointCount <= availableQuadraturePoints.size(),
+                        "Quadrature rule factory returned more points than the available span")
 
-                    // Update the internal structures to account for the newly
-                    // generated quadrature points.
-                    _pImpl->extents.extend(newQuadraturePointCount);
+                    if (newPointCount == 0ul) {
+                        if (quadraturePointCount == batchSize) {
+                            flushBatch();
+                            cellAddedToBatch = false;
+                            continue;
+                        }
+                        break;
+                    }
 
-                    // Two reasons can cause no quadrature points to be generated.
-                    // 0) All quadrature points were generated for the current cell,
-                    //    in which case we can move on to the next cell without having
-                    //    to issue an evaluation.
-                    // 1) The internal quadrature point storage is full, in which case
-                    //    an evaluation must be issued and the internal structures cleared.
-                    //    Quadrature point generation can continue afterwards.
-                    if (newQuadraturePointCount == 0ul) {
-                        if (batchSize <= _pImpl->extents.get().back().iQuadraturePointBegin) {
-                            // 1) The internal structures are full.
-                            // => issue an evaluation.
-                            const auto extentView = _pImpl->extents.get();
-                            const std::size_t cellCount = extentView.size() - 1;
-                            output.resize(cellCount * extentView.back().integrand.size());
-
-                            CIE_BEGIN_EXCEPTION_TRACING
-                                this->execute(
-                                    output,
-                                    rExecutionProperties);
-                            CIE_END_EXCEPTION_TRACING
-
-                            // Call the consumer with the reduced results.
-                            cellIDs.resize(cellCount);
-                            std::transform(
-                                extentView.begin(),
-                                extentView.begin() + cellCount,
-                                cellIDs.begin(),
-                                [](Ref<const typename Impl::Extents::Value> rEntry) -> VertexID {
-                                    return rEntry.cellID;
-                                });
-
-                            CIE_BEGIN_EXCEPTION_TRACING
-                                rIntegralSink(
-                                    cellIDs,
-                                    output);
-                            CIE_END_EXCEPTION_TRACING
-
-                            // Clear the internal structures.
-                            _pImpl->extents.clear();
-                        } /*if (internal structures are full)*/ else {
-                            // 0) Finished generating quadrature points for the current cell.
-                            break;
-                        } // if (internal structures are full) else
-                    } // if newQuadraturePointCount == 0ul
-                } // while true
-            } // for rCell in rMesh.vertices()
-
-            // Issue an evaluation if there are any leftover quadrature points.
-            if (!_pImpl->extents.empty() && _pImpl->extents.get().back().iQuadraturePointBegin != 0ul) {
-                const auto extentView = _pImpl->extents.get();
-                _pImpl->quadraturePoints.resize(extentView.back().iQuadraturePointBegin);
-                const std::size_t cellCount = extentView.size() - 1;
-                output.resize(cellCount * extentView.front().integrand.size());
-
-                CIE_BEGIN_EXCEPTION_TRACING
-                    this->execute(
-                        output,
-                        rExecutionProperties);
-                CIE_END_EXCEPTION_TRACING
-
-                // Call the consumer with the reduced results.
-                cellIDs.resize(cellCount);
-                std::transform(
-                    extentView.begin(),
-                    extentView.end() - 1,
-                    cellIDs.begin(),
-                    [](Ref<const typename Impl::Extents::Value> rEntry) -> VertexID {
-                        return rEntry.cellID;
-                    });
-
-                CIE_BEGIN_EXCEPTION_TRACING
-                    rIntegralSink(
-                        cellIDs,
-                        output);
-                CIE_END_EXCEPTION_TRACING
-
-                // Clear the internal structures.
-                _pImpl->extents.clear();
-            } // if !extents.empty()
+                    if (!cellAddedToBatch) {
+                        const std::size_t iQuadraturePointBegin = quadraturePointCount;
+                        appendCellWork(
+                            rCell,
+                            rIntegrandFactory(rCell),
+                            iQuadraturePointBegin,
+                            newPointCount);
+                        cellAddedToBatch = true;
+                    } else {
+                        rCells.back().quadraturePointCount += newPointCount;
+                    }
+                    quadraturePointCount += newPointCount;
+                }
+            }
+            flushBatch();
         CIE_END_EXCEPTION_TRACING
 }
 
 
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
 std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::Properties>
 IntegrandProcessor<Dim,TIntegrand,TQD>::makeDefaultProperties() const {
     return std::make_unique<Properties>(Properties {
         .integrandBatchSize = 0x8000,
-        .verbosity = 1
+        .verbosity = 1,
+        .maxTileSizes = {}
     });
 }
 
 
-template <unsigned Dim, maths::Expression TIntegrand, class TQD>
+template <unsigned Dim, maths::SliceableExpression TIntegrand, class TQD>
 void IntegrandProcessor<Dim,TIntegrand,TQD>::execute(
     std::span<typename TIntegrand::Value> output,
     Ref<const Properties> rExecutionProperties) {
         const auto timer = utils::LoggerSingleton::get().startTimer();
-
         const auto& rQuadraturePoints = _pImpl->quadraturePoints;
-        const auto extentView = _pImpl->extents.get();
-        if (rQuadraturePoints.empty()) return;
+        CIE_CHECK(output.size() == std::accumulate(
+            _pImpl->cells.begin(),
+            _pImpl->cells.end(),
+            std::size_t(0),
+            [] (std::size_t sum, Ref<const typename Impl::Cell> rCell) { return sum + rCell.outputSize; }),
+            "Output span does not match the cell work batch")
+        std::fill(output.begin(), output.end(), static_cast<typename TIntegrand::Value>(0));
 
-        using ResultBuffer = std::conditional_t<
-            maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::size()>,
-            std::vector<typename TIntegrand::Value>>;
-        ResultBuffer result;
-
-        using IntegrandBuffer = std::conditional_t<
-            maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::bufferSize()>,
-            std::vector<typename TIntegrand::Value>>;
-        IntegrandBuffer integrandBuffer;
-
-        for (std::size_t iExtent=0ul; iExtent<extentView.size()-1; ++iExtent) {
-            Ref<const TIntegrand> rIntegrand = extentView[iExtent].integrand;
-
-            // Adjust the result and integrand buffers if necessary.
-            if constexpr (!maths::StaticExpression<TIntegrand>) {
-                result.resize(rIntegrand.size());
-                integrandBuffer.resize(rIntegrand.bufferSize());
-            }
-
-            // Initialize the locally reduced integral.
-            const std::span<typename TIntegrand::Value> reducedOutput(
-                output.data() + iExtent * result.size(),
-                result.size());
-            std::fill_n(
-                reducedOutput.data(),
-                result.size(),
-                static_cast<typename TIntegrand::Value>(0));
-
-            // Evaluate the integrand at all requested quadrature points.
-            const std::size_t iQuadraturePointBegin = extentView[iExtent].iQuadraturePointBegin;
-            const std::size_t iQuadraturePointEnd = extentView[iExtent + 1].iQuadraturePointBegin;
-            for (std::size_t iQuadraturePoint=iQuadraturePointBegin; iQuadraturePoint<iQuadraturePointEnd; ++iQuadraturePoint) {
-                rQuadraturePoints[iQuadraturePoint].evaluate(
-                    rIntegrand,
-                    result,
-                    integrandBuffer);
-                const auto pLeftEnd = reducedOutput.data() + reducedOutput.size();
-                auto pRight=result.data();
-                for (auto pLeft=reducedOutput.data(); pLeft<pLeftEnd; ++pLeft, ++pRight) {
-                    *pLeft += *pRight;
+        std::size_t integrandCount = 0ul;
+        std::vector<typename TIntegrand::Value> result;
+        std::vector<typename TIntegrand::Value> buffer;
+        for (const auto& rCell : _pImpl->cells) {
+            integrandCount += rCell.tileCount;
+            for (std::size_t iQuadraturePoint=rCell.iQuadraturePointBegin;
+                 iQuadraturePoint<rCell.iQuadraturePointBegin + rCell.quadraturePointCount;
+                 ++iQuadraturePoint) {
+                for (std::size_t iTile=0ul; iTile<rCell.tileCount; ++iTile) {
+                    const auto& rTile = _pImpl->tiles[rCell.iTileBegin + iTile];
+                    result.resize(rTile.outputCount);
+                    buffer.resize(rCell.integrand.bufferSize(rTile.inContext));
+                    rQuadraturePoints[iQuadraturePoint].evaluate(
+                        rCell.integrand,
+                        result,
+                        buffer,
+                        rTile.inContext);
+                    for (std::size_t iComponent=0ul; iComponent<rTile.outputCount; ++iComponent) {
+                        output[rCell.iOutputBegin + _pImpl->outputMap[rTile.iOutputMapBegin + iComponent]] += result[iComponent];
+                    }
                 }
-            } // for iQuadraturePoint in range(iQuadraturePointBegin, iQuadraturePointEnd)
-        } // for iExtent in range(extentView.size())
+            }
+        }
 
         if (rExecutionProperties.verbosity && 3 <= rExecutionProperties.verbosity.value()) {
             utils::LoggerSingleton::get().logElapsed(
                 std::format(
-                    "evaluated {} integrand(s) at {} quadrature point(s) in",
-                    extentView.size() - 1,
-                    extentView.back().iQuadraturePointBegin),
+                    "evaluated {} tiled integrand(s) at {} quadrature point(s) in",
+                    integrandCount,
+                    rQuadraturePoints.size()),
                 timer);
         }
 }
 
 
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+requires maths::SliceableExpression<TIntegrand>
 ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::ParallelIntegrandProcessor(Ref<mp::ThreadPoolBase> rThreads)
     : _pThreads(&rThreads)
 {}
 
 
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+requires maths::SliceableExpression<TIntegrand>
 void ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
     std::span<typename TIntegrand::Value> output,
     Ref<const typename Base::Properties> rExecutionProperties) {
         const auto timer = utils::LoggerSingleton::get().startTimer();
+        const auto& rCells = this->_pImpl->cells;
+        const auto& rTiles = this->_pImpl->tiles;
+        const auto& rQuadraturePoints = this->_pImpl->quadraturePoints;
+        const std::size_t workCount = this->_pImpl->assignWorkRanges();
+        std::fill(output.begin(), output.end(), static_cast<typename TIntegrand::Value>(0));
+        if (workCount == 0ul) return;
 
-        // Initialize the integral output container.
-        std::fill_n(
-            output.data(),
-            output.size(),
-            static_cast<typename TIntegrand::Value>(0));
-
-        using ResultBuffer = std::conditional_t<
-            maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::size()>,
-            std::vector<typename TIntegrand::Value>>;
-
-        using IntegrandBuffer = std::conditional_t<
-            maths::StaticExpression<TIntegrand>,
-            std::array<typename TIntegrand::Value,maths::StaticExpressionSize<TIntegrand>::bufferSize()>,
-            std::vector<typename TIntegrand::Value>>;
-
-        // Evaluate integrand at all requested quadrature points.
-        const auto extentView = this->_pImpl->extents.get();
-
-        mp::ParallelFor<std::size_t>(*_pThreads).firstPrivate(ResultBuffer(), IntegrandBuffer()).execute(
-            this->_pImpl->quadraturePoints.size(),
-            [
-                output,
-                pExtentBegin            = extentView.data(),
-                pExtentEnd              = extentView.data() + extentView.size(),
-                pQuadraturePointBegin   = this->_pImpl->quadraturePoints.data()
-            ](
-                std::size_t iQuadraturePoint,
-                Ref<ResultBuffer> rResultBuffer,
-                Ref<IntegrandBuffer> rIntegrandBuffer){
-                    // Find which integrand the given quadrature point belongs to.
-                    Ptr<const typename Base::Impl::Extents::Value> pExtent = std::upper_bound(
-                        pExtentBegin,
-                        pExtentEnd,
-                        iQuadraturePoint,
-                        [](std::size_t iQuadraturePoint, Ref<const typename Base::Impl::Extents::Value> rExtent) -> bool {
-                            return iQuadraturePoint < rExtent.iQuadraturePointBegin;
-                        }) - 1;
-                    Ref<const TIntegrand> rIntegrand = pExtent->integrand;
-
-                    // Adjust the result and integrand buffers if necessary.
-                    if constexpr (!maths::StaticExpression<TIntegrand>) {
-                        rResultBuffer.resize(rIntegrand.size());
-                        rIntegrandBuffer.resize(rIntegrand.bufferSize());
-                    }
-
-                    // Evaluate the integrand.
-                    Ref<const typename Base::Impl::QPoint> rQuadraturePoint = pQuadraturePointBegin[iQuadraturePoint];
-                    rQuadraturePoint.evaluate(
-                        rIntegrand,
-                        rResultBuffer,
-                        rIntegrandBuffer);
-
-                    // Reduce results. @todo support variable length integrands.
-                    Ptr<typename TIntegrand::Value> pOutput = output.data() + std::distance<decltype(pExtent)>(pExtentBegin, pExtent) * TIntegrand::size();
-                    Ptr<const typename TIntegrand::Value> pOutputEnd = pOutput + TIntegrand::size();
-                    Ptr<const typename TIntegrand::Value> pResult = rResultBuffer.data();
-                    for (; pOutput<pOutputEnd; ++pOutput, ++pResult) {
-                        std::atomic_ref<typename TIntegrand::Value>(*pOutput) += *pResult;
-                    }
-            });
+        mp::ParallelFor<std::size_t>(*_pThreads)
+            .firstPrivate(std::vector<typename TIntegrand::Value>(), std::vector<typename TIntegrand::Value>())
+            .execute(
+                workCount,
+                [
+                    output,
+                    pCells = rCells.data(),
+                    pCellEnd = rCells.data() + rCells.size(),
+                    pTiles = rTiles.data(),
+                    pOutputMap = this->_pImpl->outputMap.data(),
+                    pQuadraturePoints = rQuadraturePoints.data()
+                ] (
+                    std::size_t iWork,
+                    Ref<std::vector<typename TIntegrand::Value>> rResult,
+                    Ref<std::vector<typename TIntegrand::Value>> rBuffer) {
+                        const auto pCell = std::upper_bound(
+                            pCells,
+                            pCellEnd,
+                            iWork,
+                            [] (std::size_t iWork, Ref<const typename Base::Impl::Cell> rCell) {
+                                return iWork < rCell.iWorkEnd;
+                            });
+                        const auto& rCell = *pCell;
+                        const std::size_t iLocalWork = iWork - rCell.iWorkBegin;
+                        const std::size_t iTile = iLocalWork % rCell.tileCount;
+                        const std::size_t iQuadraturePoint =
+                            rCell.iQuadraturePointBegin + iLocalWork / rCell.tileCount;
+                        const auto& rTile = pTiles[rCell.iTileBegin + iTile];
+                        rResult.resize(rTile.outputCount);
+                        rBuffer.resize(rCell.integrand.bufferSize(rTile.inContext));
+                        pQuadraturePoints[iQuadraturePoint].evaluate(
+                            rCell.integrand,
+                            rResult,
+                            rBuffer,
+                            rTile.inContext);
+                        for (std::size_t iComponent=0ul; iComponent<rTile.outputCount; ++iComponent) {
+                            auto& rOutput = output[
+                                rCell.iOutputBegin
+                                + pOutputMap[rTile.iOutputMapBegin + iComponent]];
+                            std::atomic_ref<typename TIntegrand::Value>(rOutput) += rResult[iComponent];
+                        }
+                });
 
         if (rExecutionProperties.verbosity && 3 <= rExecutionProperties.verbosity.value()) {
             utils::LoggerSingleton::get().logElapsed(
                 std::format(
-                    "evaluated {} integrand(s) at {} quadrature point(s) in",
-                    extentView.size() - 1,
-                    extentView.back().iQuadraturePointBegin),
+                    "evaluated {} tiled integrand(s) at {} quadrature point(s) in",
+                    workCount,
+                    rQuadraturePoints.size()),
                 timer);
         }
 }
@@ -428,222 +480,170 @@ void ParallelIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
 
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+requires maths::SliceableExpression<TIntegrand>
 struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
+    using Base = IntegrandProcessor<Dim,TIntegrand,TQD>;
+    using Cell = typename Base::Impl::Cell;
+    using Tile = typename Base::Impl::Tile;
+    using QPoint = typename Base::Impl::QPoint;
+
     std::shared_ptr<sycl::queue> pQueue;
 
     struct Kernel {
-        Ptr<const typename Base::Impl::Extents::Value> pExtentBegin;
-
-        Ptr<const typename Base::Impl::Extents::Value> pExtentEnd;
-
-        Ptr<const typename Base::Impl::QPoint> pQuadraturePointBegin;
-
-        Ptr<typename TIntegrand::Value> pOutputBegin;
-
-        Ptr<typename TIntegrand::Value> pBufferBegin;
-
-        std::size_t quadraturePointCount;
-
-        std::size_t itemBufferSize;
+        Ptr<const Cell> pCells;
+        Ptr<const Tile> pTiles;
+        Ptr<const std::size_t> pOutputMap;
+        Ptr<const QPoint> pQuadraturePoints;
+        Ptr<typename TIntegrand::Value> pOutput;
+        Ptr<typename TIntegrand::Value> pBuffer;
+        std::size_t workItemCount;
+        std::size_t cellCount;
+        std::size_t maxBufferSize;
+        std::size_t bufferStride;
 
         void operator()(sycl::nd_item<1> item) const noexcept {
-            // Get work item index.
-            const std::size_t iItem = item.get_global_linear_id();
-            if (quadraturePointCount <= iItem) return;
+            const std::size_t iWork = item.get_global_linear_id();
+            if (workItemCount <= iWork) return;
 
-            // Find which integrand the first quadrature point belongs to.
-            Ptr<const typename Base::Impl::Extents::Value> pExtent = std::upper_bound(
-                pExtentBegin,
-                pExtentEnd,
-                iItem,
-                [](std::size_t iQuadraturePoint, Ref<const typename Base::Impl::Extents::Value> rExtent) -> bool {
-                    return iQuadraturePoint < rExtent.iQuadraturePointBegin;
-                }) - 1;
-            const std::span<typename TIntegrand::Value> integrandBuffer(
-                pBufferBegin + iItem * itemBufferSize,
-                TIntegrand::bufferSize());
-            const std::span<typename TIntegrand::Value> results(
-                integrandBuffer.data() + integrandBuffer.size(),
-                TIntegrand::size());
+            std::size_t iCellBegin = 0ul;
+            std::size_t iCellEnd = cellCount;
+            while (iCellBegin < iCellEnd) {
+                const std::size_t iCellMiddle = iCellBegin + (iCellEnd - iCellBegin) / 2ul;
+                if (iWork < pCells[iCellMiddle].iWorkEnd)
+                    iCellEnd = iCellMiddle;
+                else
+                    iCellBegin = iCellMiddle + 1ul;
+            }
+            if (cellCount <= iCellBegin) return;
 
-            // Find which integrand the current quadrature point belongs to.
-            Ref<const TIntegrand> rIntegrand = pExtent->integrand;
+            const Cell& rCell = pCells[iCellBegin];
+            const std::size_t iLocalWork = iWork - rCell.iWorkBegin;
+            const std::size_t iTile = iLocalWork % rCell.tileCount;
+            const std::size_t iQuadraturePoint =
+                rCell.iQuadraturePointBegin + iLocalWork / rCell.tileCount;
+            const Tile& rTile = pTiles[rCell.iTileBegin + iTile];
+            const std::size_t iBufferBegin = iWork * bufferStride;
+            const std::span<typename TIntegrand::Value> buffer(
+                pBuffer + iBufferBegin,
+                rCell.integrand.bufferSize(rTile.inContext));
+            const std::span<typename TIntegrand::Value> result(
+                pBuffer + iBufferBegin + maxBufferSize,
+                rTile.outputCount);
+            pQuadraturePoints[iQuadraturePoint].evaluate(
+                rCell.integrand,
+                result,
+                buffer,
+                rTile.inContext);
 
-            // Evaluate the integrand at the current quadrature point.
-            pQuadraturePointBegin[iItem].evaluate(
-                rIntegrand,
-                results,
-                integrandBuffer);
-
-            // Reduce the results.
-            std::span<typename TIntegrand::Value> output(
-                pOutputBegin + std::distance<decltype(pExtent)>(pExtentBegin, pExtent) * TIntegrand::size(),
-                TIntegrand::size());
-            for (std::size_t iComponent=0ul; iComponent<TIntegrand::size(); ++iComponent) {
+            for (std::size_t iComponent=0ul; iComponent<rTile.outputCount; ++iComponent) {
+                auto& rOutput = pOutput[
+                    rCell.iOutputBegin
+                    + pOutputMap[rTile.iOutputMapBegin + iComponent]];
                 sycl::atomic_ref<
                     typename TIntegrand::Value,
                     sycl::memory_order::relaxed,
                     sycl::memory_scope::device,
                     sycl::access::address_space::global_space
-                >(output[iComponent]) += results[iComponent];
-            } // for iComponent in range(TIntegrand::size())
-        } // kernel operator()
-    }; // struct Kernel
-}; // struct SYCLIntegrandProcessor::Impl
+                >(rOutput) += result[iComponent];
+            }
+        }
+    };
+};
 
 
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+requires maths::SliceableExpression<TIntegrand>
 SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::SYCLIntegrandProcessor(
     std::shared_ptr<sycl::queue> pQueue)
-    : _pSYCLImpl(new Impl)
-{
-    _pSYCLImpl->pQueue = pQueue;
+    : _pSYCLImpl(new Impl) {
+        _pSYCLImpl->pQueue = std::move(pQueue);
 }
 
 
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+requires maths::SliceableExpression<TIntegrand>
 SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::~SYCLIntegrandProcessor() = default;
 
 
 template <unsigned Dim, maths::StaticExpression TIntegrand, class TQD>
+requires maths::SliceableExpression<TIntegrand>
 void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
     std::span<typename TIntegrand::Value> output,
     Ref<const typename Base::Properties> rExecutionProperties) {
         Ref<sycl::queue> rQueue = *_pSYCLImpl->pQueue;
-        const auto extentView = this->_pImpl->extents.get();
+        const auto& rCells = this->_pImpl->cells;
+        const auto& rTiles = this->_pImpl->tiles;
+        const auto& rOutputMap = this->_pImpl->outputMap;
         const auto& rQuadraturePoints = this->_pImpl->quadraturePoints;
+        const std::size_t workItemCount = this->_pImpl->assignWorkRanges();
+        std::size_t maxBufferSize = 0ul;
+        std::size_t maxResultSize = 0ul;
+        for (const auto& rCell : rCells) {
+            for (std::size_t iTile=0ul; iTile<rCell.tileCount; ++iTile) {
+                const auto& rTile = rTiles[rCell.iTileBegin + iTile];
+                maxBufferSize = std::max(maxBufferSize, rCell.integrand.bufferSize(rTile.inContext));
+                maxResultSize = std::max(maxResultSize, rTile.outputCount);
+            }
+        }
+        std::fill(output.begin(), output.end(), static_cast<typename TIntegrand::Value>(0));
+        if (workItemCount == 0ul) return;
 
         const std::string deviceName = rQueue.get_device().get_info<sycl::info::device::name>();
         std::string_view trimmedDeviceName = deviceName;
         trimmedDeviceName.remove_suffix(
             std::distance(
                 deviceName.crbegin(),
-                std::find_if(
-                    deviceName.crbegin(),
-                    deviceName.crend(),
-                    [](int c) {return !std::isspace(c);})));
-
+                std::find_if(deviceName.crbegin(), deviceName.crend(), [](int c) { return !std::isspace(c); })));
         std::optional<utils::LogBlock> maybeLogBlock;
         if (rExecutionProperties.verbosity && 3 <= rExecutionProperties.verbosity.value())
             maybeLogBlock.emplace(
                 std::format(
-                    "evaluate {} integrand(s) at {} quadrature point(s) on {}",
-                    extentView.size() - 1,
-                    extentView.back().iQuadraturePointBegin,
+                    "evaluate {} tiled work item(s) on {}",
+                    workItemCount,
                     trimmedDeviceName),
                 utils::LoggerSingleton::get());
 
-        // Parse execution properties.
-        auto pDefaultExecutionProperties = this->makeDefaultProperties();
+        constexpr std::size_t kernelMaxWorkGroupSize = 256;
+        const std::size_t workItemsPerGroup = std::min(workItemCount, kernelMaxWorkGroupSize);
+        const std::size_t groupCount = (workItemCount + workItemsPerGroup - 1ul) / workItemsPerGroup;
+        const sycl::nd_range<1> range(workItemsPerGroup * groupCount, workItemsPerGroup);
+        const std::size_t bufferStride = maxBufferSize + maxResultSize;
 
-        // Query kernel properties.
-        // @todo uncomment when AdaptiveCpp implements sycl::get_kernel_bundle
-        //const sycl::kernel dummyKernel = sycl::get_kernel_bundle<sycl::bundle_state::executable>(rQueue.get_context()).get_kernel<typename Impl::Kernel>();
-        //const std::size_t kernelMaxWorkGroupSize = dummyKernel.get_work_group_info<
-        //    sycl::info::kernel_work_group::work_group_size>(rQueue.get_device());
-        const std::size_t kernelMaxWorkGroupSize = 256;
+        auto pDeviceCells = makeDeviceMemory<typename Impl::Cell>(rCells.size(), rQueue);
+        auto pDeviceTiles = makeDeviceMemory<typename Impl::Tile>(rTiles.size(), rQueue);
+        auto pDeviceOutputMap = makeDeviceMemory<std::size_t>(rOutputMap.size(), rQueue);
+        auto pDeviceQuadraturePoints = makeDeviceMemory<typename Impl::QPoint>(rQuadraturePoints.size(), rQueue);
+        auto pDeviceOutput = makeDeviceMemory<typename TIntegrand::Value>(output.size(), rQueue);
+        auto pDeviceBuffer = makeDeviceMemory<typename TIntegrand::Value>(workItemCount * bufferStride, rQueue);
 
-        // Partition work items and groups.
-        const std::size_t pointCount = rQuadraturePoints.size();
-        const std::size_t pointsPerGroup = std::min<std::size_t>(
-            pointCount,
-            kernelMaxWorkGroupSize);
-        const std::size_t groupCount = (pointCount + pointsPerGroup - 1) / pointsPerGroup;
-        const auto range = sycl::nd_range<1>(
-            pointsPerGroup * groupCount,
-            pointsPerGroup);
-        if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value())
-            std::cout << std::format(
-                "point count {}\ngroup count {}\npoints per group {}\n",
-                pointCount,
-                groupCount,
-                pointsPerGroup);
+        rQueue.copy(rCells.data(), pDeviceCells.get(), rCells.size());
+        rQueue.copy(rTiles.data(), pDeviceTiles.get(), rTiles.size());
+        rQueue.copy(rOutputMap.data(), pDeviceOutputMap.get(), rOutputMap.size());
+        rQueue.copy(rQuadraturePoints.data(), pDeviceQuadraturePoints.get(), rQuadraturePoints.size());
+        rQueue.fill(pDeviceOutput.get(), static_cast<typename TIntegrand::Value>(0), output.size());
+        rQueue.wait_and_throw();
 
-        // Allocate memory on the device.
-        const std::size_t itemBufferSize = TIntegrand::size() + TIntegrand::bufferSize();
-        const std::size_t deviceBufferSize = groupCount * pointsPerGroup * itemBufferSize;
-        if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
-            utils::LoggerSingleton::get().log(std::format(
-                "allocate {} bytes",
-                extentView.size() * sizeof(typename Base::Impl::Extents::Value)
-                    + rQuadraturePoints.size() * sizeof(typename Base::Impl::QPoint)
-                    + output.size() * sizeof(typename TIntegrand::Value)
-                    + deviceBufferSize));
-        }
-        const auto memoryTimer = utils::LoggerSingleton::get().startTimer();
-        auto pDeviceExtents = makeDeviceMemory<typename Base::Impl::Extents::Value>(
-            extentView.size(),
-            rQueue);
-        auto pDeviceQuadraturePoints = makeDeviceMemory<typename Base::Impl::QPoint>(
-            rQuadraturePoints.size(),
-            rQueue);
-        auto pDeviceOutput = makeDeviceMemory<typename TIntegrand::Value>(
-            output.size(),
-            rQueue);
-        auto pDeviceBuffer = makeDeviceMemory<typename TIntegrand::Value>(
-            deviceBufferSize,
-            rQueue);
-        if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value()) {
-            utils::LoggerSingleton::get().logElapsed(
-                std::format(
-                    "allocation took",
-                    trimmedDeviceName),
-                memoryTimer);
-        }
-
-        // Copy input data to the device.
-        {
-            const auto timerID = utils::LoggerSingleton::get().startTimer();
-            [[maybe_unused]] sycl::event extentCopyEvent = rQueue.copy(
-                extentView.data(),
-                pDeviceExtents.get(),
-                extentView.size());
-            [[maybe_unused]] sycl::event quadraturePointCopyEvent = rQueue.copy(
-                rQuadraturePoints.data(),
-                pDeviceQuadraturePoints.get(),
-                rQuadraturePoints.size());
-            [[maybe_unused]] sycl::event outputInitEvent = rQueue.fill(
-                pDeviceOutput.get(),
-                static_cast<typename TIntegrand::Value>(0),
-                output.size());
-            rQueue.wait_and_throw();
-            if (rExecutionProperties.verbosity && 4 <= rExecutionProperties.verbosity.value())
-                utils::LoggerSingleton::get().logElapsed(
-                    std::format(
-                        "initializing and copying data took",
-                        trimmedDeviceName),
-                    timerID);
-        } // finish copying data to the device
-
-        // Perform integration on the device.
-        CIE_BEGIN_EXCEPTION_TRACING
-            rQueue.submit([&] (sycl::handler& rHandler) {
-                rHandler.parallel_for<typename Impl::Kernel>(
-                    range,
-                    typename Impl::Kernel {
-                        .pExtentBegin           = pDeviceExtents.get(),
-                        .pExtentEnd             = pDeviceExtents.get() + extentView.size(),
-                        .pQuadraturePointBegin  = pDeviceQuadraturePoints.get(),
-                        .pOutputBegin           = pDeviceOutput.get(),
-                        .pBufferBegin           = pDeviceBuffer.get(),
-                        .quadraturePointCount   = rQuadraturePoints.size(),
-                        .itemBufferSize         = itemBufferSize});
-                });
-            rQueue.wait_and_throw();
-        CIE_END_EXCEPTION_TRACING
-
-        // Fetch results from the device.
-        CIE_BEGIN_EXCEPTION_TRACING
-        rQueue.copy(
-            pDeviceOutput.get(),
-            output.data(),
-            output.size()).wait_and_throw();
-        CIE_END_EXCEPTION_TRACING
+        rQueue.submit([&] (sycl::handler& rHandler) {
+            rHandler.parallel_for<typename Impl::Kernel>(
+                range,
+                typename Impl::Kernel {
+                    .pCells = pDeviceCells.get(),
+                    .pTiles = pDeviceTiles.get(),
+                    .pOutputMap = pDeviceOutputMap.get(),
+                    .pQuadraturePoints = pDeviceQuadraturePoints.get(),
+                    .pOutput = pDeviceOutput.get(),
+                    .pBuffer = pDeviceBuffer.get(),
+                    .workItemCount = workItemCount,
+                    .cellCount = rCells.size(),
+                    .maxBufferSize = maxBufferSize,
+                    .bufferStride = bufferStride});
+        });
+        rQueue.wait_and_throw();
+        rQueue.copy(pDeviceOutput.get(), output.data(), output.size()).wait_and_throw();
 }
 
 
 #endif // CIE_ENABLE_SYCL
-
 
 
 } // namespace cie::fem

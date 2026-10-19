@@ -40,9 +40,11 @@ public:
 
     using typename ExpressionTraits<Value>::BufferSpan;
 
-    using OutContext = HyperSlab<Dim,std::uint16_t>;
+    using Context = HyperSlab<Dim,std::uint16_t>;
 
-    using InContext = std::array<OutContext,Dim>;
+    using InContext = std::array<Context,1>;
+
+    using OutContext = HyperSlab<Dim+1,std::uint16_t>;
 
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = AnsatzSpaceDerivativeView;
@@ -73,7 +75,13 @@ public:
         ConstSpan in,
         Span out,
         BufferSpan buffer,
-        Ref<const InContext> rContext) const;
+        Ref<const InContext> rInContext) const;
+
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const Context> rContext) const;
 
     /// @}
     /// @name Runtime Expression Interface
@@ -86,19 +94,32 @@ public:
     requires (!hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    unsigned size(Ref<const InContext> rContext) const noexcept
+    unsigned size(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
-    /// @see @ref SliceableExpression
-    unsigned bufferSize(Ref<const InContext> rContext) const noexcept
-    requires (!hasStaticBasis);
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) {
+        return this->size(InContext{rContext});
+    }
 
     /// @see @ref SliceableExpression
-    std::array<typename InContext::value_type::Value,Dim> contextBounds() const noexcept
+    unsigned bufferSize(Ref<const InContext> rInContext) const noexcept
+    requires (!hasStaticBasis);
+
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) {
+        return this->bufferSize(InContext{rContext});
+    }
+
+    /// @see @ref SliceableExpression
+    std::array<typename Context::Value,Dim> contextBounds() const noexcept
     requires (!hasStaticBasis);
 
     /// @see @ref SliceableExpression
     OutContext outContext() const noexcept
+    requires (!hasStaticBasis);
+
+    OutContext outContext(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
     /// @}
@@ -112,19 +133,32 @@ public:
     requires (hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    static constexpr unsigned size(Ref<const InContext> rContext) noexcept
+    static constexpr unsigned size(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
-    /// @see @ref SliceableExpression
-    static constexpr unsigned bufferSize(Ref<const InContext> rContext) noexcept
-    requires (hasStaticBasis);
+    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) {
+        return size(InContext{rContext});
+    }
 
     /// @see @ref SliceableExpression
-    static constexpr std::array<typename InContext::value_type::Value,Dim> contextBounds() noexcept
+    static constexpr unsigned bufferSize(Ref<const InContext> rInContext) noexcept
+    requires (hasStaticBasis);
+
+    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) {
+        return bufferSize(InContext{rContext});
+    }
+
+    /// @see @ref SliceableExpression
+    static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
     requires (hasStaticBasis);
 
     /// @see @ref SliceableExpression
     static constexpr OutContext outContext() noexcept
+    requires (hasStaticBasis);
+
+    static constexpr OutContext outContext(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
     /// @}
@@ -182,6 +216,10 @@ public:
 
     using Context = typename View::Context;
 
+    using InContext = typename View::InContext;
+
+    using OutContext = typename View::OutContext;
+
     constexpr AnsatzSpaceDerivative(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
     requires (hasStaticBasis);
 
@@ -237,6 +275,12 @@ public:
         BufferSpan buffer,
         Ref<const Context> rContext) const;
 
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const InContext> rInContext) const;
+
     /// @}
     /// @name Runtime Expression Interface
     /// @{
@@ -248,15 +292,24 @@ public:
     requires (!hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    unsigned size(Ref<const Context> rContext) const noexcept
+    unsigned size(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) { return this->size(InContext{rContext}); }
+
     /// @see @ref SliceableExpression
-    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    unsigned bufferSize(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
+
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) { return this->bufferSize(InContext{rContext}); }
 
     /// @see @ref SliceableExpression
     std::array<typename Context::Value,Dim> contextBounds() const noexcept
+    requires (!hasStaticBasis);
+
+    OutContext outContext(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
     /// @}
@@ -270,15 +323,24 @@ public:
     requires (hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    constexpr static unsigned size(Ref<const Context> rContext) noexcept
+    constexpr static unsigned size(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
+    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) { return size(InContext{rContext}); }
+
     /// @see @ref SliceableExpression
-    constexpr static unsigned bufferSize(Ref<const Context> rContext) noexcept
+    constexpr static unsigned bufferSize(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
+
+    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) { return bufferSize(InContext{rContext}); }
 
     /// @see @ref SliceableExpression
     static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
+    requires (hasStaticBasis);
+
+    static constexpr OutContext outContext(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
     /// @}
@@ -362,6 +424,10 @@ public:
 
     using Context = HyperSlab<Dim,std::uint16_t>;
 
+    using InContext = std::array<Context,1>;
+
+    using OutContext = Context;
+
     template <template <class ...> class, class>
     using Rebind = AnsatzSpaceView<
         TScalarExpression,
@@ -391,6 +457,12 @@ public:
         BufferSpan buffer,
         Ref<const Context> rContext) const;
 
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const InContext> rInContext) const;
+
     /// @}
     /// @name Runtime Expression Interface
     /// @{
@@ -402,15 +474,24 @@ public:
     requires (!hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    unsigned size(Ref<const Context> rContext) const noexcept
+    unsigned size(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) { return this->size(InContext{rContext}); }
+
     /// @see @ref SliceableExpression
-    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    unsigned bufferSize(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
+
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) { return this->bufferSize(InContext{rContext}); }
 
     /// @see @ref SliceableExpression
     std::array<typename Context::Value,Dim> contextBounds() const noexcept
+    requires (!hasStaticBasis);
+
+    OutContext outContext(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
     /// @}
@@ -424,15 +505,24 @@ public:
     requires (hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    static constexpr unsigned size(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
+    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) { return size(InContext{rContext}); }
+
     /// @see @ref SliceableExpression
-    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    static constexpr unsigned bufferSize(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
+
+    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) { return bufferSize(InContext{rContext}); }
 
     /// @see @ref SliceableExpression
     static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
+    requires (hasStaticBasis);
+
+    static constexpr OutContext outContext(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
     /// @}
@@ -479,6 +569,10 @@ public:
     using typename Base::BufferSpan;
 
     using Context = typename View::Context;
+
+    using InContext = typename View::InContext;
+
+    using OutContext = typename View::OutContext;
 
     using AnsatzSet = std::conditional_t<
         hasStaticBasis,
@@ -552,6 +646,12 @@ public:
         BufferSpan buffer,
         Ref<const Context> rContext) const;
 
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const InContext> rInContext) const;
+
     /// @}
     /// @name Runtime Expression Interface
     /// @{
@@ -563,15 +663,24 @@ public:
     requires (!hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    unsigned size(Ref<const Context> rContext) const noexcept
+    unsigned size(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
+    unsigned size(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) { return this->size(InContext{rContext}); }
+
     /// @see @ref SliceableExpression
-    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    unsigned bufferSize(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
+
+    unsigned bufferSize(Ref<const Context> rContext) const noexcept
+    requires (!hasStaticBasis) { return this->bufferSize(InContext{rContext}); }
 
     /// @see @ref SliceableExpression
     std::array<typename Context::Value,Dim> contextBounds() const noexcept
+    requires (!hasStaticBasis);
+
+    OutContext outContext(Ref<const InContext> rInContext) const noexcept
     requires (!hasStaticBasis);
 
     /// @}
@@ -585,15 +694,24 @@ public:
     requires (hasStaticBasis);
 
     /// @see @ref SliceableExpression
-    constexpr static unsigned size(Ref<const Context> rContext) noexcept
+    constexpr static unsigned size(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
+    static constexpr unsigned size(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) { return size(InContext{rContext}); }
+
     /// @see @ref SliceableExpression
-    constexpr static unsigned bufferSize(Ref<const Context> rContext) noexcept
+    constexpr static unsigned bufferSize(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
+
+    static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires (hasStaticBasis) { return bufferSize(InContext{rContext}); }
 
     /// @see @ref SliceableExpression
     static constexpr std::array<typename Context::Value,Dim> contextBounds() noexcept
+    requires (hasStaticBasis);
+
+    static constexpr OutContext outContext(Ref<const InContext> rInContext) noexcept
     requires (hasStaticBasis);
 
     /// @}

@@ -24,6 +24,10 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
         using Point = Kernel<2,T>::Point;
         using Basis = Polynomial<double>;
         using Ansatz = AnsatzSpace<Basis,2>;
+        static_assert(SliceableExpression<Ansatz>);
+        static_assert(SliceableExpression<typename Ansatz::View>);
+        static_assert(SliceableExpression<typename Ansatz::Derivative>);
+        static_assert(SliceableExpression<typename Ansatz::Derivative::View>);
 
         #define CIE_TMP_CHECK(ANSATZ_SPACE)                                             \
             {                                                                           \
@@ -175,8 +179,16 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                 CIE_TEST_REQUIRE_NOTHROW(slice.expand(range, sliceIndices));                                        \
                 CIE_TEST_REQUIRE(sliceIndices[0] == 6);                                                             \
                 CIE_TEST_REQUIRE(sliceIndices[1] == 7);                                                             \
+                const Ansatz::InContext inContext {slice};                                                         \
+                const auto outputContext = ANSATZ_SPACE.outContext(inContext);                                       \
+                const auto viewOutputContext = ANSATZ_SPACE.makeView().outContext(inContext);                        \
+                CIE_TEST_REQUIRE(outputContext.count() == slice.count());                                           \
+                CIE_TEST_REQUIRE(viewOutputContext.count() == outputContext.count());                                \
+                std::array<Ansatz::Context::Value,2> outputIndices;                                                 \
+                CIE_TEST_REQUIRE_NOTHROW(outputContext.expand(range, outputIndices));                                \
+                CIE_TEST_REQUIRE(outputIndices == sliceIndices);                                                     \
                 CIE_TEST_REQUIRE(ANSATZ_SPACE.size() == 9);                                                         \
-                CIE_TEST_REQUIRE(ANSATZ_SPACE.size(slice) == 2);                                                    \
+                CIE_TEST_REQUIRE(ANSATZ_SPACE.size(inContext) == 2);                                                \
                                                                                                                     \
                 {                                                                                                   \
                     Point point {-x, -y};                                                                           \
@@ -191,7 +203,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(                                                   \
-                        point, slicedResults, buffer, slice));                                                      \
+                        point, slicedResults, buffer, inContext));                                                  \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -209,7 +221,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(                                                   \
-                        point, slicedResults, buffer, slice));                                                      \
+                        point, slicedResults, buffer, inContext));                                                  \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -227,7 +239,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(                                                   \
-                        point, slicedResults, buffer, slice));                                                      \
+                        point, slicedResults, buffer, inContext));                                                  \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -245,7 +257,7 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_SPACE.evaluate(                                                   \
-                        point, slicedResults, buffer, slice));                                                      \
+                        point, slicedResults, buffer, inContext));                                                  \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -253,6 +265,10 @@ CIE_TEST_CASE( "AnsatzSpace", "[maths]" ) {
 
         using Basis = Polynomial<T,2>;
         using Ansatz = AnsatzSpace<Basis,2,3>;
+        static_assert(SliceableExpression<Ansatz>);
+        static_assert(SliceableExpression<typename Ansatz::View>);
+        static_assert(SliceableExpression<typename Ansatz::Derivative>);
+        static_assert(SliceableExpression<typename Ansatz::Derivative::View>);
 
         // Check default constructor.
         CIE_TEST_CHECK_NOTHROW(Ansatz());
@@ -365,6 +381,26 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
                 CIE_TEST_CHECK(buffer(1, 1) == Approx( 0.25));                                      \
                 CIE_TEST_CHECK(buffer(2, 1) == Approx( 0.75));                                      \
                 CIE_TEST_CHECK(buffer(3, 1) == Approx(-0.25));                                      \
+                                                                                                     \
+                Ansatz::Context activeContext;                                                      \
+                activeContext.data()[0] = 1;                                                        \
+                activeContext.data()[1] = 2;                                                        \
+                activeContext.data()[2] = 0;                                                        \
+                activeContext.data()[3] = 1;                                                        \
+                const Ansatz::Derivative::InContext inContext {activeContext};                       \
+                const auto outputContext = ANSATZ_DERIVATIVE.outContext(inContext);                  \
+                const auto viewOutputContext = ANSATZ_DERIVATIVE.makeView().outContext(inContext);  \
+                std::array<Ansatz::Context::Value,2> outputIndices;                                  \
+                CIE_TEST_REQUIRE_NOTHROW(outputContext.expand(                                       \
+                    std::array<Ansatz::Context::Value,3> {2, 2, 2},                                  \
+                    outputIndices));                                                                 \
+                CIE_TEST_REQUIRE(outputIndices[0] == 1);                                             \
+                CIE_TEST_REQUIRE(outputIndices[1] == 5);                                             \
+                CIE_TEST_REQUIRE(viewOutputContext.count() == outputContext.count());                 \
+                std::array<T,2> slicedOutput;                                                        \
+                ANSATZ_DERIVATIVE.evaluate(p0, slicedOutput, b, inContext);                          \
+                CIE_TEST_CHECK(slicedOutput[0] == Approx(buffer(outputIndices[0] % 4, outputIndices[0] / 4))); \
+                CIE_TEST_CHECK(slicedOutput[1] == Approx(buffer(outputIndices[1] % 4, outputIndices[1] / 4))); \
                                                                                                     \
                 ANSATZ_DERIVATIVE.evaluate(p1, {buffer.data(), buffer.data() + buffer.size()}, b);  \
                 CIE_TEST_CHECK(buffer(0, 0) == Approx(-1.00));                                      \
@@ -492,13 +528,23 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
                 slice.data()[1] = 1;                                                                                \
                 slice.data()[2] = 1;                                                                                \
                 slice.data()[3] = 2;                                                                                \
+                const Ansatz::Derivative::InContext inContext {slice};                                              \
+                const auto outputContext = ANSATZ_DERIVATIVE.outContext(inContext);                                  \
+                const auto viewOutputContext = ANSATZ_DERIVATIVE.makeView().outContext(inContext);                  \
+                CIE_TEST_REQUIRE(outputContext.count() == ANSATZ_DERIVATIVE.size(inContext));                        \
+                CIE_TEST_REQUIRE(viewOutputContext.count() == outputContext.count());                                \
                 std::array<Ansatz::Context::Value,2> sliceIndices;                                                  \
+                std::array<Ansatz::Context::Value,2> mappedIndices;                                                 \
+                const std::array<Ansatz::Context::Value,3> outputBounds {2, 2, 2};                                   \
+                CIE_TEST_REQUIRE_NOTHROW(outputContext.expand(outputBounds, mappedIndices));                         \
+                CIE_TEST_REQUIRE(mappedIndices[0] == 2);                                                            \
+                CIE_TEST_REQUIRE(mappedIndices[1] == 6);                                                            \
                 std::array<T,2> slicedResults;                                                                      \
                 const std::array<Ansatz::Context::Value,2> range {2, 2};                                            \
                 CIE_TEST_REQUIRE_NOTHROW(slice.expand(range, sliceIndices));                                        \
                 CIE_TEST_REQUIRE(sliceIndices[0] == 2);                                                             \
                 sliceIndices[1] = (sliceIndices[0] + 1) * 2;                                                        \
-                CIE_TEST_REQUIRE(ANSATZ_DERIVATIVE.size(slice) == 2);                                               \
+                CIE_TEST_REQUIRE(ANSATZ_DERIVATIVE.size(inContext) == 2);                                           \
                                                                                                                     \
                 {                                                                                                   \
                     Point point {-x, -y};                                                                           \
@@ -512,7 +558,7 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_DERIVATIVE.evaluate(                                              \
-                        point, slicedResults, b, slice));                                                           \
+                        point, slicedResults, b, inContext));                                                       \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -528,7 +574,7 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_DERIVATIVE.evaluate(                                              \
-                        point, slicedResults, b, slice));                                                           \
+                        point, slicedResults, b, inContext));                                                       \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -544,7 +590,7 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_DERIVATIVE.evaluate(                                              \
-                        point, slicedResults, b, slice));                                                           \
+                        point, slicedResults, b, inContext));                                                       \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \
@@ -560,7 +606,7 @@ CIE_TEST_CASE( "AnsatzSpaceDerivative", "[maths]" ) {
                         CIE_TEST_CHECK(results[iComponent] == Approx(reference[iComponent]));                       \
                                                                                                                     \
                     CIE_TEST_CHECK_NOTHROW(ANSATZ_DERIVATIVE.evaluate(                                              \
-                        point, slicedResults, b, slice));                                                           \
+                        point, slicedResults, b, inContext));                                                       \
                     for (std::size_t iComponent=0ul; iComponent<sliceIndices.size(); ++iComponent)                  \
                         CIE_TEST_CHECK(slicedResults[iComponent] == Approx(reference[sliceIndices[iComponent]]));   \
                 }                                                                                                   \

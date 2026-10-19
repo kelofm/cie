@@ -93,9 +93,10 @@ concept Expression
 
 
 /// @brief Interface for @ref Expression "expressions" sliceable with @ref HyperSlab "hyperslabs".
-/// @details Slicing specifically refers to selecting subsets of the @ref AnsatzSpace "ansatz space",
-///          not the expression's output directly. As a result, a sliced expression's output size
-///          cannot be deduced in general from only the hyperslab used for slicing.
+/// @details Slicing specifically refers to selecting subsets of the @ref AnsatzSpace "ansatz space".
+///          @p InContext contains one input hyperslab per ansatz-space operand, while @p OutContext
+///          describes the corresponding output range. @p outContext maps an input-context tuple
+///          to that output hyperslab; the input and output dimensions need not match.
 /// @ingroup fem
 template <class T>
 concept SliceableExpression
@@ -130,8 +131,8 @@ concept StaticExpression
     {std::remove_cvref_t<T>::size()} -> std::same_as<unsigned>;
     {std::remove_cvref_t<T>::bufferSize()} -> std::same_as<unsigned>;}
 && (!SliceableExpression<T> || requires () {
-    {std::remove_cvref_t<T>::size(std::declval<typename std::remove_cvref_t<T>::Context>())} -> std::same_as<unsigned>;
-    {std::remove_cvref_t<T>::bufferSize(std::declval<typename std::remove_cvref_t<T>::Context>())} -> std::same_as<unsigned>;
+    {std::remove_cvref_t<T>::size(std::declval<typename std::remove_cvref_t<T>::InContext>())} -> std::same_as<unsigned>;
+    {std::remove_cvref_t<T>::bufferSize(std::declval<typename std::remove_cvref_t<T>::InContext>())} -> std::same_as<unsigned>;
 }); // concept StaticExpression
 
 
@@ -151,7 +152,7 @@ private:
 
     template <SliceableExpression TT>
     struct ContextOrDefault<TT> {
-        using Value = typename TT::Context;
+        using Value = typename TT::InContext;
     }; // struct ContextOrDefault<SliceableExpression>
 
 public:

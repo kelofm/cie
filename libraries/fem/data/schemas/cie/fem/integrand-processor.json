@@ -1,5 +1,11 @@
 {
     "$id" : "/cie/fem/integrand-processor",
+    "default" : {
+        "batch-size" : 1e4,
+        "device" : "host",
+        "max-tile-sizes" : null,
+        "verbosity" : 1
+    },
     "properties" : {
         "batch-size" : {
             "type" : "number",
@@ -12,6 +18,15 @@
             "enum" : ["host", "sycl"],
             "default" : "host",
             "description" : "Device to evaluate integrands on."
+        },
+        "max-tile-sizes" : {
+            "type" : ["array", "null"],
+            "default" : null,
+            "items" : {
+                "type" : ["integer", "null"],
+                "minimum" : 1
+            },
+            "description" : "Maximum tile extent in each ansatz-context dimension; null uses the complete active extent."
         },
         "verbosity" : {
             "type" : "integer",

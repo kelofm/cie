@@ -6,6 +6,7 @@
 // --- STL Includes ---
 #include <array>
 #include <span>
+#include <tuple>
 
 
 namespace cie {
@@ -56,12 +57,16 @@ concept HyperSlabLike = std::is_same_v<
 
 template <class T>
 concept HyperSlabArrayLike
-= HyperSlabLike<T> && std::is_same_v<
+= requires {
+    typename std::remove_cvref_t<T>::value_type;
+    typename std::tuple_size<std::remove_cvref_t<T>>::type;
+} && HyperSlabLike<typename std::remove_cvref_t<T>::value_type>
+&& (std::tuple_size_v<std::remove_cvref_t<T>> > 0ul)
+&& std::is_same_v<
     std::remove_cvref_t<T>,
     std::array<
         typename std::remove_cvref_t<T>::value_type,
-        std::remove_cvref_t<T>::size()>
->;
+        std::tuple_size_v<std::remove_cvref_t<T>>>>;
 
 
 template <class T, unsigned Dim, class TValue>

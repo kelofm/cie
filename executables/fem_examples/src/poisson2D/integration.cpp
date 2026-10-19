@@ -137,6 +137,16 @@ void integrateStiffness(
             IntegrandProcessor<Dimension,Integrand,Scalar>::Properties executionProperties {
                 .integrandBatchSize = quadratureBatchSize,
                 .verbosity = rConfiguration["verbosity"].as<int>()};
+            const auto maxTileSizes = rConfiguration["max-tile-sizes"];
+            if (!maxTileSizes.is<std::nullptr_t>()) {
+                for (std::size_t iDimension=0ul; iDimension<maxTileSizes.size(); ++iDimension) {
+                    if (maxTileSizes[iDimension].is<std::nullptr_t>()) continue;
+                    CIE_CHECK(
+                        iDimension < executionProperties.maxTileSizes.size(),
+                        "Too many entries in \"max-tile-sizes\" for the integrand context")
+                    executionProperties.maxTileSizes[iDimension] = maxTileSizes[iDimension].as<std::size_t>();
+                }
+            }
 
             {
                 std::vector<std::thread> jobs;

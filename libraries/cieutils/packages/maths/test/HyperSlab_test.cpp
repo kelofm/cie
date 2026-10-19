@@ -10,6 +10,11 @@
 namespace cie {
 
 
+static_assert(HyperSlabArrayLike<std::array<HyperSlab<2,unsigned>,1>>);
+static_assert(HyperSlabArrayLike<std::array<HyperSlab<2,unsigned>,3>>);
+static_assert(!HyperSlabArrayLike<std::array<unsigned,2>>);
+
+
 template <unsigned D, class T>
 void TestHyperSlab() {
     {

@@ -64,11 +64,8 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
             *it = 0;
             *(it + 1) = ansatzSetSize;
         }
-        return this->evaluate(
-            in,
-            out,
-            buffer,
-            context);
+        const InContext inContext{context,context};
+        return this->evaluate(in, out, buffer, inContext);
 }
 
 
@@ -78,13 +75,28 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
     Span out,
     BufferSpan buffer,
     Ref<const Context> rContext) const {
-        // Define buffer layout.
-        const auto derivativeComponentCount = _ansatzDerivatives.size(rContext);
-        Span ansatzDerivativeBuffer(
-            buffer.data(),
-            derivativeComponentCount);
+        const InContext inContext{rContext,rContext};
+        return this->evaluate(in, out, buffer, inContext);
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer,
+    Ref<const InContext> rInContext) const {
+        using DerivativeInContext = typename TAD::InContext;
+        const DerivativeInContext rowContext{rInContext[0]};
+        const DerivativeInContext columnContext{rInContext[1]};
+        const std::size_t rowDerivativeCount = _ansatzDerivatives.size(rowContext);
+        const std::size_t columnDerivativeCount = _ansatzDerivatives.size(columnContext);
+        assert(out.size() == this->size(rInContext));
+        assert(this->bufferSize(rInContext) <= buffer.size());
+        Span rowDerivativeBuffer(buffer.data(), rowDerivativeCount);
+        Span columnDerivativeBuffer(buffer.data() + rowDerivativeCount, columnDerivativeCount);
         Span nestedBuffer(
-            buffer.data() + derivativeComponentCount,
+            buffer.data() + rowDerivativeCount + columnDerivativeCount,
             buffer.data() + buffer.size());
 
         // Evaluate the jacobian's inverse.
@@ -113,34 +125,44 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
             in,
             {}));
 
-        const auto ansatzCount = derivativeComponentCount / ParametricDimension;
+        const auto rowAnsatzCount = rowDerivativeCount / ParametricDimension;
+        const auto columnAnsatzCount = columnDerivativeCount / ParametricDimension;
 
         // Evaluate the ansatz functions' derivatives.
         // \frac{dN_i}{d\xi_j}
         _ansatzDerivatives.evaluate(
             in,
-            ansatzDerivativeBuffer,
+            rowDerivativeBuffer,
             nestedBuffer,
-            rContext);
+            rowContext);
+        _ansatzDerivatives.evaluate(
+            in,
+            columnDerivativeBuffer,
+            nestedBuffer,
+            columnContext);
 
         using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
         using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
         EigenAdaptor derivativeAdaptor(
-            ansatzDerivativeBuffer.data(),
+            rowDerivativeBuffer.data(),
             ParametricDimension,
-            ansatzCount);
+            rowAnsatzCount);
+        EigenAdaptor columnDerivativeAdaptor(
+            columnDerivativeBuffer.data(),
+            ParametricDimension,
+            columnAnsatzCount);
 
         // Compute the integrand.
         // det(\frac{dx_i}{d\xi_j}) m \frac{dN_j}{dx_i} \frac{dx_j}{d\xi_k} \frac{dN_k}{d\xi_l}
         EigenAdaptor outputAdaptor(
             out.data(),
-            ansatzCount,
-            ansatzCount);
+            rowAnsatzCount,
+            columnAnsatzCount);
         outputAdaptor.noalias() = (jacobianDeterminant * _modulus) * derivativeAdaptor
             .transpose()
             .lazyProduct(
                 jacobianInverseAdaptor.lazyProduct(
-                    derivativeAdaptor));
+                    columnDerivativeAdaptor));
 }
 
 
@@ -161,23 +183,47 @@ requires (!maths::StaticExpression<TAD>) {
 template <maths::Expression TAD, maths::SpatialTransform TT>
 unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize() const noexcept
 requires (!maths::StaticExpression<TAD>) {
-    return _ansatzDerivatives.size() + _ansatzDerivatives.bufferSize();
+    return 2 * _ansatzDerivatives.size() + _ansatzDerivatives.bufferSize();
 }
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
 unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size(Ref<const Context> rContext) const noexcept
 requires (!maths::StaticExpression<TAD>) {
-    const auto derivativeComponentCount = _ansatzDerivatives.size(rContext);
-    const auto ansatzCount = derivativeComponentCount / ParametricDimension;
-    return ansatzCount * ansatzCount;
+    const InContext inContext{rContext,rContext};
+    return this->size(inContext);
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size(Ref<const InContext> rInContext) const noexcept
+requires (!maths::StaticExpression<TAD>) {
+    using DerivativeInContext = typename TAD::InContext;
+    const unsigned rowCount = _ansatzDerivatives.size(DerivativeInContext{rInContext[0]}) / ParametricDimension;
+    const unsigned columnCount = _ansatzDerivatives.size(DerivativeInContext{rInContext[1]}) / ParametricDimension;
+    return rowCount * columnCount;
 }
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
 unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize(Ref<const Context> rContext) const noexcept
 requires (!maths::StaticExpression<TAD>) {
-    return _ansatzDerivatives.size(rContext) + _ansatzDerivatives.bufferSize(rContext);
+    const InContext inContext{rContext,rContext};
+    return this->bufferSize(inContext);
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize(Ref<const InContext> rInContext) const noexcept
+requires (!maths::StaticExpression<TAD>) {
+    using DerivativeInContext = typename TAD::InContext;
+    const DerivativeInContext rowContext{rInContext[0]};
+    const DerivativeInContext columnContext{rInContext[1]};
+    const unsigned rowSize = _ansatzDerivatives.size(rowContext);
+    const unsigned columnSize = _ansatzDerivatives.size(columnContext);
+    return rowSize + columnSize + std::max(
+        _ansatzDerivatives.bufferSize(rowContext),
+        _ansatzDerivatives.bufferSize(columnContext));
 }
 
 
@@ -188,6 +234,22 @@ std::array<
 LinearIsotropicStiffnessIntegrand<TAD,TT>::contextBounds() const noexcept
 requires (!maths::StaticExpression<TAD>) {
     return _ansatzDerivatives.contextBounds();
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+typename LinearIsotropicStiffnessIntegrand<TAD,TT>::OutContext
+LinearIsotropicStiffnessIntegrand<TAD,TT>::outContext(Ref<const InContext> rInContext) const noexcept
+requires (!maths::StaticExpression<TAD>) {
+    std::array<typename OutContext::Value,4 * ParametricDimension> data{};
+    for (unsigned iDimension=0u; iDimension<ParametricDimension; ++iDimension) {
+        // Output is row-major: column indices are the fastest-varying coordinates.
+        data[2 * iDimension] = rInContext[1].data()[2 * iDimension];
+        data[2 * iDimension + 1] = rInContext[1].data()[2 * iDimension + 1];
+        data[2 * (ParametricDimension + iDimension)] = rInContext[0].data()[2 * iDimension];
+        data[2 * (ParametricDimension + iDimension) + 1] = rInContext[0].data()[2 * iDimension + 1];
+    }
+    return OutContext(data);
 }
 
 
@@ -208,23 +270,47 @@ requires (maths::StaticExpression<TAD>) {
 template <maths::Expression TAD, maths::SpatialTransform TT>
 constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize() noexcept
 requires (maths::StaticExpression<TAD>) {
-    return TAD::size() + TAD::bufferSize();
+    return 2 * TAD::size() + TAD::bufferSize();
 }
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
 constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size(Ref<const Context> rContext) noexcept
 requires (maths::StaticExpression<TAD>) {
-    const auto derivativeComponentCount = TAD::size(rContext);
-    const auto ansatzCount = derivativeComponentCount / ParametricDimension;
-    return ansatzCount * ansatzCount;
+    const InContext inContext{rContext,rContext};
+    return size(inContext);
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::size(Ref<const InContext> rInContext) noexcept
+requires (maths::StaticExpression<TAD>) {
+    using DerivativeInContext = typename TAD::InContext;
+    const unsigned rowCount = TAD::size(DerivativeInContext{rInContext[0]}) / ParametricDimension;
+    const unsigned columnCount = TAD::size(DerivativeInContext{rInContext[1]}) / ParametricDimension;
+    return rowCount * columnCount;
 }
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
 constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize(Ref<const Context> rContext) noexcept
 requires (maths::StaticExpression<TAD>) {
-    return TAD::size(rContext) + TAD::bufferSize(rContext);
+    const InContext inContext{rContext,rContext};
+    return bufferSize(inContext);
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+constexpr unsigned LinearIsotropicStiffnessIntegrand<TAD,TT>::bufferSize(Ref<const InContext> rInContext) noexcept
+requires (maths::StaticExpression<TAD>) {
+    using DerivativeInContext = typename TAD::InContext;
+    const DerivativeInContext rowContext{rInContext[0]};
+    const DerivativeInContext columnContext{rInContext[1]};
+    const unsigned rowSize = TAD::size(rowContext);
+    const unsigned columnSize = TAD::size(columnContext);
+    return rowSize + columnSize + std::max(
+        TAD::bufferSize(rowContext),
+        TAD::bufferSize(columnContext));
 }
 
 
@@ -235,6 +321,21 @@ constexpr std::array<
 LinearIsotropicStiffnessIntegrand<TAD,TT>::contextBounds() noexcept
 requires (maths::StaticExpression<TAD>) {
     return TAD::contextBounds();
+}
+
+
+template <maths::Expression TAD, maths::SpatialTransform TT>
+constexpr typename LinearIsotropicStiffnessIntegrand<TAD,TT>::OutContext
+LinearIsotropicStiffnessIntegrand<TAD,TT>::outContext(Ref<const InContext> rInContext) noexcept
+requires (maths::StaticExpression<TAD>) {
+    std::array<typename OutContext::Value,4 * ParametricDimension> data{};
+    for (unsigned iDimension=0u; iDimension<ParametricDimension; ++iDimension) {
+        data[2 * iDimension] = rInContext[1].data()[2 * iDimension];
+        data[2 * iDimension + 1] = rInContext[1].data()[2 * iDimension + 1];
+        data[2 * (ParametricDimension + iDimension)] = rInContext[0].data()[2 * iDimension];
+        data[2 * (ParametricDimension + iDimension) + 1] = rInContext[0].data()[2 * iDimension + 1];
+    }
+    return OutContext(data);
 }
 
 

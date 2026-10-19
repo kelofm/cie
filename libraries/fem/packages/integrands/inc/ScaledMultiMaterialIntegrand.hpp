@@ -27,6 +27,10 @@ public:
 
     using Context = typename TIntegrand::Context;
 
+    using InContext = typename TIntegrand::InContext;
+
+    using OutContext = typename TIntegrand::OutContext;
+
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = ScaledMultiMaterialIntegrand<
         typename TIntegrand::template Rebind<TOtherAllocator,TOther>,
@@ -54,6 +58,12 @@ public:
         BufferSpan buffer,
         Ref<const Context> rContext) const;
 
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const InContext> rInContext) const;
+
     /// @}
     /// @name Runtime Expression Interface
     /// @{
@@ -68,12 +78,21 @@ public:
     unsigned size(Ref<const Context> rContext) const noexcept
     requires (!maths::StaticExpression<TIntegrand>);
 
+    unsigned size(Ref<const InContext> rInContext) const noexcept
+    requires (!maths::StaticExpression<TIntegrand>);
+
     /// @see @ref SliceableExpression
     unsigned bufferSize(Ref<const Context> rContext)  const noexcept
     requires (!maths::StaticExpression<TIntegrand>);
 
+    unsigned bufferSize(Ref<const InContext> rInContext) const noexcept
+    requires (!maths::StaticExpression<TIntegrand>);
+
     /// @see @ref SliceableExpression
     std::array<typename Context::Value,ParametricDimension> contextBounds() const noexcept
+    requires (!maths::StaticExpression<TIntegrand>);
+
+    OutContext outContext(Ref<const InContext> rInContext) const noexcept
     requires (!maths::StaticExpression<TIntegrand>);
 
     /// @}
@@ -90,13 +109,22 @@ public:
     static constexpr unsigned size(Ref<const Context> rContext) noexcept
     requires maths::StaticExpression<TIntegrand>;
 
+    static constexpr unsigned size(Ref<const InContext> rInContext) noexcept
+    requires maths::StaticExpression<TIntegrand>;
+
     /// @see @ref SliceableExpression
     static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
+    requires maths::StaticExpression<TIntegrand>;
+
+    static constexpr unsigned bufferSize(Ref<const InContext> rInContext) noexcept
     requires maths::StaticExpression<TIntegrand>;
 
     /// @see @ref SliceableExpression
     static constexpr std::array<typename Context::Value,ParametricDimension> contextBounds() noexcept
     requires (maths::StaticExpression<TIntegrand>);
+
+    static constexpr OutContext outContext(Ref<const InContext> rInContext) noexcept
+    requires maths::StaticExpression<TIntegrand>;
 
     /// @}
     /// @name Serialization

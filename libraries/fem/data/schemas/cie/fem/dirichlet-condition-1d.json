@@ -13,7 +13,15 @@
             "description" : "Coefficient to scale constraints by."
         },
         "integration" : {
-            "$ref" : "/cie/fem/integration"
+            "$ref" : "/cie/fem/quadrature-integration"
+        },
+        "lhs-integrand" : {
+            "default" : {},
+            "$ref" : "/cie/fem/integrand-processor"
+        },
+        "rhs-integrand" : {
+            "default" : {},
+            "$ref" : "/cie/fem/integrand-processor"
         },
         "postprocessing" : {
             "$ref" : "/cie/fem/postprocessing"

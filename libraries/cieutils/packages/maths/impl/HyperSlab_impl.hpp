@@ -172,8 +172,12 @@ constexpr Tiling<D,T>::Tiling(std::span<const T,D> tileShape) noexcept
 template <unsigned D, class T>
 constexpr T Tiling<D,T>::count(Ref<const Value> rTarget) const noexcept {
     T out = 1;
-    for (unsigned iDimension=0u; iDimension<D; ++iDimension)
-        out *= (rTarget.data()[2 * iDimension + 1] - rTarget.data()[2 * iDimension] + _tileShape[iDimension] - 1) / _tileShape[iDimension];
+    for (unsigned iDimension=0u; iDimension<D; ++iDimension) {
+        const T extent = rTarget.data()[2 * iDimension + 1] - rTarget.data()[2 * iDimension];
+        const T tileCount = extent / _tileShape[iDimension]
+                          + static_cast<T>(extent % _tileShape[iDimension] != 0);
+        out *= tileCount;
+    }
     return out;
 }
 
@@ -188,7 +192,8 @@ constexpr bool Tiling<D,T>::tile(
         std::array<T,D> tileCounts;
         for (unsigned iDimension=0u; iDimension<D; ++iDimension) {
             const T extent = rTarget.data()[2 * iDimension + 1] - rTarget.data()[2 * iDimension];
-            tileCounts[iDimension] = (extent + _tileShape[iDimension] - 1) / _tileShape[iDimension];
+            tileCounts[iDimension] = extent / _tileShape[iDimension]
+                                   + static_cast<T>(extent % _tileShape[iDimension] != 0);
         }
 
         std::array<T,D> tileIndices;

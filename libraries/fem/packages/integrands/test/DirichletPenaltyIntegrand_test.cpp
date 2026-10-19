@@ -71,6 +71,29 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
     CIE_TEST_REQUIRE(integrand.size() == 4 * 4 + 4);
     CIE_TEST_CHECK(integrand.bufferSize() == 4 + 2 + 2 + 1 + 5);
 
+    using Cell = CellBase<Dimension,Scalar,maths::IdentityTransform<Scalar,Dimension>>;
+    DirichletPenaltyLHSIntegrand<Ansatz,maths::IdentityTransform<Scalar,Dimension>,Cell> lhsIntegrand(
+        penalty,
+        *pAnsatzSpace,
+        spatialTransform,
+        spatialTransform.makeInverse(),
+        spatialTransform.makeDerivative());
+    DirichletPenaltyRHSIntegrand<
+        DirichletPenaltyTest,
+        Ansatz,
+        maths::IdentityTransform<Scalar,Dimension>,
+        Cell> rhsIntegrand(
+            dirichlet,
+            penalty,
+            *pAnsatzSpace,
+            spatialTransform,
+            spatialTransform.makeInverse(),
+            spatialTransform.makeDerivative());
+    static_assert(maths::SliceableExpression<decltype(lhsIntegrand)>);
+    static_assert(maths::SliceableExpression<decltype(rhsIntegrand)>);
+    CIE_TEST_REQUIRE(lhsIntegrand.size() == 16);
+    CIE_TEST_REQUIRE(rhsIntegrand.size() == 4);
+
     // Set buffers.
     std::vector<Scalar> output;
     output.resize(integrand.size());
@@ -139,6 +162,59 @@ CIE_TEST_CASE("DirichletPenaltyIntegrand", "[integrands]")
         for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
             CIE_TEST_CHECK(result[iComponent] == Approx(penalty * rReference[iComponent]).margin(1e-14));
         } // for iComponent in range(rReference.size())
+
+        std::vector<Scalar> lhsResult(lhsIntegrand.size());
+        std::vector<Scalar> lhsBuffer(lhsIntegrand.bufferSize());
+        CIE_TEST_CHECK_NOTHROW(lhsIntegrand.evaluate(rSamplePoint, lhsResult, lhsBuffer));
+        for (std::size_t iComponent=0ul; iComponent<lhsResult.size(); ++iComponent)
+            CIE_TEST_CHECK(lhsResult[iComponent] == Approx(result[iComponent]).margin(1e-14));
+
+        std::vector<Scalar> rhsResult(rhsIntegrand.size());
+        std::vector<Scalar> rhsBuffer(rhsIntegrand.bufferSize());
+        CIE_TEST_CHECK_NOTHROW(rhsIntegrand.evaluate(rSamplePoint, rhsResult, rhsBuffer));
+        for (std::size_t iComponent=0ul; iComponent<rhsResult.size(); ++iComponent)
+            CIE_TEST_CHECK(rhsResult[iComponent] == Approx(result[lhsResult.size() + iComponent]).margin(1e-14));
+
+        // Assemble the LHS from row/column tile pairs.
+        std::vector<Ansatz::Context> tiling;
+        tiling.emplace_back(std::array<Ansatz::Context::Value,2 * Dimension> {0, 1, 0, 2});
+        tiling.emplace_back(std::array<Ansatz::Context::Value,2 * Dimension> {1, 2, 0, 2});
+        const std::array<Ansatz::Context::Value,4> lhsOutputBounds {2, 2, 2, 2};
+        std::vector<Scalar> tiledLHS(lhsIntegrand.size(), Scalar(0));
+        for (const auto& rRowTile : tiling) {
+            for (const auto& rColumnTile : tiling) {
+                const decltype(lhsIntegrand)::InContext inContext{rRowTile,rColumnTile};
+                std::vector<Scalar> tileResult(lhsIntegrand.size(inContext));
+                std::vector<Scalar> tileBuffer(lhsIntegrand.bufferSize(inContext));
+                CIE_TEST_CHECK_NOTHROW(lhsIntegrand.evaluate(rSamplePoint, tileResult, tileBuffer, inContext));
+                const auto outContext = lhsIntegrand.outContext(inContext);
+                std::vector<Ansatz::Context::Value> outputIndices(tileResult.size());
+                CIE_TEST_REQUIRE(outContext.count() == tileResult.size());
+                CIE_TEST_REQUIRE_NOTHROW(outContext.expand(lhsOutputBounds, outputIndices));
+                for (std::size_t iComponent=0ul; iComponent<tileResult.size(); ++iComponent)
+                    tiledLHS[outputIndices[iComponent]] += tileResult[iComponent];
+            }
+        }
+        for (std::size_t iComponent=0ul; iComponent<tiledLHS.size(); ++iComponent)
+            CIE_TEST_CHECK(tiledLHS[iComponent] == Approx(lhsResult[iComponent]).margin(1e-14));
+
+        // Assemble the RHS from single-context tiles.
+        const std::array<Ansatz::Context::Value,3> rhsOutputBounds {2, 2, 1};
+        std::vector<Scalar> tiledRHS(rhsIntegrand.size(), Scalar(0));
+        for (const auto& rTile : tiling) {
+            const decltype(rhsIntegrand)::InContext inContext{rTile};
+            std::vector<Scalar> tileResult(rhsIntegrand.size(inContext));
+            std::vector<Scalar> tileBuffer(rhsIntegrand.bufferSize(inContext));
+            CIE_TEST_CHECK_NOTHROW(rhsIntegrand.evaluate(rSamplePoint, tileResult, tileBuffer, inContext));
+            const auto outContext = rhsIntegrand.outContext(inContext);
+            std::vector<Ansatz::Context::Value> outputIndices(tileResult.size());
+            CIE_TEST_REQUIRE(outContext.count() == tileResult.size());
+            CIE_TEST_REQUIRE_NOTHROW(outContext.expand(rhsOutputBounds, outputIndices));
+            for (std::size_t iComponent=0ul; iComponent<tileResult.size(); ++iComponent)
+                tiledRHS[outputIndices[iComponent]] += tileResult[iComponent];
+        }
+        for (std::size_t iComponent=0ul; iComponent<tiledRHS.size(); ++iComponent)
+            CIE_TEST_CHECK(tiledRHS[iComponent] == Approx(rhsResult[iComponent]).margin(1e-14));
     } // for rSamplePoint, rReferences in references
 }
 

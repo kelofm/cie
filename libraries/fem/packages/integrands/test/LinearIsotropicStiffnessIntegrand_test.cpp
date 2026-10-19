@@ -8,6 +8,7 @@
 #include "packages/maths/inc/AnsatzSpace.hpp"
 #include "packages/maths/inc/IdentityTransform.hpp"
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
+#include "packages/integrands/inc/ScaledMultiMaterialIntegrand.hpp"
 
 
 namespace cie::fem {
@@ -38,6 +39,27 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
         Transform().makeDerivative(),
         Transform().makeInverse().makeDerivative());
     CIE_TEST_REQUIRE(integrand.size() == 16);
+    static_assert(maths::SliceableExpression<decltype(integrand)>);
+
+    // Slicing metadata passes transparently through the material wrapper.
+    {
+        using Integrand = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,Transform>;
+        using ScaledIntegrand = ScaledMultiMaterialIntegrand<Integrand,Scalar,1>;
+        const std::array<std::pair<Scalar,Scalar>,1> materialMap {{{0.0,1.0}}};
+        ScaledIntegrand scaledIntegrand(Integrand(integrand), materialMap);
+        static_assert(maths::SliceableExpression<ScaledIntegrand>);
+
+        const Ansatz::Context tile(std::array<Ansatz::Context::Value,2 * Dimension> {0, 1, 0, 2});
+        const ScaledIntegrand::InContext inContext {tile,tile};
+        CIE_TEST_REQUIRE(scaledIntegrand.size(inContext) == integrand.size(inContext));
+        CIE_TEST_REQUIRE(scaledIntegrand.bufferSize(inContext) == integrand.bufferSize(inContext));
+        const auto wrappedOutputContext = scaledIntegrand.outContext(inContext);
+        const auto baseOutputContext = integrand.outContext(inContext);
+        CIE_TEST_REQUIRE(std::equal(
+            wrappedOutputContext.data().begin(),
+            wrappedOutputContext.data().end(),
+            baseOutputContext.data().begin()));
+    }
 
     // Set buffer.
     std::vector<Scalar> stiffness(integrand.size());
@@ -111,30 +133,31 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand", "[integrands]") {
             tiling.emplace_back(std::array<Ansatz::Context::Value,2*Dimension> {1, 2, 0, 2});
 
             std::vector<Scalar> result(integrand.size(), Scalar(0));
-            for (const auto& rTile : tiling) {
-                std::vector<Scalar> tileResults;
-                CIE_TEST_REQUIRE_NOTHROW(tileResults.resize(integrand.size(rTile)));
-                CIE_TEST_REQUIRE_NOTHROW(buffer.resize(integrand.bufferSize(rTile)));
-                CIE_TEST_CHECK_NOTHROW(integrand.evaluate(
-                    rSamplePoint,
-                    tileResults,
-                    buffer,
-                    rTile));
+            const std::array<Ansatz::Context::Value,2 * Dimension> outputBounds {2, 2, 2, 2};
+            for (const auto& rRowTile : tiling) {
+                for (const auto& rColumnTile : tiling) {
+                    const LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,Transform>::InContext inContext {
+                        rRowTile,
+                        rColumnTile};
+                    std::vector<Scalar> tileResults(integrand.size(inContext));
+                    CIE_TEST_REQUIRE_NOTHROW(buffer.resize(integrand.bufferSize(inContext)));
+                    CIE_TEST_CHECK_NOTHROW(integrand.evaluate(
+                        rSamplePoint,
+                        tileResults,
+                        buffer,
+                        inContext));
 
-                std::vector<std::size_t> tileOutputMap(tileResults.size());
-                std::vector<Ansatz::Context::Value> tileIndices(rTile.count());
-                CIE_TEST_REQUIRE_NOTHROW(rTile.expand({2, 2}, tileIndices));
+                    const auto tileOutputContext = integrand.outContext(inContext);
+                    std::vector<Ansatz::Context::Value> tileOutputMap(tileResults.size());
+                    CIE_TEST_REQUIRE(tileOutputContext.count() == tileResults.size());
+                    CIE_TEST_REQUIRE_NOTHROW(tileOutputContext.expand(outputBounds, tileOutputMap));
+                    for (std::size_t iComponent=0; iComponent<tileResults.size(); ++iComponent)
+                        result[tileOutputMap[iComponent]] += tileResults[iComponent];
+                } // for rColumnTile
+            } // for rRowTile
 
-                for (std::size_t iTileComponent=0ul; iTileComponent<tileIndices.size(); ++iTileComponent) {
-                    for (unsigned iDimension=0; iDimension<Dimension; ++iDimension) {
-                        tileOutputMap[iTileComponent * Dimension + iDimension] = tileIndices[iTileComponent] + iDimension;
-                    } // for iDimension
-                } // for iTileComponent
-
-                for (std::size_t iComponent=0; iComponent<tileResults.size(); ++iComponent) {
-                    result[tileOutputMap[iComponent]] += tileResults[iComponent];
-                }
-            } // for rTile : tiling
+            for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent)
+                CIE_TEST_CHECK(result[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-14));
         }
     } // for rSamplePoint, rReferences in references
 }
@@ -200,6 +223,7 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand - tracked allocator", "[integra
         ansatzDerivatives,
         Transform().makeDerivative(),
         Transform().makeInverse().makeDerivative());
+    static_assert(maths::SliceableExpression<decltype(integrand)>);
     CIE_TEST_REQUIRE(integrand.size() == 16);
 
     // Set buffer.
@@ -262,6 +286,28 @@ CIE_TEST_CASE("LinearIsotropicStiffnessIntegrand - tracked allocator", "[integra
         for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent) {
             CIE_TEST_CHECK(result[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-14));
         } // for iComponent in range(rReference.size())
+
+        std::vector<Ansatz::Context> tiling;
+        tiling.emplace_back(std::array<Ansatz::Context::Value,2 * Dimension> {0, 1, 0, 2});
+        tiling.emplace_back(std::array<Ansatz::Context::Value,2 * Dimension> {1, 2, 0, 2});
+        std::vector<Scalar> tiledResult(integrand.size(), Scalar(0));
+        const std::array<Ansatz::Context::Value,2 * Dimension> outputBounds {2, 2, 2, 2};
+        for (const auto& rRowTile : tiling) {
+            for (const auto& rColumnTile : tiling) {
+                const decltype(integrand)::InContext inContext {rRowTile,rColumnTile};
+                std::vector<Scalar> tileResult(integrand.size(inContext));
+                CIE_TEST_REQUIRE_NOTHROW(buffer.resize(integrand.bufferSize(inContext)));
+                CIE_TEST_CHECK_NOTHROW(integrand.evaluate(rSamplePoint, tileResult, buffer, inContext));
+                const auto outputContext = integrand.outContext(inContext);
+                std::vector<Ansatz::Context::Value> outputIndices(tileResult.size());
+                CIE_TEST_REQUIRE(outputContext.count() == tileResult.size());
+                CIE_TEST_REQUIRE_NOTHROW(outputContext.expand(outputBounds, outputIndices));
+                for (std::size_t iComponent=0u; iComponent<tileResult.size(); ++iComponent)
+                    tiledResult[outputIndices[iComponent]] += tileResult[iComponent];
+            }
+        }
+        for (unsigned iComponent=0u; iComponent<rReference.size(); ++iComponent)
+            CIE_TEST_CHECK(tiledResult[iComponent] == Approx(modulus * rReference[iComponent]).margin(1e-6));
     } // for rSamplePoint, rReferences in references
 }
 

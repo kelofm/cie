@@ -48,11 +48,9 @@ void ScaledMultiMaterialIntegrand<TI,MID,MC>::evaluate(
             context.data()[2 * iDimension] = 0;
             context.data()[2 * iDimension + 1] = bounds[iDimension];
         }
-        return this->evaluate(
-            in,
-            out,
-            buffer,
-            context);
+        InContext inContext;
+        inContext.fill(context);
+        return this->evaluate(in, out, buffer, inContext);
 }
 
 
@@ -62,6 +60,18 @@ void ScaledMultiMaterialIntegrand<TI,MID,MC>::evaluate(
     Span out,
     BufferSpan buffer,
     Ref<const Context> rContext) const {
+        InContext inContext;
+        inContext.fill(rContext);
+        return this->evaluate(in, out, buffer, inContext);
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+void ScaledMultiMaterialIntegrand<TI,MID,MC>::evaluate(
+    ConstSpan in,
+    Span out,
+    BufferSpan buffer,
+    Ref<const InContext> rInContext) const {
         // Assume the material ID is the last entry in the input.
         Value scale = 0;
         const MID materialID = static_cast<MID>(in.back());
@@ -82,7 +92,7 @@ void ScaledMultiMaterialIntegrand<TI,MID,MC>::evaluate(
             {in.data(), in.size() - 1},
             out,
             buffer,
-            rContext);
+            rInContext);
         for (Ref<Value> v : out) v *= scale;
 }
 
@@ -109,14 +119,32 @@ requires (!maths::StaticExpression<TI>) {
 template <maths::SliceableExpression TI, class MID, int MC>
 unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::size(Ref<const Context> rContext) const noexcept
 requires (!maths::StaticExpression<TI>) {
-    return _integrand.size(rContext);
+    InContext inContext;
+    inContext.fill(rContext);
+    return this->size(inContext);
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::size(Ref<const InContext> rInContext) const noexcept
+requires (!maths::StaticExpression<TI>) {
+    return _integrand.size(rInContext);
 }
 
 
 template <maths::SliceableExpression TI, class MID, int MC>
 unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::bufferSize(Ref<const Context> rContext) const noexcept
 requires (!maths::StaticExpression<TI>) {
-    return _integrand.bufferSize(rContext);
+    InContext inContext;
+    inContext.fill(rContext);
+    return this->bufferSize(inContext);
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::bufferSize(Ref<const InContext> rInContext) const noexcept
+requires (!maths::StaticExpression<TI>) {
+    return _integrand.bufferSize(rInContext);
 }
 
 
@@ -125,6 +153,14 @@ std::array<typename TI::Context::Value,ScaledMultiMaterialIntegrand<TI,MID,MC>::
 ScaledMultiMaterialIntegrand<TI,MID,MC>::contextBounds() const noexcept
 requires (!maths::StaticExpression<TI>) {
     return _integrand.contextBounds();
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+typename ScaledMultiMaterialIntegrand<TI,MID,MC>::OutContext
+ScaledMultiMaterialIntegrand<TI,MID,MC>::outContext(Ref<const InContext> rInContext) const noexcept
+requires (!maths::StaticExpression<TI>) {
+    return _integrand.outContext(rInContext);
 }
 
 
@@ -150,14 +186,32 @@ requires maths::StaticExpression<TI> {
 template <maths::SliceableExpression TI, class MID, int MC>
 constexpr unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::size(Ref<const Context> rContext) noexcept
 requires maths::StaticExpression<TI> {
-    return TI::size(rContext);
+    InContext inContext;
+    inContext.fill(rContext);
+    return size(inContext);
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+constexpr unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::size(Ref<const InContext> rInContext) noexcept
+requires maths::StaticExpression<TI> {
+    return TI::size(rInContext);
 }
 
 
 template <maths::SliceableExpression TI, class MID, int MC>
 constexpr unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::bufferSize(Ref<const Context> rContext) noexcept
 requires maths::StaticExpression<TI> {
-    return TI::bufferSize(rContext);
+    InContext inContext;
+    inContext.fill(rContext);
+    return bufferSize(inContext);
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+constexpr unsigned ScaledMultiMaterialIntegrand<TI,MID,MC>::bufferSize(Ref<const InContext> rInContext) noexcept
+requires maths::StaticExpression<TI> {
+    return TI::bufferSize(rInContext);
 }
 
 
@@ -166,6 +220,14 @@ constexpr std::array<typename TI::Context::Value,ScaledMultiMaterialIntegrand<TI
 ScaledMultiMaterialIntegrand<TI,MID,MC>::contextBounds() noexcept
 requires (maths::StaticExpression<TI>) {
     return TI::contextBounds();
+}
+
+
+template <maths::SliceableExpression TI, class MID, int MC>
+constexpr typename ScaledMultiMaterialIntegrand<TI,MID,MC>::OutContext
+ScaledMultiMaterialIntegrand<TI,MID,MC>::outContext(Ref<const InContext> rInContext) noexcept
+requires maths::StaticExpression<TI> {
+    return TI::outContext(rInContext);
 }
 
 

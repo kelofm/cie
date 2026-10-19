@@ -13,13 +13,21 @@
         "file-path" : "dirichlet.csv",
         "penalty-factor": 1,
         "integration": {
-            "batch-size": 1e4,
-            "device": "host",
             "template": {
                 "order": 11,
                 "type": "gauss-legendre-quadrature"
             },
             "type": "kd-tree-quadrature"
+        },
+        "lhs-integrand": {
+            "batch-size": 1e4,
+            "max-tile-sizes": null,
+            "verbosity" : 3
+        },
+        "rhs-integrand": {
+            "batch-size": 1e4,
+            "max-tile-sizes": null,
+            "verbosity" : 3
         }
     },
     "discretization" : {
@@ -35,6 +43,7 @@
         "integration": {
             "type": "kd-tree-quadrature",
             "batch-size": 1e6,
+            "max-tile-sizes": null,
             "device": "host",
             "verbosity" : 3,
             "template": {
@@ -59,7 +68,7 @@
             "type" : "augmented-lagrange",
             "penalty-factor" : 1e10,
             "max-iterations" : 1e1,
-            "absolute-residual" : 1e-6,
+            "absolute-residual" : 1e-4,
             "relative-residual" : 1e-6,
             "linear-solver" : {
                 "type": "cg",

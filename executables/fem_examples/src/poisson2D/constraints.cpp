@@ -18,6 +18,7 @@
 #include "packages/io/inc/Serializer.hpp"
 
 // --- STL Includes ---
+#include <algorithm>
 #include <regex>
 
 
@@ -355,7 +356,11 @@ integrateBoundaryConstraints(
     Ref<const cie::io::JSONObject> rConfiguration) {
         DynamicArray<BoundarySegment> boundarySegments;
 
-        using Integrand = DirichletPenaltyIntegrand<
+        using LHSIntegrand = DirichletPenaltyLHSIntegrand<
+            Ansatz,
+            maths::AffineEmbedding<Scalar,1u,Dimension>,
+            Cell>;
+        using RHSIntegrand = DirichletPenaltyRHSIntegrand<
             DirichletBoundary,
             Ansatz,
             maths::AffineEmbedding<Scalar,1u,Dimension>,
@@ -418,65 +423,122 @@ integrateBoundaryConstraints(
                 rConstraintGaps.end(),
                 Scalar(0));
 
-            // Define callbacks for the integrand processor.
+            // Define callbacks for the integrand processors.
             const auto quadratureRuleFactory = [&boundaryMesh] (Ref<const BoundaryCell>) {
                 return boundaryMesh.data().makeQuadratureRule();};
 
-            const auto integrandFactory = [&rMesh, &rConfiguration] (Ref<const BoundaryCell> rBoundaryCell) -> Integrand {
-                auto integrand = makeDirichletPenaltyIntegrand(
-                        DirichletBoundary(rBoundaryCell.state()),
-                        rConfiguration["penalty-factor"].as<double>(),
+            const Scalar penaltyFactor = rConfiguration["penalty-factor"].as<double>();
+            const auto lhsIntegrandFactory = [&rMesh, penaltyFactor] (Ref<const BoundaryCell> rBoundaryCell) -> LHSIntegrand {
+                return makeDirichletPenaltyLHSIntegrand(
+                        penaltyFactor,
                         rMesh.data().ansatz(rBoundaryCell.ansatzID()),
                         rBoundaryCell.makeSpatialTransform(),
                         rBoundaryCell.getEmbeddingCell());
-                return integrand;
-            }; // integrandFactory
+            };
+            const auto rhsIntegrandFactory = [&rMesh, penaltyFactor] (Ref<const BoundaryCell> rBoundaryCell) -> RHSIntegrand {
+                return makeDirichletPenaltyRHSIntegrand(
+                        DirichletBoundary(rBoundaryCell.state()),
+                        penaltyFactor,
+                        rMesh.data().ansatz(rBoundaryCell.ansatzID()),
+                        rBoundaryCell.makeSpatialTransform(),
+                        rBoundaryCell.getEmbeddingCell());
+            };
 
-            const unsigned integrandSize = integrandFactory(boundaryMesh.data().cells().front()).size();
-            const unsigned constraintGradientContributionSize = intPow(Ansatz::size(), 2);
-            const unsigned constraintGapContributionSize = Ansatz::size();
-            const auto integralSink = [&] (
+            const auto lhsIntegralSink = [&] (
                 std::span<const VertexID> cellIDs,
                 std::span<const Scalar> results) {
                     for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
-                        // Find the results' offset.
-                        Ptr<const Scalar> pResultsBegin = results.data() + iCell * integrandSize;
-                        const VertexID embeddingCellID = boundaryMesh.data().cells()[iCell].getEmbeddingCell().id();
+                        auto itBoundaryCell = std::find_if(
+                            boundaryMesh.data().cells().begin(),
+                            boundaryMesh.data().cells().end(),
+                            [cellID = cellIDs[iCell]] (Ref<const BoundaryCell> rBoundaryCell) {
+                                return rBoundaryCell.id() == cellID;
+                            });
 
-                        // Separate different integral components.
-                        const std::span<const Scalar> constraintGradientContribution(
-                            pResultsBegin,
-                            constraintGradientContributionSize);
-                        const std::span<const Scalar> constraintGapContribution(
-                            pResultsBegin + constraintGradientContributionSize,
-                            constraintGapContributionSize);
+                        CIE_CHECK(
+                            itBoundaryCell != boundaryMesh.data().cells().end(),
+                            std::format(
+                                "boundary cell ID {} not found",
+                                VertexID::Value(cellIDs[iCell])))
 
-                        // Reduce contributions to the constraint system.
+                        const VertexID embeddingCellID = itBoundaryCell->getEmbeddingCell().id();
+                        const std::span<const Scalar> contribution(
+                            results.data() + iCell * intPow(Ansatz::size(),2),
+                            intPow(Ansatz::size(),2));
                         rAssembler.addContribution<tags::SMP,int>(
-                            constraintGradientContribution,
+                            contribution,
                             embeddingCellID,
                             constraintGradient.rowExtents(),
                             constraintGradient.columnIndices(),
                             constraintGradient.entries());
+                    }
+            };
+            const auto rhsIntegralSink = [&] (
+                std::span<const VertexID> cellIDs,
+                std::span<const Scalar> results) {
+                    for (std::size_t iCell=0ul; iCell<cellIDs.size(); ++iCell) {
+                        auto itBoundaryCell = std::find_if(
+                            boundaryMesh.data().cells().begin(),
+                            boundaryMesh.data().cells().end(),
+                            [cellID = cellIDs[iCell]] (Ref<const BoundaryCell> rBoundaryCell) {
+                                return rBoundaryCell.id() == cellID;
+                            });
+
+                        CIE_CHECK(
+                            itBoundaryCell != boundaryMesh.data().cells().end(),
+                            std::format(
+                                "boundary cell ID {} not found",
+                                VertexID::Value(cellIDs[iCell])))
+
+                        const VertexID embeddingCellID = itBoundaryCell->getEmbeddingCell().id();
+                        const std::span<const Scalar> contribution(
+                            results.data() + iCell * Ansatz::size(),
+                            Ansatz::size());
                         rAssembler.addContribution<tags::SMP>(
-                            constraintGapContribution,
+                            contribution,
                             embeddingCellID,
                             std::span<Scalar>(rConstraintGaps));
-                    } // for iCell in range(cellIDs.size())
-            }; // integralSink
+                    }
+            };
 
-            // Perform the integration.
-            const IntegrandProcessor<1,Integrand>::Properties executionProperties{
-                .integrandBatchSize = rConfiguration["integration"]["batch-size"].as<std::size_t>(),
-                .verbosity = rConfiguration["integration"]["verbosity"].as<int>()};
-            auto pProcessor = std::make_unique<IntegrandProcessor<1,Integrand>>();
+            // Integrate the matrix and vector contributions independently so each can
+            // expose a single input-to-output hyperslab mapping.
+            auto lhsExecutionProperties = IntegrandProcessor<1,LHSIntegrand>::Properties {
+                .integrandBatchSize = rConfiguration["lhs-integrand"]["batch-size"].as<std::size_t>(),
+                .verbosity = rConfiguration["lhs-integrand"]["verbosity"].as<int>()};
+            auto rhsExecutionProperties = IntegrandProcessor<1,RHSIntegrand>::Properties {
+                .integrandBatchSize = rConfiguration["rhs-integrand"]["batch-size"].as<std::size_t>(),
+                .verbosity = rConfiguration["rhs-integrand"]["verbosity"].as<int>()};
+
+            const auto applyMaxTileSizes = [] (Ref<const cie::io::JSONObject> rProcessorConfiguration, auto& rProperties) {
+                const auto maxTileSizes = rProcessorConfiguration["max-tile-sizes"];
+                if (!maxTileSizes.is<std::nullptr_t>()) {
+                    for (std::size_t iDimension=0ul; iDimension<maxTileSizes.size(); ++iDimension) {
+                        if (maxTileSizes[iDimension].is<std::nullptr_t>()) continue;
+                        CIE_CHECK(
+                            iDimension < rProperties.maxTileSizes.size(),
+                            "Too many max-tile-sizes entries for the integrand context")
+                        rProperties.maxTileSizes[iDimension] = maxTileSizes[iDimension].as<std::size_t>();
+                    }
+                }
+            };
+            applyMaxTileSizes(rConfiguration["lhs-integrand"], lhsExecutionProperties);
+            applyMaxTileSizes(rConfiguration["rhs-integrand"], rhsExecutionProperties);
+            auto pLHSProcessor = std::make_unique<IntegrandProcessor<1,LHSIntegrand>>();
+            auto pRHSProcessor = std::make_unique<IntegrandProcessor<1,RHSIntegrand>>();
             const auto& rBoundaryCells = boundaryMesh.data().cells();
-            pProcessor->process(
+            pLHSProcessor->process(
                 std::span<const BoundaryCell>(rBoundaryCells),
                 quadratureRuleFactory,
-                integrandFactory,
-                integralSink,
-                executionProperties);
+                lhsIntegrandFactory,
+                lhsIntegralSink,
+                lhsExecutionProperties);
+            pRHSProcessor->process(
+                std::span<const BoundaryCell>(rBoundaryCells),
+                quadratureRuleFactory,
+                rhsIntegrandFactory,
+                rhsIntegralSink,
+                rhsExecutionProperties);
 
 //            // Shrink the constraint system.
 //            {

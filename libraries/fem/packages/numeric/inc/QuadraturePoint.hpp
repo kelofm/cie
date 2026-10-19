@@ -90,6 +90,41 @@ public:
                 });
     }
 
+    template <maths::SliceableExpression TExpression>
+    requires std::is_same_v<typename TExpression::Value,TValue>
+    void evaluate(
+        Ref<const TExpression> rExpression,
+        std::span<TValue> out,
+        std::span<TValue> buffer,
+        Ref<const typename TExpression::InContext> rInContext) const noexcept {
+            if constexpr (std::is_same_v<TData,void>) {
+                rExpression.evaluate(
+                    Kernel<Dimension,TValue>::decay(this->position()),
+                    out,
+                    buffer,
+                    rInContext);
+            } else if constexpr (std::is_same_v<TData,TValue>) {
+                std::array<TValue,Dimension+1> in;
+                std::copy_n(
+                    this->position().data(),
+                    Dimension,
+                    in.data());
+                in.back() = this->data();
+                rExpression.evaluate(
+                    in,
+                    out,
+                    buffer,
+                    rInContext);
+            } else static_assert(std::is_same_v<TData,void>, "not implemented yet");
+            std::transform(
+                out.begin(),
+                out.end(),
+                out.begin(),
+                [weight = this->weight()] (TValue value) -> TValue {
+                    return value * weight;
+                });
+    }
+
     constexpr std::span<const Value,Dim> position() const noexcept {
         return std::span<const Value,Dim>(std::get<0>(_data).data(), Dim);
     }

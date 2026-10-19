@@ -27,6 +27,10 @@ public:
 
     using Context = typename TAnsatzDerivatives::Context;
 
+    using InContext = std::array<Context,2>;
+
+    using OutContext = HyperSlab<2 * ParametricDimension,typename Context::Value>;
+
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = LinearIsotropicStiffnessIntegrand<
         typename TAnsatzDerivatives::template Rebind<TOtherAllocator,TOther>,
@@ -61,6 +65,12 @@ public:
         BufferSpan buffer,
         Ref<const Context> rContext) const;
 
+    void evaluate(
+        ConstSpan in,
+        Span out,
+        BufferSpan buffer,
+        Ref<const InContext> rInContext) const;
+
     /// @}
     /// @name Runtime Expression Interface
     /// @{
@@ -75,12 +85,21 @@ public:
     unsigned size(Ref<const Context> rContext) const noexcept
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
 
+    unsigned size(Ref<const InContext> rInContext) const noexcept
+    requires (!maths::StaticExpression<TAnsatzDerivatives>);
+
     /// @see @ref SliceableExpression
     unsigned bufferSize(Ref<const Context> rContext) const noexcept
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
 
+    unsigned bufferSize(Ref<const InContext> rInContext) const noexcept
+    requires (!maths::StaticExpression<TAnsatzDerivatives>);
+
     /// @see @ref SliceableExpression
     std::array<typename Context::Value,ParametricDimension> contextBounds() const noexcept
+    requires (!maths::StaticExpression<TAnsatzDerivatives>);
+
+    OutContext outContext(Ref<const InContext> rInContext) const noexcept
     requires (!maths::StaticExpression<TAnsatzDerivatives>);
 
     /// @}
@@ -97,12 +116,21 @@ public:
     static constexpr unsigned size(Ref<const Context> rContext) noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
+    static constexpr unsigned size(Ref<const InContext> rInContext) noexcept
+    requires (maths::StaticExpression<TAnsatzDerivatives>);
+
     /// @see @ref SliceableExpression
     static constexpr unsigned bufferSize(Ref<const Context> rContext) noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
+    static constexpr unsigned bufferSize(Ref<const InContext> rInContext) noexcept
+    requires (maths::StaticExpression<TAnsatzDerivatives>);
+
     /// @see @ref SliceableExpression
     static constexpr std::array<typename Context::Value,ParametricDimension> contextBounds() noexcept
+    requires (maths::StaticExpression<TAnsatzDerivatives>);
+
+    static constexpr OutContext outContext(Ref<const InContext> rInContext) noexcept
     requires (maths::StaticExpression<TAnsatzDerivatives>);
 
     /// @}
