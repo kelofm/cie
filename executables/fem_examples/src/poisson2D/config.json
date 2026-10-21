@@ -43,7 +43,7 @@
         "integration": {
             "type": "kd-tree-quadrature",
             "batch-size": 1e6,
-            "max-tile-sizes": null,
+            "max-tile-sizes": [2, 3],
             "device": "host",
             "verbosity" : 3,
             "template": {
@@ -68,7 +68,7 @@
             "type" : "augmented-lagrange",
             "penalty-factor" : 1e10,
             "max-iterations" : 1e1,
-            "absolute-residual" : 1e-4,
+            "absolute-residual" : 1e-6,
             "relative-residual" : 1e-6,
             "linear-solver" : {
                 "type": "cg",

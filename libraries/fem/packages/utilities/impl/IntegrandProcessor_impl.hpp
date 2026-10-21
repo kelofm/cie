@@ -52,7 +52,7 @@ struct IntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
 
     std::vector<Cell> cells;
     std::vector<Tile> tiles;
-    std::vector<std::size_t> outputMap;
+    std::vector<typename OutContext::Value> outputMap;
     std::vector<QPoint> quadraturePoints;
     std::unique_ptr<typename IntegrandProcessor<Dim,TIntegrand,TQD>::ContextTiling> pTiling;
 
@@ -242,15 +242,14 @@ void IntegrandProcessor<Dim,TIntegrand,TQD>::process(
                         CIE_CHECK(
                             outContext.count() == tileOutputCount,
                             "A sliced integrand result must match its output hyperslab")
-                        std::vector<typename OutContext::Value> localMap(tileOutputCount);
+                        const std::size_t iOutputMapBegin = rOutputMap.size();
+                        rOutputMap.resize(iOutputMapBegin + tileOutputCount);
+                        const auto localMap = std::span<typename OutContext::Value>(rOutputMap)
+                            .subspan(iOutputMapBegin, tileOutputCount);
                         CIE_CHECK(
                             outContext.expand(outputBounds, localMap),
                             "A sliced output hyperslab lies outside the complete output")
 
-                        const std::size_t iOutputMapBegin = rOutputMap.size();
-                        rOutputMap.reserve(iOutputMapBegin + localMap.size());
-                        for (const auto iOutput : localMap)
-                            rOutputMap.push_back(static_cast<std::size_t>(iOutput));
                         rTiles.push_back(typename Impl::Tile {
                             .inContext = currentInContext,
                             .iOutputMapBegin = iOutputMapBegin,
@@ -492,7 +491,7 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     struct Kernel {
         Ptr<const Cell> pCells;
         Ptr<const Tile> pTiles;
-        Ptr<const std::size_t> pOutputMap;
+        Ptr<const typename OutContext::Value> pOutputMap;
         Ptr<const QPoint> pQuadraturePoints;
         Ptr<typename TIntegrand::Value> pOutput;
         Ptr<typename TIntegrand::Value> pBuffer;
@@ -611,7 +610,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
 
         auto pDeviceCells = makeDeviceMemory<typename Impl::Cell>(rCells.size(), rQueue);
         auto pDeviceTiles = makeDeviceMemory<typename Impl::Tile>(rTiles.size(), rQueue);
-        auto pDeviceOutputMap = makeDeviceMemory<std::size_t>(rOutputMap.size(), rQueue);
+        auto pDeviceOutputMap = makeDeviceMemory<typename TIntegrand::OutContext::Value>(rOutputMap.size(), rQueue);
         auto pDeviceQuadraturePoints = makeDeviceMemory<typename Impl::QPoint>(rQuadraturePoints.size(), rQueue);
         auto pDeviceOutput = makeDeviceMemory<typename TIntegrand::Value>(output.size(), rQueue);
         auto pDeviceBuffer = makeDeviceMemory<typename TIntegrand::Value>(workItemCount * bufferStride, rQueue);
