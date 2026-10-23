@@ -15,6 +15,13 @@ if (NOT TARGET geo)
     find_package(geo CONFIG REQUIRED)
 endif()
 
+# Platform specific path definitions.
+if(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CIE_INSTALL_RPATH "$ORIGIN")
+endif()
+
 # Build executables.
 file(GLOB directories "${CMAKE_CURRENT_SOURCE_DIR}/src/*")
 set(targets "")
@@ -62,19 +69,10 @@ foreach(directory ${directories})
     target_link_libraries(${driver_name} PRIVATE cie::geo)
 
     # Installation.
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        set_target_properties(
-            ${driver_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-            INSTALL_RPATH "@loader_path/../lib")
-    else()
-        set_target_properties(
-            ${driver_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-            INSTALL_RPATH "$ORIGIN/../lib")
-    endif()
-
-    install(TARGETS ${driver_name} RUNTIME DESTINATION "bin")
+    set_target_properties(
+        ${driver_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../lib")
 
     # Package.
     include(InstallRequiredSystemLibraries)

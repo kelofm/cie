@@ -16,10 +16,25 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Collect dependencies
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/cie/lib/cmake")
 find_package(benchmark REQUIRED)
-find_package(fem CONFIG REQUIRED)
-find_package(geo CONFIG REQUIRED)
-find_package(cieutils CONFIG REQUIRED)
-find_package(linalg CONFIG REQUIRED)
+if (NOT TARGET fem)
+    find_package(fem CONFIG REQUIRED)
+endif()
+if (NOT TARGET geo)
+    find_package(geo CONFIG REQUIRED)
+endif()
+if (NOT TARGET cieutils)
+    find_package(cieutils CONFIG REQUIRED)
+endif()
+if (NOT TARGET linalg)
+    find_package(linalg CONFIG REQUIRED)
+endif()
+
+# Platform specific path definitions.
+if(APPLE)
+    set(CIE_INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+    set(CIE_INSTALL_RPATH "$ORIGIN")
+endif()
 
 # Build main executable
 file(GLOB_RECURSE sources "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -55,8 +70,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
                       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-                      INSTALL_RPATH "$ORIGIN/../lib;$ORIGIN/../bin")
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "cie/bin")
+                      INSTALL_RPATH "${CIE_INSTALL_RPATH}/../../lib;${CIE_INSTALL_RPATH}/../../bin")
 
 # Install scripts
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"

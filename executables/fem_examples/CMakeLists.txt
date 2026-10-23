@@ -69,18 +69,10 @@ foreach(directory ${directories})
     target_link_libraries(${driver_name} PRIVATE cie::fem)
 
     # Installation.
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        set_target_properties(
-            ${driver_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-    else()
-        set_target_properties(
-            ${driver_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-            INSTALL_RPATH "$ORIGIN/../lib")
-    endif()
-
-    install(TARGETS ${driver_name} RUNTIME DESTINATION "bin")
+    set_target_properties(
+        ${driver_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../lib")
 
     # Package.
     include(InstallRequiredSystemLibraries)
