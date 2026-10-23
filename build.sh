@@ -60,6 +60,9 @@ cxx="g++"
 projects=()                             # <== list of projects to build
 cmakeArguments=""                       # <== semicolon-separated list of options to pass to CMake
 cmakeCxxFlags=""                        # <== value to set for CMAKE_CXX_FLAGS
+cmakeLinkerFlags=""                     # <== value to set for CMAKE_{EXE,SHARED,MODULE}_LINKER_FLAGS
+openmpRoot=""                           # <== root of the OpenMP runtime (acpp only)
+cmakeToolchainFile=""                   # <== toolchain file to use (macOS + system compilers only)
 enableSYCL="OFF"                        # <== set to true if the requested compiler is acpp
 jobCount=""                             # <== number of processes to launch the compilation with
 
@@ -69,7 +72,9 @@ case "$(uname -s)" in
         ;;
     Darwin*)
         jobCount=$(sysctl -n machdep.cpu.thread_count)
-        cmakeArguments="-DCMAKE_TOOLCHAIN_FILE=${scriptDir}/cmake/homebrew_llvm_toolchain.cmake"
+        # The system compiler on macOS cannot locate the C++ standard library,
+        # so the Homebrew LLVM toolchain file is required for it.
+        cmakeToolchainFile="-DCMAKE_TOOLCHAIN_FILE:STRING=${scriptDir}/cmake/homebrew_llvm_toolchain.cmake"
         ;;
     \?)
         echo "Error: unsupported OS $(uname -s)"
@@ -122,6 +127,23 @@ while getopts ":a: h p t: b: c: i: j: o:" arg; do
                 export cc="$(which acpp)"
                 export cxx="$(which acpp)"
                 enableSYCL="ON"
+                # The toolchain file would replace the acpp driver with clang++.
+                cmakeToolchainFile=""
+                # The acpp driver links against the OpenMP runtime of the LLVM it
+                # was built with. That runtime is not necessarily on the default
+                # linker search path, so locate it and tell both the linker and
+                # CMake where to find it.
+                openmpRoot="$("$scriptDir/cmake/find_openmp_runtime.sh" "$cxx")"
+                if [ $? -ne 0 ]; then
+                    echo "Warning: could not locate the OpenMP runtime for '$cxx'." >&2
+                    echo "         Linking will likely fail with \"library 'omp' not found\"." >&2
+                    echo "         Install an OpenMP runtime (e.g. 'brew install libomp'," >&2
+                    echo "         'apt install libomp-<version>-dev') or point the compiler" >&2
+                    echo "         at an existing installation." >&2
+                fi
+                if [ "$openmpRoot" != "" ]; then
+                    cmakeLinkerFlags="${cmakeLinkerFlags}-L${openmpRoot}/lib -Wl,-rpath,${openmpRoot}/lib "
+                fi
             else
                 echo "Error: unsupported compiler family: $compilerFamily"
                 exit 1
@@ -136,6 +158,8 @@ while getopts ":a: h p t: b: c: i: j: o:" arg; do
         o)  # Append CMake arguments.
             if [[ "$OPTARG" == -DCMAKE_CXX_FLAGS* ]]; then
                 cmakeCxxFlags="${cmakeCxxFlags}${OPTARG#*-DCMAKE_CXX_FLAGS=} "
+            elif [[ "$OPTARG" =~ ^-DCMAKE_(EXE|SHARED|MODULE)_LINKER_FLAGS=(.*)$ ]]; then
+                cmakeLinkerFlags="${cmakeLinkerFlags}${BASH_REMATCH[2]} "
             else
                 if [ "$cmakeArguments" = "" ]; then
                     cmakeArguments="$OPTARG"
@@ -171,6 +195,21 @@ if command -v ccache &>/dev/null; then
     cCacheFlag="-DCMAKE_CXX_COMPILER_LAUNCHER:STRING=ccache"
 fi
 
+# Collect compiler family specific CMake arguments
+extraCMakeArguments=()
+if [ "$cmakeLinkerFlags" != "" ]; then
+    extraCMakeArguments+=(
+        "-DCMAKE_EXE_LINKER_FLAGS:STRING=${cmakeLinkerFlags}"
+        "-DCMAKE_SHARED_LINKER_FLAGS:STRING=${cmakeLinkerFlags}"
+        "-DCMAKE_MODULE_LINKER_FLAGS:STRING=${cmakeLinkerFlags}")
+fi
+if [ "$openmpRoot" != "" ]; then
+    extraCMakeArguments+=("-DOpenMP_ROOT:STRING=${openmpRoot}")
+fi
+if [ "$cmakeToolchainFile" != "" ]; then
+    extraCMakeArguments+=("$cmakeToolchainFile")
+fi
+
 # Generate with CMake
 if ! cmake                                                  \
     "-H$scriptDir"                                          \
@@ -184,6 +223,7 @@ if ! cmake                                                  \
     "-DCIE_ENABLE_SYCL=${enableSYCL}"                       \
     "-DCIE_ENABLE_HDF5=ON"                                  \
     "$cCacheFlag"                                           \
+    "${extraCMakeArguments[@]}"                             \
     "${cmakeArguments[@]}"                                  \
     "${projects[@]}"                                        \
     ; then

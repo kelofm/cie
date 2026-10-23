@@ -485,6 +485,7 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
     using Cell = typename Base::Impl::Cell;
     using Tile = typename Base::Impl::Tile;
     using QPoint = typename Base::Impl::QPoint;
+    using OutContext = typename TIntegrand::OutContext;
 
     std::shared_ptr<sycl::queue> pQueue;
 
@@ -580,7 +581,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
         for (const auto& rCell : rCells) {
             for (std::size_t iTile=0ul; iTile<rCell.tileCount; ++iTile) {
                 const auto& rTile = rTiles[rCell.iTileBegin + iTile];
-                maxBufferSize = std::max(maxBufferSize, rCell.integrand.bufferSize(rTile.inContext));
+                maxBufferSize = std::max(maxBufferSize, static_cast<std::size_t>(rCell.integrand.bufferSize(rTile.inContext)));
                 maxResultSize = std::max(maxResultSize, rTile.outputCount);
             }
         }
