@@ -77,7 +77,8 @@ target_include_directories(
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      INSTALL_RPATH "${CIE_INSTALL_RPATH}")
+                      INSTALL_RPATH "${CIE_INSTALL_RPATH}"
+                      BUILD_WITH_INSTALL_RPATH ON)
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)

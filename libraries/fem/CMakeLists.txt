@@ -85,7 +85,8 @@ target_include_directories(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                      INSTALL_RPATH "${CIE_INSTALL_RPATH}")
+                      INSTALL_RPATH "${CIE_INSTALL_RPATH}"
+                      BUILD_WITH_INSTALL_RPATH ON)
 
 # Build test executable
 if (${PROJECT_NAME_UPPER}_BUILD_TESTS)
@@ -114,7 +115,8 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
     set_target_properties(${PROJECT_NAME}_python_bindings PROPERTIES
                           LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                           ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-                          INSTALL_RPATH "${CIE_INSTALL_RPATH}/../")
+                          INSTALL_RPATH "${CIE_INSTALL_RPATH}/../"
+                          BUILD_WITH_INSTALL_RPATH ON)
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is

@@ -72,7 +72,8 @@ foreach(directory ${directories})
     set_target_properties(
         ${driver_name} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../lib")
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../lib"
+        BUILD_WITH_INSTALL_RPATH ON)
 
     # Package.
     include(InstallRequiredSystemLibraries)

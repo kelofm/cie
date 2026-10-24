@@ -203,7 +203,8 @@ set_target_properties(
     PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        INSTALL_RPATH "${CIE_INSTALL_RPATH}")
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}"
+        BUILD_WITH_INSTALL_RPATH ON)
 
 # MPI support.
 if (CIE_ENABLE_MPI)
@@ -281,7 +282,8 @@ if (${PROJECT_NAME_UPPER}_BUILD_PYTHON_MODULE)
         PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../")
+        INSTALL_RPATH "${CIE_INSTALL_RPATH}/../"
+        BUILD_WITH_INSTALL_RPATH ON)
 
     # Each subdirectory in modules is assumed to be a python module
     # and is installed as-is
