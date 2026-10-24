@@ -24,12 +24,18 @@ public:
         return _total;
     }
 
+    /// @brief Number of allocations since the last reset.
+    [[nodiscard]] std::size_t count() const noexcept {
+        return _count;
+    }
+
 private:
     template <template <class ...> class TAllocator, class T, class ...Ts>
     friend class TrackedAllocator;
 
     void reportAllocation(std::size_t size) noexcept {
         _current += size;
+        ++_count;
         std::scoped_lock<std::mutex> lock(_mutex);
         _peak = std::max<std::size_t>(
             _peak,
@@ -48,6 +54,8 @@ private:
     std::atomic<std::size_t> _peak = 0ul;
 
     std::atomic<std::size_t> _total = 0ul;
+
+    std::atomic<std::size_t> _count = 0ul;
 }; // class AllocatorStats
 
 
