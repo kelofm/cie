@@ -232,10 +232,15 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    /// @tparam TStream Any stream type satisfying
+    ///         @ref cie::io::BinaryDeserializerStreamLike "BinaryDeserializerStreamLike"
+    ///         (std::istream and cie::io::ByteDeserializer satisfy it, the latter
+    ///         being usable in SYCL kernels).
+    template <class TStream, class TOtherAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<Polynomial> rInstance,
-        TAllocator allocator,
+        TOtherAllocator allocator,
         tags::Binary tag = {});
 
 private:

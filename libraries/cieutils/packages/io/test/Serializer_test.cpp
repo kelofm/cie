@@ -1,6 +1,11 @@
 // --- Utility Includes ---
 #include "packages/testing/inc/essentials.hpp"
+#include "packages/io/inc/ByteDeserializer.hpp"
 #include "packages/io/inc/Serializer.hpp"
+
+// --- STL Includes ---
+#include <array>
+#include <istream>
 
 
 namespace cie::io {
@@ -61,8 +66,12 @@ struct SerializableTestObject : NonSerializableTestObject {
             serializer.serialize(rStream, _double);
     }
 
+    /// @brief Deserialization from any stream type satisfying
+    ///        @ref BinaryDeserializerStreamLike, including @ref ByteDeserializer
+    ///        usable in SYCL kernels.
+    template <class TStream>
     static void deserialize(
-        Ref<Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<NonSerializableTestObject> rOutput,
         std::allocator<std::byte> allocator,
         tags::Binary = tags::Binary()) {
@@ -154,6 +163,81 @@ CIE_TEST_CASE("Serializer", "[io]")
     CIE_TEST_SERIALIZER_FOR_TYPE(Size)
     CIE_TEST_SERIALIZER_FOR_TYPE(TriviallySerializableTestObject)
     CIE_TEST_SERIALIZER_FOR_TYPE(SerializableTestObject)
+}
+
+
+CIE_TEST_CASE("ByteDeserializer", "[io]")
+{
+    CIE_TEST_CASE_INIT("ByteDeserializer")
+
+    static_assert(BinaryDeserializerStreamLike<std::istream>);
+    static_assert(BinaryDeserializerStreamLike<std::stringstream>);
+    static_assert(BinaryDeserializerStreamLike<ByteDeserializer>);
+
+    std::allocator<std::byte> allocator;
+
+    // Round-trip trivially serializable objects through a byte range.
+    {
+        std::stringstream stream;
+        const TriviallySerializableTestObject input(false, 17, 2.71);
+        Serializer<tags::Binary>::serialize(stream, input);
+        const std::string bytes = stream.str();
+
+        ByteDeserializer deserializer(
+            reinterpret_cast<Ptr<const std::byte>>(bytes.data()),
+            bytes.size());
+        TriviallySerializableTestObject output;
+        Serializer<tags::Binary>::deserialize(
+            deserializer,
+            output,
+            allocator);
+        CIE_TEST_CHECK(output == input);
+        CIE_TEST_CHECK(deserializer.remaining() == 0ul);
+        CIE_TEST_CHECK(deserializer.consumed() == bytes.size());
+    }
+
+    // Round-trip non-trivially serializable objects through a byte range.
+    {
+        std::stringstream stream;
+        const SerializableTestObject input(true, -7, 3.14);
+        Serializer<tags::Binary>::serialize(stream, input);
+        const std::string bytes = stream.str();
+
+        ByteDeserializer deserializer(
+            reinterpret_cast<Ptr<const std::byte>>(bytes.data()),
+            bytes.size());
+        SerializableTestObject output;
+        Serializer<tags::Binary>::deserialize(
+            deserializer,
+            output,
+            allocator);
+        CIE_TEST_CHECK(output == input);
+        CIE_TEST_CHECK(deserializer.remaining() == 0ul);
+    }
+
+    // Deserialize an array of items from a byte range.
+    {
+        std::stringstream stream;
+        std::array<int,8> input;
+        for (std::size_t iItem=0ul; iItem<input.size(); ++iItem) input[iItem] = 3 * iItem;
+        Serializer<tags::Binary>::serialize(
+            stream,
+            input.data(),
+            input.size());
+        const std::string bytes = stream.str();
+
+        ByteDeserializer deserializer(
+            reinterpret_cast<Ptr<const std::byte>>(bytes.data()),
+            bytes.size());
+        std::array<int,8> output;
+        Serializer<tags::Binary>::deserialize(
+            deserializer,
+            output.data(),
+            output.size(),
+            allocator);
+        for (std::size_t iItem=0ul; iItem<output.size(); ++iItem)
+            CIE_TEST_CHECK(output[iItem] == input[iItem]);
+    }
 }
 
 

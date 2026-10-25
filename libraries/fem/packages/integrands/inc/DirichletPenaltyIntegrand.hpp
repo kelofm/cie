@@ -118,9 +118,9 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
-    template <class TAllocator>
+    template <class TStream, class TAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<DirichletPenaltyIntegrand> rInstance,
         Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
@@ -197,9 +197,9 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
-    template <class TAllocator>
+    template <class TStream, class TAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<DirichletPenaltyLHSIntegrand> rInstance,
         Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
@@ -270,9 +270,9 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
-    template <class TAllocator>
+    template <class TStream, class TAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<DirichletPenaltyRHSIntegrand> rInstance,
         Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});

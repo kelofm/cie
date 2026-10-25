@@ -134,9 +134,18 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    /// @tparam TStream Any stream type satisfying
+    ///         @ref cie::io::BinaryDeserializerStreamLike "BinaryDeserializerStreamLike"
+    ///         (std::istream and cie::io::ByteDeserializer satisfy it, the latter
+    ///         being usable in SYCL kernels).
+    /// @tparam TAllocator Allocator used for the dynamically sized components of
+    ///         the deserialized integrand (e.g. cie::LinearAllocator for
+    ///         device-side deserialization).
+    template <class TStream, class TAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<ScaledMultiMaterialIntegrand> rInstance,
+        Ref<const TAllocator> rAllocator,
         tags::Binary tag = {});
 
     /// @}

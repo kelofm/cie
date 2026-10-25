@@ -125,9 +125,9 @@ void ProjectiveTransform<TValue,Dimension>::evaluate(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-template <class TA>
+template <class TStream, class TA>
 void ProjectiveTransform<TValue,Dimension>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<ProjectiveTransform> rInstance,
     Ref<const TA> rAllocator,
     tags::Binary) {
@@ -140,9 +140,9 @@ void ProjectiveTransform<TValue,Dimension>::deserialize(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-template <class TA>
+template <class TStream, class TA>
 void ProjectiveTransformDerivative<TValue,Dimension>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<ProjectiveTransformDerivative> rInstance,
     Ref<const TA> rAllocator,
     tags::Binary) {

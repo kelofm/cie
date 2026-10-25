@@ -84,9 +84,9 @@ void OrthogonalScaleTransform<TValue,Dimension>::evaluate(
 
 
 template <concepts::Numeric T, unsigned D>
-template <class TA>
+template <class TStream, class TA>
 void OrthogonalScaleTransformDerivative<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<OrthogonalScaleTransformDerivative> rInstance,
     Ref<const TA> rAllocator,
     tags::Binary) {
@@ -99,9 +99,9 @@ void OrthogonalScaleTransformDerivative<T,D>::deserialize(
 
 
 template <concepts::Numeric T, unsigned D>
-template <class TA>
+template <class TStream, class TA>
 void OrthogonalScaleTransform<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<OrthogonalScaleTransform> rInstance,
     Ref<const TA> rAllocator,
     tags::Binary) {

@@ -194,9 +194,9 @@ constexpr unsigned TranslateScaleTransform<TValue,Dimension>::bufferSize() noexc
 
 
 template <concepts::Numeric T, unsigned D>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void ScaleTranslateTransformDerivative<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<ScaleTranslateTransformDerivative> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {
@@ -209,9 +209,9 @@ void ScaleTranslateTransformDerivative<T,D>::deserialize(
 
 
 template <concepts::Numeric T, unsigned D>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void ScaleTranslateTransform<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<ScaleTranslateTransform> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {
@@ -229,9 +229,9 @@ void ScaleTranslateTransform<T,D>::deserialize(
 
 
 template <concepts::Numeric T, unsigned D>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void TranslateScaleTransform<T,D>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<TranslateScaleTransform> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {

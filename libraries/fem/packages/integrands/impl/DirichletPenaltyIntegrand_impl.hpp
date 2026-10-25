@@ -263,9 +263,9 @@ template <
     maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void DirichletPenaltyIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<DirichletPenaltyIntegrand> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {
@@ -502,9 +502,9 @@ template <
     maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void DirichletPenaltyLHSIntegrand<TAnsatz,TEmbedding,TCell>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<DirichletPenaltyLHSIntegrand> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {
@@ -739,9 +739,9 @@ template <
     maths::SliceableExpression TAnsatz,
     maths::Expression TEmbedding,
     CellLike TCell>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void DirichletPenaltyRHSIntegrand<TDirichlet,TAnsatz,TEmbedding,TCell>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<DirichletPenaltyRHSIntegrand> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {

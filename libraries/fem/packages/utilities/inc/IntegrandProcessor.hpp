@@ -11,6 +11,7 @@
 #include "packages/concurrency/inc/ThreadPoolBase.hpp"
 #include "packages/concurrency/inc/sycl.hpp"
 #include "packages/io/inc/Traits.hpp"
+#include "packages/stl_extension/inc/TrackedAllocator.hpp"
 
 // --- STL Includes ---
 #include <array>
@@ -109,12 +110,21 @@ private:
 #ifdef CIE_ENABLE_SYCL
 template <
     unsigned Dim,
-    maths::StaticExpression TIntegrand,
+    maths::SliceableExpression TIntegrand,
     class TQuadraturePointData = void>
-requires maths::SliceableExpression<TIntegrand>
 class SYCLIntegrandProcessor : public IntegrandProcessor<Dim,TIntegrand,TQuadraturePointData> {
 public:
-    SYCLIntegrandProcessor(std::shared_ptr<sycl::queue> pQueue);
+    /// @brief Construct a processor evaluating integrands in SYCL kernels.
+    /// @param pQueue Queue to submit the kernels to.
+    /// @param pIntegrandMemoryStats Statistics object shared with the allocators
+    ///        the integrand factory constructs the integrands with. It is used to
+    ///        measure the dynamic memory footprint of each integrand, based on
+    ///        which device memory is budgeted. Required for (and only used with)
+    ///        dynamically sized integrands; the stats must not be shared with
+    ///        integrand construction happening concurrently on other threads.
+    SYCLIntegrandProcessor(
+        std::shared_ptr<sycl::queue> pQueue,
+        Ptr<AllocatorStats> pIntegrandMemoryStats = nullptr);
 
     ~SYCLIntegrandProcessor();
 

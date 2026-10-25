@@ -47,7 +47,10 @@ public:
     using OutContext = HyperSlab<Dim+1,std::uint16_t>;
 
     template <template <class ...> class TOtherAllocator, class TOther>
-    using Rebind = AnsatzSpaceDerivativeView;
+    using Rebind = AnsatzSpaceDerivativeView<
+        typename TScalarExpression::template Rebind<TOtherAllocator,TOther>,
+        Dim,
+        SetSize>;
 
 public:
     constexpr AnsatzSpaceDerivativeView() noexcept;
@@ -197,10 +200,10 @@ public:
 
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = AnsatzSpaceDerivative<
-        TScalarExpression,
+        typename TScalarExpression::template Rebind<TOtherAllocator,TOther>,
         Dim,
         SetSize,
-        TOtherAllocator<TScalarExpression>>;
+        TOtherAllocator<typename TScalarExpression::template Rebind<TOtherAllocator,TOther>>>;
 
     static inline constexpr bool hasStaticBasis = View::hasStaticBasis;
 
@@ -370,8 +373,13 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    /// @tparam TStream Any stream type satisfying
+    ///         @ref cie::io::BinaryDeserializerStreamLike "BinaryDeserializerStreamLike"
+    ///         (std::istream and cie::io::ByteDeserializer satisfy it, the latter
+    ///         being usable in SYCL kernels).
+    template <class TStream>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<AnsatzSpaceDerivative> rInstance,
         TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
@@ -428,9 +436,9 @@ public:
 
     using OutContext = Context;
 
-    template <template <class ...> class, class>
+    template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = AnsatzSpaceView<
-        TScalarExpression,
+        typename TScalarExpression::template Rebind<TOtherAllocator,TOther>,
         Dim,
         SetSize>;
 
@@ -583,10 +591,10 @@ public:
 
     template <template <class ...> class TOtherAllocator, class TOther>
     using Rebind = AnsatzSpace<
-        TScalarExpression,
+        typename TScalarExpression::template Rebind<TOtherAllocator,TOther>,
         Dim,
         SetSize,
-        TOtherAllocator<TScalarExpression>>;
+        TOtherAllocator<typename TScalarExpression::template Rebind<TOtherAllocator,TOther>>>;
 
 public:
     constexpr AnsatzSpace(Ref<const TAllocator> rAllocator = TAllocator()) noexcept
@@ -741,8 +749,13 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
+    /// @tparam TStream Any stream type satisfying
+    ///         @ref cie::io::BinaryDeserializerStreamLike "BinaryDeserializerStreamLike"
+    ///         (std::istream and cie::io::ByteDeserializer satisfy it, the latter
+    ///         being usable in SYCL kernels).
+    template <class TStream>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<AnsatzSpace> rInstance,
         TAllocator allocator = TAllocator(),
         tags::Binary tag = {});

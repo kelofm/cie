@@ -207,4 +207,60 @@ TValue AffineEmbeddingInverseDerivative<TValue,2u,1u>::evaluateDeterminant(
 }
 
 
+template <concepts::Numeric TValue>
+template <class TStream, class TAllocator>
+void AffineEmbedding<TValue,1u,2u>::deserialize(
+    Ref<TStream> rStream,
+    Ref<AffineEmbedding> rInstance,
+    TAllocator allocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transform,
+            allocator);
+}
+
+
+template <concepts::Numeric TValue>
+template <class TStream, class TAllocator>
+void AffineEmbeddingDerivative<TValue,1u,2u>::deserialize(
+    Ref<TStream> rStream,
+    Ref<AffineEmbeddingDerivative> rInstance,
+    TAllocator allocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transformDerivative,
+            allocator);
+}
+
+
+template <concepts::Numeric TValue>
+template <class TStream, class TAllocator>
+void AffineEmbeddingInverse<TValue,2u,1u>::deserialize(
+    Ref<TStream> rStream,
+    Ref<AffineEmbeddingInverse> rInstance,
+    TAllocator allocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transform,
+            allocator);
+}
+
+
+template <concepts::Numeric TValue>
+template <class TStream, class TAllocator>
+void AffineEmbeddingInverseDerivative<TValue,2u,1u>::deserialize(
+    Ref<TStream> rStream,
+    Ref<AffineEmbeddingInverseDerivative> rInstance,
+    TAllocator allocator,
+    tags::Binary) {
+        cie::io::BinarySerializer::deserialize(
+            rStream,
+            rInstance._transformDerivative,
+            allocator);
+}
+
+
 } // namespace cie::fem::maths

@@ -2,6 +2,7 @@
 
 // --- Utility Includes ---
 #include "packages/compile_time/packages/concepts/inc/basic_concepts.hpp"
+#include "packages/io/inc/ByteDeserializer.hpp"
 #include "packages/io/inc/Traits.hpp"
 #include "packages/types/inc/tags.hpp"
 #include "packages/types/inc/types.hpp"
@@ -51,6 +52,30 @@ public:
         Size numberOfItems,
         Ref<TAllocator> rAllocator);
 
+    /// @brief Deserialize from any stream satisfying @ref BinaryDeserializerStreamLike,
+    ///        which includes @ref ByteDeserializer usable in SYCL kernels.
+    template <class T, class TAllocator, class TStream>
+    requires (
+        std::is_same_v<TTag,tags::Binary>
+        && BinaryDeserializerStreamLike<TStream>)
+    static void deserialize(
+        Ref<TStream> rStream,
+        Ref<T> rOutput,
+        Ref<TAllocator> rAllocator);
+
+    /// @brief Deserialize an array of items from any stream satisfying
+    ///        @ref BinaryDeserializerStreamLike, which includes @ref ByteDeserializer
+    ///        usable in SYCL kernels.
+    template <class T, class TAllocator, class TStream>
+    requires (
+        std::is_same_v<TTag,tags::Binary>
+        && BinaryDeserializerStreamLike<TStream>)
+    static void deserialize(
+        Ref<TStream> rStream,
+        Ptr<T> begin,
+        Size numberOfItems,
+        Ref<TAllocator> rAllocator);
+
 private:
     template <TriviallySerializable T>
     static void serializeImpl(
@@ -67,7 +92,7 @@ private:
     static void deserializeImpl(
         Ref<DeserializerStream> rStream,
         Ref<T> rOutput,
-        Ref<TAllocator> rAllocator);
+        Ref<const TAllocator> rAllocator);
 }; // class Serializer
 
 

@@ -68,9 +68,9 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
-    template <class TAllocator>
+    template <class TStream, class TAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<AffineTransformDerivative> rInstance,
         TAllocator allocator = TAllocator(),
         tags::Binary tag = {});
@@ -171,9 +171,9 @@ public:
         Ref<cie::io::Traits::SerializerStream> rStream,
         tags::Binary tag = {}) const;
 
-    template <class TAllocator>
+    template <class TStream, class TAllocator>
     static void deserialize(
-        Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<TStream> rStream,
         Ref<AffineTransform> rInstance,
         TAllocator allocator = TAllocator(),
         tags::Binary tag = {});

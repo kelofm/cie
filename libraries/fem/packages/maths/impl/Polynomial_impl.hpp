@@ -339,14 +339,16 @@ void Polynomial<T,P,TA>::serialize(
 
 
 template <concepts::Numeric T, int P, class TA>
+template <class TStream, class TOtherAllocator>
 void Polynomial<T,P,TA>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<Polynomial> rInstance,
-    TA allocator,
+    TOtherAllocator allocator,
     tags::Binary) {
         std::size_t coefficientCount = static_cast<std::size_t>(P);
         if constexpr (!hasStaticCoefficients) {
-            rInstance._coefficients = Coefficients(allocator);
+            const TA typedAllocator = allocator;
+            rInstance._coefficients = Coefficients(typedAllocator);
             cie::io::BinarySerializer::deserialize(
                 rStream,
                 coefficientCount,

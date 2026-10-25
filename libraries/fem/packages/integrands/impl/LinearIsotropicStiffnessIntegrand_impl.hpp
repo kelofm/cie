@@ -365,9 +365,9 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::serialize(
 
 
 template <maths::Expression TAD, maths::SpatialTransform TT>
-template <class TAllocator>
+template <class TStream, class TAllocator>
 void LinearIsotropicStiffnessIntegrand<TAD,TT>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<LinearIsotropicStiffnessIntegrand> rInstance,
     Ref<const TAllocator> rAllocator,
     tags::Binary) {

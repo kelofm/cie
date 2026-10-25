@@ -46,10 +46,20 @@ void integrateStiffness(
             #ifdef CIE_ENABLE_SYCL
                 if (integrandProcessorDeviceName == "sycl") {
                     auto logBlock = utils::LoggerSingleton::get().newBlock("discover SYCL devices");
-                    std::vector<sycl::device> devices;
-                    for (auto device : sycl::device::get_devices(sycl::info::device_type::gpu)) {
+                    // Prefer accelerators, but fall back to host devices so that
+                    // enabling SYCL does not silently skip the integration on
+                    // machines without a GPU backend.
+                    std::vector<sycl::device> devices = sycl::device::get_devices(sycl::info::device_type::gpu);
+                    if (devices.empty()) {
+                        devices = sycl::device::get_devices(sycl::info::device_type::cpu);
+                        if (!devices.empty())
+                            std::cout << "no SYCL GPU found; falling back to host device(s)" << std::endl;
+                    }
+                    CIE_CHECK(
+                        !devices.empty(),
+                        "no SYCL devices available for integration")
+                    for (auto device : devices) {
                         std::cout << device.get_info<sycl::info::device::name>() << std::endl;
-                        devices.push_back(device);
                     } // for device
                     for (auto device : devices) {
                         partitions.push_back(std::min(
@@ -102,6 +112,10 @@ void integrateStiffness(
                 }
             #endif
         CIE_END_EXCEPTION_TRACING
+
+        CIE_CHECK(
+            integrandProcessors.size() + 1ul == partitions.size(),
+            "no integrand processor was created for the selected device")
 
         CIE_BEGIN_EXCEPTION_TRACING
             const auto quadratureRuleFactory = [&rMesh] (Ref<const Cell> rCell) {

@@ -244,26 +244,39 @@ void ScaledMultiMaterialIntegrand<TI,MID,MC>::serialize(
         BS::serialize(
             rStream,
             _integrand);
-        BS::serialize(
-            rStream,
-            _materialMap.data(),
-            _materialMap.size());
+        for (const auto& rPair : _materialMap) {
+            BS::serialize(
+                rStream,
+                rPair.first);
+            BS::serialize(
+                rStream,
+                rPair.second);
+        }
 }
 
 
 template <maths::SliceableExpression TI, class MID, int MC>
+template <class TStream, class TAllocator>
 void ScaledMultiMaterialIntegrand<TI,MID,MC>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<ScaledMultiMaterialIntegrand> rInstance,
+    Ref<const TAllocator> rAllocator,
     tags::Binary) {
         using BS = cie::io::BinarySerializer;
         BS::deserialize(
             rStream,
-            rInstance._integrand);
-        BS::deserialize(
-            rStream,
-            rInstance._materialMap.data(),
-            rInstance._materialMap.size());
+            rInstance._integrand,
+            rAllocator);
+        for (auto& rPair : rInstance._materialMap) {
+            BS::deserialize(
+                rStream,
+                rPair.first,
+                rAllocator);
+            BS::deserialize(
+                rStream,
+                rPair.second,
+                rAllocator);
+        }
 }
 
 

@@ -104,6 +104,13 @@ public:
         TAllocator allocator,
         tags::Binary tag = {});
 
+    template <class TStream, class TAllocator>
+    static void deserialize(
+        Ref<TStream> rStream,
+        Ref<AffineEmbedding> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
     friend class AffineEmbeddingInverse<TValue,2u,1u>;
 
@@ -156,6 +163,13 @@ public:
     template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingDerivative> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
+    template <class TStream, class TAllocator>
+    static void deserialize(
+        Ref<TStream> rStream,
         Ref<AffineEmbeddingDerivative> rInstance,
         TAllocator allocator,
         tags::Binary tag = {});
@@ -220,6 +234,13 @@ public:
         TAllocator allocator,
         tags::Binary tag = {});
 
+    template <class TStream, class TAllocator>
+    static void deserialize(
+        Ref<TStream> rStream,
+        Ref<AffineEmbeddingInverse> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
 private:
     friend class AffineEmbedding<TValue,1u,2u>;
 
@@ -272,6 +293,13 @@ public:
     template <class TAllocator>
     static void deserialize(
         Ref<cie::io::Traits::DeserializerStream> rStream,
+        Ref<AffineEmbeddingInverseDerivative> rInstance,
+        TAllocator allocator,
+        tags::Binary tag = {});
+
+    template <class TStream, class TAllocator>
+    static void deserialize(
+        Ref<TStream> rStream,
         Ref<AffineEmbeddingInverseDerivative> rInstance,
         TAllocator allocator,
         tags::Binary tag = {});

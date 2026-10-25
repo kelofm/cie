@@ -88,9 +88,9 @@ void AffineTransform<TValue,Dimension>::evaluate(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-template <class TA>
+template <class TStream, class TA>
 void AffineTransform<TValue,Dimension>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<AffineTransform> rInstance,
     TA allocator,
     tags::Binary) {
@@ -104,9 +104,9 @@ void AffineTransform<TValue,Dimension>::deserialize(
 
 
 template <concepts::Numeric TValue, unsigned Dimension>
-template <class TA>
+template <class TStream, class TA>
 void AffineTransformDerivative<TValue,Dimension>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<AffineTransformDerivative> rInstance,
     TA allocator,
     tags::Binary) {

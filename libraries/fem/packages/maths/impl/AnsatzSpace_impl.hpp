@@ -889,8 +889,9 @@ void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::serialize(
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+template <class TStream>
 void AnsatzSpaceDerivative<TScalarExpression,Dim,SetSize,TAllocator>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<AnsatzSpaceDerivative> rInstance,
     TAllocator allocator,
     tags::Binary) {
@@ -1472,8 +1473,9 @@ void AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::serialize(
 
 
 template <class TScalarExpression, unsigned Dim, std::size_t SetSize, class TAllocator>
+template <class TStream>
 void AnsatzSpace<TScalarExpression,Dim,SetSize,TAllocator>::deserialize(
-    Ref<cie::io::Traits::DeserializerStream> rStream,
+    Ref<TStream> rStream,
     Ref<AnsatzSpace> rInstance,
     TAllocator allocator,
     tags::Binary) {

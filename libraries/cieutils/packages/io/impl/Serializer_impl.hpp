@@ -4,6 +4,9 @@
 #include "packages/io/inc/Serializer.hpp"
 #include "packages/macros/inc/checks.hpp"
 
+// --- STL Includes ---
+#include <type_traits>
+
 
 namespace cie::io {
 
@@ -101,6 +104,58 @@ void Serializer<TTag>::deserialize(
 
 
 template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
+template <class T, class TAllocator, class TStream>
+requires (
+    std::is_same_v<TTag,tags::Binary>
+    && BinaryDeserializerStreamLike<TStream>)
+void Serializer<TTag>::deserialize(
+    Ref<TStream> rStream,
+    Ref<T> rOutput,
+    Ref<TAllocator> rAllocator) {
+        if constexpr (TriviallyDeserializable<T>) {
+            rStream.read(
+                reinterpret_cast<Ptr<char>>(std::addressof(rOutput)),
+                sizeof(T));
+        } else if constexpr (requires {
+            T::deserialize(
+                rStream,
+                rOutput,
+                rAllocator,
+                TTag());
+        }) {
+            T::deserialize(
+                rStream,
+                rOutput,
+                rAllocator,
+                TTag());
+        } else {
+            static_assert(
+                TriviallyDeserializable<T>,
+                "this type does not support deserialization from the provided stream with the provided allocator");
+        }
+}
+
+
+template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
+template <class T, class TAllocator, class TStream>
+requires (
+    std::is_same_v<TTag,tags::Binary>
+    && BinaryDeserializerStreamLike<TStream>)
+void Serializer<TTag>::deserialize(
+    Ref<TStream> rStream,
+    Ptr<T> begin,
+    Size numberOfItems,
+    Ref<TAllocator> rAllocator) {
+        const Ptr<const T> end = begin + numberOfItems;
+        for (; begin<end; ++begin)
+            Serializer::deserialize(
+                rStream,
+                *begin,
+                rAllocator);
+}
+
+
+template <concepts::AnyOf<tags::Binary,tags::Text> TTag>
 template <TriviallySerializable T>
 void Serializer<TTag>::serializeImpl(Ref<SerializerStream> rStream, T instance) {
     rStream.write(reinterpret_cast<const char*>(&instance), sizeof(T));
@@ -120,7 +175,7 @@ requires Deserializable<T,TAllocator>
 void Serializer<TTag>::deserializeImpl(
     Ref<DeserializerStream> rStream,
     Ref<T> rOutput,
-    Ref<TAllocator> rAllocator) {
+    Ref<const TAllocator> rAllocator) {
     if constexpr (TriviallyDeserializable<T>) {
         rStream.read(reinterpret_cast<char*>(std::addressof(rOutput)), sizeof(T));
     } else if constexpr (NonTriviallyDeserializable<T,TAllocator>) {
