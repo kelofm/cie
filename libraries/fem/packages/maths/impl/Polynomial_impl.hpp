@@ -7,6 +7,9 @@
 #include "packages/maths/inc/polynomial_evaluation.hpp"
 #include "packages/macros/inc/checks.hpp"
 
+// --- STL Includes ---
+#include <cassert>
+
 
 namespace cie::fem::maths {
 
@@ -35,11 +38,7 @@ template <concepts::Numeric T, int P>
 typename PolynomialView<T,P>::Derivative
 PolynomialView<T,P>::makeDerivative(Span buffer) const
 requires (!hasStaticCoefficients) {
-    if (!_coefficients.empty() && buffer.size() != (_coefficients.empty() ? 0ul : _coefficients.size() - 1)) {
-        CIE_THROW(OutOfRangeException,
-                  "required buffer size is " << _coefficients.size() - 1 << " "
-                    << "but got " << buffer.size());
-    }
+    assert(_coefficients.empty() || buffer.size() == _coefficients.size() - 1);
 
     const auto coefficientCount = _coefficients.size();
 
