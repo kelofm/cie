@@ -628,7 +628,6 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
             // a pointer to it after this setup kernel completes.
             LinearArena* const pArena = reinterpret_cast<LinearArena*>(
                 pPool + rCell.iPoolArenaBegin);
-            new (pArena) LinearArena();
             pArena->buffer = std::span<std::byte>(
                 pPool + rCell.iPoolBufferBegin,
                 rCell.arenaSize);
