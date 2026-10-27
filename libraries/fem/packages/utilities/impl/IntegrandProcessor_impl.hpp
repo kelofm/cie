@@ -525,6 +525,13 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
 
     std::shared_ptr<sycl::queue> pQueue;
 
+    struct ReductionGroup {
+        std::size_t iCell;
+        std::size_t iTile;
+        std::size_t iQuadraturePointBegin;
+        std::size_t quadraturePointCount;
+    };
+
     /// @brief Cell record for dynamically sized integrands, which live at an
     ///        offset in the device-side memory pool.
     struct DynamicCell {
@@ -536,6 +543,8 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
         std::size_t outputSize;
         std::size_t iWorkBegin;
         std::size_t iWorkEnd;
+        std::size_t iReductionGroupBegin;
+        std::size_t reductionGroupCount;
         /// Range of the integrand's serialized representation.
         std::size_t iSerializedBegin;
         std::size_t serializedSize;
@@ -586,65 +595,105 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
         }
     }; // struct DeserializationKernel
 
-    /// @brief Evaluation kernel for dynamically sized integrands.
-    struct DynamicKernel {
+    /// @brief First reduction stage. A work-group evaluates one runtime-sized
+    /// cell/tile chunk and emits one partial per tile output component.
+    struct PartialReductionKernel {
         Ptr<const DynamicCell> pCells;
         Ptr<const std::byte> pPool;
+        Ptr<const ReductionGroup> pGroups;
         Ptr<const Tile> pTiles;
-        Ptr<const typename OutContext::Value> pOutputMap;
         Ptr<const QPoint> pQuadraturePoints;
-        Ptr<typename TIntegrand::Value> pOutput;
         Ptr<typename TIntegrand::Value> pBuffer;
-        std::size_t workItemCount;
-        std::size_t cellCount;
+        Ptr<typename TIntegrand::Value> pPartials;
         std::size_t maxBufferSize;
         std::size_t bufferStride;
+        std::size_t maxResultSize;
 
         void operator()(sycl::nd_item<1> item) const noexcept {
-            const std::size_t iWork = item.get_global_linear_id();
-            if (workItemCount <= iWork) return;
+            const std::size_t iGroup = item.get_group_linear_id();
+            const ReductionGroup& rGroup = pGroups[iGroup];
+            const DynamicCell& rCell = pCells[rGroup.iCell];
+            const DeviceIntegrand& rIntegrand = *reinterpret_cast<const DeviceIntegrand*>(
+                pPool + rCell.iPoolObjectBegin);
+            const Tile& rTile = pTiles[rGroup.iTile];
+            const std::size_t iLocal = item.get_local_linear_id();
+            const std::size_t iBufferBegin =
+                (iGroup * item.get_local_range().size() + iLocal) * bufferStride;
+            const std::span<typename TIntegrand::Value> buffer(
+                pBuffer + iBufferBegin,
+                iLocal < rGroup.quadraturePointCount
+                    ? rIntegrand.bufferSize(rTile.inContext) : 0ul);
+            const std::span<typename TIntegrand::Value> result(
+                pBuffer + iBufferBegin + maxBufferSize,
+                iLocal < rGroup.quadraturePointCount ? rTile.outputCount : 0ul);
+            if (iLocal < rGroup.quadraturePointCount) {
+                pQuadraturePoints[rGroup.iQuadraturePointBegin + iLocal].evaluate(
+                    rIntegrand,
+                    result,
+                    buffer,
+                    rTile.inContext);
+            }
 
+            const sycl::group<1> group = item.get_group();
+            for (std::size_t iComponent=0ul;
+                 iComponent<rTile.outputCount;
+                 ++iComponent) {
+                typename TIntegrand::Value value = 0;
+                if (iLocal < rGroup.quadraturePointCount)
+                    value = result[iComponent];
+                value = sycl::reduce_over_group(
+                    group,
+                    value,
+                    sycl::plus<typename TIntegrand::Value>());
+                if (iLocal == 0ul)
+                    pPartials[iGroup * maxResultSize + iComponent] = value;
+            }
+        }
+    }; // struct PartialReductionKernel
+
+    /// @brief Final reduction stage. Each work item owns one output entry.
+    struct FinalReductionKernel {
+        Ptr<const DynamicCell> pCells;
+        Ptr<const ReductionGroup> pGroups;
+        Ptr<const Tile> pTiles;
+        Ptr<const typename OutContext::Value> pOutputMap;
+        Ptr<const typename TIntegrand::Value> pPartials;
+        Ptr<typename TIntegrand::Value> pOutput;
+        std::size_t cellCount;
+        std::size_t maxResultSize;
+
+        void operator()(sycl::id<1> index) const noexcept {
+            const std::size_t iOutput = index[0];
             const auto pCell = std::upper_bound(
                 pCells,
                 pCells + cellCount,
-                iWork,
-                [] (std::size_t iWork, const DynamicCell& rCell) { return iWork < rCell.iWorkEnd; });
-            if (pCell == pCells + cellCount) return;
-
-            const DynamicCell& rCell = *pCell;
-            const DeviceIntegrand& rIntegrand = *reinterpret_cast<const DeviceIntegrand*>(
-                pPool + rCell.iPoolObjectBegin);
-            const std::size_t iLocalWork = iWork - rCell.iWorkBegin;
-            const std::size_t iTile = iLocalWork % rCell.tileCount;
-            const std::size_t iQuadraturePoint =
-                rCell.iQuadraturePointBegin + iLocalWork / rCell.tileCount;
-            const Tile& rTile = pTiles[rCell.iTileBegin + iTile];
-            const std::size_t iBufferBegin = iWork * bufferStride;
-            const std::span<typename TIntegrand::Value> buffer(
-                pBuffer + iBufferBegin,
-                rIntegrand.bufferSize(rTile.inContext));
-            const std::span<typename TIntegrand::Value> result(
-                pBuffer + iBufferBegin + maxBufferSize,
-                rTile.outputCount);
-            pQuadraturePoints[iQuadraturePoint].evaluate(
-                rIntegrand,
-                result,
-                buffer,
-                rTile.inContext);
-
-            for (std::size_t iComponent=0ul; iComponent<rTile.outputCount; ++iComponent) {
-                auto& rOutput = pOutput[
-                    rCell.iOutputBegin
-                    + pOutputMap[rTile.iOutputMapBegin + iComponent]];
-                sycl::atomic_ref<
-                    typename TIntegrand::Value,
-                    sycl::memory_order::relaxed,
-                    sycl::memory_scope::device,
-                    sycl::access::address_space::global_space
-                >(rOutput) += result[iComponent];
+                iOutput,
+                [] (std::size_t iOutput, const DynamicCell& rCell) {
+                    return iOutput < rCell.iOutputBegin;
+                });
+            if (pCell == pCells) return;
+            const DynamicCell& rCell = *(pCell - 1);
+            if (iOutput >= rCell.iOutputBegin + rCell.outputSize) return;
+            const std::size_t iLocalOutput = iOutput - rCell.iOutputBegin;
+            typename TIntegrand::Value value = 0;
+            for (std::size_t iGroup=0ul;
+                 iGroup<rCell.reductionGroupCount;
+                 ++iGroup) {
+                const ReductionGroup& rGroup = pGroups[
+                    rCell.iReductionGroupBegin + iGroup];
+                const Tile& rTile = pTiles[rGroup.iTile];
+                for (std::size_t iComponent=0ul;
+                     iComponent<rTile.outputCount;
+                     ++iComponent) {
+                    if (pOutputMap[rTile.iOutputMapBegin + iComponent] == iLocalOutput)
+                        value += pPartials[
+                            (rCell.iReductionGroupBegin + iGroup) * maxResultSize
+                            + iComponent];
+                }
             }
+            pOutput[iOutput] = value;
         }
-    }; // struct DynamicKernel
+    }; // struct FinalReductionKernel
 };
 
 
@@ -699,17 +748,15 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                     trimmedDeviceName),
                 utils::LoggerSingleton::get());
 
-        constexpr std::size_t kernelMaxWorkGroupSize = 256;
-        const std::size_t workItemsPerGroup = std::min(workItemCount, kernelMaxWorkGroupSize);
-        const std::size_t groupCount = (workItemCount + workItemsPerGroup - 1ul) / workItemsPerGroup;
-        const sycl::nd_range<1> evaluationRange(workItemsPerGroup * groupCount, workItemsPerGroup);
+        const std::size_t kernelMaxWorkGroupSize = std::min<std::size_t>(
+            256ul,
+            rQueue.get_device().get_info<sycl::info::device::max_work_group_size>());
         const std::size_t bufferStride = maxBufferSize + maxResultSize;
 
         auto pDeviceTiles = makeDeviceMemory<typename Impl::Tile>(rTiles.size(), rQueue);
         auto pDeviceOutputMap = makeDeviceMemory<typename TIntegrand::OutContext::Value>(rOutputMap.size(), rQueue);
         auto pDeviceQuadraturePoints = makeDeviceMemory<typename Impl::QPoint>(rQuadraturePoints.size(), rQueue);
         auto pDeviceOutput = makeDeviceMemory<typename TIntegrand::Value>(output.size(), rQueue);
-        auto pDeviceBuffer = makeDeviceMemory<typename TIntegrand::Value>(workItemCount * bufferStride, rQueue);
 
         rQueue.copy(rTiles.data(), pDeviceTiles.get(), rTiles.size());
         rQueue.copy(rOutputMap.data(), pDeviceOutputMap.get(), rOutputMap.size());
@@ -744,6 +791,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
             };
             std::vector<std::byte> serializedIntegrands;
             std::vector<typename Impl::DynamicCell> deviceCells(rCells.size());
+            std::vector<typename Impl::ReductionGroup> reductionGroups;
             std::size_t poolSize = 0ul;
             for (std::size_t iCell=0ul; iCell<rCells.size(); ++iCell) {
                 const auto& rCell = rCells[iCell];
@@ -788,11 +836,43 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                 rDeviceCell.iWorkEnd = rCell.iWorkEnd;
             }
 
+            // Split every cell/tile independently. This preserves locality for
+            // the final reduction while allowing heavily cut cells to produce
+            // as many work-groups as their actual quadrature count requires.
+            const std::size_t reductionWorkItemsPerGroup = kernelMaxWorkGroupSize;
+            for (std::size_t iCell=0ul; iCell<rCells.size(); ++iCell) {
+                auto& rDeviceCell = deviceCells[iCell];
+                rDeviceCell.iReductionGroupBegin = reductionGroups.size();
+                for (std::size_t iTile=0ul; iTile<rDeviceCell.tileCount; ++iTile) {
+                    for (std::size_t iBegin=0ul;
+                         iBegin<rDeviceCell.quadraturePointCount;
+                         iBegin += reductionWorkItemsPerGroup) {
+                        reductionGroups.push_back(typename Impl::ReductionGroup {
+                            .iCell = iCell,
+                            .iTile = rDeviceCell.iTileBegin + iTile,
+                            .iQuadraturePointBegin = rDeviceCell.iQuadraturePointBegin + iBegin,
+                            .quadraturePointCount = std::min(
+                                reductionWorkItemsPerGroup,
+                                rDeviceCell.quadraturePointCount - iBegin)});
+                    }
+                }
+                rDeviceCell.reductionGroupCount =
+                    reductionGroups.size() - rDeviceCell.iReductionGroupBegin;
+            }
+
             auto pDeviceCells = makeDeviceMemory<typename Impl::DynamicCell>(deviceCells.size(), rQueue);
+            auto pDeviceGroups = makeDeviceMemory<typename Impl::ReductionGroup>(reductionGroups.size(), rQueue);
             auto pDevicePool = makeDeviceMemory<std::byte>(poolSize, rQueue);
             auto pDeviceSerialized = makeDeviceMemory<std::byte>(serializedIntegrands.size(), rQueue);
+            auto pDeviceBuffer = makeDeviceMemory<typename TIntegrand::Value>(
+                reductionGroups.size() * reductionWorkItemsPerGroup * bufferStride,
+                rQueue);
+            auto pDevicePartials = makeDeviceMemory<typename TIntegrand::Value>(
+                reductionGroups.size() * maxResultSize,
+                rQueue);
 
             rQueue.copy(deviceCells.data(), pDeviceCells.get(), deviceCells.size());
+            rQueue.copy(reductionGroups.data(), pDeviceGroups.get(), reductionGroups.size());
             rQueue.copy(serializedIntegrands.data(), pDeviceSerialized.get(), serializedIntegrands.size());
             rQueue.wait_and_throw();
 
@@ -819,23 +899,41 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                 rQueue.wait_and_throw();
             }
 
-            // Evaluate all dynamic integrands in parallel over the batch.
+            // Evaluate each cell/tile chunk and reduce its quadrature points
+            // within a work-group. No global atomics are used in this stage.
             rQueue.submit([&] (sycl::handler& rHandler) {
-                rHandler.parallel_for<typename Impl::DynamicKernel>(
-                    evaluationRange,
-                    typename Impl::DynamicKernel {
+                rHandler.parallel_for<typename Impl::PartialReductionKernel>(
+                    sycl::nd_range<1>(
+                        reductionGroups.size() * reductionWorkItemsPerGroup,
+                        reductionWorkItemsPerGroup),
+                    typename Impl::PartialReductionKernel {
                         .pCells = pDeviceCells.get(),
                         .pPool = pDevicePool.get(),
+                        .pGroups = pDeviceGroups.get(),
                         .pTiles = pDeviceTiles.get(),
-                        .pOutputMap = pDeviceOutputMap.get(),
                         .pQuadraturePoints = pDeviceQuadraturePoints.get(),
-                        .pOutput = pDeviceOutput.get(),
                         .pBuffer = pDeviceBuffer.get(),
-                        .workItemCount = workItemCount,
-                        .cellCount = rCells.size(),
+                        .pPartials = pDevicePartials.get(),
                         .maxBufferSize = maxBufferSize,
-                        .bufferStride = bufferStride});
+                        .bufferStride = bufferStride,
+                        .maxResultSize = maxResultSize});
             });
+            rQueue.wait_and_throw();
+
+            // Each final output entry is owned by one work item. It gathers
+            // the partials belonging to its cell and therefore needs no
+            // atomic operation.
+            rQueue.parallel_for< typename Impl::FinalReductionKernel >(
+                sycl::range<1>(output.size()),
+                typename Impl::FinalReductionKernel {
+                    .pCells = pDeviceCells.get(),
+                    .pGroups = pDeviceGroups.get(),
+                    .pTiles = pDeviceTiles.get(),
+                    .pOutputMap = pDeviceOutputMap.get(),
+                    .pPartials = pDevicePartials.get(),
+                    .pOutput = pDeviceOutput.get(),
+                    .cellCount = rCells.size(),
+                    .maxResultSize = maxResultSize});
             rQueue.wait_and_throw();
         }
         rQueue.copy(pDeviceOutput.get(), output.data(), output.size()).wait_and_throw();
