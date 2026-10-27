@@ -1,8 +1,5 @@
 #pragma once
 
-// --- External Includes ---
-#include <Eigen/Dense> // Eigen::Map
-
 // --- FEM Includes ---
 #include "packages/integrands/inc/LinearIsotropicStiffnessIntegrand.hpp"
 
@@ -107,16 +104,20 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
             in,
             jacobianInverse,
             {});
-        Eigen::Map<Eigen::Matrix<Value,ParametricDimension,ParametricDimension,Eigen::RowMajor>> jacobianInverseAdaptor(
-            jacobianInverse.data());
 
         // Compute \frac{d\xi_j}{dx_i} \frac{d\xi_j}{dx_k}
-        {
-            std::array<Value,JacobianInverse::size()> productBuffer;
-            Eigen::Map<Eigen::Matrix<Value,ParametricDimension,ParametricDimension,Eigen::RowMajor>> productBufferAdaptor(
-                productBuffer.data());
-            productBufferAdaptor.noalias() = jacobianInverseAdaptor.transpose().lazyProduct(jacobianInverseAdaptor);
-            jacobianInverse = productBuffer;
+        std::array<Value,JacobianInverse::size()> inverseProduct{};
+        for (unsigned iRow=0u; iRow<ParametricDimension; ++iRow) {
+            for (unsigned iColumn=0u; iColumn<ParametricDimension; ++iColumn) {
+                Value& rEntry = inverseProduct[
+                    iRow * ParametricDimension + iColumn];
+                for (unsigned iInner=0u; iInner<ParametricDimension; ++iInner) {
+                    rEntry += jacobianInverse[
+                        iInner * ParametricDimension + iRow]
+                        * jacobianInverse[
+                            iInner * ParametricDimension + iColumn];
+                }
+            }
         }
 
         // Compute the jacobian's determinant.
@@ -141,28 +142,34 @@ void LinearIsotropicStiffnessIntegrand<TAD,TT>::evaluate(
             nestedBuffer,
             columnContext);
 
-        using EigenDenseMatrix = Eigen::Matrix<Value,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>;
-        using EigenAdaptor = Eigen::Map<EigenDenseMatrix>;
-        EigenAdaptor derivativeAdaptor(
-            rowDerivativeBuffer.data(),
-            ParametricDimension,
-            rowAnsatzCount);
-        EigenAdaptor columnDerivativeAdaptor(
-            columnDerivativeBuffer.data(),
-            ParametricDimension,
-            columnAnsatzCount);
-
         // Compute the integrand.
         // det(\frac{dx_i}{d\xi_j}) m \frac{dN_j}{dx_i} \frac{dx_j}{d\xi_k} \frac{dN_k}{d\xi_l}
-        EigenAdaptor outputAdaptor(
-            out.data(),
-            rowAnsatzCount,
-            columnAnsatzCount);
-        outputAdaptor.noalias() = (jacobianDeterminant * _modulus) * derivativeAdaptor
-            .transpose()
-            .lazyProduct(
-                jacobianInverseAdaptor.lazyProduct(
-                    columnDerivativeAdaptor));
+        //
+        // Keep this as scalar arithmetic rather than using Eigen::Map.  This
+        // function is called from SYCL device kernels; Eigen's dynamic matrix
+        // expression machinery introduces exception-throwing allocation paths
+        // into the device call graph, which cannot be linked into CUDA PTX.
+        for (unsigned iRow=0u; iRow<rowAnsatzCount; ++iRow) {
+            for (unsigned iColumn=0u; iColumn<columnAnsatzCount; ++iColumn) {
+                Value entry = 0;
+                for (unsigned iParametricRow=0u;
+                     iParametricRow<ParametricDimension;
+                     ++iParametricRow) {
+                    for (unsigned iParametricColumn=0u;
+                         iParametricColumn<ParametricDimension;
+                         ++iParametricColumn) {
+                        entry += rowDerivativeBuffer[
+                            iParametricRow * rowAnsatzCount + iRow]
+                            * inverseProduct[
+                                iParametricRow * ParametricDimension + iParametricColumn]
+                            * columnDerivativeBuffer[
+                                iParametricColumn * columnAnsatzCount + iColumn];
+                    }
+                }
+                out[iRow * columnAnsatzCount + iColumn]
+                    = jacobianDeterminant * _modulus * entry;
+            }
+        }
 }
 
 
