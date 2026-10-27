@@ -525,64 +525,6 @@ struct SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::Impl {
 
     std::shared_ptr<sycl::queue> pQueue;
 
-    /// @brief Evaluation kernel for trivially copyable integrands, which are
-    ///        embedded in the cell records moved to the device with a single copy.
-    struct Kernel {
-        Ptr<const Cell> pCells;
-        Ptr<const Tile> pTiles;
-        Ptr<const typename OutContext::Value> pOutputMap;
-        Ptr<const QPoint> pQuadraturePoints;
-        Ptr<typename TIntegrand::Value> pOutput;
-        Ptr<typename TIntegrand::Value> pBuffer;
-        std::size_t workItemCount;
-        std::size_t cellCount;
-        std::size_t maxBufferSize;
-        std::size_t bufferStride;
-
-        void operator()(sycl::nd_item<1> item) const noexcept {
-            const std::size_t iWork = item.get_global_linear_id();
-            if (workItemCount <= iWork) return;
-
-            const auto pCell = std::upper_bound(
-                pCells,
-                pCells + cellCount,
-                iWork,
-                [] (std::size_t iWork, const Cell& rCell) { return iWork < rCell.iWorkEnd; });
-            if (pCell == pCells + cellCount) return;
-
-            const Cell& rCell = *pCell;
-            const std::size_t iLocalWork = iWork - rCell.iWorkBegin;
-            const std::size_t iTile = iLocalWork % rCell.tileCount;
-            const std::size_t iQuadraturePoint =
-                rCell.iQuadraturePointBegin + iLocalWork / rCell.tileCount;
-            const Tile& rTile = pTiles[rCell.iTileBegin + iTile];
-            const std::size_t iBufferBegin = iWork * bufferStride;
-            const std::span<typename TIntegrand::Value> buffer(
-                pBuffer + iBufferBegin,
-                rCell.integrand.bufferSize(rTile.inContext));
-            const std::span<typename TIntegrand::Value> result(
-                pBuffer + iBufferBegin + maxBufferSize,
-                rTile.outputCount);
-            pQuadraturePoints[iQuadraturePoint].evaluate(
-                rCell.integrand,
-                result,
-                buffer,
-                rTile.inContext);
-
-            for (std::size_t iComponent=0ul; iComponent<rTile.outputCount; ++iComponent) {
-                auto& rOutput = pOutput[
-                    rCell.iOutputBegin
-                    + pOutputMap[rTile.iOutputMapBegin + iComponent]];
-                sycl::atomic_ref<
-                    typename TIntegrand::Value,
-                    sycl::memory_order::relaxed,
-                    sycl::memory_scope::device,
-                    sycl::access::address_space::global_space
-                >(rOutput) += result[iComponent];
-            }
-        }
-    };
-
     /// @brief Cell record for dynamically sized integrands, which live at an
     ///        offset in the device-side memory pool.
     struct DynamicCell {
@@ -775,31 +717,7 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
         rQueue.fill(pDeviceOutput.get(), static_cast<typename TIntegrand::Value>(0), output.size());
         rQueue.wait_and_throw();
 
-        if constexpr (std::is_trivially_copyable_v<TIntegrand>) {
-            // Trivially copyable integrands are embedded in the cell records and
-            // moved to the device with a single copy.
-            auto pDeviceCells = makeDeviceMemory<typename Impl::Cell>(rCells.size(), rQueue);
-
-            rQueue.copy(rCells.data(), pDeviceCells.get(), rCells.size());
-            rQueue.wait_and_throw();
-
-            rQueue.submit([&] (sycl::handler& rHandler) {
-                rHandler.parallel_for<typename Impl::Kernel>(
-                    evaluationRange,
-                    typename Impl::Kernel {
-                        .pCells = pDeviceCells.get(),
-                        .pTiles = pDeviceTiles.get(),
-                        .pOutputMap = pDeviceOutputMap.get(),
-                        .pQuadraturePoints = pDeviceQuadraturePoints.get(),
-                        .pOutput = pDeviceOutput.get(),
-                        .pBuffer = pDeviceBuffer.get(),
-                        .workItemCount = workItemCount,
-                        .cellCount = rCells.size(),
-                        .maxBufferSize = maxBufferSize,
-                        .bufferStride = bufferStride});
-            });
-            rQueue.wait_and_throw();
-        } else {
+        {
             // Dynamically sized integrands are serialized on the host, moved to
             // the device, then deserialized on the device into a memory pool from
             // which their dynamic components allocate through a linear allocator.
@@ -849,10 +767,12 @@ void SYCLIntegrandProcessor<Dim,TIntegrand,TQD>::execute(
                 rDeviceCell.iPoolObjectBegin = poolSize;
                 rDeviceCell.iPoolArenaBegin = poolSize + alignUp(sizeof(DeviceIntegrand));
                 rDeviceCell.iPoolBufferBegin = rDeviceCell.iPoolArenaBegin + alignUp(sizeof(LinearArena));
+
                 // The arena accommodates the integrand's tracked dynamic memory
                 // plus the worst-case alignment padding of one allocation each.
                 const std::size_t trackedArenaSize = rCell.integrandMemory
                     + (alignment - 1ul) * (rCell.integrandAllocationCount + 2ul);
+
                 // Leave a small safety reserve for allocator/container behavior
                 // that can differ between host construction and device-side
                 // deserialization (for example, vector growth policies).
