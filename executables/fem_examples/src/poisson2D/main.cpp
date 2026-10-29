@@ -165,8 +165,8 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
         mesh.data().ansatz(0ul),
         /*integrationOrder=*/polynomialOrder + 1,
         utils::Comparison<Scalar>(
-            /*absoluteTolerance =*/ std::numeric_limits<Scalar>::epsilon(),
-            /*relativeTolerance =*/ 1e2 * std::numeric_limits<Scalar>::epsilon()));
+            /*absoluteTolerance =*/ 1e-10,
+            /*relativeTolerance =*/ 1e-10));
 
     // Build a factory detects the topology of the mesh and issues indices to DoFs.
     Assembler assembler;
