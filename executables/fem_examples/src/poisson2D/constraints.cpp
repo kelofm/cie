@@ -444,6 +444,7 @@ integrateBoundaryConstraints(
                         rBoundaryCell.getEmbeddingCell());
             };
 
+            const std::size_t ansatzSize = rMesh.data().ansatz(0).size();
             const auto lhsIntegralSink = [&] (
                 std::span<const VertexID> cellIDs,
                 std::span<const Scalar> results) {
@@ -463,8 +464,8 @@ integrateBoundaryConstraints(
 
                         const VertexID embeddingCellID = itBoundaryCell->getEmbeddingCell().id();
                         const std::span<const Scalar> contribution(
-                            results.data() + iCell * intPow(Ansatz::size(),2),
-                            intPow(Ansatz::size(),2));
+                            results.data() + iCell * ansatzSize * ansatzSize,
+                            ansatzSize * ansatzSize);
                         rAssembler.addContribution<tags::SMP,int>(
                             contribution,
                             embeddingCellID,
@@ -492,8 +493,8 @@ integrateBoundaryConstraints(
 
                         const VertexID embeddingCellID = itBoundaryCell->getEmbeddingCell().id();
                         const std::span<const Scalar> contribution(
-                            results.data() + iCell * Ansatz::size(),
-                            Ansatz::size());
+                            results.data() + iCell * ansatzSize,
+                            ansatzSize);
                         rAssembler.addContribution<tags::SMP>(
                             contribution,
                             embeddingCellID,

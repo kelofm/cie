@@ -8,12 +8,14 @@
 
 // --- Linalg Includes --
 #include "packages/utilities/inc/CSRView.hpp"
+#include "packages/stl_extension/inc/TrackedAllocator.hpp"
 
 
 namespace cie::fem {
 
 
-constexpr int polynomialOrder = 5;
+inline std::size_t polynomialOrder = 0;
+inline AllocatorStats integrandAllocatorStats;
 
 /// @brief Number of spatial dimensions the problem is defined on.
 constexpr unsigned Dimension = 2u;
@@ -27,11 +29,11 @@ using Scalar = double;
 using SpatialTransform = AugmentedSpatialTransform<maths::ScaleTranslateTransform<Scalar,Dimension>>;
 
 /// @brief Cells' basis functions' type.
-using Basis = maths::Polynomial<Scalar,polynomialOrder>;
+using Basis = maths::Polynomial<Scalar,-1,TrackedStandardAllocator<Scalar>>;
 
 /// @brief Cells' ansatz space type.
 /// @details Spans the full outer product space of the basis functions.
-using Ansatz = maths::AnsatzSpace<Basis,Dimension,polynomialOrder+1>;
+using Ansatz = maths::AnsatzSpace<Basis,Dimension,0ul,TrackedStandardAllocator<Basis>>;
 
 
 } // namespace cie::fem

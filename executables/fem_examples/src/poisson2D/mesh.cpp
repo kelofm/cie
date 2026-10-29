@@ -104,8 +104,15 @@ void generateMesh(
         // In this example, every cell will use the same ansatz space.
         Ansatz ansatzSpace;
 
-        std::array<Basis,polynomialOrder+1> basisFunctions;
-        std::array<Basis::Derivative,polynomialOrder+1> basisDerivatives;
+        const std::size_t basisCount = polynomialOrder + 1;
+        TrackedStandardAllocator<Scalar> scalarAllocator(
+            std::allocator<Scalar>(), integrandAllocatorStats);
+        TrackedStandardAllocator<Basis> basisAllocator(
+            std::allocator<Basis>(), integrandAllocatorStats);
+        std::vector<Basis> basisFunctions;
+        std::vector<Basis::Derivative> basisDerivatives;
+        basisFunctions.reserve(basisCount);
+        basisDerivatives.reserve(basisCount);
 
         {
             auto logBlock = utils::LoggerSingleton::get().newBlock("generate basis functions");
@@ -115,13 +122,6 @@ void generateMesh(
                 Lagrange};
             BasisType basisType = BasisType::IntegratedLegendre;
 
-            CIE_CHECK(
-                rConfiguration["functional"]["order"].as<std::size_t>() == polynomialOrder,
-                std::format(
-                    "requesting a basis with a polynomial order of {}, but it is statically set to {}",
-                    rConfiguration["functional"]["order"].as<std::size_t>(),
-                    polynomialOrder))
-
             {
                 const std::string basisName = rConfiguration["functional"]["type"].as<std::string>();
                 if (basisName == "legendre") basisType = BasisType::IntegratedLegendre;
@@ -130,9 +130,10 @@ void generateMesh(
             }
 
             // Construct basis functions.
-            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+            for (unsigned iBasis=0u; iBasis<basisCount; ++iBasis) {
                 // Generate a 1D polynomial serving as one of the basis functions.
-                std::array<Scalar,Basis::coefficientCount> polynomialCoefficients;
+                Basis::Coefficients polynomialCoefficients(scalarAllocator);
+                polynomialCoefficients.resize(basisCount);
 
                 if (basisType == BasisType::IntegratedLegendre) {
                     maths::IntegratedLegendrePolynomial<Scalar> basis(iBasis);
@@ -152,7 +153,7 @@ void generateMesh(
                             : 0u,
                         0.0);
                 } else if (basisType == BasisType::Lagrange) {
-                    std::array<Scalar,polynomialOrder + 1> nodes;
+                    std::vector<Scalar> nodes(basisCount);
                     const Scalar nodeAngle = std::numbers::pi / polynomialOrder;
                     for (std::size_t iNode=0ul; iNode<nodes.size(); ++iNode) nodes[iNode] = std::cos(iNode * nodeAngle);
                     maths::LagrangePolynomial<Scalar> basis(
@@ -178,16 +179,20 @@ void generateMesh(
                 std::cout << "basis " << iBasis << " [";
                 for (auto c : polynomialCoefficients) std::cout << c << ",";
                 std::cout << "],\n";
-                basisFunctions[iBasis] = Basis(polynomialCoefficients);
+                basisFunctions.emplace_back(std::move(polynomialCoefficients));
             } // for iBasis in range(polynomialOrder + 1)
 
             // Construct the derivatives of all basis functions.
-            for (unsigned iBasis=0u; iBasis<polynomialOrder+1; ++iBasis) {
+            for (unsigned iBasis=0u; iBasis<basisCount; ++iBasis) {
                 Ref<Basis> rBasis = basisFunctions[iBasis];
-                basisDerivatives[iBasis] = rBasis.makeDerivative();
+                basisDerivatives.emplace_back(rBasis.makeDerivative());
             } // for iBasis in range(polynomialOrder + 1)
 
-            ansatzSpace = Ansatz(basisFunctions);
+            typename Ansatz::AnsatzSet ansatzSet(basisAllocator);
+            ansatzSet.insert(ansatzSet.end(),
+                std::make_move_iterator(basisFunctions.begin()),
+                std::make_move_iterator(basisFunctions.end()));
+            ansatzSpace = Ansatz(std::move(ansatzSet));
         }
 
         rMesh.data() = MeshData(

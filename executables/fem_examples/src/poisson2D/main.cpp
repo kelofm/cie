@@ -69,6 +69,8 @@ void readTesselatedDomain(
 
 
 int main(Ref<const cie::io::JSONObject> rConfiguration) {
+    polynomialOrder = rConfiguration["discretization"]["functional"]["order"].as<std::size_t>();
+    CIE_CHECK(polynomialOrder > 0, "functional polynomial order must be positive")
     Mesh mesh;
     mp::ThreadPoolBase threads;
 
@@ -161,7 +163,7 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
     // to the same DoF in the assembled system.
     const auto ansatzMap = makeAnsatzMap(
         mesh.data().ansatz(0ul),
-        /*integrationOrder=*/5,
+        /*integrationOrder=*/polynomialOrder,
         utils::Comparison<Scalar>(
             /*absoluteTolerance =*/ std::numeric_limits<Scalar>::epsilon(),
             /*relativeTolerance =*/ 1e2 * std::numeric_limits<Scalar>::epsilon()));

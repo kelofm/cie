@@ -30,7 +30,6 @@ void integrateStiffness(
 
         using IntegrandBase = LinearIsotropicStiffnessIntegrand<Ansatz::Derivative,SpatialTransform>;
         using Integrand = ScaledMultiMaterialIntegrand<IntegrandBase,Scalar,2>;
-        static_assert(maths::StaticExpression<Integrand>);
 
         std::vector<std::unique_ptr<IntegrandProcessor<
             Dimension,
@@ -68,7 +67,7 @@ void integrateStiffness(
                         integrandProcessors.emplace_back(std::make_unique<SYCLIntegrandProcessor<
                             Dimension,
                             Integrand,
-                            Scalar>>(std::make_shared<sycl::queue>(device)));
+                            Scalar>>(std::make_shared<sycl::queue>(device), &integrandAllocatorStats));
                     } // for device in devices
                     partitions.back() = cells.size();
                 } else if (integrandProcessorDeviceName == "host") {
@@ -79,10 +78,8 @@ void integrateStiffness(
                                 Integrand,
                                 Scalar>>());
                     } else {
-                        integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
-                            Dimension,
-                            Integrand,
-                            Scalar>>(rThreads));
+                        integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
+                            Dimension, Integrand, Scalar>>());
                     }
                 } else CIE_THROW(Exception, std::format(
                     "unsupported device \"{}\" for integration",
@@ -105,10 +102,8 @@ void integrateStiffness(
                 } else {
                     if (2 <= rConfiguration["verbosity"].as<int>())
                         std::cout << "processing integrands on " << rThreads.size() << " host threads\n";
-                    integrandProcessors.emplace_back(std::make_unique<ParallelIntegrandProcessor<
-                        Dimension,
-                        Integrand,
-                        Scalar>>(rThreads));
+                        integrandProcessors.emplace_back(std::make_unique<IntegrandProcessor<
+                            Dimension, Integrand, Scalar>>());
                 }
             #endif
         CIE_END_EXCEPTION_TRACING
@@ -134,14 +129,15 @@ void integrateStiffness(
                             rCell.makeJacobianInverse()),
                         domainData);};
 
-            const auto integralSink = [&lhs, &rAssembler, &rThreads] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
+            const std::size_t resultSize = rMesh.data().ansatz(0).size();
+            const auto integralSink = [&lhs, &rAssembler, &rThreads, resultSize] (std::span<const VertexID> cellIDs, std::span<const Scalar> results) {
                 mp::ParallelFor<std::size_t>(rThreads).execute(
                     cellIDs.size(),
-                    [&lhs, &rAssembler, cellIDs, results] (std::size_t iCell) {
+                    [&lhs, &rAssembler, cellIDs, results, resultSize] (std::size_t iCell) {
                         rAssembler.addContribution<tags::SMP,int>(
                             std::span<const Scalar>(
-                                results.data() + iCell * Integrand::size(),
-                                Integrand::size()),
+                                results.data() + iCell * resultSize * resultSize,
+                                resultSize * resultSize),
                             cellIDs[iCell],
                             lhs.rowExtents(),
                             lhs.columnIndices(),

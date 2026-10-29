@@ -33,7 +33,7 @@
     "discretization" : {
         "functional" : {
             "type" : "legendre",
-            "order" : 5
+            "order" : 1
         },
         "geometric": {
             "type" : "cartesian-grid-2d",
@@ -44,8 +44,8 @@
             "type": "kd-tree-quadrature",
             "batch-size": 1e6,
             "max-tile-sizes": [2, 3],
-            "device": "host",
-            "verbosity" : 3,
+            "device": "sycl",
+            "verbosity" : 4,
             "template": {
                 "order": 6,
                 "type": "gauss-legendre-quadrature"

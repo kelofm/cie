@@ -133,15 +133,19 @@ struct GaussLegendreInitializer {
                 legendreDerivative = integrationOrder * (-node*legendreValue + std::legendre(integrationOrderM1, node));
                 legendreDerivative /= oneMinusNode2;
 
-                // Check convergence
-                if (comparison.equal(std::abs(legendreValue), T(0))) { /// @todo this is incorrect => check node position error instead of value
+                // Update
+                const T previousNode = node;
+                node          -= legendreValue / legendreDerivative;
+                oneMinusNode2 = 1 - node*node;
+
+                // Check convergence on the node update (position error) instead of
+                // the residual, whose floor is on the order of the machine epsilon
+                // times the derivative at the node and can therefore exceed the
+                // requested tolerance.
+                if (comparison.equal(previousNode, node)) {
                     converged = true;
                     break;
                 }
-
-                // Update
-                node          -= legendreValue / legendreDerivative;
-                oneMinusNode2 = 1 - node*node;
             }
 
             CIE_CHECK(converged,
