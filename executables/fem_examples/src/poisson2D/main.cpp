@@ -163,7 +163,7 @@ int main(Ref<const cie::io::JSONObject> rConfiguration) {
     // to the same DoF in the assembled system.
     const auto ansatzMap = makeAnsatzMap(
         mesh.data().ansatz(0ul),
-        /*integrationOrder=*/polynomialOrder,
+        /*integrationOrder=*/polynomialOrder + 1,
         utils::Comparison<Scalar>(
             /*absoluteTolerance =*/ std::numeric_limits<Scalar>::epsilon(),
             /*relativeTolerance =*/ 1e2 * std::numeric_limits<Scalar>::epsilon()));
